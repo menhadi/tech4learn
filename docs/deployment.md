@@ -1,10 +1,10 @@
 # User-operated deployment
 
-Local changes → checked Git commit/push → user deploys staging → verification → user deploys the same approved commit to live → assistant reviews live read-only.
+Initial workflow: local changes → checks → Git commit/push → user deploys to tech4learn.com → assistant reviews live read-only. The user has deferred staging. Once created, staging verification will precede promotion of the same approved commit to live.
 
 ## Current state
 
-Repository: https://github.com/menhadi/tech4learn (public), with `main` as the initial branch. The user confirms tech4learn.com is hosted through Virtualmin and existing hosting/DNS are configured. Server access, operating system, runtime availability and staging addresses still need confirmation. No staging/live files or DNS have changed. This scaffold is not an operational education service.
+Repository: https://github.com/menhadi/tech4learn (public), with `main` as the initial branch. Read-only inventory confirmed Ubuntu 22.04.5, Node 20.20.2, Apache/systemd, PostgreSQL client 14.24 and Redis executable 6.0.16. Existing hosting/DNS use Virtualmin. The dedicated Node 24 deployment is documented in [the first-deployment guide](virtualmin-first-deployment.md). The assistant has not changed live files or DNS. This scaffold is not an operational education service.
 
 The user deploys. The assistant develops locally and provides release-specific commands once hosting is known. Live access is inspection-only; fixes follow the local/Git workflow.
 

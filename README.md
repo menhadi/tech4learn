@@ -47,4 +47,4 @@ This typechecks all workspaces, tests the HTTP API and builds API/admin. It does
 | packages/contracts | Shared compile-time API definitions |
 | docs | Product decisions, architecture, milestones and deployment |
 
-Start with [the blueprint](docs/product-blueprint.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md) and [deployment workflow](docs/deployment.md). The public one/two-page site is a later deliverable. Existing DNS and hosting remain unchanged.
+Start with [the blueprint](docs/product-blueprint.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md) and [deployment workflow](docs/deployment.md). The [Virtualmin first-deployment guide](docs/virtualmin-first-deployment.md) covers user-run installation. The public one/two-page site is a later deliverable. No server changes are performed by local scripts unless the user explicitly runs the server installer there.

@@ -18,3 +18,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: bash -n deploy/virtualmin/prepare-first-deploy.sh

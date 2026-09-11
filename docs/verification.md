@@ -9,3 +9,9 @@
 - No remote repository push or staging/live deployment performed.
 
 Next validation: organisation/authentication isolation when implemented; native Android build and hardware checks when camera/location capture is added.
+
+## Virtualmin preparation follow-up
+
+- npm run check passed after adding optional built-admin serving: all workspace typechecks, three HTTP/configuration tests and both builds.
+- Tests cover static index serving, API liveness, missing API paths, blocking dotfiles/source files, and rejecting an invalid asset path.
+- bash -n passed for the first-deployment installer. No systemd installation or Virtualmin configuration was executed by the assistant; the user must run and verify those steps on the server.

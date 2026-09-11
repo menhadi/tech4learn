@@ -26,7 +26,7 @@ Use idempotent submission identifiers, durable media uploads and background proc
 
 ## Environments
 
-The user hosts tech4learn.com through Virtualmin. The server must support Node.js 24 processes, PostgreSQL, workers and HTTPS; the hosting panel alone does not establish installed runtime capabilities. Proposed domains: admin.tech4learn.com and api.tech4learn.com; actual application and staging addresses await confirmation.
+The user hosts tech4learn.com through Virtualmin on Ubuntu 22.04.5. Start on this domain now; staging is deferred. Initially the NestJS process serves the built admin shell at / and API at /api/v1 behind Apache. A dedicated Node 24 runtime avoids changing system Node 20. Separate admin/API subdomains remain optional later. PostgreSQL/Redis executables exist, but service readiness still needs checking when those modules are implemented.
 
 Separate local/staging/live secrets, databases and storage. VITE_ and EXPO_PUBLIC_ values are public. Process manager, reverse proxy, database versions, backups and storage provider remain open until hosting details are provided.
 
