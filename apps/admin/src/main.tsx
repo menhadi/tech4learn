@@ -14,43 +14,8 @@ import type {
 } from "@tech4learn/contracts";
 import "./styles.css";
 
-const base = (
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? "http://localhost:3000/api/v1" : "/api/v1")
-).replace(/\/$/, "");
-class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
-async function api<T>(
-  path: string,
-  method = "GET",
-  body?: unknown,
-): Promise<T> {
-  const response = await fetch(`${base}${path}`, {
-    method,
-    credentials: "include",
-    signal: AbortSignal.timeout(15000),
-    headers:
-      body === undefined
-        ? {}
-        : { "Content-Type": "application/json", "X-Tech4Learn-Request": "1" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const result = await response.json().catch(() => null);
-  if (!response.ok)
-    throw new ApiError(
-      typeof result?.message === "string"
-        ? result.message
-        : "Something went wrong. Please try again.",
-      response.status,
-    );
-  return result;
-}
+import { api, ApiError } from "./api";
+import { OrganisationWorkspace } from "./OrganisationWorkspace";
 const message = (error: unknown) =>
   error instanceof Error
     ? error.message
@@ -243,7 +208,10 @@ function App() {
           {preview && (
             <>
               <p>
-                Admin access for <strong>{preview.email}</strong>.
+                {preview.roleName} access for <strong>{preview.email}</strong>.{" "}
+                {preview.scopeType === "organisation"
+                  ? "Whole organisation."
+                  : `Assigned ${preview.scopeType} only.`}
               </p>
               {preview.existingAccount && !session ? (
                 <>
@@ -602,107 +570,24 @@ function App() {
                 </section>
                 {org && (
                   <div key={org.id}>
-                    <section className="panel">
-                      <div className="org-heading">
-                        <span className="org-mark large" aria-hidden="true" />
-                        <div>
-                          <p className="eyebrow">Organisation profile</p>
-                          <h2>{org.name}</h2>
-                        </div>
-                      </div>
-                      <form
-                        onSubmit={(event) => {
-                          const body = values(event);
-                          void act(async () => {
-                            const saved = await api<Organisation>(
-                              `/organisations/${org.id}`,
-                              "PATCH",
-                              body,
-                            );
-                            setSession((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    organisations: current.organisations.map(
-                                      (item) =>
-                                        item.id === saved.id ? saved : item,
-                                    ),
-                                  }
-                                : null,
-                            );
-                            setNotice("Organisation settings saved.");
-                          });
-                        }}
-                      >
-                        <label>
-                          Display name
-                          <input
-                            name="name"
-                            defaultValue={org.name}
-                            maxLength={120}
-                            required
-                          />
-                        </label>
-                        <div className="form-grid">
-                          <label>
-                            Brand colour
-                            <input
-                              name="colour"
-                              type="color"
-                              defaultValue={org.colour}
-                              required
-                            />
-                            <small>Used for the organisation mark.</small>
-                          </label>
-                          <label>
-                            Your word for a centre
-                            <input
-                              name="centre_label"
-                              defaultValue={org.centre_label}
-                              maxLength={40}
-                              required
-                            />
-                            <small>
-                              For example: Centre, School, Hub or Branch.
-                            </small>
-                          </label>
-                        </div>
-                        <button disabled={busy}>
-                          {busy ? "Saving…" : "Save settings"}
-                        </button>
-                      </form>
-                    </section>
-                    {superadmin && (
-                      <section className="panel">
-                        <h2>Invite an administrator</h2>
-                        <p className="muted">
-                          Prepare a new link, or replace an expired invitation
-                          for this organisation.
-                        </p>
-                        <form
-                          onSubmit={(event) => {
-                            const body = values(event);
-                            void act(async () => {
-                              setInvitation(
-                                await api<Invitation>(
-                                  `/organisations/${org.id}/invitations`,
-                                  "POST",
-                                  body,
+                    <OrganisationWorkspace
+                      organisation={org}
+                      userId={session.user.id}
+                      onInvitation={setInvitation}
+                      onProfile={(saved) =>
+                        setSession((current) =>
+                          current
+                            ? {
+                                ...current,
+                                organisations: current.organisations.map(
+                                  (item) =>
+                                    item.id === saved.id ? saved : item,
                                 ),
-                              );
-                            });
-                          }}
-                        >
-                          <label>
-                            Administrator email
-                            <input name="email" type="email" required />
-                          </label>
-                          <button className="secondary" disabled={busy}>
-                            Prepare invitation
-                          </button>
-                        </form>
-                      </section>
-                    )}
+                              }
+                            : null,
+                        )
+                      }
+                    />
                     <section className="panel next">
                       <p className="eyebrow">Coming next</p>
                       <h2>Tools for your programme</h2>

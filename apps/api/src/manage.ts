@@ -1,5 +1,6 @@
 import { Database } from "./database.js";
 import { migration } from "./schema.js";
+import { accessMigration } from "./migration-access.js";
 import { randomUUID } from "node:crypto";
 import { emailValue, field, hashPassword, passwordValue } from "./security.js";
 import { createInterface } from "node:readline/promises";
@@ -56,8 +57,14 @@ try {
         "SELECT version FROM schema_versions WHERE version=1",
       );
       if (!rows.length) await sql.query(migration);
+      if (
+        !(
+          await sql.query("SELECT version FROM schema_versions WHERE version=2")
+        ).rows.length
+      )
+        await sql.query(accessMigration);
     });
-    console.log("Database migration 1 is applied.");
+    console.log("Database migrations through version 2 are applied.");
   } else if (command === "bootstrap") {
     const rl = createInterface({ input: stdin, output: stdout });
     const email = emailValue(await rl.question("Superadmin email: "));

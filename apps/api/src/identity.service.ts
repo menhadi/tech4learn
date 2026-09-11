@@ -9,6 +9,8 @@ import {
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { Database, type SqlClient } from "./database.js";
+import { AccessService } from "./access.service.js";
+import type { Scope } from "./access-model.js";
 import {
   digest,
   dummyHash,
@@ -43,7 +45,10 @@ const orgColumns = "o.id, o.name, o.slug, o.colour, o.centre_label";
 
 @Injectable()
 export class IdentityService {
-  constructor(private readonly db: Database) {}
+  constructor(
+    private readonly db: Database,
+    private readonly access: AccessService,
+  ) {}
   async audit(
     sql: SqlClient,
     actor: string,
@@ -134,7 +139,7 @@ export class IdentityService {
     }
     return (
       await this.db.query<Organisation>(
-        `SELECT ${orgColumns} FROM organisations o JOIN memberships m ON m.organisation_id=o.id WHERE m.user_id=$1 ORDER BY o.name LIMIT 200`,
+        `SELECT ${orgColumns} FROM organisations o JOIN memberships m ON m.organisation_id=o.id WHERE m.user_id=$1 AND m.status='active' ORDER BY o.name LIMIT 200`,
         [user.id],
       )
     ).rows;
@@ -145,9 +150,10 @@ export class IdentityService {
     sql: SqlClient = this.db,
   ): Promise<Organisation> {
     uuid(id);
+    await this.access.require(user, id, "organisation.view", sql);
     const { rows } = await sql.query<Organisation>(
-      `SELECT ${orgColumns} FROM organisations o WHERE o.id=$1 AND ($2::boolean OR EXISTS (SELECT 1 FROM memberships m WHERE m.organisation_id=o.id AND m.user_id=$3 AND m.role='organisation_admin'))`,
-      [id, user.is_superadmin, user.id],
+      `SELECT ${orgColumns} FROM organisations o WHERE o.id=$1`,
+      [id],
     );
     if (!rows[0]) throw new NotFoundException("Organisation not found.");
     return rows[0];
@@ -186,54 +192,30 @@ export class IdentityService {
         throw new ConflictException(
           "That organisation address is already in use.",
         );
-      const invitation = await this.invite(sql, user, org.id, email);
+      await this.access.initialise(sql, org.id);
+      const invitation = await this.access.issue(sql, user, org.id, email);
       await this.audit(sql, user.id, org.id, "organisation.created");
       return { organisation: org, invitation };
     });
-  }
-  private async invite(
-    sql: SqlClient,
-    user: Account,
-    orgId: string,
-    email: string,
-  ) {
-    // Reissuing invalidates older unused links for the same organisation and email.
-    await sql.query(
-      "DELETE FROM invitations WHERE organisation_id=$1 AND email=$2 AND accepted_at IS NULL",
-      [orgId, email],
-    );
-    const raw = token();
-    const { rows } = await sql.query<{ expires_at: Date }>(
-      "INSERT INTO invitations(id,organisation_id,email,token_hash,expires_at,created_by) VALUES ($1,$2,$3,$4,now() + interval '3 days',$5) RETURNING expires_at",
-      [randomUUID(), orgId, email, digest(raw), user.id],
-    );
-    await this.audit(sql, user.id, orgId, "invitation.created");
-    return { token: raw, email, expiresAt: rows[0].expires_at };
   }
   async addInvitation(
     user: Account,
     id: string,
     body: Record<string, unknown>,
   ) {
-    return this.db.transaction(async (sql) => {
-      await this.organisation(user, id, sql);
-      // Only platform administrators appoint organisation administrators in this release.
-      if (!user.is_superadmin)
-        throw new ForbiddenException(
-          "Only superadmins can appoint organisation admins.",
-        );
-      return this.invite(sql, user, id, emailValue(body.email));
-    });
+    return this.access.invite(user, id, body);
   }
   async invitation(raw: string) {
     if (!/^[a-f0-9]{64}$/.test(raw))
       throw new NotFoundException("Invitation is invalid or expired.");
     const { rows } = await this.db.query<{
       organisationName: string;
+      roleName: string;
+      scopeType: Scope["scope_type"];
       email: string;
       existingAccount: boolean;
     }>(
-      `SELECT o.name AS "organisationName", i.email, EXISTS(SELECT 1 FROM users u WHERE u.email=i.email) AS "existingAccount" FROM invitations i JOIN organisations o ON o.id=i.organisation_id WHERE token_hash=$1 AND accepted_at IS NULL AND expires_at > now()`,
+      `SELECT o.name AS "organisationName", i.email, r.name AS "roleName", i.scope_type AS "scopeType", EXISTS(SELECT 1 FROM users u WHERE u.email=i.email) AS "existingAccount" FROM invitations i JOIN organisations o ON o.id=i.organisation_id JOIN access_roles r ON r.id=i.role_id WHERE token_hash=$1 AND accepted_at IS NULL AND expires_at > now()`,
       [digest(raw)],
     );
     if (!rows[0])
@@ -256,17 +238,50 @@ export class IdentityService {
       passwordHash = await hashPassword(passwordValue(body.password));
     }
     await this.db.transaction(async (sql) => {
-      const { rows } = await sql.query<{
-        id: string;
-        email: string;
-        organisation_id: string;
-      }>(
+      const location = await sql.query<{ organisation_id: string }>(
+        "SELECT organisation_id FROM invitations WHERE token_hash=$1",
+        [digest(raw)],
+      );
+      if (!location.rows[0])
+        throw new NotFoundException("Invitation is invalid or expired.");
+      await this.access.lock(sql, location.rows[0].organisation_id);
+      const { rows } = await sql.query<
+        Scope & {
+          id: string;
+          email: string;
+          organisation_id: string;
+          role_id: string;
+          created_by: string;
+        }
+      >(
         "SELECT * FROM invitations WHERE token_hash=$1 AND accepted_at IS NULL AND expires_at > now() FOR UPDATE",
         [digest(raw)],
       );
       const invitation = rows[0];
       if (!invitation)
         throw new NotFoundException("Invitation is invalid or expired.");
+      const creator = (
+        await sql.query<Account>(
+          "SELECT id,email,name,is_superadmin FROM users WHERE id=$1",
+          [invitation.created_by],
+        )
+      ).rows[0];
+      const creatorAccess = await this.access.require(
+        creator,
+        invitation.organisation_id,
+        "members.manage",
+        sql,
+      );
+      const grant = await this.access.validateGrant(
+        sql,
+        invitation.organisation_id,
+        {
+          role_id: invitation.role_id,
+          scope_type: invitation.scope_type,
+          scope_ids: invitation.scope_ids,
+        },
+        creatorAccess,
+      );
       let userId = account?.id;
       if (!userId) {
         userId = randomUUID();
@@ -279,10 +294,21 @@ export class IdentityService {
             "An account now exists for this email. Sign in and open the invitation again.",
           );
       }
-      await sql.query(
-        "INSERT INTO memberships(user_id,organisation_id,role) VALUES ($1,$2,'organisation_admin') ON CONFLICT DO NOTHING",
-        [userId, invitation.organisation_id],
+      const membership = await sql.query(
+        "INSERT INTO memberships(user_id,organisation_id,role,role_id,scope_type,scope_ids) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING user_id",
+        [
+          userId,
+          invitation.organisation_id,
+          grant.role.protected ? "organisation_admin" : "member",
+          grant.role_id,
+          grant.scope_type,
+          grant.scope_ids,
+        ],
       );
+      if (!membership.rows.length)
+        throw new ConflictException(
+          "Membership already exists. Ask an administrator to update access.",
+        );
       await sql.query("UPDATE invitations SET accepted_at=now() WHERE id=$1", [
         invitation.id,
       ]);
@@ -302,6 +328,8 @@ export class IdentityService {
       throw new BadRequestException("Choose a valid brand colour.");
     const label = field(body.centre_label, "Centre label", 40);
     return this.db.transaction(async (sql) => {
+      await this.access.lock(sql, id);
+      await this.access.require(user, id, "organisation.edit", sql);
       await this.organisation(user, id, sql);
       const result = await sql.query<Organisation>(
         "UPDATE organisations SET name=$2,colour=$3,centre_label=$4 WHERE id=$1 RETURNING id,name,slug,colour,centre_label",

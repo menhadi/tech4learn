@@ -4,9 +4,9 @@ Configurable education SaaS for NGOs, government-school programmes, coaching cen
 
 ## Current status
 
-The first administration release implements PostgreSQL-backed login/logout, password changes, superadmin organisation creation, single-use organisation-admin invitations, tenant-scoped organisation profiles, and audit events. React administration supports these workflows. The Expo mobile app remains a shell.
+The administration foundation implements PostgreSQL-backed login/logout, password changes, superadmin organisation creation, staff invitations, tenant-scoped profiles, configurable roles, membership suspension, centre/group scopes and audit history. Centres support coordinates, radius and explicit location approval. React administration supports these workflows. The Expo mobile app remains a shell.
 
-Camera/location capture, learners, FLN, AI, ExamElite, custom roles, configurable forms, email delivery, self-service password recovery and MFA are **not implemented**. Organisation access checks cover the current identity/profile endpoints; future modules must implement their own scope checks. Do not onboard learners yet.
+Camera/location capture, learners, FLN, AI, ExamElite, programme-level scopes, configurable forms, email delivery, self-service password recovery and MFA are **not implemented**. Future modules must enforce their own action and record-scope checks. Do not onboard learners yet.
 
 ## Local setup
 
@@ -49,7 +49,7 @@ This typechecks all workspaces, tests the HTTP API and builds API/admin. It does
 
 The identity integration tests use PGlite's embedded PostgreSQL engine with synthetic, disposable data. Production uses `pg` and a separate PostgreSQL service. These tests do not substitute for deployment validation against the live database/server.
 
-See [identity deployment](docs/identity-deployment.md) for database creation, migration, initial superadmin and rollback. Do not rerun the first-install script on an existing deployment.
+See [the access release](docs/access-release.md) for upgrading an existing installation to migration 2, verification and recovery constraints. The [identity deployment guide](docs/identity-deployment.md) records initial database creation and bootstrap. Do not rerun the first-install script or bootstrap on an existing deployment.
 
 ## Structure
 

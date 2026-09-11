@@ -342,6 +342,83 @@ header {
 .empty {
   padding: 50px 30px;
 }
+.org-workspace {
+  min-width: 0;
+}
+.org-workspace fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+.org-workspace select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #bacdc4;
+  border-radius: 8px;
+  padding: 10px;
+  background: white;
+  color: #183f37;
+  font: inherit;
+}
+.workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0;
+}
+.workspace-tabs button {
+  padding: 10px 14px;
+}
+.record {
+  padding: 18px 0;
+  border-bottom: 1px solid #dce4dd;
+  overflow-wrap: anywhere;
+}
+.record p {
+  margin: 8px 0;
+}
+.record details {
+  margin: 10px 0;
+}
+.record summary {
+  cursor: pointer;
+}
+.record pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+.org-workspace .check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 400;
+}
+.org-workspace .check input {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+  margin: 2px 0;
+}
+.org-workspace .actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.org-workspace form {
+  margin-top: 22px;
+}
 footer {
   color: #6b7d72;
   font-size: 12px;

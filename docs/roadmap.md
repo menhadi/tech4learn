@@ -8,7 +8,7 @@ Requirements and architecture; local Git and workspaces; API liveness, web conne
 
 Authentication, memberships, permissions, branding, configurable centres/groups, learners and basic typed custom fields. Agree the data model before migrations. Validate isolation with negative access tests.
 
-The first M1 slice is implemented locally: identity/session persistence, superadmin bootstrap, organisation creation, organisation-admin invitations, scoped profiles and basic name/colour/centre terminology. Remaining M1 work includes actual centres/groups, learners, typed fields, role expansion, account revocation and recovery/MFA. Live database setup and identity deployment are still user-operated pending steps.
+The first M1 slice (identity/session persistence, organisation creation, admin invitations and branding) is deployed by the user. The next slice adds configurable roles, centre/group records and scopes, staff invitations, membership suspension and audit history locally; see the access release guide for deployment. Remaining M1 work includes learners, typed fields, programme-level scopes, recovery/MFA and pagination for larger directories.
 
 ## M2 — Attendance
 

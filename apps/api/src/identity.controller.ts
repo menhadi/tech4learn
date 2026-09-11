@@ -14,7 +14,7 @@ import { IdentityService } from "./identity.service.js";
 
 const cookieName = () =>
   process.env.NODE_ENV === "production" ? "__Host-t4l_session" : "t4l_session";
-function session(cookie?: string) {
+export function session(cookie?: string) {
   return cookie
     ?.split(";")
     .map((part) => part.trim())

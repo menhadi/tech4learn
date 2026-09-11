@@ -1,5 +1,7 @@
 # First identity and organisation release
 
+Historical version-one guide. Existing installations should use [the access upgrade guide](access-release.md); its migration-2 recovery restrictions supersede the rollback advice below.
+
 This release is developed locally. The user runs all server commands. Do not change Webmin's global ACME client, system Python, other websites, PostgreSQL cluster settings, or the existing Tech4Learn Cloudflare Origin certificate/proxy.
 
 ## What is included

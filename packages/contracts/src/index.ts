@@ -34,6 +34,8 @@ export interface Invitation {
 }
 export interface InvitationPreview {
   organisationName: string;
+  roleName: string;
+  scopeType: "organisation" | "centres" | "groups";
   email: string;
   existingAccount: boolean;
 }

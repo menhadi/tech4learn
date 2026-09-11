@@ -4,11 +4,13 @@ import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { createApp } from "../dist/bootstrap.js";
 import { migration } from "../dist/schema.js";
+import { accessMigration } from "../dist/migration-access.js";
 import { digest, hashPassword } from "../dist/security.js";
 
 test("identity and organisation permissions through HTTP with the PostgreSQL engine", async (t) => {
   const pg = new PGlite();
   await pg.exec(migration);
+  await pg.exec(accessMigration);
   const adapter = {
     query: (sql, params) => pg.query(sql, params),
     transaction: (run) =>
@@ -243,13 +245,13 @@ test("identity and organisation permissions through HTTP with the PostgreSQL eng
         assert.equal(
           (
             await request(
-              `/organisations/${orgA.id}/invitations`,
+              `/organisations/${orgB.id}/invitations`,
               "POST",
               { email: "x@example.test" },
               admin,
             )
           ).status,
-          403,
+          404,
         );
         assert.equal(
           (await request(`/organisations/${orgA.id}`, "PATCH", profile, admin))

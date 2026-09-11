@@ -1,6 +1,6 @@
 # Initial scaffold verification — 2026-09-11
 
-Historical results below are retained for the initial scaffold. The current identity release results are at the end of this document.
+ Historical results below are retained for earlier releases. Current results are at the end of this document.
 
 - npm run check: passed workspace typechecks, HTTP API test and API/admin builds.
 - HTTP test: liveness contract passes; unimplemented organisation endpoint returns 404.
@@ -28,3 +28,11 @@ Next validation: organisation/authentication isolation when implemented; native 
 - Full workspace dependency audit: 10 existing moderate Expo findings, zero high/critical findings; see dependency-notes.md.
 - Native app code was not changed. No native build/hardware claim is made.
 - Deployment still requires the user to confirm PostgreSQL service readiness, create a dedicated database, run migration 1 and bootstrap their own superadmin. No live writes were performed by the assistant.
+
+## Access release — 11 September 2026
+
+- `npm run check` passed: workspace typechecks, 22 reported tests (including nested tests), API and admin builds.
+- PostgreSQL-engine HTTP tests cover migration of existing admin memberships/invitations; editable roles; centre/group-scoped lists and writes; cross-tenant IDs; invalid permission keys; protected roles, self-promotion and last-admin safeguards; issuer revocation; immediate role/suspension enforcement; coordinate approval invalidation; archive retention; and audited access changes.
+- Local browser smoke checks with disposable synthetic data: sign in, create an organisation, save centre/group/custom role, prepare a group-scoped invitation, and sign in as that member. Restricted account shows only Profile/Centres/Groups with profile editing disabled and no group mutation controls. Desktop and 390px-wide layout inspected.
+- No native changes or device build. No live changes or migrations performed by the assistant. User deployment and real PostgreSQL upgrade verification remain required; use `docs/access-release.md`.
+- No new dependencies or infrastructure. All test accounts and preview data are synthetic and excluded from Git.
