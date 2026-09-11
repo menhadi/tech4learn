@@ -43,3 +43,11 @@ Next validation: organisation/authentication isolation when implemented; native 
 - Demo tests run the actual fixture against disposable PostgreSQL, sign in through HTTP as all ten generated accounts, verify restricted and suspended access, exercise valid/expired invitation acceptance, refuse duplicate creation, and remove seeded/test-added data while preserving an unrelated organisation and account.
 - Injected seed failure rolls back all partial inserts. Removal refuses unknown IDs, demo superadmins, external memberships and external invitations. Generated credentials/tokens are absent from database audit metadata. No real records, passwords or live environment files were used.
 - Demo operations are explicit server CLI actions for the user. No new schema, dependency, native changes or assistant live writes. The existing web UI is unchanged.
+
+## Learner management — 12 September 2026
+
+- `npm run check` passed: all workspace typechecks, 38 reported tests and API/admin production builds. API test files run serially to bound embedded PostgreSQL memory use.
+- HTTP tests cover migration 3, organisation/group isolation, guardian contact redaction, permissions, field validation and preservation, stale edits, transfer history and loss of scope, archival safeguards, import ownership/expiry/revalidation/atomicity/idempotency, duplicate handling, and removable synthetic learners. CSV parsing checks include quotes, newlines, headers and limits.
+- Local browser checks with synthetic data passed: sign-in, demo learner listing/profile, Excel `.xlsx` upload and preview, confirmed import, code search, profile save and group transfer with retained history. Desktop layout inspected. No native code changed; no mobile hardware claim is made.
+- The locked Excel parser is the only new dependency. No real learner data or credentials are committed. `bash -n` passed for the new deployment script.
+- No live changes or migrations performed by the assistant. The user must deploy the checked release, apply migration 3 and verify against the server's PostgreSQL using `docs/learner-release.md`.

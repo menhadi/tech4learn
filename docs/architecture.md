@@ -24,6 +24,8 @@ PGlite is a development-only embedded PostgreSQL engine for the integration test
 
 ## Configuration
 
+Migration 3 adds learner profiles, single-current-group enrolment history, typed field definitions and expiring import previews. Learner access uses current membership plus the current group's centre/group scope. Guardian contacts require a separate permission. Imports are actor-owned, revalidated and committed atomically under the organisation lock. See [learner release details](learner-release.md) for constraints, retention and the application-isolation/RLS boundary.
+
 Use stable IDs and typed fields; keep display labels separate from meaning. Version templates, forms and rubrics with draft/preview/publication. Archived fields remain readable in historical records. Do not execute arbitrary organisation-supplied code as workflow configuration.
 
 ## ExamElite

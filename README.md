@@ -6,7 +6,9 @@ Configurable education SaaS for NGOs, government-school programmes, coaching cen
 
 The administration foundation implements PostgreSQL-backed login/logout, password changes, superadmin organisation creation, staff invitations, tenant-scoped profiles, configurable roles, membership suspension, centre/group scopes and audit history. Centres support coordinates, radius and explicit location approval. React administration supports these workflows. The Expo mobile app remains a shell.
 
-Camera/location capture, learners, FLN, AI, ExamElite, programme-level scopes, configurable forms, email delivery, self-service password recovery and MFA are **not implemented**. Future modules must enforce their own action and record-scope checks. Do not onboard learners yet.
+Learner profiles, scoped enrolment transfers/history, guardian-contact permissions, typed learner fields and reviewed CSV/Excel imports are now implemented. See [the learner release](docs/learner-release.md) for migration 3, boundaries and deployment. Validate these workflows with synthetic data before a real pilot.
+
+Camera/location capture, FLN, AI, ExamElite, programme-level scopes, general form builders, email delivery, self-service password recovery and MFA are **not implemented**. Future modules must enforce their own action and record-scope checks.
 
 ## Local setup
 

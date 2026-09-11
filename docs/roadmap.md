@@ -6,9 +6,9 @@ Requirements and architecture; local Git and workspaces; API liveness, web conne
 
 ## M1 — Organisation foundation
 
-Authentication, memberships, permissions, branding, configurable centres/groups, learners and basic typed custom fields. Agree the data model before migrations. Validate isolation with negative access tests.
+Authentication, memberships, permissions, branding, configurable centres/groups, learners and basic typed custom fields. Learner profiles, transfer history, typed fields and reviewed imports are implemented in migration 3; user deployment is required. Validate isolation with negative access tests.
 
-The first M1 slice (identity/session persistence, organisation creation, admin invitations and branding) is deployed by the user. The next slice adds configurable roles, centre/group records and scopes, staff invitations, membership suspension and audit history locally; see the access release guide for deployment. Remaining M1 work includes learners, typed fields, programme-level scopes, recovery/MFA and pagination for larger directories.
+Identity, organisation creation, branding, configurable roles, centre/group scopes, suspension and audit history are deployed by the user. The learner release adds profiles, typed fields, transfers and import preview locally. Remaining M1 work includes programme-level scopes, recovery/MFA, general configurable forms and pagination for larger centre/team directories.
 
 ## M2 — Attendance
 

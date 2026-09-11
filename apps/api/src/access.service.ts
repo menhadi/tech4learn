@@ -118,6 +118,27 @@ export class AccessService {
       );
     const permissions = [...new Set<Permission>(value)];
     if (
+      permissions.includes("fields.manage") &&
+      !permissions.includes("learners.view")
+    )
+      throw new BadRequestException(
+        "Configuring learner fields also requires learners.view.",
+      );
+    if (
+      permissions.includes("learners.import") &&
+      !permissions.includes("learners.create")
+    )
+      throw new BadRequestException(
+        "Importing learners also requires learners.create.",
+      );
+    if (
+      permissions.some((p) => p.startsWith("learners.")) &&
+      !permissions.includes("groups.view")
+    )
+      throw new BadRequestException(
+        "Learner access also requires groups.view.",
+      );
+    if (
       permissions.includes("members.manage") &&
       ["roles.view", "centres.view", "groups.view"].some(
         (p) => !permissions.includes(p as Permission),

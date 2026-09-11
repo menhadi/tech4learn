@@ -1,3 +1,4 @@
+import { learnerMigration } from '../dist/migration-learners.js';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -42,6 +43,7 @@ test("role upgrade, delegation and location scopes through authenticated HTTP", 
     [randomUUID(), orgId, "legacy@access.test", digest(legacyToken), ownerId],
   );
   await pg.exec(accessMigration);
+  await pg.exec(learnerMigration);
   const adapter = {
     query: (s, p) => pg.query(s, p),
     transaction: (run) =>

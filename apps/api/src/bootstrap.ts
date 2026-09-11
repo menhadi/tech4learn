@@ -33,6 +33,7 @@ export async function createApp(
     { logger: ["error", "warn", "log"] },
   );
   app.setGlobalPrefix("api/v1");
+  app.useBodyParser("json", { limit: "1mb" });
   app.enableCors({
     origin,
     credentials: true,

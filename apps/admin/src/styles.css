@@ -345,6 +345,26 @@ header {
 .org-workspace {
   min-width: 0;
 }
+.table-scroll {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+.table-scroll table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.table-scroll th,
+.table-scroll td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #dce4dd;
+}
+.learner-workspace textarea {
+  min-height: 90px;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
 .org-workspace fieldset {
   border: 0;
   padding: 0;

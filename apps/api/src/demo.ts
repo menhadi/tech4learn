@@ -374,6 +374,7 @@ export async function inspectDemo(db: Store, id: string) {
     const m = await getManifest(sql, id);
     const counts: Record<string, number> = {};
     for (const table of [
+      "learners",
       "organisations",
       "centres",
       "learning_groups",
@@ -402,6 +403,79 @@ export async function inspectDemo(db: Store, id: string) {
       ).rows,
       counts,
       note: "Removal deletes all records inside these two demo organisations, including records added during testing. Other organisations are not selected.",
+    };
+  });
+}
+
+export async function seedDemoLearners(db: Store, id: string) {
+  return db.transaction(async (sql) => {
+    await lock(sql);
+    const m = await getManifest(sql, id);
+    if (
+      !(await sql.query("SELECT version FROM schema_versions WHERE version=3"))
+        .rows.length
+    )
+      throw new Error("Apply learner migration 3 first.");
+    if (
+      (
+        await sql.query(
+          "SELECT id FROM audit_events WHERE action='demo.learners_seeded' AND details->>'datasetId'=$1",
+          [id],
+        )
+      ).rows.length
+    )
+      throw new Error("Demo learners already exist; nothing was reset.");
+    await sql.query(
+      "SELECT id FROM organisations WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE",
+      [m.organisationIds],
+    );
+    let count = 0;
+    for (const org of m.organisationIds) {
+      await sql.query(
+        "INSERT INTO learner_fields(id,organisation_id,key,label,kind,options) VALUES ($1,$2,'demo_language','DEMO language','choice',$3)",
+        [randomUUID(), org, JSON.stringify(["Hindi", "English"])],
+      );
+      await sql.query(
+        "UPDATE access_roles SET permissions=ARRAY(SELECT DISTINCT p FROM unnest(permissions||ARRAY['learners.view','fields.view']::text[]) p) WHERE organisation_id=$1 AND 'groups.view'=ANY(permissions)",
+        [org],
+      );
+      const groups = (
+        await sql.query<{ id: string }>(
+          "SELECT id FROM learning_groups WHERE organisation_id=$1 AND NOT archived ORDER BY id",
+          [org],
+        )
+      ).rows;
+      for (const g of groups)
+        for (let n = 1; n <= 3; n++) {
+          const learnerId = randomUUID();
+          count++;
+          await sql.query(
+            "INSERT INTO learners(id,organisation_id,code,name,age,class_label,group_id,custom_values,demo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true)",
+            [
+              learnerId,
+              org,
+              `DEMO-L-${String(count).padStart(3, "0")}`,
+              `DEMO Learner ${String(count).padStart(3, "0")}`,
+              6 + n,
+              `Level ${n}`,
+              g.id,
+              JSON.stringify({ demo_language: n === 3 ? "English" : "Hindi" }),
+            ],
+          );
+          await sql.query(
+            "INSERT INTO learner_enrolments(id,organisation_id,learner_id,group_id,reason) VALUES ($1,$2,$3,$4,$5)",
+            [randomUUID(), org, learnerId, g.id, "Synthetic demo enrolment"],
+          );
+        }
+      await sql.query(
+        "INSERT INTO audit_events(id,organisation_id,action,details) VALUES ($1,$2,'demo.learners_seeded',$3)",
+        [randomUUID(), org, JSON.stringify({ datasetId: id, synthetic: true })],
+      );
+    }
+    return {
+      datasetId: id,
+      count,
+      note: "Synthetic learners added to the recorded demo organisations. Existing staff scopes/passwords were preserved.",
     };
   });
 }
@@ -455,6 +529,27 @@ export async function removeDemo(db: Store, id: string) {
       throw new Error(
         "A demo account has an invitation in another organisation. Removal refused.",
       );
+    if (
+      (await sql.query("SELECT version FROM schema_versions WHERE version=3"))
+        .rows.length
+    ) {
+      await sql.query(
+        "DELETE FROM learner_imports WHERE organisation_id=ANY($1::uuid[])",
+        [m.organisationIds],
+      );
+      await sql.query(
+        "DELETE FROM learner_enrolments WHERE organisation_id=ANY($1::uuid[])",
+        [m.organisationIds],
+      );
+      await sql.query(
+        "DELETE FROM learners WHERE organisation_id=ANY($1::uuid[])",
+        [m.organisationIds],
+      );
+      await sql.query(
+        "DELETE FROM learner_fields WHERE organisation_id=ANY($1::uuid[])",
+        [m.organisationIds],
+      );
+    }
     await sql.query(
       "DELETE FROM invitations WHERE organisation_id=ANY($1::uuid[])",
       [m.organisationIds],

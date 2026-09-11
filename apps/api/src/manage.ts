@@ -1,11 +1,17 @@
 import { Database } from "./database.js";
 import { migration } from "./schema.js";
 import { accessMigration } from "./migration-access.js";
+import { learnerMigration } from "./migration-learners.js";
 import { randomUUID } from "node:crypto";
 import { emailValue, field, hashPassword, passwordValue } from "./security.js";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { createDemo, inspectDemo, removeDemo } from "./demo.js";
+import {
+  createDemo,
+  inspectDemo,
+  removeDemo,
+  seedDemoLearners,
+} from "./demo.js";
 
 async function secretPrompt(): Promise<string> {
   if (!stdin.isTTY)
@@ -64,8 +70,14 @@ try {
         ).rows.length
       )
         await sql.query(accessMigration);
+      if (
+        !(
+          await sql.query("SELECT version FROM schema_versions WHERE version=3")
+        ).rows.length
+      )
+        await sql.query(learnerMigration);
     });
-    console.log("Database migrations through version 2 are applied.");
+    console.log("Database migrations through version 3 are applied.");
   } else if (command === "demo-create") {
     const result = await createDemo(db);
     const origin = process.env.ADMIN_ORIGIN || "http://localhost:5173";
@@ -79,6 +91,14 @@ try {
             url: `${origin}/#invite=${i.token}`,
           })),
         },
+        null,
+        2,
+      ),
+    );
+  } else if (command === "demo-learners") {
+    console.log(
+      JSON.stringify(
+        await seedDemoLearners(db, process.argv[3] || ""),
         null,
         2,
       ),

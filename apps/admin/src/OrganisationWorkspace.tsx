@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { Invitation, Organisation } from "@tech4learn/contracts";
 import { api } from "./api";
+import { Learners } from "./Learners";
 
 type Scope = {
   scope_type: "organisation" | "centres" | "groups";
@@ -164,6 +165,7 @@ export function OrganisationWorkspace({
   }
   const tabs = [
     "Profile",
+    ...(can("learners.view") ? ["Learners"] : []),
     ...(can("centres.view") ? ["Centres"] : []),
     ...(can("groups.view") ? ["Groups"] : []),
     ...(can("roles.view") ? ["Roles"] : []),
@@ -185,6 +187,7 @@ export function OrganisationWorkspace({
   const selectedRole = data?.roles.find((r) => r.id === grantRole);
   const wide = selectedRole?.permissions.some((p) =>
     [
+      "fields.manage",
       "organisation.edit",
       "centres.create",
       "roles.view",
@@ -239,6 +242,14 @@ export function OrganisationWorkspace({
               </button>
             ))}
           </div>
+          {tab === "Learners" && (
+            <Learners
+              key={org.id}
+              org={org.id}
+              permissions={data.access.permissions}
+              groups={data.groups}
+            />
+          )}
           {tab === "Profile" && (
             <form
               onSubmit={(e) => {

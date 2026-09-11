@@ -19,3 +19,4 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: bash -n deploy/virtualmin/prepare-first-deploy.sh
+      - run: bash -n deploy/virtualmin/update-learners.sh

@@ -298,6 +298,17 @@ export class RecordsService {
       const row = await this.groupAllowed(sql, org, id, a);
       if (row.archived)
         throw new ConflictException("Group is already archived.");
+      if (
+        (
+          await sql.query(
+            "SELECT id FROM learners WHERE organisation_id=$1 AND group_id=$2 AND NOT archived",
+            [org, id],
+          )
+        ).rows.length
+      )
+        throw new ConflictException(
+          "Transfer or archive active learners before archiving their group.",
+        );
       await sql.query(
         "UPDATE learning_groups SET archived=true WHERE organisation_id=$1 AND id=$2",
         [org, id],
