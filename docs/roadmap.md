@@ -22,7 +22,7 @@ Select language/resources, review items/rubrics, build digital activities, evide
 
 ## Inputs needed
 
-- Git remote and desired release/branch convention.
+- Git remote is https://github.com/menhadi/tech4learn; initial branch is main. Further release/branch conventions remain open.
 - Staging/live hosting capabilities, OS, process manager, directories and URLs.
 - Read-only review access; credentials never go in repository files.
 - Pilot partner, learners' age groups, language and concurrency.

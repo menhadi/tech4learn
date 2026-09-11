@@ -4,7 +4,7 @@ Local changes → checked Git commit/push → user deploys staging → verificat
 
 ## Current state
 
-Git is initialised locally. Remote and hosting details are pending. No staging/live files or DNS have changed. This scaffold is not an operational education service.
+Repository: https://github.com/menhadi/tech4learn (public), with `main` as the initial branch. The user confirms tech4learn.com is hosted through Virtualmin and existing hosting/DNS are configured. Server access, operating system, runtime availability and staging addresses still need confirmation. No staging/live files or DNS have changed. This scaffold is not an operational education service.
 
 The user deploys. The assistant develops locally and provides release-specific commands once hosting is known. Live access is inspection-only; fixes follow the local/Git workflow.
 
