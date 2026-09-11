@@ -530,6 +530,14 @@ export async function removeDemo(db: Store, id: string) {
         "A demo account has an invitation in another organisation. Removal refused.",
       );
     if (
+      (await sql.query("SELECT version FROM schema_versions WHERE version=5"))
+        .rows.length
+    )
+      await sql.query(
+        "DELETE FROM attendance_sessions WHERE organisation_id=ANY($1::uuid[])",
+        [m.organisationIds],
+      );
+    if (
       (await sql.query("SELECT version FROM schema_versions WHERE version=3"))
         .rows.length
     ) {

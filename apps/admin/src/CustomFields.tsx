@@ -138,7 +138,13 @@ export function CustomFields({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      {["attendance", "fln", "exams"].includes(module) && (
+      {module === "attendance" && (
+        <p>
+          Attendance field values are entered when submitting a photo in the
+          Attendance tab.
+        </p>
+      )}
+      {["fln", "exams"].includes(module) && (
         <p>
           These are draft field definitions for a planned module. No assessment,
           attendance or ExamElite record is created here.

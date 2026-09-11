@@ -181,7 +181,9 @@ export function OrganisationSetup({
                 : key === "exams"
                   ? "ExamElite exams"
                   : key}
-              {key !== "learners" ? " — planned; preference only" : ""}
+              {["fln", "exams"].includes(key)
+                ? " — planned; preference only"
+                : ""}
             </label>
           ))}
           <button>Save setup</button>

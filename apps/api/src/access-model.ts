@@ -1,4 +1,9 @@
 export const permissionCatalogue = [
+  ["attendance.view", "View attendance and learner roster"],
+  ["attendance.capture", "Capture attendance evidence"],
+  ["attendance.review", "Confirm and correct attendance"],
+  ["attendance.photos", "View private attendance photos"],
+  ["attendance.policy", "Manage attendance policy"],
   ["configuration.view", "View organisation setup"],
   ["configuration.manage", "Manage branding and domains"],
   ["learners.view", "View learners"],
@@ -8,8 +13,8 @@ export const permissionCatalogue = [
   ["learners.archive", "Archive learners"],
   ["learners.import", "Import learners"],
   ["learners.contacts", "View and edit guardian contacts"],
-  ["fields.view", "View learner field definitions"],
-  ["fields.manage", "Configure learner fields"],
+  ["fields.view", "View custom field definitions"],
+  ["fields.manage", "Configure custom fields"],
   ["organisation.view", "View organisation profile"],
   ["organisation.edit", "Edit organisation profile"],
   ["centres.view", "View centres"],
@@ -31,6 +36,7 @@ export const permissionCatalogue = [
 export type Permission = (typeof permissionCatalogue)[number][0];
 export const allPermissions = permissionCatalogue.map(([key]) => key);
 export const widePermissions: Permission[] = [
+  "attendance.policy",
   "configuration.view",
   "configuration.manage",
   "fields.manage",

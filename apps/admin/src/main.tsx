@@ -683,9 +683,9 @@ function App() {
                       <p className="eyebrow">Coming next</p>
                       <h2>Tools for your programme</h2>
                       <p>
-                        Photo attendance, interactive learning assessments and
-                        ExamElite exams will be added here. These modules are
-                        not available yet.
+                        Photo attendance is available when enabled by your
+                        platform administrator. Interactive learning assessments
+                        and ExamElite integration are planned.
                       </p>
                     </section>
                   </div>

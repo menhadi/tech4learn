@@ -530,3 +530,11 @@ footer {
 .template-minimal .welcome .entry-note { display: none; }
 .entry button:not(.secondary) { background: var(--org-colour, #175d50); }
 .brand { overflow-wrap: anywhere; }
+.attendance-workspace { display: grid; gap: 1.25rem; min-width: 0; }
+.attendance-workspace .panel, .attendance-workspace form { min-width: 0; }
+.attendance-workspace label { display: block; margin: 1rem 0; }
+.attendance-workspace textarea { width: 100%; min-height: 90px; padding: 12px; font: inherit; border: 1px solid #c6d5cf; border-radius: 8px; box-sizing: border-box; }
+.attendance-workspace button { margin: 0.4rem 0.5rem 0.4rem 0; }
+.attendance-workspace label:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 0.65rem; }
+.attendance-workspace input[type="checkbox"] { width: auto; flex: 0 0 auto; }
+.attendance-photo { display: block; width: 100%; max-width: 640px; max-height: 480px; object-fit: contain; border-radius: 10px; background: #eaf0ed; margin: 1rem 0; }

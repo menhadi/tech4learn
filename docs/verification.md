@@ -66,3 +66,10 @@ Next validation: organisation/authentication isolation when implemented; native 
 - `npm run check` passed: 43 reported tests, workspace typechecks and API/admin builds. Existing configuration HTTP coverage now checks school creation, settings persistence and rejection of an unknown type.
 - Local browser check confirmed the initial placeholder, School option and corrected desktop form alignment using a disposable synthetic account. No live edits or schema change.
 - Read-only inspection of the public homepage found the previous configuration release assets (`index-DBJrCGMN.js` and `index-DIC2fqV6.css`) with Cloudflare DYNAMIC status. The earlier release was being served; its main features are inside Setup and Custom fields.
+
+## Photo attendance browser pilot — 12 September 2026
+
+- `npm run check` passed: 49 tests, workspace typechecks and API/admin builds. Attendance HTTP tests cover module permissions, tenant/group scope, private media, exact retries, daily duplicates, required custom fields, explicit roster marks, warning acknowledgement, correction history, policy restrictions and historical enrolment snapshots.
+- Local browser checks used a disposable synthetic database: Attendance tab visibility, centre-to-group choices, an enabled capture button, empty daily totals, and policy save. Desktop and 390-pixel layouts inspected. No real camera or location was accessed by the assistant.
+- The final attendance test also checks rejection followed by a replacement capture and malformed JPEG error handling. A real phone camera/GPS field check remains required after user deployment.
+- No native changes or new dependencies. The assistant made no live edits or migrations. See attendance-release.md for storage limits and deployment steps.

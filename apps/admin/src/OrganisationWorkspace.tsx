@@ -4,6 +4,7 @@ import { api } from "./api";
 import { OrganisationSetup } from "./OrganisationSetup";
 import { CustomFields } from "./CustomFields";
 import { Learners } from "./Learners";
+import { Attendance } from "./Attendance";
 
 type Scope = {
   scope_type: "organisation" | "centres" | "groups";
@@ -181,6 +182,9 @@ export function OrganisationWorkspace({
       ? ["Learners"]
       : []),
     ...(can("centres.view") ? ["Centres"] : []),
+    ...(can("attendance.view") && data?.modules?.attendance === true
+      ? ["Attendance"]
+      : []),
     ...(can("groups.view") ? ["Groups"] : []),
     ...(can("roles.view") ? ["Roles"] : []),
     ...(can("members.view") ? ["Team"] : []),
@@ -201,6 +205,7 @@ export function OrganisationWorkspace({
   const selectedRole = data?.roles.find((r) => r.id === grantRole);
   const wide = selectedRole?.permissions.some((p) =>
     [
+      "attendance.policy",
       "configuration.view",
       "configuration.manage",
       "fields.manage",
@@ -289,6 +294,14 @@ export function OrganisationWorkspace({
           )}
           {tab === "Learners" && (
             <Learners
+              key={org.id}
+              org={org.id}
+              permissions={data.access.permissions}
+              groups={data.groups}
+            />
+          )}
+          {tab === "Attendance" && (
+            <Attendance
               key={org.id}
               org={org.id}
               permissions={data.access.permissions}

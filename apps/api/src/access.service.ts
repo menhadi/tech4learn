@@ -84,14 +84,27 @@ export class AccessService {
       throw new ForbiddenException(
         "You do not have permission for this action.",
       );
-    if (permission.startsWith("learners.")) {
+    if (
+      permission.startsWith("learners.") ||
+      permission.startsWith("attendance.")
+    ) {
       const settings = (
         await sql.query<{ enabled_modules: Record<string, boolean> }>(
           "SELECT enabled_modules FROM organisation_settings WHERE organisation_id=$1",
           [org],
         )
       ).rows[0];
-      if (settings?.enabled_modules.learners === false)
+      if (
+        permission.startsWith("attendance.") &&
+        settings?.enabled_modules.attendance !== true
+      )
+        throw new ForbiddenException(
+          "Attendance module is disabled for this organisation.",
+        );
+      if (
+        permission.startsWith("learners.") &&
+        settings?.enabled_modules.learners === false
+      )
         throw new ForbiddenException(
           "Learner module is disabled for this organisation.",
         );
@@ -137,11 +150,13 @@ export class AccessService {
         "Importing learners also requires learners.create.",
       );
     if (
-      permissions.some((p) => p.startsWith("learners.")) &&
+      permissions.some(
+        (p) => p.startsWith("learners.") || p.startsWith("attendance."),
+      ) &&
       !permissions.includes("groups.view")
     )
       throw new BadRequestException(
-        "Learner access also requires groups.view.",
+        "Learner and attendance access also require groups.view.",
       );
     if (
       permissions.includes("members.manage") &&

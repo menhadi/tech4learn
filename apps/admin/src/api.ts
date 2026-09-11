@@ -1,4 +1,4 @@
-const base = (
+export const apiBase = (
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? "http://localhost:3000/api/v1" : "/api/v1")
 ).replace(/\/$/, "");
@@ -15,7 +15,7 @@ export async function api<T>(
   method = "GET",
   body?: unknown,
 ): Promise<T> {
-  const response = await fetch(`${base}${path}`, {
+  const response = await fetch(`${apiBase}${path}`, {
     method,
     credentials: "include",
     signal: AbortSignal.timeout(15000),

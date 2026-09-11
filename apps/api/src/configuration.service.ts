@@ -25,7 +25,7 @@ export const fieldModules = [
   "fln",
   "exams",
 ] as const;
-const planned = ["attendance", "fln", "exams"];
+const planned = ["fln", "exams"];
 const defaults = {
   kind: "other",
   template: "community",
@@ -297,6 +297,7 @@ export class ConfigurationService {
         groups: "groups.view",
         staff: "members.view",
         learners: "learners.view",
+        attendance: "attendance.view",
       } as Record<string, string>
     )[module];
     if (

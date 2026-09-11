@@ -30,7 +30,11 @@ Use stable IDs and typed fields; keep display labels separate from meaning. Vers
 
 Migration 4 adds organisation presentation settings, superadmin module availability, verified custom-host bindings and reusable per-module field definitions/values. Learner field IDs and values are preserved. Additional-details forms for other records enforce their parent record scope and version checks. See [configuration release](configuration-release.md) for domain activation, retention, deployment and operational boundaries.
 
-## ExamElite
+## Attendance pilot
+
+Migration 5 introduces scoped attendance intents, immutable capture snapshots/evidence, private bounded JPEG storage and append-only review history. The online admin browser can capture and review; native camera work remains planned. See [attendance release](attendance-release.md) for permission checks, idempotency, uncertainty rules, storage limits and field verification.
+
+## ExamElite integration
 
 Connect through authenticated, versioned APIs. Its Laravel application owns its database and engine. No direct database writes. Define permissions, learner mapping, exam IDs, result revisions, retries and reconciliation after inspecting real contracts. This scaffold does not contact ExamElite.
 

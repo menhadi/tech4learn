@@ -1,4 +1,6 @@
 import { ConfigurationService } from "./configuration.service.js";
+import { AttendanceService } from "./attendance.service.js";
+import { AttendanceController } from "./attendance.controller.js";
 import { ConfigurationController } from "./configuration.controller.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import { HealthController } from "./health.controller.js";
@@ -17,6 +19,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        AttendanceController,
         ConfigurationController,
         HealthController,
         IdentityController,
@@ -24,6 +27,7 @@ export class AppModule {
         LearnersController,
       ],
       providers: [
+        AttendanceService,
         database ? { provide: Database, useValue: database } : Database,
         ConfigurationService,
         IdentityService,

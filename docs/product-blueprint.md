@@ -20,6 +20,8 @@ Multi-tenant SaaS: superadmin manages the platform; organisation admins manage t
 
 ## Attendance
 
+Working browser pilot: live camera capture, automatic time/location, explicit learner review, correction history and daily totals. See [attendance release](attendance-release.md) for its limits. Native capture, recognition, register scanning, CCTV and offline capture remain planned.
+
 Support classroom/group photos, physical-register photos, manual correction and future CCTV connectors. Recognition provider is not selected.
 
 1. Register and approve centre coordinates separately from map village/address labels.
