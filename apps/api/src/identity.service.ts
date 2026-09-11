@@ -178,7 +178,9 @@ export class IdentityService {
     const email = emailValue(body.adminEmail);
     const kind = body.kind ?? "other";
     if (
-      !["ngo", "coaching", "csr", "government", "other"].includes(String(kind))
+      !["school", "ngo", "coaching", "csr", "government", "other"].includes(
+        String(kind),
+      )
     )
       throw new BadRequestException("Choose an organisation type.");
     return this.db.transaction(async (sql) => {

@@ -125,7 +125,7 @@ test("organisation setup, domains, module controls and reusable custom fields", 
           {
             name: "Synthetic new NGO",
             slug: "synthetic-new-ngo",
-            kind: "ngo",
+            kind: "school",
             adminEmail: "new-admin@config.test",
           },
           owner,
@@ -140,7 +140,7 @@ test("organisation setup, domains, module controls and reusable custom fields", 
               owner,
             )
           ).kind,
-          "ngo",
+          "school",
         );
         config = await ok(p + "/configuration", "GET", undefined, admin);
         assert.equal(config.version, 0);
@@ -158,11 +158,23 @@ test("organisation setup, domains, module controls and reusable custom fields", 
           "PATCH",
           {
             ...config,
-            kind: "ngo",
+            kind: "school",
             template: "academy",
             welcome: "Synthetic welcome",
           },
           admin,
+        );
+        assert.equal(config.kind, "school");
+        assert.equal(
+          (
+            await req(
+              p + "/configuration",
+              "PATCH",
+              { ...config, kind: "unknown-type" },
+              admin,
+            )
+          ).status,
+          400,
         );
         const slug = demo.organisations[0].slug;
         const branding = await ok("/public/branding?slug=" + slug);

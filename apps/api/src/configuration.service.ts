@@ -82,7 +82,7 @@ export class ConfigurationService {
       if (b.version !== before.version)
         throw new ConflictException("Setup changed. Reload before saving.");
       if (
-        !["ngo", "coaching", "csr", "government", "other"].includes(
+        !["school", "ngo", "coaching", "csr", "government", "other"].includes(
           String(b.kind),
         ) ||
         !["community", "academy", "minimal"].includes(String(b.template))

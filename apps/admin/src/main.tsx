@@ -1,3 +1,4 @@
+import { OrganisationTypeSelect } from "./OrganisationTypeSelect";
 import {
   StrictMode,
   useEffect,
@@ -572,13 +573,15 @@ function App() {
                   </label>
                   <label>
                     Organisation type
-                    <select name="kind">
-                      {["ngo", "coaching", "csr", "government", "other"].map(
-                        (k) => (
-                          <option key={k}>{k}</option>
-                        ),
-                      )}
-                    </select>
+                    <OrganisationTypeSelect
+                      name="kind"
+                      required
+                      defaultValue=""
+                    />
+                    <small>
+                      Choose the closest fit. Modules and permissions are
+                      configured separately.
+                    </small>
                   </label>
                   <label>
                     Administrator email

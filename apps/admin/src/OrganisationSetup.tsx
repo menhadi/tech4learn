@@ -1,3 +1,4 @@
+import { OrganisationTypeSelect } from "./OrganisationTypeSelect";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 export type Setup = {
@@ -88,14 +89,11 @@ export function OrganisationSetup({
         <fieldset disabled={busy || !editable}>
           <label>
             Organisation type
-            <select
+            <OrganisationTypeSelect
+              required
               value={data.kind}
               onChange={(e) => setData({ ...data, kind: e.target.value })}
-            >
-              {["ngo", "coaching", "csr", "government", "other"].map((k) => (
-                <option key={k}>{k}</option>
-              ))}
-            </select>
+            />
           </label>
           <label>
             Presentation template

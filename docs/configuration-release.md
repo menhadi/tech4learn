@@ -4,6 +4,8 @@ This release adds migration 4. Development and verification happen locally; the 
 
 ## Working flows
 
+Organisation type choices are School, NGO / Non-profit, Coaching centre / Academy, CSR programme / Foundation, Government department / Programme and Other organisation. Creation and Setup use the same labelled selector; existing stored keys keep their meaning. New organisations require an explicit choice in the web form. The type describes the organisation and does not grant permissions or enable modules.
+
 Superadmins create an organisation with its name, unique slug, type and administrator invitation. The organisation's Setup tab supplies its shared sign-in address (`https://tech4learn.com/?org=SLUG`), editable welcome message, PNG/JPEG/WebP logo and community/academy/minimal presentation templates. Templates change layout treatment without changing records or roles. Existing Profile settings control name, colour and centre terminology. Logo input is limited to 130 KB in the browser and stored with configuration, not committed to Git. Public branding responses contain only deliberately published identity and presentation fields. Slugs are stable after creation.
 
 `configuration.view` and `configuration.manage` are organisation-wide permissions. Protected organisation admins receive them; other roles retain their earlier permissions. The Setup tab keeps module availability separate from staff permissions. Only superadmins can change the module switches. Disabling learners denies learner API actions and hides the tab after reloading access; data is retained. Attendance, FLN and ExamElite switches record future availability preferences and are explicitly labelled planned. They do not activate an engine that has not been implemented.

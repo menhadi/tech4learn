@@ -59,3 +59,10 @@ Next validation: organisation/authentication isolation when implemented; native 
 - Domain tests use stubbed DNS TXT responses to verify missing/wrong proof, unique hostname assignment, activation permission and hosting confirmation, exact Host/Origin checks, bound-host organisation isolation and revocation. Native HTTP requests exercise Host handling. These tests do not prove live DNS, HTTPS or certificate renewal.
 - Browser smoke checks on a disposable local database: sign-in, organisation Setup save, template/welcome preview on its branded sign-in link, creation of a required centre field, selection of an existing centre and saving its additional details. Desktop layouts inspected. All records and credentials were synthetic.
 - No new application dependency, mobile change, native build or assistant live write. User deployment, migration 4 and real-domain hosting checks remain required; see configuration-release.md.
+
+## Organisation type dropdown — 12 September 2026
+
+- Added School to creation and configuration validation. A shared web selector supplies readable labels, an explicit initial choice and consistent full-width styling in both forms.
+- `npm run check` passed: 43 reported tests, workspace typechecks and API/admin builds. Existing configuration HTTP coverage now checks school creation, settings persistence and rejection of an unknown type.
+- Local browser check confirmed the initial placeholder, School option and corrected desktop form alignment using a disposable synthetic account. No live edits or schema change.
+- Read-only inspection of the public homepage found the previous configuration release assets (`index-DBJrCGMN.js` and `index-DIC2fqV6.css`) with Cloudflare DYNAMIC status. The earlier release was being served; its main features are inside Setup and Custom fields.
