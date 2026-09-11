@@ -1,3 +1,5 @@
+import { ConfigurationService } from "./configuration.service.js";
+import { ConfigurationController } from "./configuration.controller.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import { HealthController } from "./health.controller.js";
 import { Database } from "./database.js";
@@ -15,6 +17,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        ConfigurationController,
         HealthController,
         IdentityController,
         AccessController,
@@ -22,6 +25,7 @@ export class AppModule {
       ],
       providers: [
         database ? { provide: Database, useValue: database } : Database,
+        ConfigurationService,
         IdentityService,
         AccessService,
         RecordsService,

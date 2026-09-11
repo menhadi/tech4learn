@@ -29,3 +29,7 @@ Select language/resources, review items/rubrics, build digital activities, evide
 - Read-only review access; credentials never go in repository files.
 - Pilot partner, learners' age groups, language and concurrency.
 - ExamElite API documentation/access and organisation mapping.
+
+## Organisation configuration release
+
+Implemented locally: shared branded organisation links, editable presentation settings, domain ownership/activation workflow, module availability controls and reusable custom fields. See configuration-release.md. Live deployment and real-domain hosting verification are user-run. Future modules currently support field definitions only; their operational workflows are not implemented.

@@ -66,3 +66,5 @@ For synthetic testing, use the explicit [removable demo dataset](docs/demo-data.
 | docs | Product decisions, architecture, milestones and deployment |
 
 Start with [the blueprint](docs/product-blueprint.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md) and [deployment workflow](docs/deployment.md). The [Virtualmin first-deployment guide](docs/virtualmin-first-deployment.md) covers user-run installation. The public one/two-page site is a later deliverable. No server changes are performed by local scripts unless the user explicitly runs the server installer there.
+
+Organisation setup, branding, custom-domain verification/activation, superadmin module controls and reusable custom fields are implemented in the [configuration release](docs/configuration-release.md). Custom-domain hosting must be configured separately by the server owner. Attendance, FLN and ExamElite execution remain planned.

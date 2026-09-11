@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { migration } from "../dist/schema.js";
 import { accessMigration } from "../dist/migration-access.js";
+import { configurationMigration } from "../dist/migration-configuration.js";
 import { learnerMigration } from "../dist/migration-learners.js";
 import { createDemo, seedDemoLearners, removeDemo } from "../dist/demo.js";
 import { createApp } from "../dist/bootstrap.js";
@@ -14,6 +15,7 @@ test("learner scopes, contacts, transfers, custom fields and reviewed imports", 
   await pg.exec(migration);
   await pg.exec(accessMigration);
   await pg.exec(learnerMigration);
+  await pg.exec(configurationMigration);
   const db = {
     query: (s, p) => pg.query(s, p),
     transaction: (run) =>

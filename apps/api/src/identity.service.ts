@@ -176,6 +176,11 @@ export class IdentityService {
         "Use lowercase letters, numbers and single hyphens for the address.",
       );
     const email = emailValue(body.adminEmail);
+    const kind = body.kind ?? "other";
+    if (
+      !["ngo", "coaching", "csr", "government", "other"].includes(String(kind))
+    )
+      throw new BadRequestException("Choose an organisation type.");
     return this.db.transaction(async (sql) => {
       const org: Organisation = {
         id: randomUUID(),
@@ -192,6 +197,10 @@ export class IdentityService {
         throw new ConflictException(
           "That organisation address is already in use.",
         );
+      await sql.query(
+        "INSERT INTO organisation_settings(organisation_id,kind) VALUES ($1,$2)",
+        [org.id, kind],
+      );
       await this.access.initialise(sql, org.id);
       const invitation = await this.access.issue(sql, user, org.id, email);
       await this.audit(sql, user.id, org.id, "organisation.created");

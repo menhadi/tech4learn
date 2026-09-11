@@ -51,7 +51,35 @@ function PasswordField({
   );
 }
 
+type Branding = {
+  id: string;
+  slug: string;
+  name: string;
+  colour: string;
+  template: string;
+  welcome: string;
+  logo: string;
+};
 function App() {
+  const requestedSlug = new URLSearchParams(location.search).get("org") || "";
+  const [branding, setBranding] = useState<Branding | null>(null);
+  const [brandError, setBrandError] = useState("");
+  useEffect(() => {
+    let active = true;
+    api<Branding | null>(
+      "/public/branding" +
+        (requestedSlug ? "?slug=" + encodeURIComponent(requestedSlug) : ""),
+    )
+      .then((b) => {
+        if (active) setBranding(b);
+      })
+      .catch((e) => {
+        if (active) setBrandError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -75,7 +103,9 @@ function App() {
     setSelected((previous) =>
       result.organisations.some((org) => org.id === previous)
         ? previous
-        : result.organisations[0]?.id || "",
+        : result.organisations.find((o) => o.slug === requestedSlug)?.id ||
+          result.organisations[0]?.id ||
+          "",
     );
   }
   useEffect(() => {
@@ -137,6 +167,29 @@ function App() {
   }
   const org = session?.organisations.find((item) => item.id === selected);
   const superadmin = !!session?.user.is_superadmin;
+  const platformHome = superadmin && !session?.organisationHost;
+  const [workspaceBrand, setWorkspaceBrand] = useState<Branding | null>(null);
+  useEffect(() => {
+    let active = true;
+    const update = () => {
+      if (org)
+        api<Branding>("/public/branding?slug=" + encodeURIComponent(org.slug))
+          .then((b) => {
+            if (active) setWorkspaceBrand(b);
+          })
+          .catch(() => {});
+    };
+    update();
+    window.addEventListener("branding-updated", update);
+    return () => {
+      active = false;
+      window.removeEventListener("branding-updated", update);
+    };
+  }, [org?.id, org?.name, org?.colour]);
+  useEffect(() => {
+    if (branding && session?.organisations.some((o) => o.id === branding.id))
+      setSelected(branding.id);
+  }, [branding]);
   const visibleOrgs =
     session?.organisations.filter((item) =>
       `${item.name} ${item.slug}`.toLowerCase().includes(query.toLowerCase()),
@@ -270,21 +323,38 @@ function App() {
     );
   if (!session)
     return (
-      <main className="entry">
-        <a className="brand" href="/">
-          TECH4LEARN
+      <main
+        className={`entry template-${branding?.template || "community"}`}
+        style={
+          { "--org-colour": branding?.colour || "#175d50" } as CSSProperties
+        }
+      >
+        <a className="brand" href={location.pathname + location.search}>
+          {branding?.logo && (
+            <img className="organisation-logo" src={branding.logo} alt="" />
+          )}
+          {branding?.name || "TECH4LEARN"}
         </a>
+        {brandError && (
+          <p role="alert" className="error">
+            {brandError}
+          </p>
+        )}
         <div className="entry-layout">
           <div className="welcome">
             <p className="eyebrow">More time for learning</p>
             <h1>
-              Your organisation.
-              <br />
-              Your way of working.
+              {branding?.name || (
+                <>
+                  Your organisation.
+                  <br />
+                  Your way of working.
+                </>
+              )}
             </h1>
             <p>
-              One place to organise your education programmes and give your team
-              the access they need.
+              {branding?.welcome ||
+                "One place to organise your education programmes and give your team the access they need."}
             </p>
             <div className="entry-note">
               Built for coaching, NGOs and community learning.
@@ -302,12 +372,19 @@ function App() {
 
   return (
     <div
-      className="workspace"
+      className={`workspace template-${workspaceBrand?.template || "community"}`}
       style={{ "--org-colour": org?.colour || "#175d50" } as CSSProperties}
     >
       <aside>
         <a className="brand" href="/">
-          TECH4LEARN
+          {workspaceBrand?.logo && (
+            <img
+              className="organisation-logo"
+              src={workspaceBrand.logo}
+              alt=""
+            />
+          )}
+          {superadmin ? "TECH4LEARN" : org?.name || "TECH4LEARN"}
         </a>
         <span className="role-badge">
           {superadmin
@@ -444,7 +521,7 @@ function App() {
                 </div>
               </section>
             )}
-            {creating && superadmin && (
+            {creating && platformHome && (
               <section className="panel">
                 <h2>Create an organisation</h2>
                 <p className="muted">
@@ -489,9 +566,19 @@ function App() {
                       required
                     />
                     <small>
-                      A unique internal name, using lowercase letters and
-                      hyphens.
+                      Used in your sign-in link: /?org=your-address. Use
+                      lowercase letters and hyphens.
                     </small>
+                  </label>
+                  <label>
+                    Organisation type
+                    <select name="kind">
+                      {["ngo", "coaching", "csr", "government", "other"].map(
+                        (k) => (
+                          <option key={k}>{k}</option>
+                        ),
+                      )}
+                    </select>
                   </label>
                   <label>
                     Administrator email
@@ -573,6 +660,7 @@ function App() {
                     <OrganisationWorkspace
                       organisation={org}
                       userId={session.user.id}
+                      superadmin={superadmin}
                       onInvitation={setInvitation}
                       onProfile={(saved) =>
                         setSession((current) =>

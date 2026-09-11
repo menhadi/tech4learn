@@ -12,6 +12,7 @@ Multi-tenant SaaS: superadmin manages the platform; organisation admins manage t
 - Web administration for superadmins, organisation admins and authorised programme staff.
 - One/two-page public site at tech4learn.com; hosting and DNS already exist.
 - Configurable branding, terminology, structures, forms, typed custom fields, roles, workflows, reports and enabled modules.
+- Custom fields apply across organisation, centre, group, staff, learner and future module records; they are not restricted to learners.
 - Editable templates are starting points. Changes must preserve historical records.
 - One shared app loading organisation branding is the initial recommendation. Separate app-store apps are not agreed.
 - Organisation data stays separate. CSR/NGO partnerships can be many-to-many, with explicitly authorised, scoped sharing.

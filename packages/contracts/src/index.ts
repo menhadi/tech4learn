@@ -8,7 +8,9 @@ export interface HealthResponse {
 /** Planned education module vocabulary; modules are not implemented yet. */
 export type ModuleKey = "attendance" | "learning-assessment" | "exams";
 export type LocationVerification =
-  "verified" | "pending-review" | "unavailable";
+  | "verified"
+  | "pending-review"
+  | "unavailable";
 
 export interface Account {
   id: string;
@@ -24,6 +26,7 @@ export interface Organisation {
   centre_label: string;
 }
 export interface SessionResponse {
+  organisationHost?: boolean;
   user: Account;
   organisations: Organisation[];
 }

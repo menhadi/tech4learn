@@ -84,6 +84,18 @@ export class AccessService {
       throw new ForbiddenException(
         "You do not have permission for this action.",
       );
+    if (permission.startsWith("learners.")) {
+      const settings = (
+        await sql.query<{ enabled_modules: Record<string, boolean> }>(
+          "SELECT enabled_modules FROM organisation_settings WHERE organisation_id=$1",
+          [org],
+        )
+      ).rows[0];
+      if (settings?.enabled_modules.learners === false)
+        throw new ForbiddenException(
+          "Learner module is disabled for this organisation.",
+        );
+    }
     return access;
   }
   async audit(
@@ -117,13 +129,6 @@ export class AccessService {
         "Choose permissions from the available list.",
       );
     const permissions = [...new Set<Permission>(value)];
-    if (
-      permissions.includes("fields.manage") &&
-      !permissions.includes("learners.view")
-    )
-      throw new BadRequestException(
-        "Configuring learner fields also requires learners.view.",
-      );
     if (
       permissions.includes("learners.import") &&
       !permissions.includes("learners.create")

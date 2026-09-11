@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { Invitation, Organisation } from "@tech4learn/contracts";
 import { api } from "./api";
+import { OrganisationSetup } from "./OrganisationSetup";
+import { CustomFields } from "./CustomFields";
 import { Learners } from "./Learners";
 
 type Scope = {
@@ -54,6 +56,7 @@ type Audit = {
 };
 type Snapshot = {
   access: Access;
+  modules?: Record<string, boolean>;
   catalogue: { key: string; label: string }[];
   roles: Role[];
   members: Member[];
@@ -70,11 +73,13 @@ const form = (e: FormEvent<HTMLFormElement>) => {
 export function OrganisationWorkspace({
   organisation: org,
   userId,
+  superadmin,
   onInvitation,
   onProfile,
 }: {
   organisation: Organisation;
   userId: string;
+  superadmin: boolean;
   onInvitation: (invite: Invitation) => void;
   onProfile: (org: Organisation) => void;
 }) {
@@ -100,9 +105,9 @@ export function OrganisationWorkspace({
   const [revision, setRevision] = useState(0);
   const base = `/organisations/${org.id}`;
   async function load() {
-    const current = await api<Pick<Snapshot, "access" | "catalogue">>(
-      `${base}/access`,
-    );
+    const current = await api<
+      Pick<Snapshot, "access" | "catalogue" | "modules">
+    >(`${base}/access`);
     const get = <T,>(permission: string, path: string) =>
       current.access.permissions.includes(permission)
         ? api<T[]>(base + path)
@@ -165,7 +170,16 @@ export function OrganisationWorkspace({
   }
   const tabs = [
     "Profile",
-    ...(can("learners.view") ? ["Learners"] : []),
+    ...(can("configuration.view") ? ["Setup"] : []),
+    ...(can("fields.view") ||
+    can("fields.manage") ||
+    can("centres.view") ||
+    can("groups.view")
+      ? ["Custom fields"]
+      : []),
+    ...(can("learners.view") && data?.modules?.learners !== false
+      ? ["Learners"]
+      : []),
     ...(can("centres.view") ? ["Centres"] : []),
     ...(can("groups.view") ? ["Groups"] : []),
     ...(can("roles.view") ? ["Roles"] : []),
@@ -187,6 +201,8 @@ export function OrganisationWorkspace({
   const selectedRole = data?.roles.find((r) => r.id === grantRole);
   const wide = selectedRole?.permissions.some((p) =>
     [
+      "configuration.view",
+      "configuration.manage",
       "fields.manage",
       "organisation.edit",
       "centres.create",
@@ -242,6 +258,35 @@ export function OrganisationWorkspace({
               </button>
             ))}
           </div>
+          {tab === "Setup" && (
+            <OrganisationSetup
+              org={org.id}
+              slug={org.slug}
+              superadmin={superadmin}
+              editable={can("configuration.manage")}
+              onSaved={() => {
+                void load()
+                  .then(setData)
+                  .catch((e) => setError(errorText(e)));
+                window.dispatchEvent(new Event("branding-updated"));
+              }}
+            />
+          )}
+          {tab === "Custom fields" && (
+            <CustomFields
+              org={org.id}
+              permissions={data.access.permissions}
+              records={{
+                organisation: [{ id: org.id, name: org.name }],
+                centres: data.centres,
+                groups: data.groups,
+                staff: data.members.map((m) => ({
+                  id: m.user_id,
+                  name: m.name,
+                })),
+              }}
+            />
+          )}
           {tab === "Learners" && (
             <Learners
               key={org.id}

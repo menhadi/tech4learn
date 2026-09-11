@@ -516,3 +516,13 @@ footer {
     padding: 22px;
   }
 }
+.setup-stack { display: grid; gap: 1rem; min-width: 0; }
+.setup-stack form, .setup-stack fieldset { min-width: 0; }
+.setup-stack textarea { width: 100%; min-height: 90px; border: 1px solid #c6d5cf; border-radius: 8px; padding: 12px; font: inherit; box-sizing: border-box; }
+.organisation-logo { display: block; width: auto; max-width: 150px; height: 64px; object-fit: contain; margin-bottom: 12px; }
+.subpanel { border-top: 1px solid #dce5e0; padding-top: 20px; }
+.template-academy .panel, .template-academy .entry-card { border-radius: 5px; border-top: 4px solid var(--org-colour); }
+.template-minimal .panel, .template-minimal .entry-card { box-shadow: none; border-radius: 0; }
+.template-minimal .welcome .entry-note { display: none; }
+.entry button:not(.secondary) { background: var(--org-colour, #175d50); }
+.brand { overflow-wrap: anywhere; }

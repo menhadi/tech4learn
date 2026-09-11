@@ -51,3 +51,11 @@ Next validation: organisation/authentication isolation when implemented; native 
 - Local browser checks with synthetic data passed: sign-in, demo learner listing/profile, Excel `.xlsx` upload and preview, confirmed import, code search, profile save and group transfer with retained history. Desktop layout inspected. No native code changed; no mobile hardware claim is made.
 - The locked Excel parser is the only new dependency. No real learner data or credentials are committed. `bash -n` passed for the new deployment script.
 - No live changes or migrations performed by the assistant. The user must deploy the checked release, apply migration 3 and verify against the server's PostgreSQL using `docs/learner-release.md`.
+
+## Organisation configuration — 12 September 2026
+
+- `npm run check` passed: workspace typechecks, 43 reported tests, API/admin production builds. The new server deployment script also passes `bash -n`.
+- Migration tests seed learner fields/data before migration 4 and verify the existing definitions survive. HTTP coverage includes scoped settings, stale configuration, invalid logo formats, superadmin-only module switches, learner API denial while disabled, module-specific field keys and values, typed/required/archived fields, scoped read/write denial, value version conflicts and demo cleanup.
+- Domain tests use stubbed DNS TXT responses to verify missing/wrong proof, unique hostname assignment, activation permission and hosting confirmation, exact Host/Origin checks, bound-host organisation isolation and revocation. Native HTTP requests exercise Host handling. These tests do not prove live DNS, HTTPS or certificate renewal.
+- Browser smoke checks on a disposable local database: sign-in, organisation Setup save, template/welcome preview on its branded sign-in link, creation of a required centre field, selection of an existing centre and saving its additional details. Desktop layouts inspected. All records and credentials were synthetic.
+- No new application dependency, mobile change, native build or assistant live write. User deployment, migration 4 and real-domain hosting checks remain required; see configuration-release.md.

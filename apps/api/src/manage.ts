@@ -1,6 +1,7 @@
 import { Database } from "./database.js";
 import { migration } from "./schema.js";
 import { accessMigration } from "./migration-access.js";
+import { configurationMigration } from "./migration-configuration.js";
 import { learnerMigration } from "./migration-learners.js";
 import { randomUUID } from "node:crypto";
 import { emailValue, field, hashPassword, passwordValue } from "./security.js";
@@ -76,8 +77,14 @@ try {
         ).rows.length
       )
         await sql.query(learnerMigration);
+      if (
+        !(
+          await sql.query("SELECT version FROM schema_versions WHERE version=4")
+        ).rows.length
+      )
+        await sql.query(configurationMigration);
     });
-    console.log("Database migrations through version 3 are applied.");
+    console.log("Database migrations through version 4 are applied.");
   } else if (command === "demo-create") {
     const result = await createDemo(db);
     const origin = process.env.ADMIN_ORIGIN || "http://localhost:5173";

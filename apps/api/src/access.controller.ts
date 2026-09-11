@@ -12,6 +12,7 @@ import { AccessService } from "./access.service.js";
 import { IdentityService } from "./identity.service.js";
 import { RecordsService } from "./records.service.js";
 import { session } from "./identity.controller.js";
+import { ConfigurationService } from "./configuration.service.js";
 import { permissionCatalogue } from "./access-model.js";
 @Controller("organisations/:org")
 export class AccessController {
@@ -19,6 +20,7 @@ export class AccessController {
     private readonly access: AccessService,
     private readonly identity: IdentityService,
     private readonly records: RecordsService,
+    private readonly configuration: ConfigurationService,
   ) {}
   private user(cookie?: string) {
     return this.identity.account(session(cookie));
@@ -29,6 +31,7 @@ export class AccessController {
   ) {
     return {
       access: await this.access.resolve(await this.user(cookie), org),
+      modules: (await this.configuration.settings(org)).enabled_modules,
       catalogue: permissionCatalogue.map(([key, label]) => ({ key, label })),
     };
   }

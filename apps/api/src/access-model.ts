@@ -1,4 +1,6 @@
 export const permissionCatalogue = [
+  ["configuration.view", "View organisation setup"],
+  ["configuration.manage", "Manage branding and domains"],
   ["learners.view", "View learners"],
   ["learners.create", "Add learners"],
   ["learners.edit", "Edit learners"],
@@ -29,6 +31,8 @@ export const permissionCatalogue = [
 export type Permission = (typeof permissionCatalogue)[number][0];
 export const allPermissions = permissionCatalogue.map(([key]) => key);
 export const widePermissions: Permission[] = [
+  "configuration.view",
+  "configuration.manage",
   "fields.manage",
   "organisation.edit",
   "roles.view",

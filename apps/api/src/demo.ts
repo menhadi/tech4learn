@@ -546,7 +546,7 @@ export async function removeDemo(db: Store, id: string) {
         [m.organisationIds],
       );
       await sql.query(
-        "DELETE FROM learner_fields WHERE organisation_id=ANY($1::uuid[])",
+        "DELETE FROM custom_fields WHERE organisation_id=ANY($1::uuid[])",
         [m.organisationIds],
       );
     }

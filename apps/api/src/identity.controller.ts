@@ -1,3 +1,4 @@
+import { ConfigurationService } from "./configuration.service.js";
 import {
   Body,
   Controller,
@@ -36,7 +37,10 @@ function setCookie(
 }
 @Controller()
 export class IdentityController {
-  constructor(private readonly identity: IdentityService) {}
+  constructor(
+    private readonly identity: IdentityService,
+    private readonly configuration: ConfigurationService,
+  ) {}
   @Post("auth/login")
   @HttpCode(200)
   async login(
@@ -47,9 +51,17 @@ export class IdentityController {
     return { ok: true };
   }
   @Get("auth/me")
-  async me(@Headers("cookie") cookie?: string) {
+  async me(@Headers("cookie") cookie?: string, @Headers("host") host?: string) {
     const user = await this.identity.account(session(cookie));
-    return { user, organisations: await this.identity.organisations(user) };
+    const binding = host ? await this.configuration.host(host) : null;
+    const organisations = await this.identity.organisations(user);
+    return {
+      user,
+      organisations: binding
+        ? organisations.filter((o) => o.id === binding.id)
+        : organisations,
+      organisationHost: !!binding,
+    };
   }
   @Post("auth/logout")
   @HttpCode(200)

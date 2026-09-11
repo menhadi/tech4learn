@@ -1,3 +1,4 @@
+import { configurationMigration } from "../dist/migration-configuration.js";
 import { learnerMigration } from '../dist/migration-learners.js';
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -44,6 +45,7 @@ test("role upgrade, delegation and location scopes through authenticated HTTP", 
   );
   await pg.exec(accessMigration);
   await pg.exec(learnerMigration);
+  await pg.exec(configurationMigration);
   const adapter = {
     query: (s, p) => pg.query(s, p),
     transaction: (run) =>

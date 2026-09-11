@@ -1,3 +1,4 @@
+import { configurationMigration } from "../dist/migration-configuration.js";
 import { learnerMigration } from '../dist/migration-learners.js';
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,6 +14,7 @@ test("identity and organisation permissions through HTTP with the PostgreSQL eng
   await pg.exec(migration);
   await pg.exec(accessMigration);
   await pg.exec(learnerMigration);
+  await pg.exec(configurationMigration);
   const adapter = {
     query: (sql, params) => pg.query(sql, params),
     transaction: (run) =>

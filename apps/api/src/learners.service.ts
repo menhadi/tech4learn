@@ -10,6 +10,7 @@ import { Database, type SqlClient } from "./database.js";
 import { AccessService } from "./access.service.js";
 import type { Account } from "./identity.service.js";
 import type { Access, Permission } from "./access-model.js";
+import { customValues } from "./custom-values.js";
 import { field, uuid } from "./security.js";
 type Body = Record<string, unknown>;
 interface Definition {
@@ -123,15 +124,21 @@ export class LearnersService {
       );
     return this.definitions(this.db, org);
   }
-  private async definitions(sql: SqlClient, org: string) {
+  async definitions(sql: SqlClient, org: string, module = "learners") {
     return (
       await sql.query<Definition>(
-        "SELECT * FROM learner_fields WHERE organisation_id=$1 ORDER BY archived,label",
-        [org],
+        "SELECT * FROM custom_fields WHERE organisation_id=$1 AND module=$2 ORDER BY archived,label",
+        [org, module],
       )
     ).rows;
   }
-  async saveField(user: Account, org: string, b: Body, id?: string) {
+  async saveField(
+    user: Account,
+    org: string,
+    b: Body,
+    id?: string,
+    module = "learners",
+  ) {
     return this.db.transaction(async (sql) => {
       await this.access.lock(sql, org);
       await this.access.require(user, org, "fields.manage", sql);
@@ -164,7 +171,9 @@ export class LearnersService {
       if (b.kind === "choice" && !b.options.length)
         throw new BadRequestException("Add choices.");
       const before = id
-        ? (await this.definitions(sql, org)).find((f) => f.id === uuid(id))
+        ? (await this.definitions(sql, org, module)).find(
+            (f) => f.id === uuid(id),
+          )
         : undefined;
       if (id && !before) throw new NotFoundException("Field not found.");
       if (
@@ -176,15 +185,22 @@ export class LearnersService {
         throw new ConflictException(
           "Keys/types and existing choices cannot change. Archive this field and create another.",
         );
-      if (!id && (await this.definitions(sql, org)).length >= 30)
+      if (!id && (await this.definitions(sql, org, module)).length >= 30)
         throw new ConflictException(
-          "This release supports 30 field definitions per organisation.",
+          "This release supports 30 field definitions per module.",
+        );
+      if (
+        !id &&
+        (await this.definitions(sql, org, module)).some((f) => f.key === key)
+      )
+        throw new ConflictException(
+          "That field key already exists in this module.",
         );
       const result = (
         await sql.query(
           id
-            ? "UPDATE learner_fields SET label=$3,required=$4,options=$5,archived=$6 WHERE organisation_id=$1 AND id=$2 RETURNING *"
-            : "INSERT INTO learner_fields(organisation_id,id,label,required,options,archived,key,kind) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",
+            ? "UPDATE custom_fields SET label=$3,required=$4,options=$5,archived=$6 WHERE organisation_id=$1 AND id=$2 AND module=$7 RETURNING *"
+            : "INSERT INTO custom_fields(organisation_id,id,label,required,options,archived,key,kind,module) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
           id
             ? [
                 org,
@@ -193,6 +209,7 @@ export class LearnersService {
                 b.required,
                 JSON.stringify(b.options),
                 b.archived,
+                module,
               ]
             : [
                 org,
@@ -203,6 +220,7 @@ export class LearnersService {
                 b.archived,
                 key,
                 b.kind,
+                module,
               ],
         )
       ).rows[0];
@@ -261,53 +279,11 @@ export class LearnersService {
         : before?.guardian_phone || "";
     if (guardian_phone && !/^[+0-9 ()-]{5,40}$/.test(guardian_phone))
       throw new BadRequestException("Invalid guardian phone.");
-    const values = object(b.custom_values ?? {}),
-      defs = await this.definitions(sql, org);
-    const custom_values: Body = { ...before?.custom_values };
-    for (const key of Object.keys(values))
-      if (!defs.some((f) => f.key === key))
-        throw new BadRequestException(`Unknown custom field: ${key}`);
-    for (const f of defs) {
-      if (f.archived) {
-        if (
-          values[f.key] !== undefined &&
-          JSON.stringify(values[f.key]) !==
-            JSON.stringify(before?.custom_values[f.key])
-        )
-          throw new BadRequestException(
-            `Archived field ${f.label} cannot be changed.`,
-          );
-        continue;
-      }
-      let v = values[f.key];
-      if (v === undefined || v === null || v === "") {
-        if (f.required)
-          throw new BadRequestException(`${f.label} is required.`);
-        delete custom_values[f.key];
-        continue;
-      }
-      if (f.kind === "text") v = field(v, f.label, 500);
-      if (f.kind === "number" && (typeof v !== "number" || !Number.isFinite(v)))
-        throw new BadRequestException(`${f.label} must be a number.`);
-      if (f.kind === "boolean" && typeof v !== "boolean")
-        throw new BadRequestException(`${f.label} must be true or false.`);
-      if (
-        f.kind === "choice" &&
-        (typeof v !== "string" || !f.options.includes(v))
-      )
-        throw new BadRequestException(`Choose an option for ${f.label}.`);
-      if (
-        f.kind === "date" &&
-        (typeof v !== "string" ||
-          !/^\d{4}-\d{2}-\d{2}$/.test(v) ||
-          !Number.isFinite(new Date(v).getTime()) ||
-          new Date(v).toISOString().slice(0, 10) !== v)
-      )
-        throw new BadRequestException(
-          `${f.label} needs a valid YYYY-MM-DD date.`,
-        );
-      custom_values[f.key] = v;
-    }
+    const custom_values = customValues(
+      await this.definitions(sql, org),
+      b.custom_values ?? {},
+      before?.custom_values,
+    );
     const exists = await sql.query(
       "SELECT id FROM learners WHERE organisation_id=$1 AND code=$2 AND id<>$3",
       [org, code, before?.id || randomUUID()],
@@ -488,12 +464,14 @@ export class LearnersService {
         names.add(key);
         results.push({ row: i + 2, value: v, error: null, warning });
       } catch (e) {
-        if (!(
-          e instanceof BadRequestException ||
-          e instanceof ConflictException ||
-          e instanceof ForbiddenException ||
-          e instanceof NotFoundException
-        ))
+        if (
+          !(
+            e instanceof BadRequestException ||
+            e instanceof ConflictException ||
+            e instanceof ForbiddenException ||
+            e instanceof NotFoundException
+          )
+        )
           throw e;
         results.push({ row: i + 2, error: e.message, warning: null });
       }
