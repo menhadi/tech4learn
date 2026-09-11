@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { emailValue, field, hashPassword, passwordValue } from "./security.js";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
+import { createDemo, inspectDemo, removeDemo } from "./demo.js";
 
 async function secretPrompt(): Promise<string> {
   if (!stdin.isTTY)
@@ -65,6 +66,34 @@ try {
         await sql.query(accessMigration);
     });
     console.log("Database migrations through version 2 are applied.");
+  } else if (command === "demo-create") {
+    const result = await createDemo(db);
+    const origin = process.env.ADMIN_ORIGIN || "http://localhost:5173";
+    console.log(
+      JSON.stringify(
+        {
+          ...result,
+          invitations: result.invitations.map((i) => ({
+            email: i.email,
+            state: i.state,
+            url: `${origin}/#invite=${i.token}`,
+          })),
+        },
+        null,
+        2,
+      ),
+    );
+  } else if (command === "demo-inspect") {
+    console.log(
+      JSON.stringify(await inspectDemo(db, process.argv[3] || ""), null, 2),
+    );
+  } else if (command === "demo-remove") {
+    const id = process.argv[3];
+    if (!id || process.argv[4] !== `--confirm=${id}`)
+      throw new Error(
+        "First run demo-inspect DATASET_ID. To permanently remove that demo dataset, run demo-remove DATASET_ID --confirm=DATASET_ID.",
+      );
+    console.log(JSON.stringify(await removeDemo(db, id), null, 2));
   } else if (command === "bootstrap") {
     const rl = createInterface({ input: stdin, output: stdout });
     const email = emailValue(await rl.question("Superadmin email: "));

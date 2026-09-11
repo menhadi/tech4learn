@@ -36,3 +36,10 @@ Next validation: organisation/authentication isolation when implemented; native 
 - Local browser smoke checks with disposable synthetic data: sign in, create an organisation, save centre/group/custom role, prepare a group-scoped invitation, and sign in as that member. Restricted account shows only Profile/Centres/Groups with profile editing disabled and no group mutation controls. Desktop and 390px-wide layout inspected.
 - No native changes or device build. No live changes or migrations performed by the assistant. User deployment and real PostgreSQL upgrade verification remain required; use `docs/access-release.md`.
 - No new dependencies or infrastructure. All test accounts and preview data are synthetic and excluded from Git.
+
+## Removable demo dataset — 11 September 2026
+
+- `npm run check`: 30 reported tests, all workspace typechecks and API/admin production builds.
+- Demo tests run the actual fixture against disposable PostgreSQL, sign in through HTTP as all ten generated accounts, verify restricted and suspended access, exercise valid/expired invitation acceptance, refuse duplicate creation, and remove seeded/test-added data while preserving an unrelated organisation and account.
+- Injected seed failure rolls back all partial inserts. Removal refuses unknown IDs, demo superadmins, external memberships and external invitations. Generated credentials/tokens are absent from database audit metadata. No real records, passwords or live environment files were used.
+- Demo operations are explicit server CLI actions for the user. No new schema, dependency, native changes or assistant live writes. The existing web UI is unchanged.

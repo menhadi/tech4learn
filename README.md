@@ -51,6 +51,8 @@ The identity integration tests use PGlite's embedded PostgreSQL engine with synt
 
 See [the access release](docs/access-release.md) for upgrading an existing installation to migration 2, verification and recovery constraints. The [identity deployment guide](docs/identity-deployment.md) records initial database creation and bootstrap. Do not rerun the first-install script or bootstrap on an existing deployment.
 
+For synthetic testing, use the explicit [removable demo dataset](docs/demo-data.md). It creates two separate organisations, scoped test logins, centre/group examples and invitations. Creation and removal are user-run CLI operations; real organisations are not seeded or overwritten.
+
 ## Structure
 
 | Directory | Responsibility |
