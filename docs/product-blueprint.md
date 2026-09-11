@@ -1,0 +1,57 @@
+# Agreed product blueprint
+
+## Purpose
+
+Make educational work easy, accurate and technology-enabled, saving teachers and field staff time in attendance, assessments, exam preparation, marking and reporting. Prioritise low-income learners, government-school programmes and NGOs, with CSR partners as potential funders. Also support coaching centres and other learning organisations.
+
+Multi-tenant SaaS: superadmin manages the platform; organisation admins manage their own branded operations. The model is not restricted to school/class hierarchies.
+
+## Interfaces and configuration
+
+- Mobile app for daily work and learner activities.
+- Web administration for superadmins, organisation admins and authorised programme staff.
+- One/two-page public site at tech4learn.com; hosting and DNS already exist.
+- Configurable branding, terminology, structures, forms, typed custom fields, roles, workflows, reports and enabled modules.
+- Editable templates are starting points. Changes must preserve historical records.
+- One shared app loading organisation branding is the initial recommendation. Separate app-store apps are not agreed.
+- Organisation data stays separate. CSR/NGO partnerships can be many-to-many, with explicitly authorised, scoped sharing.
+- Simple screens, speed, automatic saving, recovery and cost control are core requirements.
+
+## Attendance
+
+Support classroom/group photos, physical-register photos, manual correction and future CCTV connectors. Recognition provider is not selected.
+
+1. Register and approve centre coordinates separately from map village/address labels.
+2. Assign authorised staff, groups and learners.
+3. Capture a fresh in-app photo and contemporaneous device location.
+4. Record coordinates, reported accuracy, location-reading time, capture time and server receipt time. Staff cannot edit captured evidence.
+5. Compare distance with the centre's permitted area; do not require coordinate equality.
+6. Acceptable readings within range are location-verified. Outside-range submissions are accepted with a warning for review. Missing/inaccurate readings request retry or review.
+7. Keep location verification separate from attendance recognition. GPS does not prove every learner's presence.
+8. Preserve evidence and a history of review/correction.
+
+Organisations configure distance and review policies. Pilot testing establishes thresholds, accuracy and freshness limits. Prevent editing in the app without claiming device GPS is tamper-proof. Distinguish fresh capture, gallery uploads, registers and CCTV sources. Capture location for the workflow, not continuous tracking.
+
+## Interactive learning assessment
+
+Primarily digital: speaking, reading aloud, listening, visual interaction, numerical solving and explaining reasoning. Use evidence and adaptive follow-ups to investigate understanding. Present possible gaps for review rather than diagnosing from a single wrong answer.
+
+Use NIPUN, ASER and appropriate international resources through APIs where available and documents otherwise. Do not assume frameworks offer assessment APIs. Imports create reviewable drafts containing source, version, language, competencies, instructions and rubrics. Verify reuse rights and label adaptations. Preserve assessment versions used for past results.
+
+Paper/pencil and teacher observations remain available for remote contexts and feed the same learner profile with administration mode recorded. Primary direction is online, technology-led use with safe retry/resume; full offline AI operation is not assumed.
+
+Connect findings to activities, intervention, reassessment and progress. Start with available resources; improve with field evidence and teacher input. Pilot grades, language, size and cadence are not fixed.
+
+## ExamElite
+
+The user confirms ExamElite provides complete exam capabilities and millions of questions. Integrate question selection, exam creation/delivery, online/paper/OMR workflows, subjective exams, evaluation and results. Do not rebuild its engine or question bank.
+
+Verify actual APIs, permissions, stable learner identity mapping, question/version references and result synchronisation. An existing web interface does not establish external API availability. Present integrated workflows within Tech4Learn with appropriate branding.
+
+## Future options
+
+CCTV, parent messaging, community volunteers, real-life concept videos, resource sharing, broader assessments, automation rules, sponsor reporting and additional providers. These are expansion options, not all first-release commitments.
+
+## Success measures
+
+Teacher time saved, review/correction rates, agreement with qualified assessment review, successful tasks on inexpensive devices, useful follow-up actions and cost per active learner. Establish targets with the pilot partner; no measured outcomes are claimed yet.

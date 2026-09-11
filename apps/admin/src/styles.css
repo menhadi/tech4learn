@@ -1,0 +1,14 @@
+:root { font-family: system-ui, sans-serif; color: #173b38; background: #f5f7f3; line-height: 1.6; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 880px; margin: auto; padding: 48px 24px; }
+.brand { font-weight: 800; letter-spacing: .14em; font-size: 14px; }
+.eyebrow { margin-top: 72px; color: #506963; }
+h1 { font-size: clamp(36px, 6vw, 60px); letter-spacing: -.04em; line-height: 1.1; margin: 16px 0; }
+.intro { max-width: 650px; font-size: 20px; }
+section { margin-top: 40px; padding: 28px; border: 1px solid #c8d5cc; border-radius: 16px; background: white; }
+h2 { margin-top: 0; font-size: 23px; }
+button { background: #175d50; color: white; border: 0; border-radius: 8px; padding: 13px 18px; font: inherit; cursor: pointer; }
+button:disabled { opacity: .65; cursor: wait; }
+button:focus-visible { outline: 3px solid #b66d0b; outline-offset: 4px; }
+footer { margin-top: 32px; color: #506963; font-size: 14px; }
