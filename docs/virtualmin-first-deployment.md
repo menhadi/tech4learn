@@ -1,6 +1,6 @@
 # First deployment on Virtualmin
 
-The user deploys from the root terminal. Assistant access stays read-only. Start on tech4learn.com now; staging will be added later. This deploys only the clearly labelled scaffold: no login, learner records or attendance functionality yet.
+Historical first-scaffold deployment guide (9f35c83). The user deploys from the root terminal; assistant access stays read-only. This installation is now complete. For the identity release use [identity deployment](identity-deployment.md); do not rerun the first-install script.
 
 ## Confirmed inventory
 
@@ -30,7 +30,7 @@ Checksums were retrieved from https://nodejs.org/dist/v24.19.0/SHASUMS256.txt . 
 In Virtualmin select tech4learn.com. Record its existing website/proxy settings and take a domain configuration backup through Virtualmin before changing routing. Configure the website proxy destination to http://127.0.0.1:3101/ for this domain. Virtualmin exposes a supported CLI alternative:
 
 ```bash
-virtualmin modify-web --domain tech4learn.com --proxy http://127.0.0.1:3101/
+virtualmin create-proxy --domain tech4learn.com --path / --url http://127.0.0.1:3101/
 apache2ctl configtest
 ```
 
@@ -54,10 +54,12 @@ Do not rerun the first-install script. For this scaffold's next update: record t
 If setup fails before domain routing, the existing website remains routed as before. If the domain proxy fails after switching, restore the previous website/proxy settings from the recorded configuration/Virtualmin backup. Where the previous mode was ordinary local-file hosting with no proxy, the documented undo is:
 
 ```bash
-virtualmin modify-web --domain tech4learn.com --no-proxy
+virtualmin delete-proxy --domain tech4learn.com --path /
 apache2ctl configtest
 ```
 
-Do not use --no-proxy if the previous site already used a proxy; restore its exact prior target instead. Restore the prior commit/build to roll back application code. No database migrations exist in this release.
+Do not delete the proxy if the previous site already used a proxy; restore its exact prior target instead. Restore the prior commit/build to roll back application code. No database migrations existed in the initial scaffold release.
 
-Virtualmin reference: https://www.virtualmin.com/docs/development/api-programs/modify-web/ .
+The installed Virtualmin rejected modify-web --proxy. The dedicated create-proxy command was confirmed working on this server. References: https://www.virtualmin.com/docs/development/api-programs/create-proxy/ and https://www.virtualmin.com/docs/development/api-programs/delete-proxy/ .
+
+HTTPS uses a Cloudflare Origin certificate installed only for tech4learn.com. Keep the DNS record proxied and SSL Full (strict). Webmin's global ACME client and system Python packages were not changed; do not use the broken shared Certbot invocation for this domain. Track the Origin certificate expiration separately.

@@ -1,48 +1,730 @@
-import { StrictMode, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import type { HealthResponse } from '@tech4learn/contracts';
-import './styles.css';
+import {
+  StrictMode,
+  useEffect,
+  useState,
+  type FormEvent,
+  type CSSProperties,
+} from "react";
+import { createRoot } from "react-dom/client";
+import type {
+  Invitation,
+  InvitationPreview,
+  Organisation,
+  SessionResponse,
+} from "@tech4learn/contracts";
+import "./styles.css";
+
+const base = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:3000/api/v1" : "/api/v1")
+).replace(/\/$/, "");
+class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+async function api<T>(
+  path: string,
+  method = "GET",
+  body?: unknown,
+): Promise<T> {
+  const response = await fetch(`${base}${path}`, {
+    method,
+    credentials: "include",
+    signal: AbortSignal.timeout(15000),
+    headers:
+      body === undefined
+        ? {}
+        : { "Content-Type": "application/json", "X-Tech4Learn-Request": "1" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok)
+    throw new ApiError(
+      typeof result?.message === "string"
+        ? result.message
+        : "Something went wrong. Please try again.",
+      response.status,
+    );
+  return result;
+}
+const message = (error: unknown) =>
+  error instanceof Error
+    ? error.message
+    : "Unable to connect. Please try again.";
+function values(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+  return Object.fromEntries(new FormData(event.currentTarget));
+}
+function PasswordField({
+  label = "Password",
+  name = "password",
+  isNew = false,
+}: {
+  label?: string;
+  name?: string;
+  isNew?: boolean;
+}) {
+  return (
+    <label>
+      {label}
+      <input
+        name={name}
+        type="password"
+        autoComplete={isNew ? "new-password" : "current-password"}
+        minLength={isNew ? 15 : undefined}
+        maxLength={128}
+        required
+      />
+      {isNew && (
+        <small>At least 15 characters. A memorable phrase works well.</small>
+      )}
+    </label>
+  );
+}
 
 function App() {
-  const [status, setStatus] = useState('Connection not checked');
+  const [session, setSession] = useState<SessionResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [selected, setSelected] = useState("");
+  const [page, setPage] = useState<"organisations" | "password">(
+    "organisations",
+  );
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
+  const [inviteToken, setInviteToken] = useState(
+    () => new URLSearchParams(location.hash.slice(1)).get("invite") || "",
+  );
+  const [preview, setPreview] = useState<InvitationPreview | null>(null);
+  const [query, setQuery] = useState("");
+  const [creating, setCreating] = useState(false);
 
-  async function checkConnection() {
+  async function refresh() {
+    const result = await api<SessionResponse>("/auth/me");
+    setSession(result);
+    setSelected((previous) =>
+      result.organisations.some((org) => org.id === previous)
+        ? previous
+        : result.organisations[0]?.id || "",
+    );
+  }
+  useEffect(() => {
+    refresh()
+      .catch((err) => {
+        if (!(err instanceof ApiError && err.status === 401))
+          setError(message(err));
+      })
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => {
+    const update = () => {
+      setPreview(null);
+      setError("");
+      setInviteToken(
+        new URLSearchParams(location.hash.slice(1)).get("invite") || "",
+      );
+    };
+    window.addEventListener("hashchange", update);
+    return () => window.removeEventListener("hashchange", update);
+  }, []);
+  useEffect(() => {
+    let active = true;
+    if (inviteToken)
+      api<InvitationPreview>("/invitations/preview", "POST", {
+        token: inviteToken,
+      })
+        .then((value) => {
+          if (active) setPreview(value);
+        })
+        .catch((err) => {
+          if (active) setError(message(err));
+        });
+    return () => {
+      active = false;
+    };
+  }, [inviteToken]);
+  async function act(work: () => Promise<void>) {
     setBusy(true);
-    setStatus('Checking connection…');
+    setError("");
+    setNotice("");
     try {
-      const url = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
-      const response = await fetch(`${url.replace(/\/$/, '')}/health`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      if (!response.ok) throw new Error('API unavailable');
-      const data = (await response.json()) as Partial<HealthResponse>;
-      if (data.status !== 'ok' || data.service !== 'tech4learn-api') {
-        throw new Error('Unexpected response');
+      await work();
+    } catch (err) {
+      setError(message(err));
+      if (err instanceof ApiError && err.status === 401 && session) {
+        setSession(null);
+        setInvitation(null);
       }
-      setStatus('API connected. Organisation features are not yet available.');
-    } catch {
-      setStatus('Unable to connect. Check the API address and that the server is running.');
     } finally {
       setBusy(false);
     }
   }
+  function dismissInvite() {
+    history.replaceState(null, "", location.pathname + location.search);
+    setInviteToken("");
+    setPreview(null);
+    setError("");
+  }
+  const org = session?.organisations.find((item) => item.id === selected);
+  const superadmin = !!session?.user.is_superadmin;
+  const visibleOrgs =
+    session?.organisations.filter((item) =>
+      `${item.name} ${item.slug}`.toLowerCase().includes(query.toLowerCase()),
+    ) || [];
+  const inviteUrl = invitation
+    ? `${location.origin}${location.pathname}#invite=${invitation.token}`
+    : "";
+  const feedback = (
+    <>
+      {error && (
+        <div className="alert error" role="alert">
+          {error}
+        </div>
+      )}
+      {notice && (
+        <div className="alert success" role="status">
+          {notice}
+        </div>
+      )}
+    </>
+  );
+  const signIn = (
+    <form
+      onSubmit={(event) => {
+        const body = values(event);
+        void act(async () => {
+          await api("/auth/login", "POST", body);
+          await refresh();
+        });
+      }}
+    >
+      <label>
+        Email address
+        <input
+          name="email"
+          type="email"
+          autoComplete="username"
+          required
+          defaultValue={preview?.email}
+        />
+      </label>
+      <PasswordField />
+      <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+      <p className="muted">
+        Access is by invitation. Contact your platform administrator if you need
+        access or help signing in.
+      </p>
+    </form>
+  );
+
+  if (loading)
+    return (
+      <main className="loading" role="status">
+        Loading Tech4Learn…
+      </main>
+    );
+  if (inviteToken)
+    return (
+      <main className="entry">
+        <a className="brand" href="/">
+          TECH4LEARN
+        </a>
+        <section className="entry-card">
+          <p className="eyebrow">Organisation invitation</p>
+          <h1>
+            {preview ? `Join ${preview.organisationName}` : "Your invitation"}
+          </h1>
+          {feedback}
+          {preview && (
+            <>
+              <p>
+                Admin access for <strong>{preview.email}</strong>.
+              </p>
+              {preview.existingAccount && !session ? (
+                <>
+                  <p>
+                    Sign in to your existing account to accept this invitation.
+                  </p>
+                  {signIn}
+                </>
+              ) : (
+                <form
+                  onSubmit={(event) => {
+                    const body = values(event);
+                    void act(async () => {
+                      await api("/invitations/accept", "POST", {
+                        ...body,
+                        token: inviteToken,
+                      });
+                      dismissInvite();
+                      if (session) await refresh();
+                      else
+                        setNotice(
+                          "Account created. Sign in with your email and new password.",
+                        );
+                    });
+                  }}
+                >
+                  {!preview.existingAccount && (
+                    <>
+                      <label>
+                        Your name
+                        <input
+                          name="name"
+                          autoComplete="name"
+                          maxLength={120}
+                          required
+                        />
+                      </label>
+                      <PasswordField isNew />
+                    </>
+                  )}
+                  {preview.existingAccount && (
+                    <p>Signed in as {session?.user.email}.</p>
+                  )}
+                  <button disabled={busy}>
+                    {busy ? "Saving…" : "Accept invitation"}
+                  </button>
+                </form>
+              )}
+            </>
+          )}
+          <button className="text-button" onClick={dismissInvite}>
+            Back to administration
+          </button>
+        </section>
+      </main>
+    );
+  if (!session)
+    return (
+      <main className="entry">
+        <a className="brand" href="/">
+          TECH4LEARN
+        </a>
+        <div className="entry-layout">
+          <div className="welcome">
+            <p className="eyebrow">More time for learning</p>
+            <h1>
+              Your organisation.
+              <br />
+              Your way of working.
+            </h1>
+            <p>
+              One place to organise your education programmes and give your team
+              the access they need.
+            </p>
+            <div className="entry-note">
+              Built for coaching, NGOs and community learning.
+            </div>
+          </div>
+          <section className="entry-card">
+            <h2>Welcome back</h2>
+            <p className="muted">Sign in to your administration workspace.</p>
+            {feedback}
+            {signIn}
+          </section>
+        </div>
+      </main>
+    );
 
   return (
-    <main>
-      <span className="brand">TECH4LEARN</span>
-      <p className="eyebrow">Platform foundation</p>
-      <h1>More time for learning.</h1>
-      <p className="intro">A shared platform for education programmes, with each organisation’s own identity and ways of working.</p>
-      <section aria-labelledby="status-heading">
-        <h2 id="status-heading">Administration is taking shape</h2>
-        <p>This is the initial application shell. Login, organisation setup, attendance, learning assessments, and ExamElite integration are planned next.</p>
-        <button onClick={checkConnection} disabled={busy}>{busy ? 'Checking…' : 'Check API connection'}</button>
-        <p role="status">{status}</p>
-      </section>
-      <footer>Development scaffold · No learner records are collected here.</footer>
-    </main>
+    <div
+      className="workspace"
+      style={{ "--org-colour": org?.colour || "#175d50" } as CSSProperties}
+    >
+      <aside>
+        <a className="brand" href="/">
+          TECH4LEARN
+        </a>
+        <span className="role-badge">
+          {superadmin
+            ? "Platform administration"
+            : "Organisation administration"}
+        </span>
+        <nav aria-label="Administration">
+          <button
+            className={page === "organisations" ? "nav-active" : ""}
+            onClick={() => {
+              setPage("organisations");
+              setError("");
+            }}
+          >
+            {superadmin ? "Organisations" : "My organisation"}
+          </button>
+          <button
+            className={page === "password" ? "nav-active" : ""}
+            onClick={() => {
+              setPage("password");
+              setError("");
+            }}
+          >
+            Account security
+          </button>
+        </nav>
+        <div className="account">
+          <strong>{session.user.name}</strong>
+          <small>{session.user.email}</small>
+          <button
+            className="text-button"
+            disabled={busy}
+            onClick={() =>
+              void act(async () => {
+                await api("/auth/logout", "POST", {});
+                setSession(null);
+                setInvitation(null);
+              })
+            }
+          >
+            Sign out
+          </button>
+        </div>
+      </aside>
+      <main className="content">
+        <header>
+          <div>
+            <p className="eyebrow">
+              {superadmin
+                ? "Your learning network"
+                : org?.name || "Your workspace"}
+            </p>
+            <h1>
+              {page === "password"
+                ? "Account security"
+                : superadmin
+                  ? "Organisations"
+                  : "Organisation settings"}
+            </h1>
+          </div>
+          {superadmin && page === "organisations" && (
+            <button
+              onClick={() => {
+                setCreating(!creating);
+                setError("");
+              }}
+            >
+              {creating ? "Close form" : "+ Add organisation"}
+            </button>
+          )}
+        </header>
+        {feedback}
+        {page === "password" ? (
+          <section className="panel narrow">
+            <h2>Change your password</h2>
+            <p className="muted">
+              Changing your password signs out all your sessions.
+            </p>
+            <form
+              onSubmit={(event) => {
+                const body = values(event);
+                void act(async () => {
+                  await api("/auth/password", "POST", body);
+                  setSession(null);
+                  setInvitation(null);
+                  setNotice("Password updated. Please sign in again.");
+                });
+              }}
+            >
+              <PasswordField name="currentPassword" label="Current password" />
+              <PasswordField label="New password" isNew />
+              <button disabled={busy}>
+                {busy ? "Saving…" : "Change password"}
+              </button>
+            </form>
+          </section>
+        ) : (
+          <>
+            {invitation && (
+              <section className="panel invite-result" role="status">
+                <h2>Invitation ready</h2>
+                <p>
+                  Share this link privately with{" "}
+                  <strong>{invitation.email}</strong>. It expires{" "}
+                  {new Date(invitation.expiresAt).toLocaleString()} and can be
+                  used once. No email has been sent.
+                </p>
+                <label>
+                  Invitation link
+                  <input
+                    readOnly
+                    value={inviteUrl}
+                    onFocus={(event) => event.target.select()}
+                  />
+                </label>
+                <div className="actions">
+                  <button
+                    className="secondary"
+                    onClick={() =>
+                      void act(async () => {
+                        await navigator.clipboard.writeText(inviteUrl);
+                        setNotice("Invitation link copied.");
+                      })
+                    }
+                  >
+                    Copy link
+                  </button>
+                  <button
+                    className="text-button"
+                    onClick={() => setInvitation(null)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </section>
+            )}
+            {creating && superadmin && (
+              <section className="panel">
+                <h2>Create an organisation</h2>
+                <p className="muted">
+                  Give the organisation its own workspace and invite its first
+                  administrator.
+                </p>
+                <form
+                  className="form-grid"
+                  onSubmit={(event) => {
+                    const body = values(event);
+                    void act(async () => {
+                      const result = await api<{
+                        organisation: Organisation;
+                        invitation: Invitation;
+                      }>("/organisations", "POST", body);
+                      setInvitation(result.invitation);
+                      await refresh();
+                      setSelected(result.organisation.id);
+                      setCreating(false);
+                      setNotice(
+                        "Organisation created. Share the invitation below.",
+                      );
+                    });
+                  }}
+                >
+                  <label>
+                    Organisation name
+                    <input
+                      name="name"
+                      placeholder="e.g. Community Learning Trust"
+                      maxLength={120}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Organisation address
+                    <input
+                      name="slug"
+                      placeholder="community-learning"
+                      pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                      maxLength={60}
+                      required
+                    />
+                    <small>
+                      A unique internal name, using lowercase letters and
+                      hyphens.
+                    </small>
+                  </label>
+                  <label>
+                    Administrator email
+                    <input name="adminEmail" type="email" required />
+                  </label>
+                  <div className="form-submit">
+                    <button disabled={busy}>
+                      {busy ? "Creating…" : "Create & prepare invitation"}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            )}
+            {!session.organisations.length ? (
+              <section className="panel empty">
+                <h2>
+                  {superadmin
+                    ? "Start with your first organisation"
+                    : "No organisation access yet"}
+                </h2>
+                <p>
+                  {superadmin
+                    ? "Add an NGO, coaching centre or education programme to begin."
+                    : "Accept an organisation invitation or contact your platform administrator."}
+                </p>
+              </section>
+            ) : (
+              <div className="org-layout">
+                <section className="panel org-list">
+                  <h2>
+                    {superadmin
+                      ? "Organisation directory"
+                      : "Your organisations"}
+                  </h2>
+                  <label className="search-label">
+                    Search
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Find an organisation"
+                    />
+                  </label>
+                  <div className="org-items">
+                    {visibleOrgs.map((item) => (
+                      <button
+                        key={item.id}
+                        className={`org-item ${selected === item.id ? "selected" : ""}`}
+                        aria-pressed={selected === item.id}
+                        onClick={() => {
+                          setSelected(item.id);
+                          setError("");
+                          setNotice("");
+                        }}
+                      >
+                        <span
+                          className="org-mark"
+                          style={{ background: item.colour }}
+                          aria-hidden="true"
+                        />
+                        <span>
+                          <strong>{item.name}</strong>
+                          <small>{item.slug}</small>
+                        </span>
+                        <span aria-hidden="true">→</span>
+                      </button>
+                    ))}
+                    {!visibleOrgs.length && (
+                      <p className="muted">No matching organisations.</p>
+                    )}
+                  </div>
+                  <small className="muted">
+                    {session.organisations.length} organisation
+                    {session.organisations.length === 1 ? "" : "s"} shown
+                  </small>
+                </section>
+                {org && (
+                  <div key={org.id}>
+                    <section className="panel">
+                      <div className="org-heading">
+                        <span className="org-mark large" aria-hidden="true" />
+                        <div>
+                          <p className="eyebrow">Organisation profile</p>
+                          <h2>{org.name}</h2>
+                        </div>
+                      </div>
+                      <form
+                        onSubmit={(event) => {
+                          const body = values(event);
+                          void act(async () => {
+                            const saved = await api<Organisation>(
+                              `/organisations/${org.id}`,
+                              "PATCH",
+                              body,
+                            );
+                            setSession((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    organisations: current.organisations.map(
+                                      (item) =>
+                                        item.id === saved.id ? saved : item,
+                                    ),
+                                  }
+                                : null,
+                            );
+                            setNotice("Organisation settings saved.");
+                          });
+                        }}
+                      >
+                        <label>
+                          Display name
+                          <input
+                            name="name"
+                            defaultValue={org.name}
+                            maxLength={120}
+                            required
+                          />
+                        </label>
+                        <div className="form-grid">
+                          <label>
+                            Brand colour
+                            <input
+                              name="colour"
+                              type="color"
+                              defaultValue={org.colour}
+                              required
+                            />
+                            <small>Used for the organisation mark.</small>
+                          </label>
+                          <label>
+                            Your word for a centre
+                            <input
+                              name="centre_label"
+                              defaultValue={org.centre_label}
+                              maxLength={40}
+                              required
+                            />
+                            <small>
+                              For example: Centre, School, Hub or Branch.
+                            </small>
+                          </label>
+                        </div>
+                        <button disabled={busy}>
+                          {busy ? "Saving…" : "Save settings"}
+                        </button>
+                      </form>
+                    </section>
+                    {superadmin && (
+                      <section className="panel">
+                        <h2>Invite an administrator</h2>
+                        <p className="muted">
+                          Prepare a new link, or replace an expired invitation
+                          for this organisation.
+                        </p>
+                        <form
+                          onSubmit={(event) => {
+                            const body = values(event);
+                            void act(async () => {
+                              setInvitation(
+                                await api<Invitation>(
+                                  `/organisations/${org.id}/invitations`,
+                                  "POST",
+                                  body,
+                                ),
+                              );
+                            });
+                          }}
+                        >
+                          <label>
+                            Administrator email
+                            <input name="email" type="email" required />
+                          </label>
+                          <button className="secondary" disabled={busy}>
+                            Prepare invitation
+                          </button>
+                        </form>
+                      </section>
+                    )}
+                    <section className="panel next">
+                      <p className="eyebrow">Coming next</p>
+                      <h2>Tools for your programme</h2>
+                      <p>
+                        Photo attendance, interactive learning assessments and
+                        ExamElite exams will be added here. These modules are
+                        not available yet.
+                      </p>
+                    </section>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+        <footer>Tech4Learn · Organisation administration</footer>
+      </main>
+    </div>
   );
 }
-
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);

@@ -8,6 +8,8 @@ Requirements and architecture; local Git and workspaces; API liveness, web conne
 
 Authentication, memberships, permissions, branding, configurable centres/groups, learners and basic typed custom fields. Agree the data model before migrations. Validate isolation with negative access tests.
 
+The first M1 slice is implemented locally: identity/session persistence, superadmin bootstrap, organisation creation, organisation-admin invitations, scoped profiles and basic name/colour/centre terminology. Remaining M1 work includes actual centres/groups, learners, typed fields, role expansion, account revocation and recovery/MFA. Live database setup and identity deployment are still user-operated pending steps.
+
 ## M2 — Attendance
 
 Approved coordinates, staff assignment, capture, upload, configurable geofence decision, recognition/review and final records. Validate on inexpensive Android devices: denied permissions, weak GPS, duplicate submissions and interrupted uploads. Select recognition after representative sample evaluation.

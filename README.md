@@ -4,9 +4,9 @@ Configurable education SaaS for NGOs, government-school programmes, coaching cen
 
 ## Current status
 
-Initial scaffold only: Expo mobile shell, React admin shell with an API connection check, NestJS liveness endpoint, shared TypeScript contracts and documentation.
+The first administration release implements PostgreSQL-backed login/logout, password changes, superadmin organisation creation, single-use organisation-admin invitations, tenant-scoped organisation profiles, and audit events. React administration supports these workflows. The Expo mobile app remains a shell.
 
-Authentication, tenant isolation, database persistence, camera/location capture, FLN, AI and ExamElite integration are **not implemented**. Do not onboard learners or expose this as an operational production service.
+Camera/location capture, learners, FLN, AI, ExamElite, custom roles, configurable forms, email delivery, self-service password recovery and MFA are **not implemented**. Organisation access checks cover the current identity/profile endpoints; future modules must implement their own scope checks. Do not onboard learners yet.
 
 ## Local setup
 
@@ -17,6 +17,16 @@ npm ci
 ```
 
 Copy `apps/api/.env.example` to `apps/api/.env` and `apps/admin/.env.example` to `apps/admin/.env`. Run these in separate terminals:
+
+For login, first provision a dedicated local PostgreSQL database and set `DATABASE_URL` in `apps/api/.env`. Build and initialise it (bootstrap prompts for the first superadmin; there are no default credentials):
+
+```sh
+npm run build --workspace @tech4learn/api
+node --env-file=apps/api/.env apps/api/dist/manage.js migrate
+node --env-file=apps/api/.env apps/api/dist/manage.js bootstrap
+```
+
+Then start the required clients:
 
 ```sh
 npm run dev:api
@@ -36,6 +46,10 @@ npm run check
 ```
 
 This typechecks all workspaces, tests the HTTP API and builds API/admin. It does not produce an APK or verify native hardware.
+
+The identity integration tests use PGlite's embedded PostgreSQL engine with synthetic, disposable data. Production uses `pg` and a separate PostgreSQL service. These tests do not substitute for deployment validation against the live database/server.
+
+See [identity deployment](docs/identity-deployment.md) for database creation, migration, initial superadmin and rollback. Do not rerun the first-install script on an existing deployment.
 
 ## Structure
 

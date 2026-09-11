@@ -33,4 +33,4 @@ Supply commit ID, changes, checks, configuration changes, host-specific install/
 
 ## Rollback
 
-Record the previous commit and back up data before migrations. Application and database rollback are separate: a migration may need forward repair or restore. This scaffold has no migrations. Restore previous code/assets and restart the configured service if needed.
+Record the previous commit and back up data before migrations. Application and database rollback are separate: a migration may need forward repair or restore. The identity release introduces migration 1. Restore previous code/assets and restart the configured service if needed; do not drop identity data automatically. Follow [identity deployment](identity-deployment.md) for the first database setup and release.

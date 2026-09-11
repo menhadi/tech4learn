@@ -16,7 +16,7 @@ test('HTTP liveness contract and unknown routes', async () => {
     assert.equal(body.status, 'ok');
     assert.equal(body.service, 'tech4learn-api');
     assert.ok(Number.isFinite(Date.parse(body.timestamp)));
-    assert.equal((await fetch(`${base}/api/v1/organisations`)).status, 404);
+    assert.equal((await fetch(`${base}/api/v1/organisations`)).status, 401);
   } finally {
     await app.close();
   }
