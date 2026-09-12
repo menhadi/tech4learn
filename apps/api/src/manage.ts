@@ -1,4 +1,5 @@
 import { Database } from "./database.js";
+import { seedAcademicDemo } from "./demo-academic.js";
 import { attendanceMigration } from "./migration-attendance.js";
 import { visionMigration } from "./migration-vision.js";
 import { academicMigration } from "./migration-academic.js";
@@ -106,6 +107,23 @@ try {
         await sql.query(academicMigration);
     });
     console.log("Database migrations through version 7 are applied.");
+  } else if (command === "demo-academic") {
+    const confirmation = process.argv[4] || "";
+    if (!confirmation.startsWith("--confirm-name="))
+      throw new Error(
+        "Use demo-academic ORG_ADDRESS --confirm-name=exact display name.",
+      );
+    console.log(
+      JSON.stringify(
+        await seedAcademicDemo(
+          db,
+          process.argv[3] || "",
+          confirmation.slice(15),
+        ),
+        null,
+        2,
+      ),
+    );
   } else if (command === "demo-create") {
     const result = await createDemo(db);
     const origin = process.env.ADMIN_ORIGIN || "http://localhost:5173";

@@ -6,6 +6,8 @@ Make educational work easy, accurate and technology-enabled, saving teachers and
 
 Multi-tenant SaaS: superadmin manages the platform; organisation admins manage their own branded operations. The clarified target flow is organisation → centre → class/academic year → section → student, with configurable terminology for other programmes. See [registration workflow](registration-workflow.md) for all eleven requested steps and their implementation status.
 
+Live dummy data is requested only in **Vecotrial Career Academy** (`vector-academy`), preserving other organisations. See [targeted demo setup](academy-demo.md). This does not restrict isolated local tenant-isolation test fixtures.
+
 ## Interfaces and configuration
 
 - Mobile app for daily work and learner activities.
