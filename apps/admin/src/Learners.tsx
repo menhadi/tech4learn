@@ -68,6 +68,7 @@ export function Learners({
     [defs, setDefs] = useState<Definition[]>([]),
     [selected, setSelected] = useState<Learner | null>(null),
     [creating, setCreating] = useState(false),
+    [profilePage, setProfilePage] = useState("details"),
     [fieldEdit, setFieldEdit] = useState<Definition | null>(null),
     [search, setSearch] = useState(""),
     [groupFilter, setGroupFilter] = useState(initialGroup),
@@ -143,12 +144,14 @@ export function Learners({
     }
     return String(raw);
   }
+  useEffect(() => { setProfilePage("details"); }, [selected?.id, creating]);
   const current = selected;
   const editable = current
     ? can("learners.edit") && !current.archived
     : can("learners.create");
   return (
     <div className="learner-workspace">
+      <div hidden={creating || !!current}>
       <h3>Students / learners</h3>
       <details open={!!initialGroup}>
         <summary>Filter students by section</summary>
@@ -276,11 +279,17 @@ export function Learners({
           Next
         </button>
       </div>
+      </div>
       {(creating || current) && (
         <section className="record">
           <h3>{current ? current.name : "New learner"}</h3>
           {current?.demo && <p>Clearly labelled synthetic demo learner.</p>}
-          {current && permissions.includes("learners.photos") && (
+          {current && <nav className="record-navigation" aria-label="Student profile sections">
+            <button type="button" aria-pressed={profilePage === "details"} onClick={() => setProfilePage("details")}>Student details</button>
+            {can("learners.photos") && <button type="button" aria-pressed={profilePage === "photos"} onClick={() => setProfilePage("photos")}>Photos & attendance setup</button>}
+            <button type="button" aria-pressed={profilePage === "enrolment"} onClick={() => setProfilePage("enrolment")}>Enrolment & history</button>
+          </nav>}
+          {current && profilePage === "photos" && permissions.includes("learners.photos") && (
             <StudentPhotos
               key={current.id}
               org={org}
@@ -290,6 +299,7 @@ export function Learners({
               demo={current.demo}
             />
           )}
+          <div hidden={!!current && profilePage !== "details"}>
           <form
             key={(current?.id || "new") + "-" + revision}
             onSubmit={(e) => {
@@ -465,6 +475,8 @@ export function Learners({
                   {String(current.custom_values[d.key])}
                 </p>
               ))}
+          </div>
+          <div hidden={!current || profilePage !== "enrolment"}>
           {current && !current.archived && can("learners.transfer") && (
             <form
               onSubmit={(e) => {
@@ -535,6 +547,7 @@ export function Learners({
               </button>
             </details>
           )}
+          </div>
           <button
             className="secondary"
             onClick={() => {
@@ -546,9 +559,9 @@ export function Learners({
           </button>
         </section>
       )}
-      {can("learners.import") && can("learners.create") && (
-        <section className="record">
-          <h3>Import learners</h3>
+      {!current && !creating && can("learners.import") && can("learners.create") && (
+        <details className="record">
+          <summary>Import students from a spreadsheet</summary>
           <p>
             CSV or .xlsx, first sheet, up to 100 rows and 1 MB. Required
             headers: code, name. Optional: age, class_label
@@ -716,11 +729,11 @@ export function Learners({
               </button>
             </>
           )}
-        </section>
+        </details>
       )}
       {can("fields.manage") && (
-        <section className="record">
-          <h3>Custom learner fields</h3>
+        <details className="record" hidden={!!current || creating}>
+          <summary>Configure custom student fields</summary>
           <p>
             Keys and types stay fixed. Existing choices cannot be removed;
             archived fields preserve earlier values.
@@ -819,7 +832,7 @@ export function Learners({
               </button>
             </fieldset>
           </form>
-        </section>
+        </details>
       )}
     </div>
   );

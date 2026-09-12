@@ -22,7 +22,7 @@ export function FaceMatching({
     [size, setSize] = useState({ w: 1, h: 1 });
   return (
     <section className="subpanel">
-      <h4>Match enrolled faces</h4>
+      <h4>Suggest attendance from this photo</h4>
       <p>
         Compare this photo with checked references for students currently in
         this section. Unknown or ambiguous faces stay unresolved. Pilot limit:
@@ -79,17 +79,19 @@ export function FaceMatching({
               </span>
             ))}
           </div>
-          <ol>
-            {faces.map((f, i) => (
-              <li key={i}>
-                {f.learnerId
-                  ? roster.find((l) => l.id === f.learnerId)?.name ||
-                    "Unresolved"
-                  : "Unresolved — review manually"}
-                {f.learnerId ? ` · similarity ${f.similarity.toFixed(2)}` : ""}
-              </li>
-            ))}
-          </ol>
+          <div className="directory-table">
+            <table>
+              <caption>Face suggestions — review before saving attendance</caption>
+              <thead><tr><th scope="col">Face</th><th scope="col">Student</th><th scope="col">Review status</th><th scope="col">Similarity</th></tr></thead>
+              <tbody>{faces.map((f, i) => <tr key={i}>
+                <td>{i + 1}</td>
+                <td>{f.learnerId ? roster.find(l => l.id === f.learnerId)?.name || "Unknown student" : "Unidentified"}</td>
+                <td><span className={`status-badge ${f.learnerId ? "status-active" : "status-neutral"}`}>{f.learnerId ? "Suggested present" : "Manual review needed"}</span></td>
+                <td>{f.learnerId ? f.similarity.toFixed(2) : "—"}</td>
+              </tr>)}</tbody>
+            </table>
+            {!faces.length && <p className="empty-state">No face suggestions returned. Review the class photo and mark attendance manually.</p>}
+          </div>
           <p>
             Similarity is a model score, not a probability. Review each numbered
             face before using the draft.

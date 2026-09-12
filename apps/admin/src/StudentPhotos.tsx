@@ -133,13 +133,23 @@ export function StudentPhotos({
         <p>Loading photos…</p>
       ) : (
         <>
+          <div className="record-navigation" role="group" aria-label="Photo purpose">
+            {(["profile", "reference"] as Purpose[]).map((value) => <button key={value} type="button" disabled={busy} aria-pressed={purpose === value} onClick={() => { setPurpose(value); setPrepared(null); setNotice(""); setError(""); }}>
+              {value === "profile" ? "Profile photo" : "Attendance references"}
+            </button>)}
+          </div>
+          <ol className="setup-steps" aria-label="Photo setup progress">
+            <li><strong>1. Permission</strong><span>{consent?.granted ? "Recorded" : "Record permission below"}</span></li>
+            <li><strong>2. Add photo</strong><span>{state.photos.filter(p => p.purpose === purpose).length} / {purpose === "profile" ? 1 : 3} saved</span></li>
+            {purpose === "reference" && <li><strong>3. Check face</strong><span>{state.photos.filter(p => p.purpose === "reference" && p.checked).length} checked</span></li>}
+          </ol>
           <p className="table-help">
             {state.verificationConfigured
               ? "Private face verification is configured. Run Check face on each reference before matching."
               : "Face verification is not configured yet. Profile photos and consent can be managed; reference checks and matching require the private engine."}
           </p>
           <div className="student-photo-grid">
-            {state.photos.map((p) => (
+            {state.photos.filter((p) => p.purpose === purpose).map((p) => (
               <article className="student-photo-card" key={p.id}>
                 <img
                   src={`${apiBase}${base}/photos/${p.id}`}
@@ -211,23 +221,7 @@ export function StudentPhotos({
               </article>
             ))}
           </div>
-          {!state.photos.length && <p>No photos uploaded.</p>}
-          <label>
-            Photo purpose
-            <select
-              disabled={busy}
-              value={purpose}
-              onChange={(e) => {
-                setPurpose(e.target.value as Purpose);
-                setPrepared(null);
-                setNotice("");
-                setError("");
-              }}
-            >
-              <option value="profile">Profile photo</option>
-              <option value="reference">Attendance face references</option>
-            </select>
-          </label>
+          {!state.photos.some(p => p.purpose === purpose) && <p className="empty-state">No {purpose === "profile" ? "profile photo" : "attendance references"} yet. {consent?.granted ? "Choose a photo below to get started." : "Start by recording permission below."}</p>}
           <p>
             <span
               className={`status-badge ${consent?.granted ? "status-active" : "status-neutral"}`}
@@ -241,6 +235,8 @@ export function StudentPhotos({
             )}
           </p>
           {manage && (
+            <details open={!consent?.granted} key={`${purpose}-${consent?.version || 0}`} className="consent-control">
+            <summary>{consent?.granted ? "Manage recorded permission" : "Step 1 · Record permission"}</summary>
             <form
               key={`${purpose}-${consent?.version || 0}`}
               onSubmit={(e) => {
@@ -277,6 +273,7 @@ export function StudentPhotos({
                   : "Record consent"}
               </button>
             </form>
+            </details>
           )}
           {manage && !archived && consent?.granted && (
             <div className="editor-panel">

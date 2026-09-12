@@ -1023,3 +1023,15 @@ footer {
   padding: 2px 5px;
   font-size: 13px;
 }
+
+/* Task-focused student setup; preserve forms when switching profile sections. */
+.record-navigation { display:flex; flex-wrap:wrap; gap:.5rem; margin:1.25rem 0; padding-bottom:1rem; border-bottom:1px solid #d5e2dd; }
+.record-navigation button { background:#fff; color:#20584e; border:1px solid #b8cec6; }
+.record-navigation button[aria-pressed="true"] { background:var(--org-colour, #19594d); color:#fff; border-color:var(--org-colour, #19594d); }
+.setup-steps { list-style:none; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:.75rem; margin:1rem 0; }
+.setup-steps li { padding:1rem; border:1px solid #d5e2dd; border-radius:10px; background:#f3f8f5; display:grid; gap:.4rem; }
+.setup-steps span { font-size:.9rem; color:#526d64; }
+.consent-control { border:1px solid #d5e2dd; border-radius:10px; padding:1rem; margin:1rem 0; }
+.consent-control summary { cursor:pointer; font-weight:600; }
+.empty-state { padding:1.5rem; border:1px dashed #b8cec6; border-radius:10px; }
+[hidden] { display:none !important; }

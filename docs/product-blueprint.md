@@ -60,3 +60,7 @@ CCTV, parent messaging, community volunteers, real-life concept videos, resource
 ## Success measures
 
 Teacher time saved, review/correction rates, agreement with qualified assessment review, successful tasks on inexpensive devices, useful follow-up actions and cost per active learner. Establish targets with the pilot partner; no measured outcomes are claimed yet.
+
+## Current usability and hosting direction
+
+Student profiles separate details, photo setup and enrolment/history. Photo purpose selection scopes the gallery and consent; a progress checklist guides permission, upload and face checks. Attendance suggestions use a review table. The user requests using the existing host for the initial engine pilot, subject to measured spare capacity; buying another server is not a prerequisite. Photos already reside on the existing Tech4Learn database.
