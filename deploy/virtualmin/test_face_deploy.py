@@ -44,6 +44,37 @@ bash() { printf 'controller\n' >> "$CASE_DIR/events"; return 1; }
         self.assertEqual(events, ['stop tech4learn','start tech4learn','health','health','controller'])
         self.assertIn('app remains running', result.stderr)
 
+    def photo_release(self, name, fail_migration=0, fail_health=0):
+        return self.run_case(name, 'update-student-photos.sh', r"""
+runuser() {
+  case "$*" in
+    *pg_dump*) printf synthetic-backup;;
+    *'npm run build'*) printf 'build\n' >> "$CASE_DIR/events";;
+    *' migrate') printf 'migrate\n' >> "$CASE_DIR/events"; return FAIL_MIGRATION;;
+  esac
+  return 0
+}
+cp() { printf 'copy\n' >> "$CASE_DIR/events"; }
+pg_restore() { return 0; }
+systemctl() { printf '%s\n' "$*" >> "$CASE_DIR/events"; }
+curl() { printf 'health\n' >> "$CASE_DIR/events"; return FAIL_HEALTH; }
+""".replace('FAIL_MIGRATION',str(fail_migration)).replace('FAIL_HEALTH',str(fail_health)))
+
+    def test_photo_migration_failure_restores_files_and_restarts_api(self):
+        result, events = self.photo_release('photo-migration-fails',1)
+        self.assertEqual(result.returncode,1,result.stderr)
+        self.assertEqual(events,['copy','copy','build','stop tech4learn','migrate','copy','copy','restart tech4learn'])
+
+    def test_photo_health_failure_restarts_restored_application(self):
+        result, events = self.photo_release('photo-health-fails',0,1)
+        self.assertEqual(result.returncode,1,result.stderr)
+        self.assertEqual(events[-4:],['health','copy','copy','restart tech4learn'])
+
+    def test_photo_release_builds_before_stopping_and_keeps_new_files(self):
+        result, events = self.photo_release('photo-release-success')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(events,['copy','copy','build','stop tech4learn','migrate','start tech4learn','health','health'])
+
     def installer(self, name, ready):
         return self.run_case(name, 'install-face-control.sh', r"""
 probes=0

@@ -65,10 +65,10 @@ Teacher time saved, review/correction rates, agreement with qualified assessment
 
 ## Current usability and hosting direction
 
-Student profiles separate details, photo setup and enrolment/history. Photo purpose selection scopes the gallery and consent; a progress checklist guides permission, upload and face checks. Attendance suggestions use a review table. The user requests using the existing host for the initial engine pilot, subject to measured spare capacity; buying another server is not a prerequisite. Photos already reside on the existing Tech4Learn database.
+Student profiles separate details, photo setup and enrolment/history. A single named portrait can be captured with the camera or uploaded, then saved for profile, attendance, or both with explicit permission for the selected uses. Attendance suggestions use a review table. The user requests using the existing host for the initial engine pilot, subject to measured spare capacity; buying another server is not a prerequisite. Photos already reside on the existing Tech4Learn database.
 
 ## Superadmin engine management
 
 [Face-engine controls](face-control-release.md) add a restricted local controller, status and suggested CPU/RAM limits, stop/start/restart, and a durable queue pause in migration 10. The engine is installed per the user’s server screenshot; control deployment, API-key connection and real-image calibration remain separate checks. Larger host capacity can be detected by refreshing the superadmin page.
 
-Photo setup now has a direct student-directory action, two descriptive purpose cards, and permission → visible upload → saved-photo checks in that order. Disabled upload controls explain missing consent, reference capacity and dummy-record restrictions. This UI does not change attendance marking or face-verification rules.
+Photo setup has a direct student-directory action and one flow: take/upload → name and choose uses → confirm permission → save and check. Both uses save atomically; attendance references are checked after saving when configured. Camera preview, retake and upload are alternatives. Classroom attendance remains a separate group-photo capture and teacher-review task.

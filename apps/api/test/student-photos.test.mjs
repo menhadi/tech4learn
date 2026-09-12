@@ -1,3 +1,4 @@
+import { photoNamesMigration } from "../dist/migration-photo-names.js";
 import { combinePhotoMatches } from "../dist/face-jobs.service.js";
 import { bulkAttendanceMigration } from "../dist/migration-bulk-attendance.js";
 import { test } from "node:test";
@@ -86,6 +87,7 @@ test("private student photos, consent withdrawal and stateless face drafts throu
       visionMigration,
       academicMigration,
       photoMigration,
+      photoNamesMigration,
     ])
       await pg.exec(s);
     const db = {
@@ -161,6 +163,140 @@ test("private student photos, consent withdrawal and stateless face drafts throu
       }
       throw new Error("Matching job did not finish");
     }
+    await t.test(
+      "one named portrait saves both uses atomically and keeps consent isolated",
+      async () => {
+        const student = randomUUID();
+        await pg.query(
+          "INSERT INTO learners(id,organisation_id,code,name,group_id) VALUES($1,$2,$3,'Synthetic photo setup',$4)",
+          [student, org, student, l.group_id],
+        );
+        const p = `/organisations/${org}/learners/${student}`;
+        const body = {
+          name: "Front view",
+          profile: true,
+          reference: true,
+          attested: true,
+          photo,
+          consentVersions: { profile: 0, reference: 0 },
+        };
+        try {
+          assert.equal(
+            (
+              await req(p + "/photo-setup", "POST", {
+                ...body,
+                attested: false,
+              })
+            ).status,
+            400,
+          );
+          assert.equal(
+            (await req(p + "/photo-setup", "POST", { ...body, name: " " }))
+              .status,
+            400,
+          );
+          assert.equal(
+            (
+              await req(p + "/photo-setup", "POST", {
+                ...body,
+                consentVersions: { profile: 0, reference: 9 },
+              })
+            ).status,
+            409,
+          );
+          let list = (await req(p + "/photos")).body;
+          assert.equal(list.photos.length, 0);
+          assert.equal(list.consents.length, 0);
+          assert.equal(
+            (
+              await req(
+                `/organisations/${other}/learners/${student}/photo-setup`,
+                "POST",
+                body,
+              )
+            ).status,
+            404,
+          );
+          const saved = await req(p + "/photo-setup", "POST", body);
+          assert.equal(saved.status, 201);
+          assert.equal(saved.body.photos.length, 2);
+          list = (await req(p + "/photos")).body;
+          assert.equal(list.photos.length, 2);
+          assert.ok(
+            list.photos.every((p) => p.name === "Front view" && !p.checked),
+          );
+          assert.equal(new Set(list.photos.map((p) => p.content_hash)).size, 1);
+          assert.equal(list.consents.filter((c) => c.granted).length, 2);
+          assert.equal(
+            (await req(p + "/photo-setup", "POST", body)).status,
+            409,
+          );
+          assert.equal(
+            (
+              await req(p + "/photo-setup", "POST", {
+                ...body,
+                consentVersions: { profile: 1, reference: 1 },
+              })
+            ).status,
+            201,
+          );
+          assert.equal((await req(p + "/photos")).body.photos.length, 2);
+          assert.equal(
+            (
+              await req(p + "/photo-setup", "POST", {
+                ...body,
+                name: "Updated portrait",
+                consentVersions: { profile: 1, reference: 1 },
+              })
+            ).status,
+            201,
+          );
+          assert.ok(
+            (await req(p + "/photos")).body.photos.every(
+              (p) => p.name === "Updated portrait",
+            ),
+          );
+          const reference = list.photos.find((p) => p.purpose === "reference");
+          await req(p + "/photo-consent", "POST", {
+            purpose: "reference",
+            version: 1,
+            granted: false,
+            attested: true,
+          });
+          list = (await req(p + "/photos")).body;
+          assert.equal(list.photos.length, 1);
+          assert.equal(list.photos[0].purpose, "profile");
+          assert.equal(
+            (
+              await fetch(base + p + "/photos/" + reference.id, {
+                headers: { Cookie: cookie },
+              })
+            ).status,
+            404,
+          );
+          await pg.query("UPDATE learners SET demo=true WHERE id=$1", [
+            student,
+          ]);
+          assert.equal(
+            (
+              await req(p + "/photo-setup", "POST", {
+                ...body,
+                consentVersions: { profile: 1, reference: 2 },
+              })
+            ).status,
+            400,
+          );
+          list = (await req(p + "/photos")).body;
+          assert.equal(
+            list.consents.find((c) => c.purpose === "reference").granted,
+            false,
+          );
+          assert.equal(list.photos.length, 1);
+        } finally {
+          await pg.query("DELETE FROM learners WHERE id=$1", [student]);
+        }
+      },
+    );
     const path = `/organisations/${org}/learners/${l.id}`;
     await t.test(
       "permissions, foreign IDs, consent versions and deletion",

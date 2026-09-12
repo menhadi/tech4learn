@@ -87,7 +87,7 @@ export class LearnerPhotosService {
       ).rows,
       photos: (
         await this.db.query(
-          "SELECT id,purpose,width,height,checked,check_engine,created_at FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 ORDER BY created_at DESC",
+          "SELECT id,purpose,name,content_hash,width,height,checked,check_engine,created_at FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 ORDER BY created_at DESC",
           [org, id],
         )
       ).rows,
@@ -149,69 +149,173 @@ export class LearnerPhotosService {
       file = photoFile(b.photo);
     return this.db.transaction(async (sql) => {
       await this.access.lock(sql, org);
-      const l = await this.target(sql, user, org, id, true);
-      if (l.archived)
-        throw new ConflictException(
-          "Archived students cannot receive new photos.",
+      return this.storePhoto(sql, user, org, id, b, purpose, file);
+    });
+  }
+  private async storePhoto(
+    sql: SqlClient,
+    user: Account,
+    org: string,
+    id: string,
+    b: Record<string, unknown>,
+    purpose: Purpose,
+    file: ReturnType<typeof photoFile>,
+  ) {
+    const name =
+      b.name === undefined
+        ? purpose === "profile"
+          ? "Profile picture"
+          : "Attendance portrait"
+        : b.name;
+    if (typeof name !== "string" || !name.trim() || name.trim().length > 80)
+      throw new BadRequestException(
+        "Give the photo a name of 1–80 characters.",
+      );
+
+    const l = await this.target(sql, user, org, id, true);
+    if (l.archived)
+      throw new ConflictException(
+        "Archived students cannot receive new photos.",
+      );
+    if (purpose === "reference" && l.demo)
+      throw new BadRequestException(
+        "Use a separately registered, consented test student for real face references. Dummy records must not identify real people.",
+      );
+    const consent = (
+      await sql.query<{ version: number }>(
+        "SELECT version FROM learner_photo_consent WHERE organisation_id=$1 AND learner_id=$2 AND purpose=$3 AND granted",
+        [org, id, purpose],
+      )
+    ).rows[0];
+    if (!consent || consent.version !== b.consentVersion)
+      throw new ConflictException("Record current consent before uploading.");
+    const hash = createHash("sha256").update(file.content).digest("hex");
+    const existing = (
+      await sql.query<{ id: string }>(
+        "SELECT id FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 AND purpose=$3 AND content_hash=$4",
+        [org, id, purpose, hash],
+      )
+    ).rows[0];
+    if (existing) {
+      if (b.name !== undefined) {
+        await sql.query(
+          "UPDATE learner_photos SET name=$4 WHERE organisation_id=$1 AND learner_id=$2 AND id=$3",
+          [org, id, existing.id, name.trim()],
         );
-      if (purpose === "reference" && l.demo)
-        throw new BadRequestException(
-          "Use a separately registered, consented test student for real face references. Dummy records must not identify real people.",
-        );
-      const consent = (
-        await sql.query<{ version: number }>(
-          "SELECT version FROM learner_photo_consent WHERE organisation_id=$1 AND learner_id=$2 AND purpose=$3 AND granted",
+        await this.access.audit(sql, user, org, "learner.photo_named", {
+          learnerId: id,
+          photoId: existing.id,
+          purpose,
+        });
+      }
+      return existing;
+    }
+    if (
+      purpose === "reference" &&
+      (
+        await sql.query(
+          "SELECT id FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 AND purpose=$3",
           [org, id, purpose],
         )
-      ).rows[0];
-      if (!consent || consent.version !== b.consentVersion)
-        throw new ConflictException("Record current consent before uploading.");
-      const hash = createHash("sha256").update(file.content).digest("hex");
-      const existing = (
-        await sql.query<{ id: string }>(
-          "SELECT id FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 AND purpose=$3 AND content_hash=$4",
-          [org, id, purpose, hash],
-        )
-      ).rows[0];
-      if (existing) return existing;
-      if (
-        purpose === "reference" &&
-        (
-          await sql.query(
-            "SELECT id FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 AND purpose=$3",
+      ).rows.length >= 3
+    )
+      throw new BadRequestException(
+        "Keep up to three reference photos. Remove an older reference first.",
+      );
+    if (purpose === "profile")
+      await sql.query(
+        "DELETE FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 AND purpose='profile'",
+        [org, id],
+      );
+    const photoId = randomUUID();
+    await sql.query(
+      "INSERT INTO learner_photos(id,organisation_id,learner_id,purpose,content,content_hash,width,height,actor_id,name) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+      [
+        photoId,
+        org,
+        id,
+        purpose,
+        file.content,
+        hash,
+        file.width,
+        file.height,
+        user.id,
+        name.trim(),
+      ],
+    );
+    await this.access.audit(sql, user, org, "learner.photo_uploaded", {
+      learnerId: id,
+      photoId,
+      purpose,
+    });
+    return { id: photoId };
+  }
+  async setup(
+    user: Account,
+    org: string,
+    id: string,
+    b: Record<string, unknown>,
+  ) {
+    if (
+      typeof b.profile !== "boolean" ||
+      typeof b.reference !== "boolean" ||
+      (!b.profile && !b.reference) ||
+      b.attested !== true
+    )
+      throw new BadRequestException(
+        "Choose how to use the photo and confirm permission for those uses.",
+      );
+    const versions = b.consentVersions as Record<string, unknown> | undefined;
+    const purposes: Purpose[] = [];
+    if (b.profile) purposes.push("profile");
+    if (b.reference) purposes.push("reference");
+    const file = photoFile(b.photo);
+    return this.db.transaction(async (sql) => {
+      await this.access.lock(sql, org);
+      await this.target(sql, user, org, id, true);
+      const photos = [];
+      for (const purpose of purposes) {
+        const old = (
+          await sql.query<{ version: number; granted: boolean }>(
+            "SELECT version,granted FROM learner_photo_consent WHERE organisation_id=$1 AND learner_id=$2 AND purpose=$3",
             [org, id, purpose],
           )
-        ).rows.length >= 3
-      )
-        throw new BadRequestException(
-          "Keep up to three reference photos. Remove an older reference first.",
-        );
-      if (purpose === "profile")
-        await sql.query(
-          "DELETE FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 AND purpose='profile'",
-          [org, id],
-        );
-      const photoId = randomUUID();
-      await sql.query(
-        "INSERT INTO learner_photos(id,organisation_id,learner_id,purpose,content,content_hash,width,height,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-        [
-          photoId,
-          org,
-          id,
+        ).rows[0];
+        if (
+          !Number.isInteger(versions?.[purpose]) ||
+          versions?.[purpose] !== (old?.version || 0)
+        )
+          throw new ConflictException(
+            "Permission changed. Reload the student before saving.",
+          );
+        let version = old?.version || 0;
+        if (!old?.granted) {
+          version = (
+            await sql.query<{ version: number }>(
+              "INSERT INTO learner_photo_consent(organisation_id,learner_id,purpose,granted,actor_id) VALUES($1,$2,$3,true,$4) ON CONFLICT(organisation_id,learner_id,purpose) DO UPDATE SET granted=true,version=learner_photo_consent.version+1,actor_id=$4,recorded_at=now() RETURNING version",
+              [org, id, purpose, user.id],
+            )
+          ).rows[0].version;
+          await this.access.audit(sql, user, org, "learner.photo_consent", {
+            learnerId: id,
+            purpose,
+            granted: true,
+          });
+        }
+        photos.push({
+          ...(await this.storePhoto(
+            sql,
+            user,
+            org,
+            id,
+            { ...b, consentVersion: version },
+            purpose,
+            file,
+          )),
           purpose,
-          file.content,
-          hash,
-          file.width,
-          file.height,
-          user.id,
-        ],
-      );
-      await this.access.audit(sql, user, org, "learner.photo_uploaded", {
-        learnerId: id,
-        photoId,
-        purpose,
-      });
-      return { id: photoId };
+        });
+      }
+      return { photos };
     });
   }
   async photo(user: Account, org: string, id: string, photoId: string) {

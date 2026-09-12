@@ -4,10 +4,13 @@ Migration 8 adds private profile/reference images and purpose-specific consent. 
 
 ## Photo setup workflow
 
-1. Choose **Profile picture** for the record image, or **Attendance face photos** for individual reference portraits. Classroom group photos belong in Attendance.
-2. Record permission for the selected purpose. The visible upload control stays disabled until permission is recorded.
-3. Select a photo, inspect the preview, and save it. The profile picture can be replaced; reference photos have three slots. Full reference slots and dummy records explain why uploads are unavailable.
-4. For each saved attendance portrait, click **Check face**. A passed check prepares a reference, but never records attendance. Profile pictures offer a next-step button into attendance photo setup.
+1. Choose **Open camera** and **Take photo**, or **Upload photo**. Inspect the preview and retake/discard if needed.
+2. Give the photo a name, such as Front view. Select profile picture, attendance face matching, or both. A single portrait can serve both purposes without another upload.
+3. Confirm permission for the selected uses and save. Both uses are saved together or neither is saved. Profile selection replaces the current profile picture; attendance supports three distinct reference portraits.
+4. When configured, **Save photo & check face** checks the saved reference automatically. A failure clearly distinguishes a saved photo from an unsuccessful face check; retry from the saved card. No attendance mark is created by this process.
+5. Identical images appear together with their profile/attendance badges. Purpose-specific removal and consent withdrawal remain available. The capture source does not prove identity or presence; classroom group-photo evidence is captured separately.
+
+Migration 11 is required for photo names. Browser camera capture is implemented; actual phone camera/device checks and real recognition accuracy still require the pilot user's testing.
 
 ## Working application features
 

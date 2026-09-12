@@ -65,3 +65,7 @@ References consulted: https://docs.expo.dev/versions/v57.0.0/ and https://docs.n
 ## Superadmin engine management
 
 [Face-engine controls](face-control-release.md) add a restricted local controller, status and suggested CPU/RAM limits, stop/start/restart, and a durable queue pause in migration 10. The engine is installed per the user’s server screenshot; control deployment, API-key connection and real-image calibration remain separate checks. Larger host capacity can be detected by refreshing the superadmin page.
+
+## Unified student portrait setup
+
+Migration 11 adds an 80-character photo name, preserving existing photos and reference checks. The authenticated photo-setup endpoint records selected purpose permissions and saves one portrait for one or both uses in a single organisation-locked transaction. Consent versions are checked independently; both copies roll back if either use fails. Images retain separate purpose ownership so withdrawing attendance consent does not delete the profile image. The UI groups identical content and runs the existing face check after a successful save; engine failure leaves the saved reference unchecked. Browser camera streams stop on capture, cancellation and unmount; camera data remains local until saving.

@@ -47,6 +47,14 @@ export class LearnerPhotosController {
   ) {
     return this.service.consent(await this.user(c), o, id, b || {});
   }
+  @Post("learners/:id/photo-setup") async setup(
+    @Param("org") o: string,
+    @Param("id") id: string,
+    @Body() b: Record<string, unknown>,
+    @Headers("cookie") c?: string,
+  ) {
+    return this.service.setup(await this.user(c), o, id, b || {});
+  }
   @Post("learners/:id/photos") async upload(
     @Param("org") o: string,
     @Param("id") id: string,

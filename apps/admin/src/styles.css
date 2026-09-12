@@ -1092,14 +1092,15 @@ footer {
   border: 2px solid #175d50;
 }
 
-/* Purpose cards keep both photo workflows visible before choosing a file. */
-.photo-purpose-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:1rem; margin:1.25rem 0; }
-.photo-purpose-grid button { display:grid; gap:.65rem; text-align:left; padding:1.25rem; border:2px solid #cadbd4; background:#fff; color:#24463c; border-radius:12px; }
-.photo-purpose-grid button[aria-pressed="true"] { border-color:var(--org-colour, #175b4e); background:#edf6f1; box-shadow:inset 0 0 0 1px var(--org-colour, #175b4e); }
-.photo-purpose-grid span { font-weight:400; line-height:1.5; }
-.photo-purpose-grid small { font-size:.85rem; }
 .photo-upload-panel { border:2px dashed #b8cec4; margin:1rem 0 1.5rem; }
 .photo-upload-panel input[type="file"] { display:block; width:100%; padding:1rem; background:white; border:1px solid #bdcec5; border-radius:8px; }
 .photo-upload-panel input[type="file"]::file-selector-button { padding:.65rem 1rem; margin-right:1rem; border:0; border-radius:6px; background:#175b4e; color:white; cursor:pointer; }
 .photo-upload-panel input:disabled { opacity:.55; }
 .photo-success { padding:1rem; border-left:4px solid #175b4e; background:#edf6f1; }
+
+.portrait-camera video { width:100%; max-height:420px; background:#142e28; border-radius:12px; object-fit:contain; }
+.portrait-preview { display:flex; flex-wrap:wrap; align-items:center; gap:1.5rem; margin:1rem 0; padding:1rem; border:1px solid #c9dcd1; border-radius:12px; }
+.photo-use-options { display:grid; gap:.8rem; margin:1rem 0; }
+.photo-use-options .check { padding:1rem; background:#f3f8f5; border:1px solid #c9dcd1; border-radius:8px; flex-wrap:wrap; }
+.photo-use-options small { font-weight:400; }
+.photo-file-choice { flex:1; min-width:200px; }
