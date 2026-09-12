@@ -1,6 +1,13 @@
 # Student photos and face-verification pilot
 
-Migration 8 adds private profile/reference images and purpose-specific consent. Existing student fields and typed custom fields remain configurable. Open a saved student profile → Photos and attendance enrolment. Record the appropriate permission before uploading; the recorded staff identity and time appear in audit history. Consent recording is an operational record, not proof of a guardian's identity or a legal-compliance certification.
+Migration 8 adds private profile/reference images and purpose-specific consent. Existing student fields and typed custom fields remain configurable. In the student directory, choose **Photos & attendance** (or open a saved profile → **Photos & attendance setup**). Record the appropriate permission before uploading; the recorded staff identity and time appear in audit history. Consent recording is an operational record, not proof of a guardian's identity or a legal-compliance certification.
+
+## Photo setup workflow
+
+1. Choose **Profile picture** for the record image, or **Attendance face photos** for individual reference portraits. Classroom group photos belong in Attendance.
+2. Record permission for the selected purpose. The visible upload control stays disabled until permission is recorded.
+3. Select a photo, inspect the preview, and save it. The profile picture can be replaced; reference photos have three slots. Full reference slots and dummy records explain why uploads are unavailable.
+4. For each saved attendance portrait, click **Check face**. A passed check prepares a reference, but never records attendance. Profile pictures offer a next-step button into attendance photo setup.
 
 ## Working application features
 

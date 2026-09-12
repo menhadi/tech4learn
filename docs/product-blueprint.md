@@ -70,3 +70,5 @@ Student profiles separate details, photo setup and enrolment/history. Photo purp
 ## Superadmin engine management
 
 [Face-engine controls](face-control-release.md) add a restricted local controller, status and suggested CPU/RAM limits, stop/start/restart, and a durable queue pause in migration 10. The engine is installed per the user’s server screenshot; control deployment, API-key connection and real-image calibration remain separate checks. Larger host capacity can be detected by refreshing the superadmin page.
+
+Photo setup now has a direct student-directory action, two descriptive purpose cards, and permission → visible upload → saved-photo checks in that order. Disabled upload controls explain missing consent, reference capacity and dummy-record restrictions. This UI does not change attendance marking or face-verification rules.

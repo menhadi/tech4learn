@@ -144,7 +144,7 @@ export function Learners({
     }
     return String(raw);
   }
-  useEffect(() => { setProfilePage("details"); }, [selected?.id, creating]);
+  useEffect(() => { setProfilePage("details"); }, [creating]);
   const current = selected;
   const editable = current
     ? can("learners.edit") && !current.archived
@@ -259,11 +259,21 @@ export function Learners({
                   void act(async () => {
                     setSelected(await api<Learner>(`${base}/learners/${l.id}`));
                     setCreating(false);
+                    setProfilePage("details");
                   }, "Profile opened.")
                 }
               >
                 Open profile
               </button>
+              {can("learners.photos") && <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => void act(async () => {
+                  setSelected(await api<Learner>(`${base}/learners/${l.id}`));
+                  setCreating(false);
+                  setProfilePage("photos");
+                }, "Student photo setup opened.")}
+              >Photos & attendance</button>}
             </td>
           </tr>
         ))}

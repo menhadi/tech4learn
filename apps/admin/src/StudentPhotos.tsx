@@ -118,110 +118,98 @@ export function StudentPhotos({
   const consent = state?.consents.find((c) => c.purpose === purpose);
   return (
     <section className="subpanel student-photos">
-      <h3>Photos and attendance enrolment</h3>
+      <h3>Student photos</h3>
       <p>
-        Profile photos identify the student in their record. Reference photos
-        are used separately for attendance face matching.
+        Add a profile picture for the student record, then set up separate face
+        photos for attendance. Classroom group photos are taken later in
+        Attendance.
       </p>
       {error && (
         <p role="alert" className="error">
           {error}
         </p>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && (
+        <p role="status" className="photo-success">
+          {notice}
+        </p>
+      )}
+      {busy && <p role="status">Processing… Please wait.</p>}
       {!state ? (
         <p>Loading photos…</p>
       ) : (
         <>
-          <div className="record-navigation" role="group" aria-label="Photo purpose">
-            {(["profile", "reference"] as Purpose[]).map((value) => <button key={value} type="button" disabled={busy} aria-pressed={purpose === value} onClick={() => { setPurpose(value); setPrepared(null); setNotice(""); setError(""); }}>
-              {value === "profile" ? "Profile photo" : "Attendance references"}
-            </button>)}
-          </div>
-          <ol className="setup-steps" aria-label="Photo setup progress">
-            <li><strong>1. Permission</strong><span>{consent?.granted ? "Recorded" : "Record permission below"}</span></li>
-            <li><strong>2. Add photo</strong><span>{state.photos.filter(p => p.purpose === purpose).length} / {purpose === "profile" ? 1 : 3} saved</span></li>
-            {purpose === "reference" && <li><strong>3. Check face</strong><span>{state.photos.filter(p => p.purpose === "reference" && p.checked).length} checked</span></li>}
-          </ol>
-          <p className="table-help">
-            {state.verificationConfigured
-              ? "Private face verification is configured. Run Check face on each reference before matching."
-              : "Face verification is not configured yet. Profile photos and consent can be managed; reference checks and matching require the private engine."}
-          </p>
-          <div className="student-photo-grid">
-            {state.photos.filter((p) => p.purpose === purpose).map((p) => (
-              <article className="student-photo-card" key={p.id}>
-                <img
-                  src={`${apiBase}${base}/photos/${p.id}`}
-                  alt={
-                    p.purpose === "profile"
-                      ? "Student profile"
-                      : "Attendance face reference"
-                  }
-                />
+          <div
+            className="photo-purpose-grid"
+            role="group"
+            aria-label="Choose which photos to manage"
+          >
+            {(["profile", "reference"] as Purpose[]).map((value) => (
+              <button
+                key={value}
+                type="button"
+                disabled={busy}
+                aria-pressed={purpose === value}
+                onClick={() => {
+                  setPurpose(value);
+                  setPrepared(null);
+                  setNotice("");
+                  setError("");
+                }}
+              >
                 <strong>
-                  {p.purpose === "profile"
-                    ? "Profile photo"
-                    : "Attendance reference"}
+                  {value === "profile"
+                    ? "Profile picture"
+                    : "Attendance face photos"}
                 </strong>
-                <span
-                  className={`status-badge ${p.checked ? "status-active" : "status-neutral"}`}
-                >
-                  {p.purpose === "profile"
-                    ? "Profile photo"
-                    : p.checked
-                      ? "Face checked"
-                      : "Not face-checked"}
+                <span>
+                  {value === "profile"
+                    ? "One picture displayed on the student record."
+                    : "Up to 3 individual portraits used to check classroom attendance."}
                 </span>
                 <small>
-                  {p.width} × {p.height} px
+                  {state.photos.filter((p) => p.purpose === value).length} /{" "}
+                  {value === "profile" ? 1 : 3} saved ·{" "}
+                  {purpose === value ? "Selected" : "Open setup"}
                 </small>
-                {manage && (
-                  <div className="actions">
-                    {!archived && p.purpose === "reference" && (
-                      <button
-                        disabled={busy || !state.verificationConfigured}
-                        onClick={() =>
-                          void act(
-                            () =>
-                              api(
-                                `${base}/photos/${p.id}/check`,
-                                "POST",
-                                {},
-                                20000,
-                              ),
-                            "Face check passed.",
-                          )
-                        }
-                      >
-                        Check face
-                      </button>
-                    )}
-                    <details>
-                      <summary>Remove photo</summary>
-                      <p>
-                        This deletes the stored photo. Attendance records
-                        remain.
-                      </p>
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          void act(
-                            () =>
-                              api(`${base}/photos/${p.id}/remove`, "POST", {}),
-                            "Photo removed.",
-                          )
-                        }
-                      >
-                        Confirm removal
-                      </button>
-                    </details>
-                  </div>
-                )}
-              </article>
+              </button>
             ))}
           </div>
-          {!state.photos.some(p => p.purpose === purpose) && <p className="empty-state">No {purpose === "profile" ? "profile photo" : "attendance references"} yet. {consent?.granted ? "Choose a photo below to get started." : "Start by recording permission below."}</p>}
+          <ol className="setup-steps" aria-label="Photo setup progress">
+            <li>
+              <strong>1. Permission</strong>
+              <span>
+                {consent?.granted ? "Recorded" : "Record permission below"}
+              </span>
+            </li>
+            <li>
+              <strong>2. Add photo</strong>
+              <span>
+                {state.photos.filter((p) => p.purpose === purpose).length} /{" "}
+                {purpose === "profile" ? 1 : 3} saved
+              </span>
+            </li>
+            {purpose === "reference" && (
+              <li>
+                <strong>3. Check face</strong>
+                <span>
+                  {
+                    state.photos.filter(
+                      (p) => p.purpose === "reference" && p.checked,
+                    ).length
+                  }{" "}
+                  checked
+                </span>
+              </li>
+            )}
+          </ol>
+          {purpose === "reference" && (
+            <p className="table-help">
+              {state.verificationConfigured
+                ? "Face checking is available. Save an individual portrait, then click Check face on the saved photo."
+                : "Face checking is not available for this organisation yet. You can save photos; ask your administrator to enable attendance face verification."}
+            </p>
+          )}
           <p>
             <span
               className={`status-badge ${consent?.granted ? "status-active" : "status-neutral"}`}
@@ -235,48 +223,75 @@ export function StudentPhotos({
             )}
           </p>
           {manage && (
-            <details open={!consent?.granted} key={`${purpose}-${consent?.version || 0}`} className="consent-control">
-            <summary>{consent?.granted ? "Manage recorded permission" : "Step 1 · Record permission"}</summary>
-            <form
+            <details
+              open={!consent?.granted}
               key={`${purpose}-${consent?.version || 0}`}
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                void act(
-                  () =>
-                    api(base + "/photo-consent", "POST", {
-                      purpose,
-                      version: consent?.version || 0,
-                      granted: !consent?.granted,
-                      attested: f.get("attested") === "on",
-                    }),
-                  consent?.granted
-                    ? "Consent withdrawn and photos deleted."
-                    : "Consent recorded.",
-                );
-              }}
+              className="consent-control"
             >
-              <label className="check">
-                <input
-                  name="attested"
-                  type="checkbox"
-                  required
-                  disabled={busy}
-                />
+              <summary>
                 {consent?.granted
-                  ? "I confirm the request to withdraw consent and delete photos for this purpose."
-                  : `I have recorded permission from the student or authorised guardian for ${purpose === "profile" ? "storing the profile photo" : "using face reference photos for attendance verification"}.`}
-              </label>
-              <button disabled={busy}>
-                {consent?.granted
-                  ? "Withdraw consent and delete photos"
-                  : "Record consent"}
-              </button>
-            </form>
+                  ? "Manage recorded permission"
+                  : "Step 1 · Record permission"}
+              </summary>
+              <form
+                key={`${purpose}-${consent?.version || 0}`}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  void act(
+                    () =>
+                      api(base + "/photo-consent", "POST", {
+                        purpose,
+                        version: consent?.version || 0,
+                        granted: !consent?.granted,
+                        attested: f.get("attested") === "on",
+                      }),
+                    consent?.granted
+                      ? "Consent withdrawn and photos deleted."
+                      : "Consent recorded.",
+                  );
+                }}
+              >
+                <label className="check">
+                  <input
+                    name="attested"
+                    type="checkbox"
+                    required
+                    disabled={busy}
+                  />
+                  {consent?.granted
+                    ? "I confirm the request to withdraw consent and delete photos for this purpose."
+                    : `I have recorded permission from the student or authorised guardian for ${purpose === "profile" ? "storing the profile photo" : "using face reference photos for attendance verification"}.`}
+                </label>
+                <button disabled={busy}>
+                  {consent?.granted
+                    ? "Withdraw consent and delete photos"
+                    : "Record consent"}
+                </button>
+              </form>
             </details>
           )}
-          {manage && !archived && consent?.granted && (
-            <div className="editor-panel">
+          {manage && !archived && (
+            <div className="editor-panel photo-upload-panel">
+              <h4>
+                2.{" "}
+                {purpose === "profile"
+                  ? "Upload profile picture"
+                  : "Upload attendance face photo"}
+              </h4>
+              {!consent?.granted && (
+                <p className="table-help">
+                  Record permission in step 1 above to enable photo selection.
+                </p>
+              )}
+              {purpose === "reference" &&
+                state.photos.filter((p) => p.purpose === "reference").length >=
+                  3 && (
+                  <p role="status">
+                    All 3 reference slots are filled. Remove a saved photo below
+                    before adding another.
+                  </p>
+                )}
               {demo && purpose === "reference" ? (
                 <p>
                   Dummy records cannot identify real people. Register a separate
@@ -285,13 +300,21 @@ export function StudentPhotos({
               ) : (
                 <>
                   <label>
-                    Choose {purpose === "profile" ? "profile" : "reference"}{" "}
-                    photo
+                    Select{" "}
+                    {purpose === "profile"
+                      ? "profile picture"
+                      : "an individual portrait"}
                     <input
                       key={purpose}
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      disabled={busy}
+                      disabled={
+                        busy ||
+                        !consent?.granted ||
+                        (purpose === "reference" &&
+                          state.photos.filter((p) => p.purpose === "reference")
+                            .length >= 3)
+                      }
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         setPrepared(null);
@@ -322,27 +345,161 @@ export function StudentPhotos({
                         <p className="error">{prepared.warning}</p>
                       )}
                       <button
-                        disabled={busy}
+                        disabled={busy || !consent?.granted}
                         onClick={() =>
-                          void act(async () => {
-                            await api(base + "/photos", "POST", {
-                              purpose,
-                              photo: prepared.url.split(",")[1],
-                              consentVersion: consent.version,
-                            });
-                            setPrepared(null);
-                          }, "Photo saved.")
+                          void act(
+                            async () => {
+                              await api(base + "/photos", "POST", {
+                                purpose,
+                                photo: prepared.url.split(",")[1],
+                                consentVersion: consent!.version,
+                              });
+                              setPrepared(null);
+                            },
+                            purpose === "profile"
+                              ? "Profile picture saved. Open Attendance face photos to set up face matching."
+                              : "Attendance photo saved. Click Check face on the saved photo below.",
+                          )
                         }
                       >
                         {purpose === "profile"
                           ? "Save / replace profile photo"
-                          : "Save reference photo"}
+                          : "Save attendance face photo"}
                       </button>
                     </>
                   )}
                 </>
               )}
             </div>
+          )}
+          <h4>
+            {purpose === "profile"
+              ? "Saved profile picture"
+              : "3. Check saved attendance photos"}
+          </h4>
+          {purpose === "reference" && (
+            <p>
+              Check each saved portrait for a clear, single face. A passed check
+              prepares the reference; it does not record attendance.
+            </p>
+          )}
+          <div className="student-photo-grid">
+            {state.photos
+              .filter((p) => p.purpose === purpose)
+              .map((p) => (
+                <article className="student-photo-card" key={p.id}>
+                  <img
+                    src={`${apiBase}${base}/photos/${p.id}`}
+                    alt={
+                      p.purpose === "profile"
+                        ? "Student profile"
+                        : "Attendance face reference"
+                    }
+                  />
+                  <strong>
+                    {p.purpose === "profile"
+                      ? "Profile photo"
+                      : "Attendance reference"}
+                  </strong>
+                  <span
+                    className={`status-badge ${p.checked ? "status-active" : "status-neutral"}`}
+                  >
+                    {p.purpose === "profile"
+                      ? "Profile photo"
+                      : p.checked
+                        ? "Face checked"
+                        : "Not face-checked"}
+                  </span>
+                  <small>
+                    {p.width} × {p.height} px
+                  </small>
+                  {manage && (
+                    <div className="actions">
+                      {!archived && p.purpose === "reference" && (
+                        <button
+                          disabled={busy || !state.verificationConfigured}
+                          onClick={() =>
+                            void act(
+                              () =>
+                                api(
+                                  `${base}/photos/${p.id}/check`,
+                                  "POST",
+                                  {},
+                                  20000,
+                                ),
+                              "Face check passed.",
+                            )
+                          }
+                        >
+                          Check face
+                        </button>
+                      )}
+                      <details>
+                        <summary>Remove photo</summary>
+                        <p>
+                          This deletes the stored photo. Attendance records
+                          remain.
+                        </p>
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            void act(
+                              () =>
+                                api(
+                                  `${base}/photos/${p.id}/remove`,
+                                  "POST",
+                                  {},
+                                ),
+                              "Photo removed.",
+                            )
+                          }
+                        >
+                          Confirm removal
+                        </button>
+                      </details>
+                    </div>
+                  )}
+                </article>
+              ))}
+          </div>
+          {!state.photos.some((p) => p.purpose === purpose) && (
+            <p className="empty-state">
+              No{" "}
+              {purpose === "profile"
+                ? "profile photo"
+                : "attendance references"}{" "}
+              yet.{" "}
+              {consent?.granted
+                ? "Choose a photo in step 2 above to get started."
+                : "Start by recording permission in step 1 above."}
+            </p>
+          )}
+          {purpose === "profile" &&
+            state.photos.some((p) => p.purpose === "profile") && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setPurpose("reference");
+                  setPrepared(null);
+                  setNotice("");
+                  setError("");
+                }}
+              >
+                Next: set up attendance face photos
+              </button>
+            )}
+          {!manage && (
+            <p>
+              You can view photos. Ask an organisation administrator for
+              permission to upload or manage them.
+            </p>
+          )}
+          {archived && (
+            <p>
+              This student is archived. Restore the student before uploading
+              photos.
+            </p>
           )}
         </>
       )}
