@@ -20,6 +20,7 @@ import type {
   SessionResponse,
 } from "@tech4learn/contracts";
 import "./styles.css";
+import "./admin-theme.css";
 
 import { api, ApiError } from "./api";
 import { OrganisationWorkspace } from "./OrganisationWorkspace";

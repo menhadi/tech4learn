@@ -1,0 +1,102 @@
+/* Shared neutral admin theme. Dimensions follow ExamElite's 250px desktop
+   sidebar, 15.5px menu and 14.5px submenu; branding stays on primary actions. */
+:root { color:#344054; background:#f2f2f7; line-height:1.5; }
+.workspace { --admin-border:#e5e7eb; --admin-muted:#667085; --admin-heading:#101828; background:#f2f2f7; color:#344054; font-size:14px; }
+.workspace h1,.workspace h2,.workspace h3,.workspace h4,.workspace legend { color:var(--admin-heading); }
+.workspace > aside { background:#fff; border-right:1px solid var(--admin-border); padding:20px 12px; gap:16px; min-width:0; }
+.workspace > aside .brand { padding:4px 12px; color:#101828; font-size:16px; line-height:1.5; overflow-wrap:anywhere; }
+.workspace > aside .role-badge { padding:0 12px 16px; margin:0; color:#667085; border-color:var(--admin-border); }
+.workspace > aside .account { border-top:1px solid var(--admin-border); padding:18px 12px 0; font-size:13px; }
+.workspace > aside .account small { color:#667085; }
+.grouped-menu { gap:5px; }
+.grouped-menu .menu-group-toggle { padding:11px 12px; gap:10px; font-size:15.5px; font-weight:500; color:#344054; background:transparent; border-radius:5px; }
+.grouped-menu .menu-group-toggle:hover,.grouped-menu .menu-group-toggle.is-current { color:#101828; background:#f2f4f7; }
+.grouped-menu .menu-symbol { width:19px; height:19px; }
+.grouped-menu .menu-children { margin:3px 0 6px 21px; padding-left:7px; border-color:#e4e7ec; }
+.grouped-menu .menu-children button { font-size:14.5px; font-weight:400; line-height:1.45; padding:9px 8px; color:#475467; border-radius:4px; }
+.grouped-menu .menu-children button:hover { background:#f9fafb; }
+.grouped-menu .menu-children .nav-active { color:#101828; background:#eef0f4; box-shadow:inset 2px 0 #475467; font-weight:600; }
+.grouped-menu .menu-planned { margin:0; font-size:9px; color:#667085; background:#f9fafb; border-color:#e4e7ec; }
+.workspace .content { max-width:none; min-width:0; margin:0; padding:24px; }
+.workspace .content > header { min-height:66px; padding:16px 24px; margin:-24px -24px 24px; background:#fff; border-bottom:1px solid var(--admin-border); }
+.workspace .content > header h1 { font-size:22px; margin:0; }
+.workspace .eyebrow,.workspace .muted,.workspace small { color:#667085; }
+.workspace .panel,.workspace .sectioned-form,.workspace .editor-panel,.workspace .subpanel { background:#fff; border:1px solid var(--admin-border); border-radius:6px; box-shadow:0 1px 2px #10182805; padding:20px; }
+.workspace .panel { margin-bottom:20px; }
+.workspace .org-list.panel { padding:18px 20px; }
+.workspace .org-workspace { min-width:0; }
+.workspace .org-heading h2 { font-size:20px; }
+.workspace .workspace-breadcrumb { color:#667085; border-color:var(--admin-border); padding:10px 0; font-size:12px; }
+.workspace .workspace-page-title { font-size:20px; margin:16px 0; }
+.workspace label { color:#344054; font-size:13px; font-weight:500; margin-bottom:16px; }
+.workspace input,.workspace select,.workspace textarea { border:1px solid #d0d5dd; border-radius:4px; color:#344054; background:#fff; font-size:13px; padding:9px 12px; }
+.workspace select { min-height:38px; }
+.workspace button { border-radius:4px; font-size:13px; }
+.workspace .grouped-menu .menu-group-toggle { font-size:15.5px; }
+.workspace .grouped-menu .menu-children button { font-size:14.5px; }
+.workspace .secondary { background:#fff; border-color:#d0d5dd; color:#344054; }
+.workspace .text-button { color:#344054; }
+.workspace .sectioned-form { margin:16px 0; }
+.workspace .form-heading { background:#fff; border-color:var(--admin-border); padding-bottom:16px; margin-bottom:20px; }
+.workspace .form-heading h3 { font-size:16px; }
+.workspace .form-heading p { color:#667085; font-size:12px; }
+.workspace .sectioned-form legend,.workspace .sectioned-form h4 { font-size:15px; color:#344054; }
+.workspace .form-save-bar { background:#f9fafb; border-color:var(--admin-border); padding:14px 16px; }
+.workspace .form-save-bar span { color:#667085; }
+.workspace .summary-card,.workspace .planned-workspace,.workspace .student-photo-card { background:#fff; border:1px solid var(--admin-border); border-radius:6px; color:#344054; }
+.workspace .summary-card:hover { background:#f9fafb; }
+.workspace .photo-upload-panel { border:1px dashed #cbd0d8; background:#f9fafb; }
+/* One neutral card per directory; retain horizontal scroll and pinned columns. */
+.workspace .data-directory { border:1px solid var(--admin-border); border-radius:6px; margin:20px 0; box-shadow:0 1px 2px #10182805; overflow:hidden; }
+.workspace .table-toolbar { padding:16px; background:#fff; border:0; border-bottom:1px solid var(--admin-border); border-radius:0; gap:12px; }
+.workspace .table-toolbar h3 { font-size:16px; font-weight:600; }
+.workspace .table-toolbar label { margin:0; font-size:12px; }
+.workspace .table-toolbar input,.workspace .table-toolbar select { margin-top:0; min-height:36px; }
+.workspace .table-toolbar select { width:90px; }
+.workspace .table-count { color:#667085; font-size:12px; padding:10px 16px; border:0; background:#fff; }
+.workspace .data-directory .directory-table { border:0; border-top:1px solid var(--admin-border); border-bottom:1px solid var(--admin-border); background:#fff; border-radius:0; }
+.workspace .data-directory table { font-size:13px; }
+.workspace .data-directory th,.workspace .data-directory td { padding:12px 10px; border-color:var(--admin-border); color:#344054; }
+.workspace .data-directory thead th { background:#f3f4f6; color:#475467; font-size:12px; font-weight:600; letter-spacing:0; text-transform:none; }
+.workspace .data-directory .column-sort { color:#475467; font-size:12px; }
+.workspace .data-directory .column-filters th { background:#fafbfc; padding:8px 10px; }
+.workspace .data-directory .column-filters input { font-size:12px; padding:7px 9px; min-height:32px; border-color:#d0d5dd; }
+.workspace .data-directory tbody tr:nth-child(odd) { background:#fff; }
+.workspace .data-directory tbody tr:nth-child(even) { background:#f8f9fb; }
+.workspace .data-directory tbody tr:hover,.workspace .data-directory tbody tr:focus-within { background:#eef0f4; }
+.workspace .data-directory tbody td { background:inherit; }
+.workspace .data-directory thead th:first-child,.workspace .data-directory .has-actions thead th:last-child { background:#f3f4f6; }
+.workspace .data-directory thead .column-filters th:first-child,.workspace .data-directory .has-actions thead .column-filters th:last-child { background:#fafbfc; }
+.workspace .table-pagination { background:#fff; border:0; border-radius:0; padding:12px 16px; font-size:12px; }
+.workspace .directory-table .row-actions { min-width:180px; }
+.workspace .row-actions button { font-size:12px; padding:6px 9px; }
+@media(min-width:651px) {
+  .workspace { display:grid; grid-template-columns:250px minmax(0,1fr); }
+  .workspace > aside { position:sticky; top:0; height:100dvh; overflow-y:auto; }
+}
+@media(max-width:650px) {
+  .workspace { display:block; }
+  .workspace > aside { position:static; height:auto; padding:14px 16px; border-right:0; }
+  .workspace .content { padding:16px; }
+  .workspace .content > header { margin:-16px -16px 16px; padding:16px; }
+  .workspace .panel,.workspace .sectioned-form { padding:16px; }
+  .workspace .table-toolbar h3 { flex-basis:100%; }
+  .workspace .table-toolbar label:has(input) { flex:1; min-width:140px; }
+}
+.workspace button,.workspace input,.workspace select,.workspace textarea { font-family:inherit; }
+.workspace .table-pagination button { color:#344054; background:#fff; border:1px solid #d0d5dd; }
+.workspace .table-pagination button:disabled { color:#98a2b3; background:#f9fafb; opacity:1; cursor:default; }
+.workspace .directory-table .row-actions .secondary { color:#344054; border-color:#d0d5dd; background:#fff; }
+@media(max-width:650px) {
+  .workspace .data-directory th:first-child,.workspace .data-directory td:first-child { min-width:130px; max-width:160px; }
+  .workspace .data-directory .has-actions th:last-child,.workspace .data-directory .has-actions td:last-child { min-width:110px; }
+}
+.workspace .grouped-menu { display:grid; grid-template-columns:minmax(0,1fr); overflow:visible; }
+.workspace .menu-group { min-width:0; }
+.workspace .data-directory { min-width:0; max-width:100%; }
+@media(max-width:650px) {
+  .workspace .table-toolbar { align-items:stretch; }
+  .workspace .table-toolbar label { flex:1 1 130px; }
+  .workspace .table-toolbar > button { align-self:end; }
+  .workspace .table-toolbar input { width:100%; }
+}

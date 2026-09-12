@@ -197,7 +197,7 @@ export function organisationMenu(
     },
     {
       id: "org-academics",
-      label: "Academics & students",
+      label: "Academics",
       icon: "▤",
       items: [
         item("Centres", `${centreLabel}s`),
