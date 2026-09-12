@@ -1,3 +1,4 @@
+import { DirectoryTable, RecordStatus } from "./DirectoryTable";
 import { useEffect, useState, type FormEvent } from "react";
 import type { Invitation, Organisation } from "@tech4learn/contracts";
 import { api } from "./api";
@@ -9,7 +10,6 @@ import { createPortal } from "react-dom";
 import { PermissionMatrix } from "./PermissionMatrix";
 import { AIProviders } from "./AIProviders";
 import { AcademicStructure, type AcademicGroup } from "./AcademicStructure";
-
 type Scope = {
   scope_type: "organisation" | "centres" | "groups";
   scope_ids: string[];
@@ -69,7 +69,6 @@ const form = (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault();
   return Object.fromEntries(new FormData(e.currentTarget));
 };
-
 export function OrganisationWorkspace({
   organisation: org,
   userId,
@@ -486,84 +485,122 @@ export function OrganisationWorkspace({
               {!data.centres.length && (
                 <p>No centres in your access scope yet.</p>
               )}
-              {data.centres.map((c) => (
-                <div className="record" key={c.id}>
-                  <strong>{c.name}</strong>
-                  <p>
-                    {c.address || "Address not set"} ·{" "}
-                    {c.archived
-                      ? "Archived"
-                      : c.location_approved
-                        ? "Location approved"
-                        : "Location needs review"}
-                  </p>
-                  <small>
-                    {c.latitude === null
-                      ? "Coordinates not set"
-                      : `${c.latitude}, ${c.longitude} · ${c.radius} m`}
-                  </small>
-                  {!c.archived && data.access.scope_type !== "groups" && (
-                    <div className="actions">
-                      {can("centres.edit") && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => setCentre(c)}
-                        >
-                          Edit
-                        </button>
+              <DirectoryTable
+                title={`${org.centre_label} directory`}
+                columns={[
+                  org.centre_label,
+                  "Type",
+                  "Address",
+                  "Location",
+                  "Status",
+                  "Actions",
+                ]}
+              >
+                {data.centres.map((c) => (
+                  <tr key={c.id}>
+                    <th scope="row">
+                      <strong>{c.name}</strong>
+                    </th>
+                    <td className="type-cell">
+                      {c.centre_type.replaceAll("_", " ")}
+                    </td>
+                    <td>
+                      {c.address || <span className="muted">Not set</span>}
+                    </td>
+                    <td>
+                      <span
+                        className={`status-badge ${c.location_approved ? "status-active" : "status-warning"}`}
+                      >
+                        {c.location_approved
+                          ? "Verified"
+                          : c.latitude === null
+                            ? "Not configured"
+                            : "Needs review"}
+                      </span>
+                      <small className="cell-note">
+                        {c.latitude === null
+                          ? "Add coordinates to verify attendance"
+                          : `${c.latitude}, ${c.longitude} · ${c.radius} m`}
+                      </small>
+                    </td>
+                    <td>
+                      <RecordStatus archived={c.archived} />
+                    </td>
+                    <td className="row-actions">
+                      {!c.archived && data.access.scope_type !== "groups" && (
+                        <div className="actions">
+                          {can("centres.edit") && (
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => {
+                                setCentre(c);
+                                requestAnimationFrame(() =>
+                                  document
+                                    .getElementById("centre-editor")
+                                    ?.scrollIntoView({
+                                      behavior: "smooth",
+                                      block: "start",
+                                    }),
+                                );
+                              }}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {can("centres.approve") &&
+                            !c.location_approved &&
+                            c.latitude !== null && (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void act(
+                                    () =>
+                                      api(
+                                        `${base}/centres/${c.id}/approve`,
+                                        "POST",
+                                        {},
+                                      ),
+                                    "Location approved.",
+                                  )
+                                }
+                              >
+                                Approve location
+                              </button>
+                            )}
+                          {can("centres.archive") && (
+                            <details>
+                              <summary>Archive centre</summary>
+                              <p>
+                                Active groups must be archived first. The centre
+                                and its history will be retained.
+                              </p>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void act(
+                                    () =>
+                                      api(
+                                        `${base}/centres/${c.id}/archive`,
+                                        "POST",
+                                        {},
+                                      ),
+                                    "Centre archived.",
+                                  )
+                                }
+                              >
+                                Confirm archive
+                              </button>
+                            </details>
+                          )}
+                        </div>
                       )}
-                      {can("centres.approve") &&
-                        !c.location_approved &&
-                        c.latitude !== null && (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() =>
-                              void act(
-                                () =>
-                                  api(
-                                    `${base}/centres/${c.id}/approve`,
-                                    "POST",
-                                    {},
-                                  ),
-                                "Location approved.",
-                              )
-                            }
-                          >
-                            Approve location
-                          </button>
-                        )}
-                      {can("centres.archive") && (
-                        <details>
-                          <summary>Archive centre</summary>
-                          <p>
-                            Active groups must be archived first. The centre and
-                            its history will be retained.
-                          </p>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() =>
-                              void act(
-                                () =>
-                                  api(
-                                    `${base}/centres/${c.id}/archive`,
-                                    "POST",
-                                    {},
-                                  ),
-                                "Centre archived.",
-                              )
-                            }
-                          >
-                            Confirm archive
-                          </button>
-                        </details>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    </td>
+                  </tr>
+                ))}
+              </DirectoryTable>
               {(centre ? can("centres.edit") : can("centres.create")) &&
                 data.access.scope_type !== "groups" && (
                   <form
@@ -719,36 +756,47 @@ export function OrganisationWorkspace({
                 safety role stays protected. Assessment and exam permissions
                 will be added when those modules are available.
               </p>
-              {data.roles.map((r) => (
-                <div className="record" key={r.id}>
-                  <strong>
-                    {r.name}
-                    {r.protected ? " · Protected" : ""}
-                  </strong>
-                  <p>{r.permissions.length} permissions</p>
-                  <details>
-                    <summary>View permissions</summary>
-                    <PermissionMatrix
-                      catalogue={data.catalogue}
-                      selected={r.permissions}
-                    />
-                  </details>
-                  {can("roles.manage") &&
-                    !r.protected &&
-                    r.id !== data.access.roleId &&
-                    r.permissions.every((p) => can(p)) && (
-                      <button
-                        className="secondary"
-                        onClick={() => {
-                          setRole(r);
-                          setRolePermissions(r.permissions);
-                        }}
-                      >
-                        Edit role
-                      </button>
-                    )}
-                </div>
-              ))}
+              <DirectoryTable
+                title="Roles and permissions"
+                columns={["Role", "Permissions", "Protection", "Actions"]}
+              >
+                {data.roles.map((r) => (
+                  <tr key={r.id}>
+                    <th scope="row">
+                      <strong>{r.name}</strong>
+                    </th>
+                    <td>{r.permissions.length} permissions</td>
+                    <td>
+                      <span className="status-badge status-neutral">
+                        {r.protected ? "Protected" : "Customisable"}
+                      </span>
+                    </td>
+                    <td className="row-actions">
+                      <details>
+                        <summary>View permissions</summary>
+                        <PermissionMatrix
+                          catalogue={data.catalogue}
+                          selected={r.permissions}
+                        />
+                      </details>
+                      {can("roles.manage") &&
+                        !r.protected &&
+                        r.id !== data.access.roleId &&
+                        r.permissions.every((p) => can(p)) && (
+                          <button
+                            className="secondary"
+                            onClick={() => {
+                              setRole(r);
+                              setRolePermissions(r.permissions);
+                            }}
+                          >
+                            Edit role
+                          </button>
+                        )}
+                    </td>
+                  </tr>
+                ))}
+              </DirectoryTable>
               {can("roles.manage") && (
                 <form
                   key={role?.id || `new-role-${revision}`}
@@ -816,32 +864,52 @@ export function OrganisationWorkspace({
             <>
               <h3>People and access</h3>
               {!data.members.length && <p>No accepted memberships yet.</p>}
-              {data.members.map((m) => (
-                <div className="record" key={m.user_id}>
-                  <strong>
-                    {m.name}
-                    {m.user_id === userId ? " (you)" : ""}
-                  </strong>
-                  <p>
-                    {m.email}
-                    <br />
-                    {m.role_name} · {m.status} ·{" "}
-                    {m.scope_type === "organisation"
-                      ? "Whole organisation"
-                      : `Assigned ${m.scope_type}`}
-                  </p>
-                  {can("members.manage") &&
-                    m.user_id !== userId &&
-                    (!m.protected || data.access.owner) && (
-                      <button
-                        className="secondary"
-                        onClick={() => chooseMember(m)}
-                      >
-                        Change access
-                      </button>
-                    )}
-                </div>
-              ))}
+              <DirectoryTable
+                title="Staff directory"
+                columns={[
+                  "Staff member",
+                  "Email",
+                  "Role",
+                  "Access scope",
+                  "Status",
+                  "Actions",
+                ]}
+              >
+                {data.members.map((m) => (
+                  <tr key={m.user_id}>
+                    <th scope="row">
+                      <strong>
+                        {m.name}
+                        {m.user_id === userId ? " (you)" : ""}
+                      </strong>
+                    </th>
+                    <td>{m.email}</td>
+                    <td>{m.role_name}</td>
+                    <td>
+                      {m.scope_type === "organisation"
+                        ? "Whole organisation"
+                        : `Assigned ${m.scope_type}`}
+                    </td>
+                    <td>
+                      <span className="status-badge status-neutral">
+                        {m.status}
+                      </span>
+                    </td>
+                    <td className="row-actions">
+                      {can("members.manage") &&
+                        m.user_id !== userId &&
+                        (!m.protected || data.access.owner) && (
+                          <button
+                            className="secondary"
+                            onClick={() => chooseMember(m)}
+                          >
+                            Change access
+                          </button>
+                        )}
+                    </td>
+                  </tr>
+                ))}
+              </DirectoryTable>
               {can("members.manage") && (
                 <form
                   key={member?.user_id || `invite-${revision}`}

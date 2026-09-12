@@ -1,3 +1,4 @@
+import { DirectoryTable, RecordStatus } from "./DirectoryTable";
 import { SectionSelect } from "./SectionSelect";
 import type { AcademicGroup } from "./AcademicStructure";
 import { useEffect, useState, type FormEvent } from "react";
@@ -150,7 +151,10 @@ export function Learners({
       <h3>Students / learners</h3>
       <details open={!!initialGroup}>
         <summary>Filter students by section</summary>
-        <p>Use centre, year and class to find a section, then select it to filter the student list.</p>
+        <p>
+          Use centre, year and class to find a section, then select it to filter
+          the student list.
+        </p>
         <SectionSelect
           groups={groups}
           value={groupFilter}
@@ -222,28 +226,44 @@ export function Learners({
         </details>
       )}
       {!items.length && <p>No learners found in your scope.</p>}
-      {items.map((l) => (
-        <div className="record" key={l.id}>
-          <strong>{l.name}</strong>
-          <p>
-            {l.code} · {l.group_name}
-            {l.demo ? " · DEMO" : ""}
-            {l.archived ? " · Archived" : ""}
-          </p>
-          <button
-            className="secondary"
-            disabled={busy}
-            onClick={() =>
-              void act(async () => {
-                setSelected(await api<Learner>(`${base}/learners/${l.id}`));
-                setCreating(false);
-              }, "Profile opened.")
-            }
-          >
-            Open profile
-          </button>
-        </div>
-      ))}
+      <DirectoryTable
+        title="Student directory"
+        columns={[
+          "Student",
+          "Student code",
+          "Class / section",
+          "Status",
+          "Actions",
+        ]}
+      >
+        {items.map((l) => (
+          <tr key={l.id}>
+            <th scope="row">
+              <strong>{l.name}</strong>
+              {l.demo && <span className="demo-label">Demo</span>}
+            </th>
+            <td className="code-cell">{l.code}</td>
+            <td>{l.group_name || "Unassigned"}</td>
+            <td>
+              <RecordStatus archived={l.archived} />
+            </td>
+            <td className="row-actions">
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() =>
+                  void act(async () => {
+                    setSelected(await api<Learner>(`${base}/learners/${l.id}`));
+                    setCreating(false);
+                  }, "Profile opened.")
+                }
+              >
+                Open profile
+              </button>
+            </td>
+          </tr>
+        ))}
+      </DirectoryTable>
       <div className="actions">
         <button
           disabled={!offset || busy}

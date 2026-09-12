@@ -1,3 +1,4 @@
+import { DirectoryTable, RecordStatus } from "./DirectoryTable";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 
@@ -127,65 +128,76 @@ export function AcademicStructure({
   );
   function section(g: AcademicGroup) {
     return (
-      <div className="record" key={g.id}>
-        <strong>{g.name}</strong>
-        <p className="muted">
-          {g.centre_name}
-          {g.archived ? " · Archived" : ""}
-        </p>
-        <div className="actions">
-          {can("learners.view") && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => onStudents(g.id)}
-            >
-              Students
-            </button>
-          )}
-          {!g.archived && can("attendance.capture") && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => onAttendance(g.id)}
-            >
-              Photo attendance
-            </button>
-          )}
-          {!g.archived && can("groups.edit") && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => {
-                setEdit(g);
-                setSelectedClass(g.class_id || "");
-              }}
-            >
-              Edit section / link class
-            </button>
-          )}
-          {!g.archived && can("groups.archive") && (
-            <details>
-              <summary>Archive section</summary>
-              <p>
-                Active students must be transferred or archived first. History
-                remains available.
-              </p>
+      <tr key={g.id}>
+        <th scope="row">
+          <strong>{g.name}</strong>
+        </th>
+        <td>{g.class_name || "Unassigned group"}</td>
+        <td>{g.year_name || "Not assigned"}</td>
+        <td>{g.centre_name}</td>
+        <td>
+          <RecordStatus archived={g.archived} />
+        </td>
+        <td className="row-actions">
+          <div className="actions">
+            {can("learners.view") && (
               <button
-                disabled={busy}
-                onClick={() =>
-                  void act(
-                    () => api(`${base}/groups/${g.id}/archive`, "POST", {}),
-                    "Section archived.",
-                  )
-                }
+                type="button"
+                className="secondary"
+                onClick={() => onStudents(g.id)}
               >
-                Confirm archive
+                Students
               </button>
-            </details>
-          )}
-        </div>
-      </div>
+            )}
+            {!g.archived && can("attendance.capture") && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => onAttendance(g.id)}
+              >
+                Attendance
+              </button>
+            )}
+            {!g.archived && can("groups.edit") && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setEdit(g);
+                  setSelectedClass(g.class_id || "");
+                  requestAnimationFrame(() =>
+                    document
+                      .getElementById("section-editor")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                  );
+                }}
+              >
+                {g.class_id ? "Edit" : "Link class"}
+              </button>
+            )}
+            {!g.archived && can("groups.archive") && (
+              <details>
+                <summary>Archive</summary>
+                <p>
+                  Active students must be transferred or archived first. History
+                  remains available.
+                </p>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void act(
+                      () => api(`${base}/groups/${g.id}/archive`, "POST", {}),
+                      "Section archived.",
+                    )
+                  }
+                >
+                  Confirm archive
+                </button>
+              </details>
+            )}
+          </div>
+        </td>
+      </tr>
     );
   }
   return (
@@ -241,10 +253,19 @@ export function AcademicStructure({
         />
         Show archived records
       </label>
-      {loading ? (
-        <p>Loading classes…</p>
-      ) : (
-        classes
+      {loading && <p role="status">Loading academic structure...</p>}
+      <DirectoryTable
+        title="Classes"
+        columns={[
+          "Class",
+          "Centre",
+          "Academic year",
+          "Sections in view",
+          "Status",
+          "Actions",
+        ]}
+      >
+        {classes
           .filter(
             (c) =>
               (showArchived || !c.archived) &&
@@ -252,70 +273,95 @@ export function AcademicStructure({
               (!yearFilter || c.academic_year_id === yearFilter),
           )
           .map((c) => (
-            <section className="record" key={c.id}>
-              <h4>
-                {c.name} · {c.year_name}
-                {c.archived ? " · Archived" : ""}
-              </h4>
-              <p>{c.centre_name}</p>
-              {visibleGroups.filter((g) => g.class_id === c.id).map(section)}
-              {!visibleGroups.some((g) => g.class_id === c.id) && (
-                <p>No sections in your access scope.</p>
-              )}
-              <div className="actions">
-                {canCreate && !c.archived && !c.year_archived && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEdit(null);
-                      setSelectedClass(c.id);
-                    }}
-                  >
-                    Add section
-                  </button>
-                )}
-                {can("groups.archive") && scope !== "groups" && !c.archived && (
-                  <details>
-                    <summary>Archive class</summary>
-                    <p>Archive all active sections first.</p>
+            <tr key={c.id}>
+              <th scope="row">{c.name}</th>
+              <td>{c.centre_name}</td>
+              <td>{c.year_name}</td>
+              <td>{visibleGroups.filter((g) => g.class_id === c.id).length}</td>
+              <td>
+                <RecordStatus archived={c.archived} />
+              </td>
+              <td className="row-actions">
+                <div className="actions">
+                  {canCreate && !c.archived && !c.year_archived && (
                     <button
-                      disabled={busy}
-                      onClick={() =>
-                        void act(
-                          () =>
-                            api(`${base}/classes/${c.id}/archive`, "POST", {}),
-                          "Class archived.",
-                        )
-                      }
+                      type="button"
+                      onClick={() => {
+                        setEdit(null);
+                        setSelectedClass(c.id);
+                        requestAnimationFrame(() =>
+                          document
+                            .getElementById("section-editor")
+                            ?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            }),
+                        );
+                      }}
                     >
-                      Confirm archive class
+                      Add section
                     </button>
-                  </details>
-                )}
-              </div>
-            </section>
-          ))
-      )}
+                  )}
+                  {can("groups.archive") &&
+                    scope !== "groups" &&
+                    !c.archived && (
+                      <details>
+                        <summary>Archive class</summary>
+                        <p>Archive all active sections first.</p>
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            void act(
+                              () =>
+                                api(
+                                  `${base}/classes/${c.id}/archive`,
+                                  "POST",
+                                  {},
+                                ),
+                              "Class archived.",
+                            )
+                          }
+                        >
+                          Confirm archive class
+                        </button>
+                      </details>
+                    )}
+                </div>
+              </td>
+            </tr>
+          ))}
+      </DirectoryTable>
       {!loading && !classes.length && (
-        <p>
-          No classes yet. Add an academic year, then a class and section below.
+        <p className="empty-state">
+          Start with an academic year, then add a class and its sections below.
         </p>
       )}
-      {visibleGroups.some((g) => !g.class_id) && (
-        <details open>
-          <summary>Unassigned groups</summary>
-          <p>
-            These groups have not been assigned to an academic year. They remain
-            visible here regardless of the year filter.
-          </p>
-          {visibleGroups.filter((g) => !g.class_id).map(section)}
-        </details>
-      )}
+      <DirectoryTable
+        title="Sections and groups"
+        columns={[
+          "Section / group",
+          "Class",
+          "Academic year",
+          "Centre",
+          "Status",
+          "Actions",
+        ]}
+      >
+        {visibleGroups
+          .filter((g) => !yearFilter || g.academic_year_id === yearFilter)
+          .map(section)}
+      </DirectoryTable>
+      <p className="table-help">
+        Unassigned groups have no class or academic year. Choose Edit / link
+        class to organise them without changing their students or history.
+      </p>
       {(edit ? can("groups.edit") : canCreate) && (
-        <details open={!!edit || !!selectedClass} className="record">
-          <summary>
-            {edit ? "Edit section / link class" : "Add section"}
-          </summary>
+        <details
+          id="section-editor"
+          open={!!edit || !!selectedClass}
+          className="record editor-panel"
+        >
+          <summary>{edit ? "Edit / link class" : "Add section"}</summary>
           <form
             key={edit?.id || "new"}
             onSubmit={(e) => {
@@ -449,39 +495,55 @@ export function AcademicStructure({
       )}
       <details className="record" open={!years.length && !loading}>
         <summary>Academic years</summary>
-        {years.map((y) => (
-          <div className="record" key={y.id}>
-            <strong>{y.name}</strong>
-            <p>
-              {y.starts_on.slice(0, 10)} – {y.ends_on.slice(0, 10)}
-              {y.archived ? " · Archived" : ""}
-            </p>
-            {scope === "organisation" &&
-              can("groups.archive") &&
-              !y.archived && (
-                <details>
-                  <summary>Archive year</summary>
-                  <p>All classes in this year must be archived first.</p>
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      void act(
-                        () =>
-                          api(
-                            `${base}/academic-years/${y.id}/archive`,
-                            "POST",
-                            {},
-                          ),
-                        "Academic year archived.",
-                      )
-                    }
-                  >
-                    Confirm archive year
-                  </button>
-                </details>
-              )}
-          </div>
-        ))}
+        <DirectoryTable
+          title="Academic years"
+          columns={[
+            "Academic year",
+            "Start date",
+            "End date",
+            "Status",
+            "Actions",
+          ]}
+        >
+          {years.map((y) => (
+            <tr key={y.id}>
+              <th scope="row">
+                <strong>{y.name}</strong>
+              </th>
+              <td>{y.starts_on.slice(0, 10)}</td>
+              <td>{y.ends_on.slice(0, 10)}</td>
+              <td>
+                <RecordStatus archived={y.archived} />
+              </td>
+              <td className="row-actions">
+                {scope === "organisation" &&
+                  can("groups.archive") &&
+                  !y.archived && (
+                    <details>
+                      <summary>Archive year</summary>
+                      <p>All classes in this year must be archived first.</p>
+                      <button
+                        disabled={busy}
+                        onClick={() =>
+                          void act(
+                            () =>
+                              api(
+                                `${base}/academic-years/${y.id}/archive`,
+                                "POST",
+                                {},
+                              ),
+                            "Academic year archived.",
+                          )
+                        }
+                      >
+                        Confirm archive year
+                      </button>
+                    </details>
+                  )}
+              </td>
+            </tr>
+          ))}
+        </DirectoryTable>
         {canCreate && scope === "organisation" ? (
           <form
             onSubmit={(e) => {
