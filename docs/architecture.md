@@ -32,6 +32,8 @@ Migration 4 adds organisation presentation settings, superadmin module availabil
 
 ## Attendance pilot
 
+Migration 8 adds purpose-specific consent and bounded private learner photos. A stateless CompreFace verification adapter produces scoped attendance suggestions without storing remote face collections or writing marks. Engine installation and calibration are separate; see [student photos](student-photos-release.md).
+
 Migration 7 adds the academic hierarchy while retaining learning group IDs as section IDs. Composite keys bind each class to its organisation, year and centre, and each section to a class at its own centre. Existing records remain unassigned until explicitly linked; new capture labels include year/class/section. See [academic release](academic-release.md) for scope, archive and promotion rules.
 
 Migration 6 adds photo analysis history and an explicit server-side integration boundary for four vision providers. Keys remain private environment configuration for now; central editable API settings are planned. No analysis operation changes attendance marks. See [workspace release](workspace-ai-release.md) and [self-hosted recognition evaluation](self-hosted-recognition.md). The revised hierarchy and student portal are specified in [registration workflow](registration-workflow.md); current learning group IDs must remain stable when explicit sections are introduced.

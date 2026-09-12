@@ -973,3 +973,53 @@ footer {
 .directory-table .row-actions {
   min-width: 240px;
 }
+
+.student-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 220px));
+  gap: 16px;
+  margin: 20px 0;
+}
+.student-photo-card {
+  padding: 12px;
+  border: 1px solid #dce5e4;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f5f8f7;
+}
+.student-photo-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: contain;
+  background: #e8eeec;
+}
+.photo-preview {
+  display: block;
+  width: 180px;
+  max-height: 240px;
+  object-fit: contain;
+  margin: 16px 0;
+}
+.face-overlay {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  margin-top: 20px;
+}
+.face-overlay img {
+  display: block;
+  width: 100%;
+}
+.face-overlay > span {
+  position: absolute;
+  border: 2px solid #ffbb35;
+  pointer-events: none;
+}
+.face-overlay b {
+  background: #ffbb35;
+  color: #15241e;
+  padding: 2px 5px;
+  font-size: 13px;
+}

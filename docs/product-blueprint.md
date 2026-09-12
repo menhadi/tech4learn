@@ -24,7 +24,7 @@ Live dummy data is requested only in **Vecotrial Career Academy** (`vector-acade
 
 Working browser pilot: live camera capture, automatic time/location, explicit learner review, correction history and daily totals. See [attendance release](attendance-release.md) for its limits. Native capture, recognition, register scanning, CCTV and offline capture remain planned.
 
-Support classroom/group photos, physical-register photos, manual correction and future CCTV connectors. The user selected self-hosted face recognition as the direction; CompreFace is under evaluation and is not installed. Four general vision adapters provide optional quality/transcription analysis, not identity matching. See [workspace and vision release](workspace-ai-release.md).
+Support classroom/group photos, physical-register photos, manual correction and future CCTV connectors. The user selected self-hosted face recognition as the direction; A bounded CompreFace verification adapter is implemented; the engine is not installed and real-image calibration is pending. See [student photos](student-photos-release.md). Four general vision adapters provide optional quality/transcription analysis, not identity matching. See [workspace and vision release](workspace-ai-release.md).
 
 1. Register and approve centre coordinates separately from map village/address labels.
 2. Assign authorised staff, groups and learners.

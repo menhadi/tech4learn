@@ -143,6 +143,27 @@ export class AccessService {
       );
     const permissions = [...new Set<Permission>(value)];
     if (
+      permissions.includes("learners.photo_manage") &&
+      !permissions.includes("learners.photos")
+    )
+      throw new BadRequestException(
+        "Managing photos requires learners.photos.",
+      );
+    if (
+      (permissions.includes("learners.photos") ||
+        permissions.includes("attendance.match")) &&
+      !permissions.includes("learners.view")
+    )
+      throw new BadRequestException("Student photos require learners.view.");
+    if (
+      permissions.includes("attendance.match") &&
+      (!permissions.includes("attendance.photos") ||
+        !permissions.includes("learners.photos"))
+    )
+      throw new BadRequestException(
+        "Face matching requires attendance.photos and learners.photos.",
+      );
+    if (
       permissions.includes("attendance.analyse") &&
       !permissions.includes("attendance.photos")
     )

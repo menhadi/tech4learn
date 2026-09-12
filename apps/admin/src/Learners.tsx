@@ -1,4 +1,5 @@
 import { DirectoryTable, RecordStatus } from "./DirectoryTable";
+import { StudentPhotos } from "./StudentPhotos";
 import { SectionSelect } from "./SectionSelect";
 import type { AcademicGroup } from "./AcademicStructure";
 import { useEffect, useState, type FormEvent } from "react";
@@ -279,6 +280,16 @@ export function Learners({
         <section className="record">
           <h3>{current ? current.name : "New learner"}</h3>
           {current?.demo && <p>Clearly labelled synthetic demo learner.</p>}
+          {current && permissions.includes("learners.photos") && (
+            <StudentPhotos
+              key={current.id}
+              org={org}
+              id={current.id}
+              permissions={permissions}
+              archived={current.archived}
+              demo={current.demo}
+            />
+          )}
           <form
             key={(current?.id || "new") + "-" + revision}
             onSubmit={(e) => {

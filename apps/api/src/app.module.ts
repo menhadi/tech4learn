@@ -1,4 +1,7 @@
 import { ConfigurationService } from "./configuration.service.js";
+import { LearnerPhotosService } from "./learner-photos.service.js";
+import { LearnerPhotosController } from "./learner-photos.controller.js";
+import { FaceMatchingService } from "./face-matching.service.js";
 import { AttendanceService } from "./attendance.service.js";
 import { AttendanceController } from "./attendance.controller.js";
 import { ConfigurationController } from "./configuration.controller.js";
@@ -21,6 +24,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        LearnerPhotosController,
         AcademicController,
         AttendanceController,
         ConfigurationController,
@@ -30,6 +34,8 @@ export class AppModule {
         LearnersController,
       ],
       providers: [
+        LearnerPhotosService,
+        FaceMatchingService,
         AcademicService,
         AttendanceService,
         database ? { provide: Database, useValue: database } : Database,

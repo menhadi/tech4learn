@@ -1,4 +1,7 @@
 export const permissionCatalogue = [
+  ["learners.photos", "View private student photos and consent"],
+  ["learners.photo_manage", "Manage student photos and record consent"],
+  ["attendance.match", "Suggest attendance from consented face references"],
   ["attendance.analyse", "Run AI photo or register analysis"],
   ["attendance.view", "View attendance and learner roster"],
   ["attendance.capture", "Capture attendance evidence"],
@@ -24,9 +27,15 @@ export const permissionCatalogue = [
   ["centres.archive", "Archive centres"],
   ["centres.approve", "Approve centre coordinates"],
   ["groups.view", "View classes, years and sections"],
-  ["groups.create", "Create classes and sections; years with organisation scope"],
+  [
+    "groups.create",
+    "Create classes and sections; years with organisation scope",
+  ],
   ["groups.edit", "Edit sections and link unassigned groups"],
-  ["groups.archive", "Archive sections and classes; years with organisation scope"],
+  [
+    "groups.archive",
+    "Archive sections and classes; years with organisation scope",
+  ],
   ["roles.view", "View roles"],
   ["roles.manage", "Create and edit roles"],
   ["members.view", "View staff access"],
@@ -43,6 +52,12 @@ export function permissionDependencies(key: Permission): Permission[] {
   if (key.startsWith("learners.") || key.startsWith("attendance."))
     result.add("groups.view");
   if (key === "attendance.analyse") result.add("attendance.photos");
+  if (key === "learners.photo_manage") result.add("learners.photos");
+  if (key === "attendance.match") {
+    result.add("attendance.photos");
+    result.add("learners.photos");
+    result.add("learners.view");
+  }
   if (key === "learners.import") result.add("learners.create");
   if (key === "members.manage")
     for (const p of [

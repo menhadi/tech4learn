@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBase } from "./api";
 import { PhotoAnalysis } from "./PhotoAnalysis";
+import { FaceMatching } from "./FaceMatching";
 import { SectionSelect } from "./SectionSelect";
 import type { AcademicGroup } from "./AcademicStructure";
 
@@ -560,6 +561,22 @@ export function Attendance({
               }}
             />
           )}
+          {can("match") &&
+            can("photos") &&
+            permissions.includes("learners.photos") && (
+              <FaceMatching
+                key={detail.id}
+                org={org}
+                id={detail.id}
+                roster={detail.snapshot.roster}
+                onSuggestions={(suggestions) => {
+                  setMarks((old) => ({ ...old, ...suggestions }));
+                  setNotice(
+                    "Face suggestions loaded into the draft. Review every student, then confirm attendance separately.",
+                  );
+                }}
+              />
+            )}
           <form
             onSubmit={(e) => {
               e.preventDefault();

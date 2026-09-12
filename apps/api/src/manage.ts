@@ -1,4 +1,5 @@
 import { Database } from "./database.js";
+import { photoMigration } from "./migration-photos.js";
 import { seedAcademicDemo } from "./demo-academic.js";
 import { attendanceMigration } from "./migration-attendance.js";
 import { visionMigration } from "./migration-vision.js";
@@ -105,8 +106,14 @@ try {
         ).rows.length
       )
         await sql.query(academicMigration);
+      if (
+        !(
+          await sql.query("SELECT version FROM schema_versions WHERE version=8")
+        ).rows.length
+      )
+        await sql.query(photoMigration);
     });
-    console.log("Database migrations through version 7 are applied.");
+    console.log("Database migrations through version 8 are applied.");
   } else if (command === "demo-academic") {
     const confirmation = process.argv[4] || "";
     if (!confirmation.startsWith("--confirm-name="))

@@ -1,6 +1,6 @@
 # Self-hosted recognition evaluation
 
-Status: selected direction, not installed or integrated. No accuracy claim or production approval is implied.
+Status: engine not installed. The initial stateless verification adapter, private reference storage and review UI are now implemented; see [student photo release](student-photos-release.md). The collection-based plan below is retained as a future scaling option. No accuracy claim or production approval is implied.
 
 CompreFace is a candidate because it offers a self-hosted REST service for enrolment, recognition and subject deletion. Its documented deployment uses Docker/Compose and an x86 CPU with AVX. Docker was not available in the local development shell, so no engine execution was performed. [Official project](https://github.com/exadel-inc/CompreFace).
 
