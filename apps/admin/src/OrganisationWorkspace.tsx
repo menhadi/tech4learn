@@ -5,6 +5,9 @@ import { OrganisationSetup } from "./OrganisationSetup";
 import { CustomFields } from "./CustomFields";
 import { Learners } from "./Learners";
 import { Attendance } from "./Attendance";
+import { createPortal } from "react-dom";
+import { PermissionMatrix } from "./PermissionMatrix";
+import { AIProviders } from "./AIProviders";
 
 type Scope = {
   scope_type: "organisation" | "centres" | "groups";
@@ -58,7 +61,7 @@ type Audit = {
 type Snapshot = {
   access: Access;
   modules?: Record<string, boolean>;
-  catalogue: { key: string; label: string }[];
+  catalogue: { key: string; label: string; requires?: string[] }[];
   roles: Role[];
   members: Member[];
   centres: Centre[];
@@ -77,15 +80,17 @@ export function OrganisationWorkspace({
   superadmin,
   onInvitation,
   onProfile,
+  onNavigate,
 }: {
   organisation: Organisation;
   userId: string;
   superadmin: boolean;
   onInvitation: (invite: Invitation) => void;
   onProfile: (org: Organisation) => void;
+  onNavigate?: () => void;
 }) {
   const [data, setData] = useState<Snapshot | null>(null),
-    [tab, setTab] = useState("Profile"),
+    [tab, setTab] = useState("Daily overview"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
@@ -170,6 +175,10 @@ export function OrganisationWorkspace({
     }
   }
   const tabs = [
+    "Daily overview",
+    ...(can("attendance.view") && data?.modules?.attendance === true
+      ? ["AI connections"]
+      : []),
     "Profile",
     ...(can("configuration.view") ? ["Setup"] : []),
     ...(can("fields.view") ||
@@ -184,6 +193,9 @@ export function OrganisationWorkspace({
     ...(can("centres.view") ? ["Centres"] : []),
     ...(can("attendance.view") && data?.modules?.attendance === true
       ? ["Attendance"]
+      : []),
+    ...(can("attendance.capture") && data?.modules?.attendance === true
+      ? ["Photo capture"]
       : []),
     ...(can("groups.view") ? ["Groups"] : []),
     ...(can("roles.view") ? ["Roles"] : []),
@@ -246,23 +258,113 @@ export function OrganisationWorkspace({
         <p>Loading access…</p>
       ) : (
         <>
-          <div className="workspace-tabs" aria-label="Organisation sections">
-            {tabs.map((t) => (
-              <button
-                type="button"
-                key={t}
-                className={tab === t ? "" : "secondary"}
-                aria-pressed={tab === t}
-                onClick={() => {
-                  setTab(t);
-                  setError("");
-                  setNotice("");
-                }}
+          {(() => {
+            const menu = (
+              <nav
+                className="organisation-menu"
+                aria-label="Organisation sections"
               >
-                {t}
-              </button>
-            ))}
-          </div>
+                <p className="eyebrow">{org.name}</p>
+                {[
+                  {
+                    label: "Daily work",
+                    items: ["Daily overview", "Attendance", "Photo capture"],
+                  },
+                  {
+                    label: "People and centres",
+                    items: ["Centres", "Groups", "Learners"],
+                  },
+                  {
+                    label: "Organisation settings",
+                    items: [
+                      "Profile",
+                      "Setup",
+                      "Custom fields",
+                      "AI connections",
+                    ],
+                  },
+                  {
+                    label: "Access and history",
+                    items: ["Roles", "Team", "History"],
+                  },
+                ].map((section) => (
+                  <details key={section.label} open>
+                    <summary>{section.label}</summary>
+                    {section.items
+                      .filter((t) => tabs.includes(t))
+                      .map((t) => (
+                        <button
+                          type="button"
+                          key={t}
+                          className={tab === t ? "nav-active" : ""}
+                          aria-pressed={tab === t}
+                          onClick={() => {
+                            setTab(t);
+                            onNavigate?.();
+                            setError("");
+                            setNotice("");
+                          }}
+                        >
+                          {t === "Centres"
+                            ? `${org.centre_label}s`
+                            : t === "Roles"
+                              ? "Roles & permissions"
+                              : t}
+                        </button>
+                      ))}
+                  </details>
+                ))}
+              </nav>
+            );
+            const target = document.getElementById("organisation-menu-slot");
+            return target ? createPortal(menu, target) : menu;
+          })()}
+          <h3 className="workspace-page-title">{tab}</h3>
+          {tab === "AI connections" && <AIProviders org={org.id} />}
+          {tab === "Daily overview" && (
+            <>
+              <div className="daily-summary">
+                {can("centres.view") && (
+                  <button
+                    className="summary-card"
+                    onClick={() => setTab("Centres")}
+                  >
+                    <strong>
+                      {data.centres.filter((c) => !c.archived).length}
+                    </strong>
+                    <span>
+                      Active {org.centre_label.toLowerCase()}s in your scope
+                    </span>
+                  </button>
+                )}
+                {can("groups.view") && (
+                  <button
+                    className="summary-card"
+                    onClick={() => setTab("Groups")}
+                  >
+                    <strong>
+                      {data.groups.filter((g) => !g.archived).length}
+                    </strong>
+                    <span>Active groups in your scope</span>
+                  </button>
+                )}
+              </div>
+              {can("attendance.view") && data.modules?.attendance === true ? (
+                <Attendance
+                  org={org.id}
+                  permissions={data.access.permissions}
+                  groups={data.groups}
+                  mode="daily"
+                />
+              ) : (
+                <p>
+                  Choose a section in the left menu to manage your organisation.
+                  Daily attendance appears here when the module is enabled and
+                  your role has access.
+                </p>
+              )}
+            </>
+          )}
           {tab === "Setup" && (
             <OrganisationSetup
               org={org.id}
@@ -300,9 +402,10 @@ export function OrganisationWorkspace({
               groups={data.groups}
             />
           )}
-          {tab === "Attendance" && (
+          {(tab === "Attendance" || tab === "Photo capture") && (
             <Attendance
-              key={org.id}
+              key={`${org.id}-${tab}`}
+              mode={tab === "Photo capture" ? "capture" : "daily"}
               org={org.id}
               permissions={data.access.permissions}
               groups={data.groups}
@@ -357,9 +460,26 @@ export function OrganisationWorkspace({
             <>
               <h3>{org.centre_label} directory</h3>
               <p className="muted">
-                Approved coordinates will support attendance verification. Photo
-                attendance is not available yet.
+                Add each location separately, then create its groups and assign
+                staff and learners. Approved coordinates are used for attendance
+                location checks.
               </p>
+              {can("centres.create") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCentre(null);
+                    requestAnimationFrame(() =>
+                      document.getElementById("centre-editor")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      }),
+                    );
+                  }}
+                >
+                  + Add {org.centre_label.toLowerCase()}
+                </button>
+              )}
               {!data.centres.length && (
                 <p>No centres in your access scope yet.</p>
               )}
@@ -444,6 +564,7 @@ export function OrganisationWorkspace({
               {(centre ? can("centres.edit") : can("centres.create")) &&
                 data.access.scope_type !== "groups" && (
                   <form
+                    id="centre-editor"
                     key={centre?.id || `new-centre-${revision}`}
                     onSubmit={(e) => {
                       const b = form(e);
@@ -667,13 +788,10 @@ export function OrganisationWorkspace({
                   <p>{r.permissions.length} permissions</p>
                   <details>
                     <summary>View permissions</summary>
-                    <ul>
-                      {r.permissions.map((p) => (
-                        <li key={p}>
-                          {data.catalogue.find((c) => c.key === p)?.label || p}
-                        </li>
-                      ))}
-                    </ul>
+                    <PermissionMatrix
+                      catalogue={data.catalogue}
+                      selected={r.permissions}
+                    />
                   </details>
                   {can("roles.manage") &&
                     !r.protected &&
@@ -723,27 +841,17 @@ export function OrganisationWorkspace({
                       actions. Managing staff also needs view access to roles,
                       centres and groups.
                     </p>
-                    <div className="permission-grid">
-                      {data.catalogue.map((p) => (
-                        <label className="check" key={p.key}>
-                          <input
-                            type="checkbox"
-                            disabled={
-                              !can(p.key) || p.key === "organisation.view"
-                            }
-                            checked={rolePermissions.includes(p.key)}
-                            onChange={(e) =>
-                              setRolePermissions((old) =>
-                                e.target.checked
-                                  ? [...old, p.key]
-                                  : old.filter((k) => k !== p.key),
-                              )
-                            }
-                          />
-                          {p.label}
-                        </label>
-                      ))}
-                    </div>
+                    <p>
+                      Rows and actions come from the available modules. A dash
+                      means that action is not implemented. Archive preserves
+                      history; it is not permanent deletion.
+                    </p>
+                    <PermissionMatrix
+                      catalogue={data.catalogue}
+                      selected={rolePermissions}
+                      allowed={data.access.permissions}
+                      onChange={setRolePermissions}
+                    />
                     <div className="actions">
                       <button>Save role</button>
                       {role && (

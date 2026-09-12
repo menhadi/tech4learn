@@ -13,7 +13,7 @@ import { IdentityService } from "./identity.service.js";
 import { RecordsService } from "./records.service.js";
 import { session } from "./identity.controller.js";
 import { ConfigurationService } from "./configuration.service.js";
-import { permissionCatalogue } from "./access-model.js";
+import { permissionCatalogue, permissionDependencies } from "./access-model.js";
 @Controller("organisations/:org")
 export class AccessController {
   constructor(
@@ -32,7 +32,11 @@ export class AccessController {
     return {
       access: await this.access.resolve(await this.user(cookie), org),
       modules: (await this.configuration.settings(org)).enabled_modules,
-      catalogue: permissionCatalogue.map(([key, label]) => ({ key, label })),
+      catalogue: permissionCatalogue.map(([key, label]) => ({
+        key,
+        label,
+        requires: permissionDependencies(key),
+      })),
     };
   }
   @Get("roles") async roles(

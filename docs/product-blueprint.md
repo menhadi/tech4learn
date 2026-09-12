@@ -4,7 +4,7 @@
 
 Make educational work easy, accurate and technology-enabled, saving teachers and field staff time in attendance, assessments, exam preparation, marking and reporting. Prioritise low-income learners, government-school programmes and NGOs, with CSR partners as potential funders. Also support coaching centres and other learning organisations.
 
-Multi-tenant SaaS: superadmin manages the platform; organisation admins manage their own branded operations. The model is not restricted to school/class hierarchies.
+Multi-tenant SaaS: superadmin manages the platform; organisation admins manage their own branded operations. The clarified target flow is organisation → centre → class/academic year → section → student, with configurable terminology for other programmes. See [registration workflow](registration-workflow.md) for all eleven requested steps and their implementation status.
 
 ## Interfaces and configuration
 
@@ -22,7 +22,7 @@ Multi-tenant SaaS: superadmin manages the platform; organisation admins manage t
 
 Working browser pilot: live camera capture, automatic time/location, explicit learner review, correction history and daily totals. See [attendance release](attendance-release.md) for its limits. Native capture, recognition, register scanning, CCTV and offline capture remain planned.
 
-Support classroom/group photos, physical-register photos, manual correction and future CCTV connectors. Recognition provider is not selected.
+Support classroom/group photos, physical-register photos, manual correction and future CCTV connectors. The user selected self-hosted face recognition as the direction; CompreFace is under evaluation and is not installed. Four general vision adapters provide optional quality/transcription analysis, not identity matching. See [workspace and vision release](workspace-ai-release.md).
 
 1. Register and approve centre coordinates separately from map village/address labels.
 2. Assign authorised staff, groups and learners.

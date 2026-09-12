@@ -6,6 +6,7 @@ import { accessMigration } from "../dist/migration-access.js";
 import { learnerMigration } from "../dist/migration-learners.js";
 import { configurationMigration } from "../dist/migration-configuration.js";
 import { attendanceMigration } from "../dist/migration-attendance.js";
+import { visionMigration } from "../dist/migration-vision.js";
 import { createApp } from "../dist/bootstrap.js";
 import { createDemo, seedDemoLearners, removeDemo } from "../dist/demo.js";
 import {
@@ -94,6 +95,7 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
     learnerMigration,
     configurationMigration,
     attendanceMigration,
+    visionMigration,
   ])
     await pg.exec(s);
   const db = {
@@ -420,6 +422,118 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
             .roster.length,
           3,
         );
+      },
+    );
+    await t.test(
+      "AI analysis is scoped, cached and never confirms attendance",
+      async () => {
+        const nativeFetch = globalThis.fetch,
+          key = process.env.T4L_OPENAI_API_KEY,
+          model = process.env.T4L_OPENAI_VISION_MODEL;
+        let calls = 0;
+        process.env.T4L_OPENAI_API_KEY = "synthetic-secret";
+        process.env.T4L_OPENAI_VISION_MODEL = "synthetic-vision";
+        globalThis.fetch = async (input, init) => {
+          if (String(input) === "https://api.openai.com/v1/responses") {
+            calls++;
+            return Response.json({
+              output: [
+                {
+                  content: [
+                    {
+                      type: "output_text",
+                      text: JSON.stringify({
+                        visible_people: null,
+                        quality: "Synthetic test register",
+                        warnings: [],
+                        entries: [
+                          {
+                            code: detail.snapshot.roster[0].code,
+                            name: detail.snapshot.roster[0].name,
+                            mark: "absent",
+                          },
+                        ],
+                      }),
+                    },
+                  ],
+                },
+              ],
+            });
+          }
+          return nativeFetch(input, init);
+        };
+        try {
+          const providers = await ok(
+            p + "/ai/providers",
+            "GET",
+            undefined,
+            admin,
+          );
+          assert.equal(providers.length, 4);
+          assert.equal(providers[0].configured, true);
+          assert.ok(!JSON.stringify(providers).includes("synthetic-secret"));
+          assert.equal(
+            (
+              await req(
+                `${p}/${intent.id}/analyse`,
+                "POST",
+                { provider: "openai", mode: "register" },
+                teacher,
+              )
+            ).status,
+            403,
+          );
+          assert.equal(
+            (
+              await req(
+                `${p}/${intent.id}/analyse`,
+                "POST",
+                { provider: "openai", mode: "register" },
+                otherAdmin,
+              )
+            ).status,
+            404,
+          );
+          const before = await ok(`${p}/${intent.id}`, "GET", undefined, admin);
+          const first = await ok(
+            `${p}/${intent.id}/analyse`,
+            "POST",
+            { provider: "openai", mode: "register" },
+            admin,
+            201,
+          );
+          assert.equal(
+            first.result.suggestions[detail.snapshot.roster[0].id],
+            "absent",
+          );
+          await ok(
+            `${p}/${intent.id}/analyse`,
+            "POST",
+            { provider: "openai", mode: "register" },
+            admin,
+            201,
+          );
+          assert.equal(calls, 1);
+          const after = await ok(`${p}/${intent.id}`, "GET", undefined, admin);
+          assert.deepEqual(after.marks, before.marks);
+          assert.equal(after.version, before.version);
+          assert.equal(
+            (await ok(`${p}/${intent.id}/analyses`, "GET", undefined, admin))
+              .length,
+            1,
+          );
+          assert.equal(
+            (await req(`${p}/${intent.id}/analyses`, "GET", undefined, teacher))
+              .status,
+            403,
+          );
+        } finally {
+          globalThis.fetch = nativeFetch;
+          if (key === undefined) delete process.env.T4L_OPENAI_API_KEY;
+          else process.env.T4L_OPENAI_API_KEY = key;
+          if (model === undefined) delete process.env.T4L_OPENAI_VISION_MODEL;
+          else process.env.T4L_OPENAI_VISION_MODEL = model;
+        }
       },
     );
     await t.test(

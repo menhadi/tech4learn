@@ -14,11 +14,12 @@ export async function api<T>(
   path: string,
   method = "GET",
   body?: unknown,
+  timeout = 15000,
 ): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
     method,
     credentials: "include",
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeout),
     headers:
       body === undefined
         ? {}

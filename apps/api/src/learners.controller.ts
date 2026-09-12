@@ -40,6 +40,13 @@ export class LearnersController {
   ) {
     return this.service.detail(await this.user(cookie), org, id);
   }
+  @Post("demo-student") async demo(
+    @Param("org") org: string,
+    @Body() b: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.service.demoStudent(await this.user(cookie), org, b ?? {});
+  }
   @Post("learners") async create(
     @Param("org") org: string,
     @Body() b: Record<string, unknown>,

@@ -176,6 +176,46 @@ export function Learners({
           Add learner
         </button>
       )}
+      {can("learners.create") && (
+        <details className="record">
+          <summary>Test with a dummy student</summary>
+          <p>
+            Create or reopen DEMO — Test Student in a selected group. Required
+            custom fields receive labelled sample values. No real photograph or
+            contact details are added. You can archive the student after
+            testing.
+          </p>
+          <form
+            onSubmit={(e) => {
+              const f = fields(e);
+              void act(async () => {
+                const r = await api<{ id: string }>(
+                  `${base}/demo-student`,
+                  "POST",
+                  { group_id: f.get("group_id") },
+                );
+                setSelected(await api<Learner>(`${base}/learners/${r.id}`));
+                setCreating(false);
+              });
+            }}
+          >
+            <label>
+              Group / section
+              <select name="group_id" required defaultValue="">
+                <option value="">Choose a group</option>
+                {groups
+                  .filter((g) => !g.archived)
+                  .map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.centre_name} / {g.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button disabled={busy}>Create / open dummy student</button>
+          </form>
+        </details>
+      )}
       {!items.length && <p>No learners found in your scope.</p>}
       {items.map((l) => (
         <div className="record" key={l.id}>

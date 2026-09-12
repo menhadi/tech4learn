@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBase } from "./api";
+import { PhotoAnalysis } from "./PhotoAnalysis";
 
 type Group = {
   id: string;
@@ -93,10 +94,12 @@ export function Attendance({
   org,
   permissions,
   groups,
+  mode = "all",
 }: {
   org: string;
   permissions: string[];
   groups: Group[];
+  mode?: "all" | "daily" | "capture";
 }) {
   const base = `/organisations/${org}/attendance`,
     can = (p: string) => permissions.includes(`attendance.${p}`);
@@ -282,7 +285,7 @@ export function Attendance({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      {can("capture") && (
+      {can("capture") && mode !== "daily" && (
         <section className="panel">
           <h4>New capture</h4>
           <p>
@@ -460,74 +463,76 @@ export function Attendance({
           </p>
         </section>
       )}
-      <section className="panel">
-        <h4>Daily attendance</h4>
-        <label>
-          Attendance date ({policy?.timezone || "Asia/Kolkata"})
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              setOffset(0);
-            }}
-          />
-        </label>
-        <button
-          className="secondary"
-          disabled={busy}
-          onClick={() => setRevision((x) => x + 1)}
-        >
-          Refresh
-        </button>
-        {listing ? (
-          <>
-            <p>
-              {listing.counts.map((c) => `${c.n} ${c.status}`).join(" · ") ||
-                "No captures for this date."}
-            </p>
-            <p>
-              Confirmed learner marks:{" "}
-              {listing.totals.map((c) => `${c.n} ${c.mark}`).join(" · ") ||
-                "None yet"}
-              . Missing captures are not counted as absences.
-            </p>
-            {listing.rows.map((r) => (
-              <div className="record-row" key={r.id}>
-                <strong>{r.group_name}</strong>
-                <p>
-                  {r.centre_name} · {r.status} · {r.location_status}
-                </p>
+      {mode !== "capture" && (
+        <section className="panel">
+          <h4>Daily attendance</h4>
+          <label>
+            Attendance date ({policy?.timezone || "Asia/Kolkata"})
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setOffset(0);
+              }}
+            />
+          </label>
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() => setRevision((x) => x + 1)}
+          >
+            Refresh
+          </button>
+          {listing ? (
+            <>
+              <p>
+                {listing.counts.map((c) => `${c.n} ${c.status}`).join(" · ") ||
+                  "No captures for this date."}
+              </p>
+              <p>
+                Confirmed learner marks:{" "}
+                {listing.totals.map((c) => `${c.n} ${c.mark}`).join(" · ") ||
+                  "None yet"}
+                . Missing captures are not counted as absences.
+              </p>
+              {listing.rows.map((r) => (
+                <div className="record-row" key={r.id}>
+                  <strong>{r.group_name}</strong>
+                  <p>
+                    {r.centre_name} · {r.status} · {r.location_status}
+                  </p>
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => void act(() => open(r.id))}
+                  >
+                    Open attendance
+                  </button>
+                </div>
+              ))}
+              <div className="actions">
                 <button
                   className="secondary"
-                  disabled={busy}
-                  onClick={() => void act(() => open(r.id))}
+                  disabled={busy || !offset}
+                  onClick={() => setOffset((x) => Math.max(0, x - 50))}
                 >
-                  Open attendance
+                  Previous
+                </button>
+                <button
+                  className="secondary"
+                  disabled={busy || listing.rows.length < 50}
+                  onClick={() => setOffset((x) => x + 50)}
+                >
+                  Next
                 </button>
               </div>
-            ))}
-            <div className="actions">
-              <button
-                className="secondary"
-                disabled={busy || !offset}
-                onClick={() => setOffset((x) => Math.max(0, x - 50))}
-              >
-                Previous
-              </button>
-              <button
-                className="secondary"
-                disabled={busy || listing.rows.length < 50}
-                onClick={() => setOffset((x) => x + 50)}
-              >
-                Next
-              </button>
-            </div>
-          </>
-        ) : (
-          <p role="status">Loading attendance…</p>
-        )}
-      </section>
+            </>
+          ) : (
+            <p role="status">Loading attendance…</p>
+          )}
+        </section>
+      )}
       {detail && (
         <section className="panel" key={detail.id}>
           <h4>
@@ -583,6 +588,19 @@ export function Attendance({
               {String(detail.evidence.custom_values[f.key] ?? "—")}
             </p>
           ))}
+          {can("photos") && (
+            <PhotoAnalysis
+              org={org}
+              id={detail.id}
+              permissions={permissions}
+              onSuggestions={(suggestions) => {
+                setMarks((old) => ({ ...old, ...suggestions }));
+                setNotice(
+                  "AI draft marks loaded. Check every learner and the register date, then confirm separately.",
+                );
+              }}
+            />
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();

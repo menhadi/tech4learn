@@ -143,6 +143,13 @@ export class AccessService {
       );
     const permissions = [...new Set<Permission>(value)];
     if (
+      permissions.includes("attendance.analyse") &&
+      !permissions.includes("attendance.photos")
+    )
+      throw new BadRequestException(
+        "AI analysis also requires attendance.photos.",
+      );
+    if (
       permissions.includes("learners.import") &&
       !permissions.includes("learners.create")
     )

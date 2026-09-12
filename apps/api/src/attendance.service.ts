@@ -13,6 +13,11 @@ import type { Access, Permission } from "./access-model.js";
 import { uuid } from "./security.js";
 import { customValues, type FieldDefinition } from "./custom-values.js";
 import {
+  providerConfig,
+  runVision,
+  visionProviders,
+} from "./vision-providers.js";
+import {
   classifyLocation,
   jpeg,
   timestamp,
@@ -69,6 +74,148 @@ const defaults: Policy = {
 
 @Injectable()
 export class AttendanceService {
+  async providers(user: Account, org: string) {
+    await this.access.require(user, org, "attendance.view");
+    return visionProviders.map((p) => {
+      const c = providerConfig(p.id);
+      return {
+        id: p.id,
+        label: p.label,
+        configured: c.configured,
+        model: c.model || null,
+      };
+    });
+  }
+  async analyses(user: Account, org: string, id: string) {
+    const a = await this.access.require(user, org, "attendance.photos");
+    await this.record(this.db, org, id, a);
+    return (
+      await this.db.query(
+        "SELECT id,provider,model,mode,status,created_at,result FROM attendance_ai_runs WHERE organisation_id=$1 AND session_id=$2 ORDER BY created_at DESC LIMIT 20",
+        [org, id],
+      )
+    ).rows;
+  }
+  async analyse(
+    user: Account,
+    org: string,
+    id: string,
+    b: Record<string, unknown>,
+  ) {
+    const config = providerConfig(b.provider);
+    if (b.mode !== "scene" && b.mode !== "register")
+      throw new BadRequestException("Choose group photo or register reading.");
+    const mode = b.mode;
+    const claim = await this.db.transaction(async (sql) => {
+      await this.access.lock(sql, org);
+      const a = await this.access.require(user, org, "attendance.analyse", sql);
+      await this.access.require(user, org, "attendance.photos", sql);
+      const r = await this.record(sql, org, id, a);
+      if (!["pending", "confirmed"].includes(r.status))
+        throw new ConflictException(
+          "Submit an active capture before analysing it.",
+        );
+      if (!config.configured)
+        throw new BadRequestException(
+          "This AI provider is not configured on the server.",
+        );
+      const existing = (
+        await sql.query<{ id: string; result: unknown }>(
+          "SELECT id,result FROM attendance_ai_runs WHERE organisation_id=$1 AND session_id=$2 AND provider=$3 AND mode=$4 AND model=$5 AND status='completed' ORDER BY created_at DESC LIMIT 1",
+          [org, id, config.id, mode, config.model],
+        )
+      ).rows[0];
+      if (existing) return { cached: existing };
+      await sql.query(
+        "UPDATE attendance_ai_runs SET status='failed' WHERE organisation_id=$1 AND status='processing' AND created_at<now()-interval '2 minutes'",
+        [org],
+      );
+      if (
+        (
+          await sql.query(
+            "SELECT id FROM attendance_ai_runs WHERE organisation_id=$1 AND status='processing'",
+            [org],
+          )
+        ).rows.length
+      )
+        throw new ConflictException(
+          "An analysis is already running for this organisation. Refresh shortly.",
+        );
+      const n = (
+        await sql.query<{ n: string }>(
+          "SELECT count(*) AS n FROM attendance_ai_runs WHERE organisation_id=$1 AND created_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'",
+          [org],
+        )
+      ).rows[0];
+      if (Number(n.n) >= 20)
+        throw new ConflictException(
+          "The organisation has reached its daily pilot limit of 20 AI requests.",
+        );
+      const photo = (
+        await sql.query<{ content: Buffer }>(
+          "SELECT content FROM attendance_photos WHERE organisation_id=$1 AND session_id=$2",
+          [org, id],
+        )
+      ).rows[0];
+      if (!photo) throw new NotFoundException("Photo not found.");
+      const runId = randomUUID();
+      await sql.query(
+        "INSERT INTO attendance_ai_runs(id,organisation_id,session_id,actor_id,provider,mode,model,status) VALUES($1,$2,$3,$4,$5,$6,$7,'processing')",
+        [runId, org, id, user.id, config.id, mode, config.model],
+      );
+      await this.access.audit(sql, user, org, "attendance.ai_requested", {
+        id,
+        runId,
+        provider: config.id,
+        mode,
+      });
+      return {
+        runId,
+        photo: Buffer.from(photo.content),
+        roster: r.snapshot.roster,
+      };
+    });
+    if (claim.cached) return claim.cached;
+    try {
+      const analysis = await runVision(config.id, mode, claim.photo);
+      const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+      const suggestions: Record<string, string> = {};
+      for (const entry of analysis.result.entries) {
+        const matches = claim.roster.filter((l) =>
+          entry.code
+            ? norm(l.code) === norm(entry.code)
+            : entry.name && norm(l.name) === norm(entry.name),
+        );
+        if (matches.length === 1 && entry.mark !== "unknown") {
+          const key = matches[0].id;
+          suggestions[key] =
+            suggestions[key] && suggestions[key] !== entry.mark
+              ? "unknown"
+              : entry.mark;
+        }
+      }
+      const result = {
+        ...analysis.result,
+        suggestions,
+        notice:
+          "AI suggestions only. Check the register date, learner match and every mark. Face identity is not analysed.",
+      };
+      await this.db.query(
+        "UPDATE attendance_ai_runs SET status='completed',result=$3 WHERE organisation_id=$1 AND id=$2 AND status='processing'",
+        [org, claim.runId, JSON.stringify(result)],
+      );
+      await this.access.require(user, org, "attendance.analyse");
+      const current = await this.access.require(user, org, "attendance.photos");
+      await this.record(this.db, org, id, current);
+      return { id: claim.runId, result };
+    } catch (e) {
+      await this.db.query(
+        "UPDATE attendance_ai_runs SET status='failed' WHERE organisation_id=$1 AND id=$2 AND status='processing'",
+        [org, claim.runId],
+      );
+      throw e;
+    }
+  }
   constructor(
     private readonly db: Database,
     private readonly access: AccessService,

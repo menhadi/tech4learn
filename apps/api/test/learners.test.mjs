@@ -93,6 +93,70 @@ test("learner scopes, contacts, transfers, custom fields and reviewed imports", 
   let id, definition;
   try {
     await t.test(
+      "dummy student is tenant scoped, labelled and repeat safe",
+      async () => {
+        await pg.query(
+          "UPDATE custom_fields SET required=true WHERE organisation_id=$1 AND module='learners' AND key='demo_language'",
+          [org],
+        );
+        const r = await ok(
+          p + "/demo-student",
+          "POST",
+          { group_id: teacherGroup.id },
+          admin,
+          201,
+        );
+        const again = await ok(
+          p + "/demo-student",
+          "POST",
+          { group_id: teacherGroup.id },
+          admin,
+          201,
+        );
+        assert.equal(r.id, again.id);
+        const student = await ok(
+          p + "/learners/" + r.id,
+          "GET",
+          undefined,
+          admin,
+        );
+        assert.equal(student.demo, true);
+        assert.equal(student.code, "DEMO-STUDENT-001");
+        assert.equal(student.custom_values.demo_language, "Hindi");
+        assert.equal(
+          (
+            await req(
+              p + "/demo-student",
+              "POST",
+              { group_id: teacherGroup.id },
+              otherAdmin,
+            )
+          ).status,
+          404,
+        );
+        assert.equal(
+          (
+            await req(
+              `/organisations/${other}/demo-student`,
+              "POST",
+              { group_id: teacherGroup.id },
+              otherAdmin,
+            )
+          ).status,
+          404,
+        );
+        // Remove this isolated test record so existing fixture counts stay unchanged.
+        await pg.query("DELETE FROM learner_enrolments WHERE learner_id=$1", [
+          r.id,
+        ]);
+        await pg.query("DELETE FROM learners WHERE id=$1", [r.id]);
+        await pg.query(
+          "UPDATE custom_fields SET required=false WHERE organisation_id=$1 AND module='learners' AND key='demo_language'",
+          [org],
+        );
+      },
+    );
+    await t.test(
       "demo augmentation is repeat-safe and contact values are hidden from scoped viewers",
       async () => {
         await assert.rejects(

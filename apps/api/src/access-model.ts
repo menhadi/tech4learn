@@ -1,4 +1,5 @@
 export const permissionCatalogue = [
+  ["attendance.analyse", "Run AI photo or register analysis"],
   ["attendance.view", "View attendance and learner roster"],
   ["attendance.capture", "Capture attendance evidence"],
   ["attendance.review", "Confirm and correct attendance"],
@@ -35,6 +36,26 @@ export const permissionCatalogue = [
 ] as const;
 export type Permission = (typeof permissionCatalogue)[number][0];
 export const allPermissions = permissionCatalogue.map(([key]) => key);
+export function permissionDependencies(key: Permission): Permission[] {
+  const result = new Set<Permission>(["organisation.view"]);
+  const view = (key.split(".")[0] + ".view") as Permission;
+  if (key !== view && allPermissions.includes(view)) result.add(view);
+  if (key.startsWith("learners.") || key.startsWith("attendance."))
+    result.add("groups.view");
+  if (key === "attendance.analyse") result.add("attendance.photos");
+  if (key === "learners.import") result.add("learners.create");
+  if (key === "members.manage")
+    for (const p of [
+      "roles.view",
+      "centres.view",
+      "groups.view",
+    ] as Permission[])
+      result.add(p);
+  if (key.startsWith("groups.") && key !== "groups.view")
+    result.add("centres.view");
+  result.delete(key);
+  return [...result];
+}
 export const widePermissions: Permission[] = [
   "attendance.policy",
   "configuration.view",

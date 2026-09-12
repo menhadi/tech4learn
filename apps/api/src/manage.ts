@@ -1,5 +1,6 @@
 import { Database } from "./database.js";
 import { attendanceMigration } from "./migration-attendance.js";
+import { visionMigration } from "./migration-vision.js";
 import { migration } from "./schema.js";
 import { accessMigration } from "./migration-access.js";
 import { configurationMigration } from "./migration-configuration.js";
@@ -90,8 +91,14 @@ try {
         ).rows.length
       )
         await sql.query(attendanceMigration);
+      if (
+        !(
+          await sql.query("SELECT version FROM schema_versions WHERE version=6")
+        ).rows.length
+      )
+        await sql.query(visionMigration);
     });
-    console.log("Database migrations through version 5 are applied.");
+    console.log("Database migrations through version 6 are applied.");
   } else if (command === "demo-create") {
     const result = await createDemo(db);
     const origin = process.env.ADMIN_ORIGIN || "http://localhost:5173";

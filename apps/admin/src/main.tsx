@@ -62,6 +62,7 @@ type Branding = {
   logo: string;
 };
 function App() {
+  const [organisationMenuOpen, setOrganisationMenuOpen] = useState(false);
   const requestedSlug = new URLSearchParams(location.search).get("org") || "";
   const [branding, setBranding] = useState<Branding | null>(null);
   const [brandError, setBrandError] = useState("");
@@ -412,6 +413,22 @@ function App() {
             Account security
           </button>
         </nav>
+        <button
+          className="mobile-org-menu secondary"
+          aria-expanded={organisationMenuOpen}
+          aria-controls="organisation-menu-slot"
+          onClick={() => setOrganisationMenuOpen(!organisationMenuOpen)}
+        >
+          Organisation menu
+        </button>
+        <div
+          id="organisation-menu-slot"
+          className={organisationMenuOpen ? "menu-open" : "menu-closed"}
+          onClickCapture={(e) => {
+            if ((e.target as HTMLElement).closest("button"))
+              setOrganisationMenuOpen(false);
+          }}
+        />
         <div className="account">
           <strong>{session.user.name}</strong>
           <small>{session.user.email}</small>
@@ -443,7 +460,7 @@ function App() {
                 ? "Account security"
                 : superadmin
                   ? "Organisations"
-                  : "Organisation settings"}
+                  : "Organisation workspace"}
             </h1>
           </div>
           {superadmin && page === "organisations" && (
@@ -610,7 +627,11 @@ function App() {
               </section>
             ) : (
               <div className="org-layout">
-                <section className="panel org-list">
+                <details className="panel org-list">
+                  <summary>
+                    Switch organisation ·{" "}
+                    {org?.name || "Choose an organisation"}
+                  </summary>
                   <h2>
                     {superadmin
                       ? "Organisation directory"
@@ -657,10 +678,11 @@ function App() {
                     {session.organisations.length} organisation
                     {session.organisations.length === 1 ? "" : "s"} shown
                   </small>
-                </section>
+                </details>
                 {org && (
                   <div key={org.id}>
                     <OrganisationWorkspace
+                      onNavigate={() => setOrganisationMenuOpen(false)}
                       organisation={org}
                       userId={session.user.id}
                       superadmin={superadmin}

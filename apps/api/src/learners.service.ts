@@ -342,6 +342,66 @@ export class LearnersService {
     });
     return id;
   }
+  async demoStudent(user: Account, org: string, b: Body) {
+    return this.db.transaction(async (sql) => {
+      await this.access.lock(sql, org);
+      const a = await this.access.require(user, org, "learners.create", sql);
+      const group = await this.group(sql, org, b.group_id, a);
+      const existing = (
+        await sql.query<{ id: string; demo: boolean; group_id: string }>(
+          "SELECT id,demo,group_id FROM learners WHERE organisation_id=$1 AND code='DEMO-STUDENT-001'",
+          [org],
+        )
+      ).rows[0];
+      if (existing) {
+        await this.get(sql, org, existing.id, a);
+        if (!existing.demo || existing.group_id !== group)
+          throw new ConflictException(
+            "The demo code already exists. Open the existing record instead.",
+          );
+        return { id: existing.id };
+      }
+      const definitions = await this.definitions(sql, org);
+      const custom_values = Object.fromEntries(
+        definitions
+          .filter((d) => !d.archived && d.required)
+          .map((d) => [
+            d.key,
+            d.kind === "number"
+              ? 0
+              : d.kind === "boolean"
+                ? false
+                : d.kind === "date"
+                  ? "2018-01-01"
+                  : d.kind === "choice"
+                    ? d.options[0]
+                    : "DEMO value",
+          ]),
+      );
+      const v = await this.validate(
+        sql,
+        org,
+        {
+          code: "DEMO-STUDENT-001",
+          name: "DEMO — Test Student",
+          age: 8,
+          class_label: "Class 3",
+          group_id: group,
+          custom_values,
+        },
+        a,
+      );
+      const id = await this.insert(sql, user, org, v);
+      await sql.query(
+        "UPDATE learners SET demo=true WHERE organisation_id=$1 AND id=$2",
+        [org, id],
+      );
+      await this.access.audit(sql, user, org, "learner.demo_created", {
+        learnerId: id,
+      });
+      return { id };
+    });
+  }
   async save(user: Account, org: string, b: Body, id?: string) {
     return this.db.transaction(async (sql) => {
       await this.access.lock(sql, org);
