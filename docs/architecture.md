@@ -32,6 +32,8 @@ Migration 4 adds organisation presentation settings, superadmin module availabil
 
 ## Attendance pilot
 
+Migration 9 adds bounded extra attendance images and a PostgreSQL-backed face job queue with one leased worker slot. Each image retains its own location evidence; combined suggestions never write marks. Queued jobs survive restarts; interrupted processing requires an explicit retry. See [bulk attendance](bulk-attendance-release.md).
+
 Migration 8 adds purpose-specific consent and bounded private learner photos. A stateless CompreFace verification adapter produces scoped attendance suggestions without storing remote face collections or writing marks. Engine installation and calibration are separate; see [student photos](student-photos-release.md).
 
 Migration 7 adds the academic hierarchy while retaining learning group IDs as section IDs. Composite keys bind each class to its organisation, year and centre, and each section to a class at its own centre. Existing records remain unassigned until explicitly linked; new capture labels include year/class/section. See [academic release](academic-release.md) for scope, archive and promotion rules.

@@ -47,7 +47,14 @@ type Entry = {
   location_status: string;
   marks: Record<string, string>;
 };
+type ExtraPhoto = {
+  id: string;
+  received_at: string;
+  evidence: Detail["evidence"];
+};
 type Detail = {
+  extraPhotos: ExtraPhoto[];
+  group_id: string;
   id: string;
   status: string;
   version: number;
@@ -103,6 +110,8 @@ export function Attendance({
   const base = `/organisations/${org}/attendance`,
     can = (p: string) => permissions.includes(`attendance.${p}`);
   const [group, setGroup] = useState(initialGroup),
+    [addingTo, setAddingTo] = useState<string | null>(null),
+    [extraPhotos, setExtraPhotos] = useState<ExtraPhoto[]>([]),
     [intent, setIntent] = useState<Intent | null>(null),
     [capture, setCapture] = useState<Capture | null>(null),
     [values, setValues] = useState<Record<string, unknown>>({});
@@ -120,6 +129,14 @@ export function Attendance({
     [notice, setNotice] = useState(""),
     [revision, setRevision] = useState(0),
     [live, setLive] = useState(false);
+  const capturePanel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (intent)
+      capturePanel.current?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+  }, [intent]);
   const video = useRef<HTMLVideoElement>(null),
     stream = useRef<MediaStream | null>(null),
     generation = useRef(0),
@@ -192,21 +209,31 @@ export function Attendance({
       if (mounted.current) setBusy(false);
     }
   }
-  async function open(id: string) {
+  async function open(id: string, preserveMarks = false) {
     const d = await api<Detail>(`${base}/${id}`);
     if (!mounted.current) return;
     setDetail(d);
-    setMarks(d.marks);
-    setReason("");
+    if (!preserveMarks) setMarks(d.marks);
+    setExtraPhotos(d.extraPhotos);
+    if (!preserveMarks) setReason("");
     setAck(false);
     setShowPhoto(false);
   }
-  async function start() {
+  async function start(parentId?: string) {
     reset();
     const gen = generation.current;
-    const i = await api<Intent>(`${base}/captures`, "POST", {
-      group_id: group,
-    });
+    setAddingTo(parentId || null);
+    if (!parentId) {
+      setDetail(null);
+      setExtraPhotos([]);
+    }
+    const i = await api<Intent>(
+      parentId ? `${base}/${parentId}/photos/captures` : `${base}/captures`,
+      "POST",
+      {
+        group_id: group,
+      },
+    );
     if (!navigator.mediaDevices?.getUserMedia)
       throw new Error(
         "Camera capture needs HTTPS and a browser with camera support.",
@@ -276,9 +303,13 @@ export function Attendance({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      {can("capture") && mode !== "daily" && (
-        <section className="panel">
-          <h4>New capture</h4>
+      {can("capture") && (mode !== "daily" || addingTo) && (
+        <section className="panel" ref={capturePanel}>
+          <h4>
+            {addingTo
+              ? "Add another photo to this attendance"
+              : "Start class attendance"}
+          </h4>
           <p>
             Choose a group and use its live camera preview. Location and capture
             time are collected automatically. Submit within ten minutes.
@@ -287,14 +318,17 @@ export function Attendance({
             groups={groups.filter((g) => !g.archived)}
             value={group}
             initialValue={initialGroup}
-            disabled={busy || !!intent}
+            disabled={busy || !!intent || !!addingTo}
             onChange={(id) => {
               reset();
               setGroup(id);
             }}
           />
           {!intent && (
-            <button disabled={busy || !group} onClick={() => void act(start)}>
+            <button
+              disabled={busy || !group}
+              onClick={() => void act(() => start(addingTo || undefined))}
+            >
               Open camera
             </button>
           )}
@@ -321,13 +355,17 @@ export function Attendance({
                 e.preventDefault();
                 void act(async () => {
                   const result = await api<{ id: string }>(
-                    `${base}/captures/${intent.id}/submit`,
+                    addingTo
+                      ? `${base}/${addingTo}/photos/${intent.id}/submit`
+                      : `${base}/captures/${intent.id}/submit`,
                     "POST",
                     { ...capture, custom_values: values },
                   );
+                  const wasAdding = !!addingTo;
                   reset();
+                  setAddingTo(null);
                   setRevision((x) => x + 1);
-                  await open(result.id);
+                  await open(result.id, wasAdding);
                   setNotice(
                     "Submitted for review. No learner marks have been confirmed yet.",
                   );
@@ -346,80 +384,89 @@ export function Attendance({
                   : "Location unavailable: this will require a review reason."}
               </p>
               <p>
-                {intent.snapshot.roster.length} learners in the capture roster.
+                {intent.snapshot.roster.length} students in this section. Save
+                this photo, then add another before reviewing attendance.
               </p>
-              {intent.snapshot.fields.map((f) => (
-                <label key={f.key}>
-                  {f.label}
-                  {f.required ? " *" : ""}
-                  {f.kind === "choice" || f.kind === "boolean" ? (
-                    <select
-                      required={f.required}
-                      value={String(values[f.key] ?? "")}
-                      onChange={(e) =>
-                        setValues({
-                          ...values,
-                          [f.key]:
-                            e.target.value === ""
-                              ? ""
-                              : f.kind === "boolean"
-                                ? e.target.value === "true"
+              {!addingTo &&
+                intent.snapshot.fields.map((f) => (
+                  <label key={f.key}>
+                    {f.label}
+                    {f.required ? " *" : ""}
+                    {f.kind === "choice" || f.kind === "boolean" ? (
+                      <select
+                        required={f.required}
+                        value={String(values[f.key] ?? "")}
+                        onChange={(e) =>
+                          setValues({
+                            ...values,
+                            [f.key]:
+                              e.target.value === ""
+                                ? ""
+                                : f.kind === "boolean"
+                                  ? e.target.value === "true"
+                                  : e.target.value,
+                          })
+                        }
+                      >
+                        <option value="">Choose</option>
+                        {(f.kind === "boolean"
+                          ? ["true", "false"]
+                          : f.options
+                        ).map((o) => (
+                          <option key={o} value={o}>
+                            {f.kind === "boolean"
+                              ? o === "true"
+                                ? "Yes"
+                                : "No"
+                              : o}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        required={f.required}
+                        maxLength={500}
+                        type={
+                          f.kind === "number"
+                            ? "number"
+                            : f.kind === "date"
+                              ? "date"
+                              : "text"
+                        }
+                        step={f.kind === "number" ? "any" : undefined}
+                        value={String(values[f.key] ?? "")}
+                        onChange={(e) =>
+                          setValues({
+                            ...values,
+                            [f.key]:
+                              f.kind === "number" && e.target.value !== ""
+                                ? Number(e.target.value)
                                 : e.target.value,
-                        })
-                      }
-                    >
-                      <option value="">Choose</option>
-                      {(f.kind === "boolean"
-                        ? ["true", "false"]
-                        : f.options
-                      ).map((o) => (
-                        <option key={o} value={o}>
-                          {f.kind === "boolean"
-                            ? o === "true"
-                              ? "Yes"
-                              : "No"
-                            : o}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      required={f.required}
-                      maxLength={500}
-                      type={
-                        f.kind === "number"
-                          ? "number"
-                          : f.kind === "date"
-                            ? "date"
-                            : "text"
-                      }
-                      step={f.kind === "number" ? "any" : undefined}
-                      value={String(values[f.key] ?? "")}
-                      onChange={(e) =>
-                        setValues({
-                          ...values,
-                          [f.key]:
-                            f.kind === "number" && e.target.value !== ""
-                              ? Number(e.target.value)
-                              : e.target.value,
-                        })
-                      }
-                    />
-                  )}
-                </label>
-              ))}
+                          })
+                        }
+                      />
+                    )}
+                  </label>
+                ))}
               <button disabled={busy}>Submit for review</button>
             </form>
           )}
           {intent && (
-            <button className="secondary" disabled={busy} onClick={reset}>
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => {
+                reset();
+                setAddingTo(null);
+              }}
+            >
               Cancel / retake
             </button>
           )}
           <p className="hint">
             Browser location and camera evidence help review; they cannot prove
-            device authenticity. Face recognition and offline capture are
-            planned.
+            device authenticity. Face matching requires a configured engine;
+            offline capture is planned.
           </p>
         </section>
       )}
@@ -464,7 +511,7 @@ export function Attendance({
                   </p>
                   <button
                     className="secondary"
-                    disabled={busy}
+                    disabled={busy || !!intent}
                     onClick={() => void act(() => open(r.id))}
                   >
                     Open attendance
@@ -542,6 +589,42 @@ export function Attendance({
                 View private photo
               </button>
             ))}
+          {extraPhotos.map((p, i) => (
+            <details key={p.id} className="subpanel">
+              <summary>
+                Photo {i + 2} · {p.evidence.location_status}
+              </summary>
+              {can("photos") && (
+                <img
+                  className="attendance-photo"
+                  src={`${apiBase}${base}/${detail.id}/photos/${p.id}`}
+                  alt={`Additional class photo ${i + 2}`}
+                />
+              )}
+              <p>
+                Captured {new Date(p.evidence.captured_at).toLocaleString()} ·
+                Received {new Date(p.received_at).toLocaleString()}
+              </p>
+              {p.evidence.warnings.map((w) => (
+                <p className="error" key={w}>
+                  {w}
+                </p>
+              ))}
+            </details>
+          ))}
+          {can("capture") && detail.status === "pending" && (
+            <button
+              disabled={busy || !!intent || extraPhotos.length >= 4}
+              onClick={() =>
+                void act(async () => {
+                  setGroup(detail.group_id);
+                  await start(detail.id);
+                })
+              }
+            >
+              Add another class photo ({extraPhotos.length + 1}/5 saved)
+            </button>
+          )}
           {detail.snapshot.fields.map((f) => (
             <p key={f.key}>
               <strong>{f.label}:</strong>{" "}
@@ -549,28 +632,43 @@ export function Attendance({
             </p>
           ))}
           {can("photos") && (
-            <PhotoAnalysis
-              org={org}
-              id={detail.id}
-              permissions={permissions}
-              onSuggestions={(suggestions) => {
-                setMarks((old) => ({ ...old, ...suggestions }));
-                setNotice(
-                  "AI draft marks loaded. Check every learner and the register date, then confirm separately.",
-                );
-              }}
-            />
+            <details className="subpanel">
+              <summary>
+                Optional: analyse the first photo or read a register
+              </summary>
+              <PhotoAnalysis
+                org={org}
+                id={detail.id}
+                permissions={permissions}
+                onSuggestions={(suggestions) => {
+                  setMarks((old) => ({
+                    ...suggestions,
+                    ...Object.fromEntries(
+                      Object.entries(old).filter(([, mark]) => !!mark),
+                    ),
+                  }));
+                  setNotice(
+                    "AI draft marks loaded. Check every learner and the register date, then confirm separately.",
+                  );
+                }}
+              />
+            </details>
           )}
           {can("match") &&
             can("photos") &&
             permissions.includes("learners.photos") && (
               <FaceMatching
-                key={detail.id}
+                key={`${detail.id}-${detail.version}`}
                 org={org}
                 id={detail.id}
                 roster={detail.snapshot.roster}
                 onSuggestions={(suggestions) => {
-                  setMarks((old) => ({ ...old, ...suggestions }));
+                  setMarks((old) => ({
+                    ...suggestions,
+                    ...Object.fromEntries(
+                      Object.entries(old).filter(([, mark]) => !!mark),
+                    ),
+                  }));
                   setNotice(
                     "Face suggestions loaded into the draft. Review every student, then confirm attendance separately.",
                   );
@@ -596,26 +694,46 @@ export function Attendance({
               });
             }}
           >
-            {detail.snapshot.roster.map((l) => (
-              <label key={l.id}>
-                {l.name} ({l.code})
-                <select
-                  required
-                  disabled={
-                    !can("review") || detail.status === "rejected" || busy
-                  }
-                  value={marks[l.id] || ""}
-                  onChange={(e) =>
-                    setMarks({ ...marks, [l.id]: e.target.value })
-                  }
-                >
-                  <option value="">Choose a mark</option>
-                  <option value="present">Present</option>
-                  <option value="absent">Absent</option>
-                  <option value="excused">Excused</option>
-                </select>
-              </label>
-            ))}
+            <div className="directory-table">
+              <table>
+                <caption>Review attendance — mark every student</caption>
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Code</th>
+                    <th>Attendance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.snapshot.roster.map((l) => (
+                    <tr key={l.id}>
+                      <th scope="row">{l.name}</th>
+                      <td>{l.code}</td>
+                      <td>
+                        <select
+                          aria-label={`Attendance for ${l.name}`}
+                          required
+                          disabled={
+                            !can("review") ||
+                            detail.status === "rejected" ||
+                            busy
+                          }
+                          value={marks[l.id] || ""}
+                          onChange={(e) =>
+                            setMarks({ ...marks, [l.id]: e.target.value })
+                          }
+                        >
+                          <option value="">Choose a mark</option>
+                          <option value="present">Present</option>
+                          <option value="absent">Absent</option>
+                          <option value="excused">Excused</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {can("review") && detail.status !== "rejected" && (
               <>
                 <label>
@@ -626,14 +744,15 @@ export function Attendance({
                     onChange={(e) => setReason(e.target.value)}
                   />
                 </label>
-                {detail.evidence.warnings.length > 0 && (
+                {(detail.evidence.warnings.length > 0 ||
+                  extraPhotos.some((p) => p.evidence.warnings.length > 0)) && (
                   <label>
                     <input
                       type="checkbox"
                       checked={ack}
                       onChange={(e) => setAck(e.target.checked)}
                     />{" "}
-                    I have reviewed the location warnings.
+                    I have reviewed the location warnings for every photo.
                   </label>
                 )}
                 <button disabled={busy}>

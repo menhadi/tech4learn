@@ -22,6 +22,8 @@ Live dummy data is requested only in **Vecotrial Career Academy** (`vector-acade
 
 ## Attendance
 
+The target is a section of 20–50 students photographed in multiple group images, not individual daily student portraits. [Bulk attendance](bulk-attendance-release.md) implements one section/day record with up to five photos, queued comparisons, combined per-student suggestions and explicit teacher review. The engine is still pending installation and calibration.
+
 Working browser pilot: live camera capture, automatic time/location, explicit learner review, correction history and daily totals. See [attendance release](attendance-release.md) for its limits. Native capture, recognition, register scanning, CCTV and offline capture remain planned.
 
 Support classroom/group photos, physical-register photos, manual correction and future CCTV connectors. The user selected self-hosted face recognition as the direction; A bounded CompreFace verification adapter is implemented; the engine is not installed and real-image calibration is pending. See [student photos](student-photos-release.md). Four general vision adapters provide optional quality/transcription analysis, not identity matching. See [workspace and vision release](workspace-ai-release.md).

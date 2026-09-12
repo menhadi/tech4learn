@@ -101,6 +101,46 @@ export class AttendanceController {
   ) {
     return this.service.detail(await this.user(c), org, id);
   }
+  @Get(":id/photos") async extraPhotos(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Headers("cookie") c?: string,
+  ) {
+    return this.service.extraPhotos(await this.user(c), org, id);
+  }
+  @Get(":id/photos/:photo") async extraPhoto(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("photo") photo: string,
+    @Headers("cookie") c?: string,
+  ) {
+    return new StreamableFile(
+      await this.service.extraPhoto(await this.user(c), org, id, photo),
+      { type: "image/jpeg" },
+    );
+  }
+  @Post(":id/photos/captures") async startExtra(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Headers("cookie") c?: string,
+  ) {
+    return this.service.startExtra(await this.user(c), org, id);
+  }
+  @Post(":id/photos/:photo/submit") async submitExtra(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("photo") photo: string,
+    @Body() b: Record<string, unknown>,
+    @Headers("cookie") c?: string,
+  ) {
+    return this.service.submitExtra(
+      await this.user(c),
+      org,
+      id,
+      photo,
+      b || {},
+    );
+  }
   @Post(":id/review") async review(
     @Param("org") org: string,
     @Param("id") id: string,

@@ -1,3 +1,4 @@
+import { bulkAttendanceMigration } from "../dist/migration-bulk-attendance.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -21,6 +22,7 @@ test("academic structure preserves evidence and enforces tenant and section scop
     learnerMigration,
     configurationMigration,
     attendanceMigration,
+    bulkAttendanceMigration,
     visionMigration,
   ])
     await pg.exec(s);

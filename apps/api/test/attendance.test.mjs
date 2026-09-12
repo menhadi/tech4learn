@@ -1,3 +1,4 @@
+import { bulkAttendanceMigration } from "../dist/migration-bulk-attendance.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
@@ -96,6 +97,7 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
     learnerMigration,
     configurationMigration,
     attendanceMigration,
+    bulkAttendanceMigration,
     visionMigration,
     academicMigration,
   ])
@@ -306,6 +308,137 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
           "UPDATE memberships SET status='active' WHERE user_id=(SELECT id FROM users WHERE email=$1) AND organisation_id=$2",
           [demo.accounts.find((a) => a.name === "DEMO teacher").email, org],
         );
+      },
+    );
+    await t.test(
+      "extra photos preserve one daily record, immutable retries, scope and review version",
+      async () => {
+        const oldVersion = detail.version;
+        for (let i = 0; i < 4; i++) {
+          const capturer = i === 3 ? admin : teacher,
+            notOwner = i === 3 ? teacher : admin;
+          const extra = await ok(
+            `${p}/${intent.id}/photos/captures`,
+            "POST",
+            {},
+            capturer,
+            201,
+          );
+          const data = {
+            photo: photo(),
+            captured_at: new Date().toISOString(),
+            location: null,
+          };
+          assert.equal(
+            (
+              await req(
+                `${p}/${intent.id}/photos/${extra.id}/submit`,
+                "POST",
+                data,
+                notOwner,
+              )
+            ).status,
+            403,
+          );
+          await ok(
+            `${p}/${intent.id}/photos/${extra.id}/submit`,
+            "POST",
+            data,
+            capturer,
+            201,
+          );
+          await ok(
+            `${p}/${intent.id}/photos/${extra.id}/submit`,
+            "POST",
+            data,
+            capturer,
+            201,
+          );
+          assert.equal(
+            (
+              await req(
+                `${p}/${intent.id}/photos/${extra.id}/submit`,
+                "POST",
+                {
+                  ...data,
+                  captured_at: new Date(Date.now() + 1000).toISOString(),
+                },
+                capturer,
+              )
+            ).status,
+            409,
+          );
+          assert.equal(
+            (
+              await req(
+                `${p}/${intent.id}/photos/${extra.id}`,
+                "GET",
+                undefined,
+                otherAdmin,
+              )
+            ).status,
+            404,
+          );
+          assert.equal(
+            (
+              await req(
+                `${p}/${intent.id}/photos/${extra.id}`,
+                "GET",
+                undefined,
+                teacher,
+              )
+            ).status,
+            403,
+          );
+          const image = await req(
+            `${p}/${intent.id}/photos/${extra.id}`,
+            "GET",
+            undefined,
+            admin,
+          );
+          assert.equal(image.status, 200);
+          assert.equal(image.headers.get("cache-control"), "no-store");
+        }
+        assert.equal(
+          (await req(`${p}/${intent.id}/photos/captures`, "POST", {}, teacher))
+            .status,
+          409,
+        );
+        detail = await ok(`${p}/${intent.id}`, "GET", undefined, admin);
+        assert.equal(detail.version, oldVersion + 4);
+        assert.equal(detail.extraPhotos.length, 4);
+        assert.ok(detail.extraPhotos.every((p) => p.evidence.warnings.length));
+        await pg.query(
+          "INSERT INTO attendance_policy(organisation_id,self_review) VALUES($1,false) ON CONFLICT(organisation_id) DO UPDATE SET self_review=false",
+          [org],
+        );
+        const contributorReview = await req(
+          `${p}/${intent.id}/review`,
+          "POST",
+          {
+            version: detail.version,
+            decision: "confirmed",
+            marks: Object.fromEntries(
+              detail.snapshot.roster.map((l) => [l.id, "present"]),
+            ),
+            reason: "Reviewed every class photo",
+            acknowledge_warnings: true,
+          },
+          admin,
+        );
+        assert.equal(contributorReview.status, 403);
+        await pg.query(
+          "UPDATE attendance_policy SET self_review=true WHERE organisation_id=$1",
+          [org],
+        );
+        assert.deepEqual(detail.marks, {});
+        const list = await ok(
+          `${p}?date=${detail.attendance_date}`,
+          "GET",
+          undefined,
+          admin,
+        );
+        assert.equal(list.rows.filter((r) => r.id === intent.id).length, 1);
       },
     );
     await t.test(

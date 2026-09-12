@@ -1,3 +1,5 @@
+import { combinePhotoMatches } from "../dist/face-jobs.service.js";
+import { bulkAttendanceMigration } from "../dist/migration-bulk-attendance.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -80,6 +82,7 @@ test("private student photos, consent withdrawal and stateless face drafts throu
       learnerMigration,
       configurationMigration,
       attendanceMigration,
+      bulkAttendanceMigration,
       visionMigration,
       academicMigration,
       photoMigration,
@@ -146,6 +149,18 @@ test("private student photos, consent withdrawal and stateless face drafts throu
       });
       return { status: r.status, body: await r.json().catch(() => null) };
     };
+    async function finish(jobId) {
+      for (let i = 0; i < 1200; i++) {
+        const job = (
+          await pg.query("SELECT * FROM attendance_face_jobs WHERE id=$1", [
+            jobId,
+          ])
+        ).rows[0];
+        if (["completed", "failed"].includes(job.status)) return job;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      throw new Error("Matching job did not finish");
+    }
     const path = `/organisations/${org}/learners/${l.id}`;
     await t.test(
       "permissions, foreign IDs, consent versions and deletion",
@@ -401,7 +416,122 @@ test("private student photos, consent withdrawal and stateless face drafts throu
           {},
         );
         assert.equal(match.status, 201);
-        assert.equal(match.body.faces[0].learnerId, l.id);
+        const finished = await finish(match.body.id);
+        assert.equal(finished.status, "completed", finished.error);
+        assert.equal(finished.result.photos[0].faces[0].learnerId, l.id);
+        const completed = await req(
+          `/organisations/${org}/attendance/${session}/face-jobs/${match.body.id}`,
+        );
+        assert.equal(completed.body.status, "completed");
+        assert.ok(
+          [403, 404].includes(
+            (
+              await req(
+                `/organisations/${other}/attendance/${session}/face-jobs/${match.body.id}`,
+              )
+            ).status,
+          ),
+        );
+        const extraId = randomUUID();
+        await pg.query(
+          "INSERT INTO attendance_extra_photos(id,organisation_id,session_id,actor_id,content,evidence,received_at) VALUES($1,$2,$3,$4,$5,'{}',now())",
+          [extraId, org, session, owner, Buffer.from(photo, "base64")],
+        );
+        assert.equal(
+          (
+            await req(
+              `/organisations/${org}/attendance/${session}/face-jobs/${match.body.id}`,
+            )
+          ).body.status,
+          "stale",
+        );
+        const second = await req(
+          `/organisations/${org}/attendance/${session}/face-match`,
+          "POST",
+          {},
+        );
+        const combined = await finish(second.body.id);
+        assert.equal(combined.status, "completed", combined.error);
+        assert.equal(combined.result.students.length, 1);
+        assert.equal(combined.result.students[0].photoIds.length, 2);
+        assert.equal(combined.result.students[0].status, "suggested_present");
+        // Fifty synthetic references exercise queue bounds and comparisons, not model accuracy.
+        const originalRoster = [
+            { id: l.id, name: "Synthetic student", code: "SYNTHETIC" },
+          ],
+          roster = [...originalRoster];
+        for (let n = 1; n < 50; n++) {
+          const lid = randomUUID();
+          roster.push({ id: lid, name: `Synthetic ${n}`, code: `BULK-${n}` });
+          await pg.query(
+            "INSERT INTO learners(id,organisation_id,group_id,name,code) VALUES($1,$2,$3,$4,$5)",
+            [lid, org, l.group_id, `Synthetic ${n}`, `BULK-${n}`],
+          );
+          await pg.query(
+            "INSERT INTO learner_photo_consent(organisation_id,learner_id,purpose,granted,actor_id) VALUES($1,$2,'reference',true,$3)",
+            [org, lid, owner],
+          );
+          await pg.query(
+            "INSERT INTO learner_photos(id,organisation_id,learner_id,purpose,content,content_hash,width,height,checked,check_engine,actor_id) VALUES($1,$2,$3,'reference',$4,$5,200,200,true,$6,$7)",
+            [
+              randomUUID(),
+              org,
+              lid,
+              Buffer.from(photo, "base64"),
+              `synthetic-${n}`,
+              process.env.T4L_FACE_MODEL,
+              owner,
+            ],
+          );
+        }
+        await pg.query(
+          "UPDATE attendance_sessions SET snapshot=jsonb_set(snapshot,'{roster}',$2::jsonb) WHERE id=$1",
+          [session, JSON.stringify(roster)],
+        );
+        const countBefore = seen.length;
+        const fifty = await req(
+          `/organisations/${org}/attendance/${session}/face-match`,
+          "POST",
+          {},
+        );
+        const sameJob = await req(
+          `/organisations/${org}/attendance/${session}/face-match`,
+          "POST",
+          {},
+        );
+        assert.equal(sameJob.body.id, fifty.body.id);
+        const fiftyResult = await finish(fifty.body.id);
+        assert.equal(fiftyResult.status, "completed", fiftyResult.error);
+        assert.equal(fiftyResult.total, 100);
+        assert.equal(fiftyResult.completed, 100);
+        assert.equal(seen.length - countBefore, 100);
+        assert.equal(fiftyResult.result.students.length, 50);
+        assert.ok(
+          fiftyResult.result.students.every((s) => s.status === "needs_review"),
+        );
+        roster.push({ id: randomUUID(), name: "Over limit", code: "OVER" });
+        await pg.query(
+          "UPDATE attendance_sessions SET snapshot=jsonb_set(snapshot,'{roster}',$2::jsonb) WHERE id=$1",
+          [session, JSON.stringify(roster)],
+        );
+        assert.equal(
+          (
+            await req(
+              `/organisations/${org}/attendance/${session}/face-match`,
+              "POST",
+              {},
+            )
+          ).status,
+          400,
+        );
+        await pg.query(
+          "UPDATE attendance_sessions SET snapshot=jsonb_set(snapshot,'{roster}',$2::jsonb) WHERE id=$1",
+          [session, JSON.stringify(originalRoster)],
+        );
+        await pg.query(
+          "DELETE FROM learners WHERE organisation_id=$1 AND code LIKE 'BULK-%'",
+          [org],
+        );
         assert.deepEqual(
           (
             await pg.query(
@@ -411,6 +541,36 @@ test("private student photos, consent withdrawal and stateless face drafts throu
           ).rows[0].marks,
           {},
         );
+        const interrupted = randomUUID();
+        await pg.query(
+          "INSERT INTO attendance_face_jobs(id,organisation_id,session_id,actor_id,status,signature) VALUES($1,$2,$3,$4,'processing','interrupted')",
+          [interrupted, org, session, owner],
+        );
+        await pg.query(
+          "UPDATE attendance_face_worker SET job_id=$1,lease_until=now()-interval '1 minute' WHERE id=1",
+          [interrupted],
+        );
+        const recovered = await finish(interrupted);
+        assert.equal(recovered.status, "failed");
+        assert.equal(recovered.result, null);
+        onVerify = async () => {
+          onVerify = undefined;
+          await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+            owner,
+          ]);
+        };
+        const revoked = await req(
+          `/organisations/${org}/attendance/${session}/face-match`,
+          "POST",
+          {},
+        );
+        assert.equal(revoked.status, 201);
+        const revokedResult = await finish(revoked.body.id);
+        assert.equal(revokedResult.status, "failed");
+        assert.equal(revokedResult.result, null);
+        await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+          owner,
+        ]);
         onVerify = async () => {
           onVerify = undefined;
           await req(path + "/photo-consent", "POST", {
@@ -420,16 +580,13 @@ test("private student photos, consent withdrawal and stateless face drafts throu
             attested: true,
           });
         };
-        assert.equal(
-          (
-            await req(
-              `/organisations/${org}/attendance/${session}/face-match`,
-              "POST",
-              {},
-            )
-          ).status,
-          409,
+        const withdrawn = await req(
+          `/organisations/${org}/attendance/${session}/face-match`,
+          "POST",
+          {},
         );
+        assert.equal(withdrawn.status, 201);
+        assert.equal((await finish(withdrawn.body.id)).status, "failed");
         assert.equal(
           (
             await req(
@@ -453,4 +610,36 @@ test("private student photos, consent withdrawal and stateless face drafts throu
       else process.env[k] = before[k];
     }
   }
+});
+
+test("multi-photo union counts a student once and retains ambiguous identities for review", () => {
+  const roster = [
+    { id: "a", name: "A", code: "A" },
+    { id: "b", name: "B", code: "B" },
+    { id: "c", name: "C", code: "C" },
+  ];
+  const face = { box, learnerId: "a", similarity: 0.98, reviewIds: ["a"] };
+  const rows = combinePhotoMatches(
+    [
+      { photoId: "one", faces: [face] },
+      { photoId: "two", faces: [face] },
+    ],
+    roster,
+  );
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].status, "suggested_present");
+  assert.deepEqual(rows[0].photoIds, ["one", "two"]);
+  assert.equal(rows[2].status, "not_identified");
+  const conflict = combinePhotoMatches(
+    [
+      { photoId: "one", faces: [face] },
+      {
+        photoId: "two",
+        faces: [{ ...face, learnerId: null, reviewIds: ["a", "b"] }],
+      },
+    ],
+    roster,
+  );
+  assert.equal(conflict[0].status, "needs_review");
+  assert.equal(conflict[1].status, "needs_review");
 });

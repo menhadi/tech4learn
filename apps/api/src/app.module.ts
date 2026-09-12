@@ -1,3 +1,4 @@
+import { FaceJobsService } from "./face-jobs.service.js";
 import { ConfigurationService } from "./configuration.service.js";
 import { LearnerPhotosService } from "./learner-photos.service.js";
 import { LearnerPhotosController } from "./learner-photos.controller.js";
@@ -36,6 +37,7 @@ export class AppModule {
       providers: [
         LearnerPhotosService,
         FaceMatchingService,
+        FaceJobsService,
         AcademicService,
         AttendanceService,
         database ? { provide: Database, useValue: database } : Database,

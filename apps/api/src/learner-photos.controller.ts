@@ -1,3 +1,4 @@
+import { FaceJobsService } from "./face-jobs.service.js";
 import {
   Body,
   Controller,
@@ -8,14 +9,13 @@ import {
   StreamableFile,
 } from "@nestjs/common";
 import { LearnerPhotosService } from "./learner-photos.service.js";
-import { FaceMatchingService } from "./face-matching.service.js";
 import { IdentityService } from "./identity.service.js";
 import { session } from "./identity.controller.js";
 @Controller("organisations/:org")
 export class LearnerPhotosController {
   constructor(
     private readonly service: LearnerPhotosService,
-    private readonly matching: FaceMatchingService,
+    private readonly matching: FaceJobsService,
     private readonly identity: IdentityService,
   ) {}
   private user(c?: string) {
@@ -71,11 +71,26 @@ export class LearnerPhotosController {
   ) {
     return this.service.check(await this.user(c), o, id, p);
   }
+  @Get("attendance/:id/face-jobs") async latest(
+    @Param("org") o: string,
+    @Param("id") id: string,
+    @Headers("cookie") c?: string,
+  ) {
+    return this.matching.get(await this.user(c), o, id);
+  }
+  @Get("attendance/:id/face-jobs/:job") async job(
+    @Param("org") o: string,
+    @Param("id") id: string,
+    @Param("job") job: string,
+    @Headers("cookie") c?: string,
+  ) {
+    return this.matching.get(await this.user(c), o, id, job);
+  }
   @Post("attendance/:id/face-match") async match(
     @Param("org") o: string,
     @Param("id") id: string,
     @Headers("cookie") c?: string,
   ) {
-    return this.matching.match(await this.user(c), o, id);
+    return this.matching.enqueue(await this.user(c), o, id);
   }
 }

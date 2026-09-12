@@ -26,3 +26,4 @@ jobs:
       - run: bash -n deploy/virtualmin/update-academic.sh
       - run: bash -n deploy/virtualmin/update-photos.sh
       - run: bash -n deploy/virtualmin/check-face-host.sh
+      - run: bash -n deploy/virtualmin/update-bulk-attendance.sh

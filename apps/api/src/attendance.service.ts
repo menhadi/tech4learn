@@ -443,7 +443,7 @@ export class AttendanceService {
         );
       const stored = (
         await sql.query<{ n: string }>(
-          "SELECT count(*) AS n FROM attendance_photos WHERE organisation_id=$1",
+          "SELECT (SELECT count(*) FROM attendance_photos WHERE organisation_id=$1)+(SELECT count(*) FROM attendance_extra_photos WHERE organisation_id=$1 AND content IS NOT NULL) AS n",
           [org],
         )
       ).rows[0];
@@ -523,7 +523,13 @@ export class AttendanceService {
         [org, id],
       )
     ).rows;
-    return { ...safe, reviews };
+    const extraPhotos = (
+      await this.db.query(
+        "SELECT id,evidence,received_at FROM attendance_extra_photos WHERE organisation_id=$1 AND session_id=$2 AND content IS NOT NULL ORDER BY created_at,id",
+        [org, id],
+      )
+    ).rows;
+    return { ...safe, reviews, extraPhotos };
   }
   async photo(user: Account, org: string, id: string) {
     const a = await this.access.require(user, org, "attendance.photos");
@@ -539,6 +545,191 @@ export class AttendanceService {
       id,
     });
     return Buffer.from(row.content);
+  }
+  async extraPhotos(user: Account, org: string, id: string) {
+    const a = await this.access.require(user, org, "attendance.photos");
+    await this.record(this.db, org, id, a);
+    return (
+      await this.db.query<{
+        id: string;
+        evidence: Record<string, unknown>;
+        received_at: string;
+      }>(
+        "SELECT id,evidence,received_at FROM attendance_extra_photos WHERE organisation_id=$1 AND session_id=$2 AND content IS NOT NULL ORDER BY created_at,id",
+        [org, id],
+      )
+    ).rows;
+  }
+  async extraPhoto(user: Account, org: string, id: string, photoId: string) {
+    const a = await this.access.require(user, org, "attendance.photos");
+    await this.record(this.db, org, id, a);
+    const r = (
+      await this.db.query<{ content: Buffer }>(
+        "SELECT content FROM attendance_extra_photos WHERE organisation_id=$1 AND session_id=$2 AND id=$3 AND content IS NOT NULL",
+        [org, id, uuid(photoId)],
+      )
+    ).rows[0];
+    if (!r) throw new NotFoundException("Photo not found.");
+    await this.access.audit(this.db, user, org, "attendance.photo_viewed", {
+      id,
+      photoId,
+    });
+    return Buffer.from(r.content);
+  }
+  async startExtra(user: Account, org: string, id: string) {
+    return this.db.transaction(async (sql) => {
+      await this.access.lock(sql, org);
+      const a = await this.access.require(user, org, "attendance.capture", sql);
+      const r = await this.record(sql, org, id, a);
+      if (r.status !== "pending")
+        throw new ConflictException("Add photos before confirming attendance.");
+      await sql.query(
+        "DELETE FROM attendance_extra_photos WHERE organisation_id=$1 AND content IS NULL AND created_at<now()-interval '10 minutes'",
+        [org],
+      );
+      const n = (
+        await sql.query<{ n: string }>(
+          "SELECT count(*) AS n FROM attendance_extra_photos WHERE organisation_id=$1 AND session_id=$2 AND content IS NOT NULL",
+          [org, id],
+        )
+      ).rows[0];
+      if (Number(n.n) >= 4)
+        throw new ConflictException(
+          "A session supports five photos including the first.",
+        );
+      const attempts = (
+        await sql.query<{ n: string }>(
+          "SELECT count(*) AS n FROM attendance_extra_photos WHERE organisation_id=$1 AND content IS NULL",
+          [org],
+        )
+      ).rows[0];
+      if (Number(attempts.n) >= 100)
+        throw new ConflictException(
+          "Too many camera attempts. Wait ten minutes and retry.",
+        );
+      const row = (
+        await sql.query<{ id: string; created_at: string }>(
+          "INSERT INTO attendance_extra_photos(id,organisation_id,session_id,actor_id) VALUES($1,$2,$3,$4) RETURNING id,created_at",
+          [randomUUID(), org, id, user.id],
+        )
+      ).rows[0];
+      return { ...row, snapshot: r.snapshot };
+    });
+  }
+  async submitExtra(
+    user: Account,
+    org: string,
+    id: string,
+    photoId: string,
+    b: Record<string, unknown>,
+  ) {
+    return this.db.transaction(async (sql) => {
+      await this.access.lock(sql, org);
+      const a = await this.access.require(user, org, "attendance.capture", sql);
+      const r = await this.record(sql, org, id, a);
+      const attempt = (
+        await sql.query<{
+          actor_id: string;
+          created_at: string;
+          payload_hash: string | null;
+        }>(
+          "SELECT actor_id,created_at,payload_hash FROM attendance_extra_photos WHERE organisation_id=$1 AND session_id=$2 AND id=$3",
+          [org, id, uuid(photoId)],
+        )
+      ).rows[0];
+      if (!attempt) throw new NotFoundException("Photo attempt not found.");
+      if (attempt.actor_id !== user.id)
+        throw new ForbiddenException(
+          "Only the capture owner can submit this photo.",
+        );
+      const photo = jpeg(b.photo),
+        captured = timestamp(b.captured_at),
+        now = Date.now();
+      const payloadHash = hash(
+        canonical({
+          photo: hash(photo),
+          captured_at: b.captured_at,
+          location: b.location,
+        }),
+      );
+      if (attempt.payload_hash) {
+        if (attempt.payload_hash !== payloadHash)
+          throw new ConflictException(
+            "Saved photo evidence cannot be replaced.",
+          );
+        return { id };
+      }
+      if (r.status !== "pending")
+        throw new ConflictException(
+          "Attendance has already been reviewed. Start photos before confirming it.",
+        );
+      const stored = (
+        await sql.query<{ n: string }>(
+          "SELECT count(*) AS n FROM attendance_extra_photos WHERE organisation_id=$1 AND session_id=$2 AND content IS NOT NULL",
+          [org, id],
+        )
+      ).rows[0];
+      if (Number(stored.n) >= 4)
+        throw new ConflictException("This attendance already has five photos.");
+      const started = new Date(attempt.created_at).getTime();
+      if (
+        now - started > 600000 ||
+        captured < started - 5000 ||
+        captured > now + 30000
+      )
+        throw new BadRequestException(
+          "Capture expired or device time is incorrect. Start again.",
+        );
+      const date = new Intl.DateTimeFormat("en-CA", {
+        timeZone: r.snapshot.policy.timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(captured));
+      if (date !== r.attendance_date)
+        throw new BadRequestException(
+          "Extra photos must be captured on this attendance date.",
+        );
+      const active = await sql.query(
+        "SELECT g.id FROM learning_groups g JOIN centres c ON c.id=g.centre_id AND c.organisation_id=g.organisation_id WHERE g.organisation_id=$1 AND g.id=$2 AND NOT g.archived AND NOT c.archived",
+        [org, r.group_id],
+      );
+      if (!active.rows.length)
+        throw new ConflictException("The section or centre has been archived.");
+      const capacity = (
+        await sql.query<{ n: string }>(
+          "SELECT (SELECT count(*) FROM attendance_photos WHERE organisation_id=$1)+(SELECT count(*) FROM attendance_extra_photos WHERE organisation_id=$1 AND content IS NOT NULL) AS n",
+          [org],
+        )
+      ).rows[0];
+      if (Number(capacity.n) >= 1000)
+        throw new ConflictException("Organisation photo capacity reached.");
+      const evidence = {
+        captured_at: new Date(captured).toISOString(),
+        ...classifyLocation(
+          b.location,
+          r.snapshot.centre,
+          captured,
+          now,
+          r.snapshot.policy.accuracy_limit,
+        ),
+        photo_sha256: hash(photo),
+      };
+      await sql.query(
+        "UPDATE attendance_extra_photos SET content=$4,evidence=$5,payload_hash=$6,received_at=now() WHERE organisation_id=$1 AND session_id=$2 AND id=$3",
+        [org, id, photoId, photo, JSON.stringify(evidence), payloadHash],
+      );
+      await sql.query(
+        "UPDATE attendance_sessions SET version=version+1 WHERE organisation_id=$1 AND id=$2",
+        [org, id],
+      );
+      await this.access.audit(sql, user, org, "attendance.photo_added", {
+        id,
+        photoId,
+        locationStatus: evidence.location_status,
+      });
+      return { id };
+    });
   }
   async review(
     user: Account,
@@ -572,7 +763,23 @@ export class AttendanceService {
         throw new BadRequestException(
           "Correct the learner marks on confirmed attendance instead.",
         );
-      const warnings = r.evidence?.warnings as string[];
+      const extra = (
+        await sql.query<{ actor_id: string; evidence: { warnings: string[] } }>(
+          "SELECT actor_id,evidence FROM attendance_extra_photos WHERE organisation_id=$1 AND session_id=$2 AND content IS NOT NULL",
+          [org, id],
+        )
+      ).rows;
+      if (
+        (!policy.self_review || !r.snapshot.policy.self_review) &&
+        extra.some((p) => p.actor_id === user.id)
+      )
+        throw new ForbiddenException(
+          "Another authorised staff member must review these photos.",
+        );
+      const warnings = [
+        ...(r.evidence?.warnings as string[]),
+        ...extra.flatMap((p) => p.evidence.warnings),
+      ];
       const reason = typeof b.reason === "string" ? b.reason.trim() : "";
       if (
         reason.length > 1000 ||
