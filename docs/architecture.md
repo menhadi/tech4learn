@@ -69,3 +69,7 @@ References consulted: https://docs.expo.dev/versions/v57.0.0/ and https://docs.n
 ## Unified student portrait setup
 
 Migration 11 adds an 80-character photo name, preserving existing photos and reference checks. The authenticated photo-setup endpoint records selected purpose permissions and saves one portrait for one or both uses in a single organisation-locked transaction. Consent versions are checked independently; both copies roll back if either use fails. Images retain separate purpose ownership so withdrawing attendance consent does not delete the profile image. The UI groups identical content and runs the existing face check after a successful save; engine failure leaves the saved reference unchecked. Browser camera streams stop on capture, cancellation and unmount; camera data remains local until saving.
+
+## Form drafts and directory queries
+
+See [UI template](ui-template.md). Device drafts are scoped to authenticated user, organisation and record; they exclude credentials and confirmations. Learner, attendance and audit directory APIs apply authorised scope before filtering/counting/pagination, using whitelisted expressions and bound parameters. Draft restoration never changes server authorisation.

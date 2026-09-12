@@ -91,19 +91,102 @@ export class LearnersService {
     search = "",
     offset = 0,
     groupId = "",
+    options: {
+      limit?: number;
+      sort?: string;
+      direction?: string;
+      filters?: Record<string, string>;
+    } = {},
   ) {
-    const a = await this.access.require(user, org, "learners.view");
-    if (!Number.isSafeInteger(offset) || offset < 0 || search.length > 120)
-      throw new BadRequestException("Invalid search or page.");
-    const rows = (
-      await this.db.query<Learner>(
-        `SELECT l.id,l.code,l.name,l.age,l.class_label,l.group_id,l.archived,l.demo,l.version,${groupDisplaySql} AS group_name,c.name AS centre_name FROM learners l JOIN learning_groups g ON g.id=l.group_id AND g.organisation_id=l.organisation_id JOIN centres c ON c.id=g.centre_id AND c.organisation_id=g.organisation_id WHERE l.organisation_id=$1 AND ${scopeSql} AND ($6::uuid IS NULL OR l.group_id=$6) AND (strpos(lower(l.name),lower($4))>0 OR strpos(lower(l.code),lower($4))>0) ORDER BY l.name,l.id LIMIT 51 OFFSET $5`,
-        [...this.args(org, a), search, offset, groupId ? uuid(groupId) : null],
+    const access = await this.access.require(user, org, "learners.view");
+    const limit = options.limit ?? 50,
+      filters = options.filters || {};
+    if (
+      !Number.isSafeInteger(offset) ||
+      offset < 0 ||
+      search.length > 120 ||
+      ![50, 100, 500].includes(limit) ||
+      !filters ||
+      Array.isArray(filters) ||
+      typeof filters !== "object" ||
+      Object.keys(filters).length > 100
+    )
+      throw new BadRequestException("Invalid search, filters or page size.");
+    const params: unknown[] = [...this.args(org, access)];
+    const bind = (v: unknown) => {
+      params.push(v);
+      return `$${params.length}`;
+    };
+    const expressions: Record<string, string> = {
+      name: "l.name",
+      code: "l.code",
+      age: "l.age",
+      class_label: "l.class_label",
+      group_name: groupDisplaySql,
+      centre_name: "c.name",
+      status: "CASE WHEN l.archived THEN 'Archived' ELSE 'Active' END",
+    };
+    if (access.permissions.includes("learners.contacts")) {
+      expressions.guardian_name = "l.guardian_name";
+      expressions.guardian_phone = "l.guardian_phone";
+    }
+    const definitions = await this.definitions(this.db, org);
+    for (const d of definitions)
+      if (
+        search ||
+        filters[`custom_${d.key}`] ||
+        options.sort === `custom_${d.key}`
       )
-    ).rows;
+        expressions[`custom_${d.key}`] = `l.custom_values ->> ${bind(d.key)}`;
+    const joins =
+      "FROM learners l JOIN learning_groups g ON g.id=l.group_id AND g.organisation_id=l.organisation_id JOIN centres c ON c.id=g.centre_id AND c.organisation_id=g.organisation_id";
+    const scope = `l.organisation_id=$1 AND ${scopeSql}`;
+    const clauses = [scope];
+    if (groupId) clauses.push(`l.group_id=${bind(uuid(groupId))}`);
+    if (search) {
+      const key = bind(search);
+      clauses.push(
+        `(${Object.values(expressions)
+          .map(
+            (e) => `strpos(lower(COALESCE((${e})::text,'')),lower(${key}))>0`,
+          )
+          .join(" OR ")})`,
+      );
+    }
+    for (const [key, v] of Object.entries(filters)) {
+      if (v === "") continue;
+      if (!Object.hasOwn(expressions, key) || typeof v !== "string" || v.length > 120)
+        throw new BadRequestException("Invalid or unavailable filter field.");
+      if (v)
+        clauses.push(
+          `strpos(lower(COALESCE((${expressions[key]})::text,'')),lower(${bind(v)}))>0`,
+        );
+    }
+    const sort = options.sort || "name";
+    if (
+      !Object.hasOwn(expressions, sort) ||
+      !["asc", "desc"].includes(options.direction || "asc")
+    )
+      throw new BadRequestException("Invalid or unavailable sort field.");
+    const where = clauses.join(" AND ");
+    // Counts and rows use the same scoped query, including empty result pages.
+    const order = `${expressions[sort]} ${options.direction === "desc" ? "DESC" : "ASC"} NULLS LAST,l.id`;
+    const sql = `WITH scoped AS (SELECT l.*,${groupDisplaySql} AS group_name,c.name AS centre_name ${joins} WHERE ${scope}), page AS (SELECT l.*,${groupDisplaySql} AS group_name,c.name AS centre_name ${joins} WHERE ${where} ORDER BY ${order} LIMIT ${bind(limit + 1)} OFFSET ${bind(offset)}) SELECT (SELECT count(*)::int FROM scoped) AS total,(SELECT count(*)::int ${joins} WHERE ${where}) AS filtered,COALESCE((SELECT json_agg(page) FROM page),'[]'::json) AS items`;
+    const result = (
+      await this.db.query<{
+        total: number;
+        filtered: number;
+        items: Learner[];
+      }>(sql, params)
+    ).rows[0];
     if (user.is_superadmin)
       await this.access.audit(this.db, user, org, "learners.list_viewed", {});
-    return { items: rows.slice(0, 50), hasMore: rows.length > 50 };
+    return {
+      items: result.items.slice(0, limit).map((l) => this.redact(l, access)),
+      total: result.total,
+      filtered: result.filtered,
+      hasMore: result.items.length > limit,
+    };
   }
   async detail(user: Account, org: string, id: string) {
     const a = await this.access.require(user, org, "learners.view");

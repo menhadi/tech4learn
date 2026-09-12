@@ -1,3 +1,4 @@
+import { SmartTable } from "./DirectoryTable";
 import { useEffect, useState } from "react";
 import { api } from "./api";
 type Provider = {
@@ -179,7 +180,7 @@ export function PhotoAnalysis({
               <p>{r.result.notice}</p>
               {r.result.entries.length > 0 && (
                 <div className="permission-table-scroll">
-                  <table>
+                  <SmartTable>
                     <thead>
                       <tr>
                         <th>Read name</th>
@@ -196,7 +197,7 @@ export function PhotoAnalysis({
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </SmartTable>
                 </div>
               )}
               {permissions.includes("attendance.review") &&

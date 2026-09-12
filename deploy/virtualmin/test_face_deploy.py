@@ -44,8 +44,8 @@ bash() { printf 'controller\n' >> "$CASE_DIR/events"; return 1; }
         self.assertEqual(events, ['stop tech4learn','start tech4learn','health','health','controller'])
         self.assertIn('app remains running', result.stderr)
 
-    def photo_release(self, name, fail_migration=0, fail_health=0):
-        return self.run_case(name, 'update-student-photos.sh', r"""
+    def photo_release(self, name, fail_migration=0, fail_health=0, script='update-student-photos.sh'):
+        return self.run_case(name, script, r"""
 runuser() {
   case "$*" in
     *pg_dump*) printf synthetic-backup;;
@@ -59,6 +59,15 @@ pg_restore() { return 0; }
 systemctl() { printf '%s\n' "$*" >> "$CASE_DIR/events"; }
 curl() { printf 'health\n' >> "$CASE_DIR/events"; return FAIL_HEALTH; }
 """.replace('FAIL_MIGRATION',str(fail_migration)).replace('FAIL_HEALTH',str(fail_health)))
+
+    def test_ui_template_release_success_and_recovery(self):
+        for migration, health in [(0,0),(1,0),(0,1)]:
+            with self.subTest(migration=migration, health=health):
+                result, events = self.photo_release(f'ui-{migration}-{health}', migration, health, 'update-ui-template.sh')
+                self.assertEqual(result.returncode, 1 if migration or health else 0, result.stderr)
+                self.assertIn('start tech4learn' if not migration else 'restart tech4learn', events)
+                if migration or health:
+                    self.assertIn('restored the previous application files', result.stderr)
 
     def test_photo_migration_failure_restores_files_and_restarts_api(self):
         result, events = self.photo_release('photo-migration-fails',1)

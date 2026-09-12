@@ -39,6 +39,7 @@ export function SectionSelect({
         <label>
           Centre
           <select
+            name={`${name}_centre`}
             value={centre}
             onChange={(e) => {
               setCentre(e.target.value);
@@ -62,6 +63,7 @@ export function SectionSelect({
         <label>
           Academic year
           <select
+            name={`${name}_year`}
             value={year}
             onChange={(e) => {
               setYear(e.target.value);
@@ -87,6 +89,7 @@ export function SectionSelect({
         <label>
           Class
           <select
+            name={`${name}_class`}
             value={klass}
             onChange={(e) => {
               setClass(e.target.value);

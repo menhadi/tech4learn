@@ -1,3 +1,4 @@
+import { SmartTable } from "./DirectoryTable";
 type Item = { key: string; label: string; requires?: string[] };
 const display = (value: string) =>
   value.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
@@ -57,7 +58,7 @@ export function PermissionMatrix({
       tabIndex={0}
       aria-label="Module permission table; scroll horizontally for more actions"
     >
-      <table className="permission-table">
+      <SmartTable className="permission-table">
         <caption>Permissions by module and action</caption>
         <thead>
           <tr>
@@ -105,7 +106,7 @@ export function PermissionMatrix({
             </tr>
           ))}
         </tbody>
-      </table>
+      </SmartTable>
     </div>
   );
 }

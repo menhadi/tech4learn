@@ -1,4 +1,5 @@
-import { DirectoryTable, RecordStatus } from "./DirectoryTable";
+import { DraftForm } from "./DraftForm";
+import { DirectoryTable, RecordStatus,emptyTableQuery,type TableQuery } from "./DirectoryTable";
 import { useEffect, useState, type FormEvent } from "react";
 import type { Invitation, Organisation } from "@tech4learn/contracts";
 import { api } from "./api";
@@ -102,7 +103,8 @@ export function OrganisationWorkspace({
   const [centre, setCentre] = useState<Centre | null>(null),
     [focusGroup, setFocusGroup] = useState(""),
     [history, setHistory] = useState<Audit[]>([]),
-    [offset, setOffset] = useState(0);
+    [historyQuery,setHistoryQuery]=useState<TableQuery>({...emptyTableQuery,sort:"created_at",direction:"desc"}),
+    [historyCounts,setHistoryCounts]=useState({total:0,filtered:0});
   const [revision, setRevision] = useState(0);
   const base = `/organisations/${org.id}`;
   async function load() {
@@ -141,9 +143,9 @@ export function OrganisationWorkspace({
     let active = true;
     if (tab === "History") {
       setHistory([]);
-      api<Audit[]>(`${base}/audit?offset=${offset}`)
+      api<{rows:Audit[];total:number;filtered:number}>(`${base}/audit-directory?query=${encodeURIComponent(JSON.stringify(historyQuery))}`)
         .then((rows) => {
-          if (active) setHistory(rows);
+          if (active) {setHistory(rows.rows);setHistoryCounts({total:rows.total,filtered:rows.filtered});}
         })
         .catch((e) => {
           if (active) setError(errorText(e));
@@ -152,7 +154,7 @@ export function OrganisationWorkspace({
     return () => {
       active = false;
     };
-  }, [tab, offset, org.id]);
+  }, [tab, historyQuery, org.id]);
   const can = (p: string) => !!data?.access.permissions.includes(p);
   async function act(work: () => Promise<unknown>, success = "Saved.") {
     setBusy(true);
@@ -414,7 +416,7 @@ export function OrganisationWorkspace({
             />
           )}
           {tab === "Profile" && (
-            <form
+            <DraftForm title="Organisation profile" draftKey={"organisation-profile"}
               onSubmit={(e) => {
                 const body = form(e);
                 void act(async () =>
@@ -456,7 +458,7 @@ export function OrganisationWorkspace({
               {!can("organisation.edit") && (
                 <p className="muted">You have view access to this profile.</p>
               )}
-            </form>
+            </DraftForm>
           )}
           {tab === "Centres" && (
             <>
@@ -603,7 +605,7 @@ export function OrganisationWorkspace({
               </DirectoryTable>
               {(centre ? can("centres.edit") : can("centres.create")) &&
                 data.access.scope_type !== "groups" && (
-                  <form
+                  <DraftForm title="Centre details" draftKey={`centre:${centre?.id||"new"}`}
                     id="centre-editor"
                     key={centre?.id || `new-centre-${revision}`}
                     onSubmit={(e) => {
@@ -718,7 +720,7 @@ export function OrganisationWorkspace({
                         )}
                       </div>
                     </fieldset>
-                  </form>
+                  </DraftForm>
                 )}
             </>
           )}
@@ -798,7 +800,7 @@ export function OrganisationWorkspace({
                 ))}
               </DirectoryTable>
               {can("roles.manage") && (
-                <form
+                <DraftForm title="Role and permissions" draftKey={`role:${role?.id||"new"}`} draftState={rolePermissions} restoreState={setRolePermissions}
                   key={role?.id || `new-role-${revision}`}
                   onSubmit={(e) => {
                     const b = form(e);
@@ -856,7 +858,7 @@ export function OrganisationWorkspace({
                       )}
                     </div>
                   </fieldset>
-                </form>
+                </DraftForm>
               )}
             </>
           )}
@@ -911,7 +913,7 @@ export function OrganisationWorkspace({
                 ))}
               </DirectoryTable>
               {can("members.manage") && (
-                <form
+                <DraftForm title="Staff access" draftKey={`member:${member?.user_id||"new"}`} draftState={{grantRole,scope}} restoreState={v=>{setGrantRole(v.grantRole);setScope(v.scope);}}
                   key={member?.user_id || `invite-${revision}`}
                   onSubmit={(e) => {
                     const b = form(e);
@@ -1058,44 +1060,17 @@ export function OrganisationWorkspace({
                       )}
                     </div>
                   </fieldset>
-                </form>
+                </DraftForm>
               )}
             </>
           )}
           {tab === "History" && (
             <>
               <h3>Change history</h3>
-              <p className="muted">
-                Organisation events, newest first. Each page contains up to 50
-                events.
-              </p>
-              {history.map((h) => (
-                <div className="record" key={h.id}>
-                  <strong>{h.action}</strong>
-                  <p>
-                    {h.actor_name || "System"} ·{" "}
-                    {new Date(h.created_at).toLocaleString()}
-                  </p>
-                  <details>
-                    <summary>Details</summary>
-                    <pre>{JSON.stringify(h.details, null, 2)}</pre>
-                  </details>
-                </div>
-              ))}
-              {!history.length && <p>No events on this page.</p>}
+              <DirectoryTable title="Change history" columns={["Event","Staff member","Time","Details"]} columnKeys={["action","actor_name","created_at","details"]} remote={{query:historyQuery,onChange:q=>setHistoryQuery({...q,sort:q.sort||"created_at"}),...historyCounts}}>
+                {history.map(h=><tr key={h.id}><th scope="row">{h.action}</th><td>{h.actor_name||"System"}</td><td>{h.created_at}</td><td>{JSON.stringify(h.details)}</td></tr>)}
+              </DirectoryTable>
               <div className="actions">
-                <button
-                  disabled={!offset}
-                  onClick={() => setOffset(Math.max(0, offset - 50))}
-                >
-                  Previous
-                </button>
-                <button
-                  disabled={history.length < 50}
-                  onClick={() => setOffset(offset + 50)}
-                >
-                  Next
-                </button>
                 {can("audit.export") && (
                   <button
                     disabled={busy}
@@ -1103,7 +1078,7 @@ export function OrganisationWorkspace({
                     onClick={() =>
                       void act(async () => {
                         const rows = await api<Audit[]>(
-                          `${base}/audit/export?offset=${offset}`,
+                          `${base}/audit/export?offset=${historyQuery.offset}`,
                         );
                         const url = URL.createObjectURL(
                           new Blob([JSON.stringify(rows, null, 2)], {
@@ -1112,13 +1087,13 @@ export function OrganisationWorkspace({
                         );
                         const a = document.createElement("a");
                         a.href = url;
-                        a.download = `tech4learn-history-${org.slug}-${offset}.json`;
+                        a.download = `tech4learn-history-${org.slug}-${historyQuery.offset}.json`;
                         a.click();
                         setTimeout(() => URL.revokeObjectURL(url), 1000);
                       }, "History page exported.")
                     }
                   >
-                    Export this page
+                    Export up to 50 records from this position
                   </button>
                 )}
               </div>

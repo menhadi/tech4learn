@@ -1,3 +1,4 @@
+import {parseDirectoryQuery} from "./directory-query.js";
 import {
   Body,
   Controller,
@@ -75,6 +76,7 @@ export class AttendanceController {
     @Param("org") org: string,
     @Query("date") date: string,
     @Query("offset") offset: string,
+    @Query("query") query: string,
     @Headers("cookie") c?: string,
   ) {
     return this.service.list(
@@ -82,6 +84,7 @@ export class AttendanceController {
       org,
       date,
       Number(offset || 0),
+      query?parseDirectoryQuery(query):undefined,
     );
   }
   @Get(":id/photo") async photo(

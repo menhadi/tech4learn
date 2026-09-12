@@ -1,3 +1,7 @@
+import { DirectoryTable } from "./DirectoryTable";
+import { DraftScope } from "./DraftForm";
+import { clearDrafts } from "./form-drafts";
+import { DraftForm } from "./DraftForm";
 import { FaceEngine } from "./FaceEngine";
 import { OrganisationTypeSelect } from "./OrganisationTypeSelect";
 import {
@@ -155,7 +159,8 @@ function App() {
     } catch (err) {
       setError(message(err));
       if (err instanceof ApiError && err.status === 401 && session) {
-        setSession(null);
+        clearDrafts();
+                setSession(null);
         setInvitation(null);
       }
     } finally {
@@ -215,7 +220,7 @@ function App() {
     </>
   );
   const signIn = (
-    <form
+    <DraftForm title="Sign in" draftKey={"security"} draftEnabled={false}
       onSubmit={(event) => {
         const body = values(event);
         void act(async () => {
@@ -240,7 +245,7 @@ function App() {
         Access is by invitation. Contact your platform administrator if you need
         access or help signing in.
       </p>
-    </form>
+    </DraftForm>
   );
 
   if (loading)
@@ -277,7 +282,7 @@ function App() {
                   {signIn}
                 </>
               ) : (
-                <form
+                <DraftForm title="Accept invitation" draftKey={"signin"} draftEnabled={false}
                   onSubmit={(event) => {
                     const body = values(event);
                     void act(async () => {
@@ -314,7 +319,7 @@ function App() {
                   <button disabled={busy}>
                     {busy ? "Saving…" : "Accept invitation"}
                   </button>
-                </form>
+                </DraftForm>
               )}
             </>
           )}
@@ -374,7 +379,7 @@ function App() {
     );
 
   return (
-    <div
+    <DraftScope user={session.user.id} org={selected||"platform"}><div
       className={`workspace template-${workspaceBrand?.template || "community"}`}
       style={{ "--org-colour": org?.colour || "#175d50" } as CSSProperties}
     >
@@ -447,6 +452,7 @@ function App() {
             onClick={() =>
               void act(async () => {
                 await api("/auth/logout", "POST", {});
+                clearDrafts();
                 setSession(null);
                 setInvitation(null);
               })
@@ -494,12 +500,13 @@ function App() {
             <p className="muted">
               Changing your password signs out all your sessions.
             </p>
-            <form
+            <DraftForm title="Account security" draftKey={"account-security"} draftEnabled={false}
               onSubmit={(event) => {
                 const body = values(event);
                 void act(async () => {
                   await api("/auth/password", "POST", body);
-                  setSession(null);
+                  clearDrafts();
+                setSession(null);
                   setInvitation(null);
                   setNotice("Password updated. Please sign in again.");
                 });
@@ -510,7 +517,7 @@ function App() {
               <button disabled={busy}>
                 {busy ? "Saving…" : "Change password"}
               </button>
-            </form>
+            </DraftForm>
           </section>
         ) : (
           <>
@@ -559,7 +566,7 @@ function App() {
                   Give the organisation its own workspace and invite its first
                   administrator.
                 </p>
-                <form
+                <DraftForm title="Create organisation" draftKey={"new-organisation"}
                   className="form-grid"
                   onSubmit={(event) => {
                     const body = values(event);
@@ -622,7 +629,7 @@ function App() {
                       {busy ? "Creating…" : "Create & prepare invitation"}
                     </button>
                   </div>
-                </form>
+                </DraftForm>
               </section>
             )}
             {!session.organisations.length ? (
@@ -650,47 +657,9 @@ function App() {
                       ? "Organisation directory"
                       : "Your organisations"}
                   </h2>
-                  <label className="search-label">
-                    Search
-                    <input
-                      type="search"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Find an organisation"
-                    />
-                  </label>
-                  <div className="org-items">
-                    {visibleOrgs.map((item) => (
-                      <button
-                        key={item.id}
-                        className={`org-item ${selected === item.id ? "selected" : ""}`}
-                        aria-pressed={selected === item.id}
-                        onClick={() => {
-                          setSelected(item.id);
-                          setError("");
-                          setNotice("");
-                        }}
-                      >
-                        <span
-                          className="org-mark"
-                          style={{ background: item.colour }}
-                          aria-hidden="true"
-                        />
-                        <span>
-                          <strong>{item.name}</strong>
-                          <small>{item.slug}</small>
-                        </span>
-                        <span aria-hidden="true">→</span>
-                      </button>
-                    ))}
-                    {!visibleOrgs.length && (
-                      <p className="muted">No matching organisations.</p>
-                    )}
-                  </div>
-                  <small className="muted">
-                    {session.organisations.length} organisation
-                    {session.organisations.length === 1 ? "" : "s"} shown
-                  </small>
+                  <DirectoryTable title="Organisation directory" columns={["Organisation","Address","Brand colour","Actions"]}>
+                    {session.organisations.map(item=><tr key={item.id}><th scope="row">{item.name}</th><td>{item.slug}</td><td>{item.colour}</td><td><button type="button" className="secondary" onClick={()=>{setSelected(item.id);setError("");setNotice("");}}>Open organisation</button></td></tr>)}
+                  </DirectoryTable>
                 </details>
                 {org && (
                   <div key={org.id}>
@@ -731,7 +700,7 @@ function App() {
         )}
         <footer>Tech4Learn · Organisation administration</footer>
       </main>
-    </div>
+    </div></DraftScope>
   );
 }
 createRoot(document.getElementById("root")!).render(

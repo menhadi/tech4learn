@@ -72,3 +72,7 @@ Student profiles separate details, photo setup and enrolment/history. A single n
 [Face-engine controls](face-control-release.md) add a restricted local controller, status and suggested CPU/RAM limits, stop/start/restart, and a durable queue pause in migration 10. The engine is installed per the user’s server screenshot; control deployment, API-key connection and real-image calibration remain separate checks. Larger host capacity can be detected by refreshing the superadmin page.
 
 Photo setup has a direct student-directory action and one flow: take/upload → name and choose uses → confirm permission → save and check. Both uses save atomically; attendance references are checked after saving when configured. Camera preview, retake and upload are alternatives. Classroom attendance remains a separate group-photo capture and teacher-review task.
+
+## Shared admin UI
+
+The working shared form/table pattern is documented in [UI template](ui-template.md). Learner enrolment now keeps details, placement, custom fields and photo setup together, with recoverable device drafts. Directories share automatic filtering, sorting, counts and 50/100/500 row choices.

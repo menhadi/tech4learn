@@ -1,3 +1,4 @@
+import { SmartTable } from "./DirectoryTable";
 import { useEffect, useState, useRef } from "react";
 import { api } from "./api";
 type Status = {
@@ -196,7 +197,7 @@ export function FaceEngine() {
               guarantees.
             </p>
             <div className="table-scroll">
-              <table className="engine-table">
+              <SmartTable className="engine-table">
                 <thead>
                   <tr>
                     <th>Suggested profile</th>
@@ -235,7 +236,7 @@ export function FaceEngine() {
                     );
                   })}
                 </tbody>
-              </table>
+              </SmartTable>
             </div>
             <div className="engine-fields">
               <label>
@@ -279,7 +280,7 @@ export function FaceEngine() {
           <section className="panel">
             <h2>Engine services</h2>
             <div className="table-scroll">
-              <table className="engine-table">
+              <SmartTable className="engine-table">
                 <thead>
                   <tr>
                     <th>Service</th>
@@ -294,7 +295,7 @@ export function FaceEngine() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </SmartTable>
             </div>
             {!data.services?.length && (
               <p>No running service details are available.</p>

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -25,6 +26,10 @@ export class LearnersController {
     @Query("search") search: string,
     @Query("offset") offset: string,
     @Query("group_id") groupId: string,
+    @Query("limit") limit: string,
+    @Query("sort") sort: string,
+    @Query("direction") direction: string,
+    @Query("filters") filters: string,
     @Headers("cookie") cookie?: string,
   ) {
     return this.service.list(
@@ -33,7 +38,12 @@ export class LearnersController {
       search || "",
       Number(offset || 0),
       groupId || "",
+      {limit:Number(limit||50),sort,direction,filters:this.parseFilters(filters)},
     );
+  }
+  private parseFilters(value?:string):Record<string,string> {
+    if(!value)return {};
+    try {if(value.length>20000)throw new Error();return JSON.parse(value);} catch {throw new BadRequestException("Invalid filters.");}
   }
   @Get("learners/:id") async detail(
     @Param("org") org: string,

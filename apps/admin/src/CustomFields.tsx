@@ -1,3 +1,5 @@
+import {DirectoryTable} from "./DirectoryTable";
+import { DraftForm } from "./DraftForm";
 import { useEffect, useState } from "react";
 import { api } from "./api";
 type Definition = {
@@ -150,23 +152,9 @@ export function CustomFields({
           attendance or ExamElite record is created here.
         </p>
       )}
-      {defs.map((f) => (
-        <div key={f.id} className="record-row">
-          <strong>{f.label}</strong>
-          <p>
-            {f.key} · {f.kind}
-            {f.required ? " · Required" : ""}
-            {f.archived ? " · Archived" : ""}
-          </p>
-          {can("fields.manage") && (
-            <button className="secondary" onClick={() => setEdit(f)}>
-              Edit field
-            </button>
-          )}
-        </div>
-      ))}
+      <DirectoryTable title="Custom fields" columns={["Field","Key","Type","Required","Status","Actions"]}>{defs.map(f=><tr key={f.id}><th scope="row">{f.label}</th><td>{f.key}</td><td>{f.kind}</td><td>{f.required?"Yes":"No"}</td><td>{f.archived?"Archived":"Active"}</td><td>{can("fields.manage")&&<button type="button" onClick={()=>setEdit(f)}>Edit field</button>}</td></tr>)}</DirectoryTable>
       {can("fields.manage") && (
-        <form
+        <DraftForm title="Field definition" draftKey={`field:${module}:${edit?.id||"new"}`}
           key={`${module}-${edit?.id || "new"}-${revision}`}
           onSubmit={(e) => {
             e.preventDefault();
@@ -253,7 +241,7 @@ export function CustomFields({
               New field
             </button>
           </fieldset>
-        </form>
+        </DraftForm>
       )}
       {module === "learners" ? (
         <p>
@@ -283,7 +271,7 @@ export function CustomFields({
               </select>
             </label>
             {record && (
-              <form
+              <DraftForm title="Additional details" draftKey={`values:${module}:${record}`} draftState={values} restoreState={setValues}
                 onSubmit={(e) => {
                   e.preventDefault();
                   void act(async () => {
@@ -356,7 +344,7 @@ export function CustomFields({
                   ))}
                   <button>Save additional details</button>
                 </fieldset>
-              </form>
+              </DraftForm>
             )}
           </section>
         )

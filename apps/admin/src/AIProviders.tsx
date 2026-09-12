@@ -1,3 +1,4 @@
+import { SmartTable } from "./DirectoryTable";
 import { useEffect, useState } from "react";
 import { api } from "./api";
 export function AIProviders({ org }: { org: string }) {
@@ -24,7 +25,7 @@ export function AIProviders({ org }: { org: string }) {
       </p>
       {error && <p role="alert">{error}</p>}
       <div className="permission-table-scroll">
-        <table>
+        <SmartTable>
           <thead>
             <tr>
               <th>Provider</th>
@@ -45,7 +46,7 @@ export function AIProviders({ org }: { org: string }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </SmartTable>
       </div>
       <h4>What the analysis does</h4>
       <ul>

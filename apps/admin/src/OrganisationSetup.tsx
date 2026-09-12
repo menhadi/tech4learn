@@ -1,3 +1,4 @@
+import { DraftForm } from "./DraftForm";
 import { OrganisationTypeSelect } from "./OrganisationTypeSelect";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
@@ -77,7 +78,9 @@ export function OrganisationSetup({
       <a href={address} target="_blank" rel="noreferrer">
         Preview organisation sign-in
       </a>
-      <form
+      <DraftForm title="Branding and modules" draftKey={"organisation-setup"}
+        draftState={{kind:data.kind,template:data.template,welcome:data.welcome,logo:data.logo,enabled_modules:data.enabled_modules}}
+        restoreState={v=>setData({...data,kind:v.kind,template:v.template,welcome:v.welcome,logo:v.logo,enabled_modules:v.enabled_modules})}
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
           void act(
@@ -188,7 +191,7 @@ export function OrganisationSetup({
           ))}
           <button>Save setup</button>
         </fieldset>
-      </form>
+      </DraftForm>
       <section className="subpanel">
         <h3>Custom domain</h3>
         <p>
@@ -197,7 +200,7 @@ export function OrganisationSetup({
           it live.
         </p>
         {!data.domain ? (
-          <form
+          <DraftForm title="Custom domain" draftKey={"custom-domain"}
             onSubmit={(e) => {
               e.preventDefault();
               const b = Object.fromEntries(new FormData(e.currentTarget));
@@ -219,7 +222,7 @@ export function OrganisationSetup({
               </label>
               <button>Set domain</button>
             </fieldset>
-          </form>
+          </DraftForm>
         ) : (
           <>
             <p>
@@ -253,7 +256,7 @@ export function OrganisationSetup({
               Verify ownership
             </button>
             {superadmin && !data.domain.active && (
-              <form
+              <DraftForm title="Domain settings" draftKey={"domain-settings"}
                 onSubmit={(e) => {
                   e.preventDefault();
                   void act(
@@ -273,7 +276,7 @@ export function OrganisationSetup({
                 <button disabled={busy || !data.domain.verified_at}>
                   Activate domain
                 </button>
-              </form>
+              </DraftForm>
             )}
             <details>
               <summary>Remove domain</summary>

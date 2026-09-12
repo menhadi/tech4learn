@@ -1,3 +1,4 @@
+import {directoryPage,type DirectoryQuery} from "./directory-query.js";
 import { groupDisplaySql } from "./academic-label.js";
 import {
   BadRequestException,
@@ -479,7 +480,7 @@ export class AttendanceService {
       return { id, status: "pending" };
     });
   }
-  async list(user: Account, org: string, date: string, offset: number) {
+  async list(user: Account, org: string, date: string, offset: number, query?:DirectoryQuery) {
     const a = await this.access.require(user, org, "attendance.view");
     if (
       !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
@@ -491,12 +492,7 @@ export class AttendanceService {
       throw new BadRequestException("Choose a valid date and page.");
     const params = [org, a.scope_type, a.scope_ids, date];
     const where = `organisation_id=$1 AND ${scope} AND attendance_date=$4 AND status<>'draft'`;
-    const rows = (
-      await this.db.query(
-        `SELECT id,attendance_date,status,version,snapshot->>'group_name' AS group_name,snapshot->>'centre_name' AS centre_name,evidence->>'location_status' AS location_status,marks FROM attendance_sessions WHERE ${where} ORDER BY created_at DESC,id LIMIT 50 OFFSET $5`,
-        [...params, offset],
-      )
-    ).rows;
+    const page=await directoryPage(this.db,{select:"id,attendance_date,status,version,snapshot->>'group_name' AS group_name,snapshot->>'centre_name' AS centre_name,evidence->>'location_status' AS location_status,marks",from:"FROM attendance_sessions",scope:where,params,columns:{group_name:"snapshot->>'group_name'",centre_name:"snapshot->>'centre_name'",status:"status",location_status:"evidence->>'location_status'",attendance_date:"attendance_date"},sort:"attendance_date",id:"id"},query||{offset,direction:"desc"});
     const counts = (
       await this.db.query<{ status: string; n: string }>(
         `SELECT status,count(*) AS n FROM attendance_sessions WHERE ${where} GROUP BY status`,
@@ -509,7 +505,7 @@ export class AttendanceService {
         params,
       )
     ).rows;
-    return { rows, counts, totals };
+    return { ...page, counts, totals };
   }
   async detail(user: Account, org: string, id: string) {
     const a = await this.access.require(user, org, "attendance.view"),

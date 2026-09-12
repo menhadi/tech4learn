@@ -1,3 +1,4 @@
+import {directoryPage,type DirectoryQuery} from "./directory-query.js";
 import {
   BadRequestException,
   ConflictException,
@@ -516,6 +517,7 @@ export class AccessService {
       );
     });
   }
+  async historyDirectory(user:Account,org:string,query:DirectoryQuery){await this.require(user,org,"audit.view");return directoryPage(this.db,{select:"a.id,a.action,a.details,a.created_at,u.name AS actor_name",from:"FROM audit_events a LEFT JOIN users u ON u.id=a.actor_id",scope:"a.organisation_id=$1",params:[org],columns:{action:"a.action",actor_name:"u.name",created_at:"a.created_at",details:"a.details::text"},sort:"created_at",id:"a.id"},query);}
   async history(user: Account, org: string, offset = 0, exporting = false) {
     await this.require(user, org, exporting ? "audit.export" : "audit.view");
     if (!Number.isSafeInteger(offset) || offset < 0)

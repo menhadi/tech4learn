@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useDraftKey } from "./DraftForm";
+import { readDraft, writeDraft, removeDraft } from "./form-drafts";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useImperativeHandle,
+  type Ref,
+} from "react";
 import { api, apiBase } from "./api";
 type Purpose = "profile" | "reference";
 type Photo = {
@@ -73,12 +81,19 @@ export function StudentPhotos({
   permissions,
   archived,
   demo,
+  ensureStudent,
+  saveRef,
 }: {
   org: string;
   id: string;
   permissions: string[];
   archived: boolean;
   demo: boolean;
+  ensureStudent?: () => Promise<string>;
+  saveRef?: Ref<{
+    save: (studentId?: string) => Promise<void>;
+    validate: () => void;
+  }>;
 }) {
   const [state, setState] = useState<State | null>(null);
   const [busy, setBusy] = useState(false),
@@ -97,7 +112,8 @@ export function StudentPhotos({
   const video = useRef<HTMLVideoElement>(null),
     stream = useRef<MediaStream | null>(null),
     generation = useRef(0);
-  const mounted = useRef(true);
+  const mounted = useRef(true),
+    loadedFor = useRef(id);
   const base = `/organisations/${org}/learners/${id}`;
   const manage = permissions.includes("learners.photo_manage") && !archived;
   function stopCamera() {
@@ -108,13 +124,19 @@ export function StudentPhotos({
   }
   useEffect(() => {
     mounted.current = true;
-    api<State>(base + "/photos")
-      .then((s) => {
-        if (mounted.current) setState(s);
-      })
-      .catch((e) => {
-        if (mounted.current) setError(e.message);
-      });
+    if (!id)
+      setState({ photos: [], consents: [], verificationConfigured: false });
+    else
+      api<State>(base + "/photos")
+        .then((s) => {
+          if (mounted.current) {
+            loadedFor.current = id;
+            setState(s);
+          }
+        })
+        .catch((e) => {
+          if (mounted.current) setError(e.message);
+        });
     return () => {
       mounted.current = false;
       generation.current++;
@@ -206,10 +228,65 @@ export function StudentPhotos({
     stopCamera();
     setPrepared(result);
   }
-  async function save() {
+  const photoDraftKey = useDraftKey(`photo:${id || "new"}`),
+    currentDraftKey = useRef(photoDraftKey),
+    previousDraftKey = useRef(photoDraftKey);
+  currentDraftKey.current = photoDraftKey;
+  type PhotoDraft = {
+    prepared: { url: string; warning: string };
+    name: string;
+    profile: boolean;
+    reference: boolean;
+  };
+  const [photoRecovery, setPhotoRecovery] =
+      useState<ReturnType<typeof readDraft<PhotoDraft>>>(null),
+    [draftStatus, setDraftStatus] = useState("");
+  const [withdrawConfirmed, setWithdrawConfirmed] = useState<string[]>([]);
+  useEffect(() => {
+    if (photoDraftKey) setPhotoRecovery(readDraft<PhotoDraft>(photoDraftKey));
+  }, [photoDraftKey]);
+  useEffect(() => {
+    if (photoDraftKey && prepared) {
+      try {
+        writeDraft(photoDraftKey, { prepared, name, profile, reference });
+        if (
+          previousDraftKey.current &&
+          previousDraftKey.current !== photoDraftKey
+        )
+          removeDraft(previousDraftKey.current);
+        previousDraftKey.current = photoDraftKey;
+        setDraftStatus(
+          "Photo draft saved on this device. Permission must be confirmed before submitting.",
+        );
+      } catch {
+        setDraftStatus(
+          "Photo draft could not be stored. Keep this page open until you save.",
+        );
+      }
+    }
+  }, [photoDraftKey, prepared, name, profile, reference]);
+  function validatePhoto() {
+    if (prepared && (!name.trim() || !attested || (!profile && !reference)))
+      throw new Error(
+        "Name the photo, choose its uses and confirm permission before saving enrolment.",
+      );
+  }
+  useImperativeHandle(saveRef, () => ({ save, validate: validatePhoto }));
+  async function save(studentId?: string) {
     if (!prepared || !state) return;
+    validatePhoto();
+    const targetId = studentId || id || (await ensureStudent?.());
+    if (!targetId)
+      throw new Error(
+        "Complete the student details and select a section first.",
+      );
+    const photoBase = `/organisations/${org}/learners/${targetId}`;
+    const metadata =
+      loadedFor.current === targetId && id
+        ? state
+        : await api<State>(photoBase + "/photos");
     const result = await api<{ photos: { id: string; purpose: Purpose }[] }>(
-      base + "/photo-setup",
+      photoBase + "/photo-setup",
       "POST",
       {
         name,
@@ -220,19 +297,24 @@ export function StudentPhotos({
         consentVersions: Object.fromEntries(
           (["profile", "reference"] as Purpose[]).map((p) => [
             p,
-            state.consents.find((c) => c.purpose === p)?.version || 0,
+            metadata.consents.find((c) => c.purpose === p)?.version || 0,
           ]),
         ),
       },
     );
+    if (photoDraftKey) removeDraft(photoDraftKey);
+    if (currentDraftKey.current)
+      removeDraft(currentDraftKey.current);
     setPrepared(null);
+    setDraftStatus("");
+    setPhotoRecovery(null);
     setAttested(false);
-    await refresh();
+    setState(await api<State>(photoBase + "/photos"));
     const ref = result.photos.find((p) => p.purpose === "reference");
-    if (ref && state.verificationConfigured) {
+    if (ref && metadata.verificationConfigured) {
       try {
-        await api(`${base}/photos/${ref.id}/check`, "POST", {}, 20000);
-        await refresh();
+        await api(`${photoBase}/photos/${ref.id}/check`, "POST", {}, 20000);
+        setState(await api<State>(photoBase + "/photos"));
         setNotice(
           "Photo saved. Attendance face check passed. You can now use this reference when reviewing classroom attendance.",
         );
@@ -261,7 +343,38 @@ export function StudentPhotos({
   );
   return (
     <section className="subpanel student-photos">
-      <h3>Add a student photo</h3>
+      <h3>4. Student photos</h3>
+      {draftStatus && <p role="status">{draftStatus}</p>}
+      {photoRecovery && !prepared && (
+        <div className="draft-recovery">
+          <p>A saved photo draft is available.</p>
+          <button
+            type="button"
+            onClick={() => {
+              const v = photoRecovery.values;
+              if (v.prepared?.url?.startsWith("data:image/jpeg;base64,")) {
+                setPrepared(v.prepared);
+                setName(v.name);
+                setProfile(v.profile);
+                setReference(!demo && v.reference);
+                setAttested(false);
+              }
+              setPhotoRecovery(null);
+            }}
+          >
+            Restore photo draft
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (photoDraftKey) removeDraft(photoDraftKey);
+              setPhotoRecovery(null);
+            }}
+          >
+            Discard photo draft
+          </button>
+        </div>
+      )}
       <p>
         Take or upload one portrait, name it, and use it for the profile
         picture, attendance, or both. You do not need to upload the same photo
@@ -374,7 +487,13 @@ export function StudentPhotos({
                       type="button"
                       className="secondary"
                       disabled={busy}
-                      onClick={() => setPrepared(null)}
+                      onClick={() => {
+                        if (photoDraftKey)
+                          removeDraft(photoDraftKey);
+                        setPhotoRecovery(null);
+                        setDraftStatus("");
+                        setPrepared(null);
+                      }}
                     >
                       Discard / retake
                     </button>
@@ -457,7 +576,7 @@ export function StudentPhotos({
                   !attested ||
                   (!profile && !reference)
                 }
-                onClick={() => void run(save)}
+                onClick={() => void run(() => save())}
               >
                 {reference && state.verificationConfigured
                   ? "Save photo & check face"
@@ -575,42 +694,58 @@ export function StudentPhotos({
               {state.consents
                 .filter((c) => c.granted)
                 .map((c) => (
-                  <form
+                  <div
                     key={c.purpose + String(c.version)}
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      stopCamera();
-                      void run(async () => {
-                        await api(base + "/photo-consent", "POST", {
-                          purpose: c.purpose,
-                          version: c.version,
-                          granted: false,
-                          attested: true,
-                        });
-                        setPrepared(null);
-                        setAttested(false);
-                        await refresh();
-                        setNotice(
-                          "Permission withdrawn and photos for that use deleted.",
-                        );
-                      });
-                    }}
+                    className="permission-withdrawal"
                   >
                     <label className="check">
-                      <input type="checkbox" required disabled={busy} />
+                      <input
+                        type="checkbox"
+                        checked={withdrawConfirmed.includes(c.purpose)}
+                        disabled={busy}
+                        onChange={(e) =>
+                          setWithdrawConfirmed(
+                            e.target.checked
+                              ? [...withdrawConfirmed, c.purpose]
+                              : withdrawConfirmed.filter(
+                                  (v) => v !== c.purpose,
+                                ),
+                          )
+                        }
+                      />
                       Confirm withdrawal of{" "}
                       {c.purpose === "profile"
                         ? "profile picture"
                         : "attendance face matching"}{" "}
                       permission.
                     </label>
-                    <button disabled={busy}>
+                    <button
+                      type="button"
+                      disabled={busy || !withdrawConfirmed.includes(c.purpose)}
+                      onClick={() => {
+                        stopCamera();
+                        void run(async () => {
+                          await api(base + "/photo-consent", "POST", {
+                            purpose: c.purpose,
+                            version: c.version,
+                            granted: false,
+                            attested: true,
+                          });
+                          setPrepared(null);
+                          setAttested(false);
+                          await refresh();
+                          setNotice(
+                            "Permission withdrawn and photos for that use deleted.",
+                          );
+                        });
+                      }}
+                    >
                       Withdraw permission & delete{" "}
                       {c.purpose === "profile"
                         ? "profile picture"
                         : "attendance photos"}
                     </button>
-                  </form>
+                  </div>
                 ))}
             </details>
           )}

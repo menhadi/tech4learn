@@ -9,3 +9,4 @@ Live access for this assistant is read-only. Do not run live migrations or make 
 Keep planned features clearly distinguished from working functionality.
 Run npm run check for changes affecting the scaffold. Native changes also need a device build/check.
 Do not add infrastructure or dependencies without a concrete use case.
+Use docs/ui-template.md for all admin forms and tables; reuse the shared components and preserve scoped draft recovery.

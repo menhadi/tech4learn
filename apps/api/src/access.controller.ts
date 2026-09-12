@@ -1,3 +1,4 @@
+import {parseDirectoryQuery} from "./directory-query.js";
 import {
   Body,
   Controller,
@@ -74,6 +75,7 @@ export class AccessController {
   ) {
     return this.access.saveMember(await this.user(cookie), org, id, body ?? {});
   }
+  @Get("audit-directory") async historyDirectory(@Param("org") org:string,@Query("query") query:string,@Headers("cookie") cookie?:string){return this.access.historyDirectory(await this.user(cookie),org,parseDirectoryQuery(query));}
   @Get("audit") async history(
     @Param("org") org: string,
     @Query("offset") offset: string,

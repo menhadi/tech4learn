@@ -95,6 +95,108 @@ test("learner scopes, contacts, transfers, custom fields and reviewed imports", 
   let id, definition;
   try {
     await t.test(
+      "directory paging, field filters and counts cover only authorised learners",
+      async () => {
+        const fixtureIds = [];
+        const baseline = (await ok(p + "/learners", "GET", undefined, teacher))
+          .total;
+        try {
+          for (let n = 0; n < 120; n++) {
+            const key = randomUUID();
+            fixtureIds.push(key);
+            await pg.query(
+              "INSERT INTO learners(id,organisation_id,code,name,age,group_id,custom_values) VALUES($1,$2,$3,$4,$5,$6,$7)",
+              [
+                key,
+                org,
+                `PAGE-${String(n).padStart(3, "0")}`,
+                `Paging student ${n}`,
+                n % 20,
+                teacherGroup.id,
+                { demo_language: n % 2 ? "Hindi" : "English" },
+              ],
+            );
+          }
+          const page = await ok(
+            p + "/learners?search=Paging&limit=100&sort=code&direction=desc",
+            "GET",
+            undefined,
+            teacher,
+          );
+          assert.equal(page.total, baseline + 120);
+          assert.equal(page.filtered, 120);
+          assert.equal(page.items.length, 100);
+          assert.equal(page.items[0].code, "PAGE-119");
+          assert.equal(page.hasMore, true);
+          const tail = await ok(
+            p +
+              "/learners?search=Paging&limit=100&offset=100&sort=code&direction=desc",
+            "GET",
+            undefined,
+            teacher,
+          );
+          assert.equal(tail.items.length, 20);
+          assert.equal(tail.hasMore, false);
+          const filters = encodeURIComponent(
+            JSON.stringify({ custom_demo_language: "English", name: "Paging" }),
+          );
+          const filtered = await ok(
+            p + `/learners?limit=500&sort=age&filters=${filters}`,
+            "GET",
+            undefined,
+            teacher,
+          );
+          assert.equal(filtered.filtered, 60);
+          assert.equal(filtered.items.length, 60);
+          assert.ok(
+            filtered.items.every((l) => l.guardian_phone === undefined),
+          );
+          assert.equal(
+            (await req(p + "/learners?limit=501", "GET", undefined, teacher))
+              .status,
+            400,
+          );
+          assert.equal(
+            (
+              await req(
+                p + "/learners?sort=guardian_phone",
+                "GET",
+                undefined,
+                teacher,
+              )
+            ).status,
+            400,
+          );
+          assert.equal(
+            (
+              await req(
+                p + "/learners?sort=name%3BDROP%20TABLE%20learners",
+                "GET",
+                undefined,
+                teacher,
+              )
+            ).status,
+            400,
+          );
+          assert.equal(
+            (
+              await req(
+                `/organisations/${other}/learners?limit=500`,
+                "GET",
+                undefined,
+                teacher,
+              )
+            ).status,
+            404,
+          );
+        } finally {
+          await pg.query("DELETE FROM learners WHERE id=ANY($1::uuid[])", [
+            fixtureIds,
+          ]);
+        }
+      },
+    );
+    await t.test(
       "dummy student is tenant scoped, labelled and repeat safe",
       async () => {
         await pg.query(

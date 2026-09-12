@@ -1,3 +1,6 @@
+import {DirectoryTable,emptyTableQuery,type TableQuery} from "./DirectoryTable";
+import { DraftForm } from "./DraftForm";
+import { SmartTable } from "./DirectoryTable";
 import { useEffect, useRef, useState } from "react";
 import { api, apiBase } from "./api";
 import { PhotoAnalysis } from "./PhotoAnalysis";
@@ -40,6 +43,7 @@ type Capture = {
   custom_values: Record<string, unknown>;
 };
 type Entry = {
+  attendance_date:string;
   id: string;
   status: string;
   group_name: string;
@@ -81,6 +85,7 @@ type Detail = {
 };
 type Listing = {
   rows: Entry[];
+  total:number;filtered:number;
   counts: { status: string; n: string }[];
   totals: { mark: string; n: string }[];
 };
@@ -117,7 +122,8 @@ export function Attendance({
     [values, setValues] = useState<Record<string, unknown>>({});
   const [policy, setPolicy] = useState<Policy | null>(null),
     [date, setDate] = useState(today()),
-    [offset, setOffset] = useState(0),
+    [tableQuery,setTableQuery]=useState<TableQuery>({...emptyTableQuery,sort:"attendance_date",direction:"desc"}),
+    [listLoading,setListLoading]=useState(false),
     [listing, setListing] = useState<Listing | null>(null),
     [detail, setDetail] = useState<Detail | null>(null),
     [marks, setMarks] = useState<Record<string, string>>({}),
@@ -178,14 +184,14 @@ export function Attendance({
   }, [org]);
   useEffect(() => {
     let active = true;
-    setListing(null);
-    api<Listing>(`${base}?date=${date}&offset=${offset}`)
+    setListLoading(true);
+    const timer=setTimeout(()=>api<Listing>(`${base}?date=${date}&query=${encodeURIComponent(JSON.stringify(tableQuery))}`)
       .then((d) => active && setListing(d))
-      .catch((e) => active && setError(message(e)));
+      .catch((e) => active && setError(message(e))).finally(()=>{if(active)setListLoading(false);}),250);
     return () => {
-      active = false;
+      active = false;clearTimeout(timer);
     };
-  }, [org, date, offset, revision]);
+  }, [org, date, tableQuery, revision]);
   useEffect(() => {
     if (live && video.current && stream.current) {
       video.current.srcObject = stream.current;
@@ -350,7 +356,7 @@ export function Attendance({
             </>
           )}
           {capture && intent && (
-            <form
+            <DraftForm title="Classroom photo details" draftKey={`capture:${intent?.id}`}
               onSubmit={(e) => {
                 e.preventDefault();
                 void act(async () => {
@@ -449,7 +455,7 @@ export function Attendance({
                   </label>
                 ))}
               <button disabled={busy}>Submit for review</button>
-            </form>
+            </DraftForm>
           )}
           {intent && (
             <button
@@ -480,7 +486,7 @@ export function Attendance({
               value={date}
               onChange={(e) => {
                 setDate(e.target.value);
-                setOffset(0);
+                setTableQuery(q=>({...q,offset:0}));
               }}
             />
           </label>
@@ -503,37 +509,9 @@ export function Attendance({
                   "None yet"}
                 . Missing captures are not counted as absences.
               </p>
-              {listing.rows.map((r) => (
-                <div className="record-row" key={r.id}>
-                  <strong>{r.group_name}</strong>
-                  <p>
-                    {r.centre_name} · {r.status} · {r.location_status}
-                  </p>
-                  <button
-                    className="secondary"
-                    disabled={busy || !!intent}
-                    onClick={() => void act(() => open(r.id))}
-                  >
-                    Open attendance
-                  </button>
-                </div>
-              ))}
-              <div className="actions">
-                <button
-                  className="secondary"
-                  disabled={busy || !offset}
-                  onClick={() => setOffset((x) => Math.max(0, x - 50))}
-                >
-                  Previous
-                </button>
-                <button
-                  className="secondary"
-                  disabled={busy || listing.rows.length < 50}
-                  onClick={() => setOffset((x) => x + 50)}
-                >
-                  Next
-                </button>
-              </div>
+              <DirectoryTable title="Daily attendance" columns={["Class / section","Centre","Date","Status","Location","Actions"]} columnKeys={["group_name","centre_name","attendance_date","status","location_status",""]} remote={{query:tableQuery,onChange:q=>setTableQuery({...q,sort:q.sort||"attendance_date"}),total:listing.total,filtered:listing.filtered,loading:listLoading}}>
+                {listing.rows.map(r=><tr key={r.id}><th scope="row">{r.group_name}</th><td>{r.centre_name}</td><td>{r.attendance_date}</td><td>{r.status}</td><td>{r.location_status}</td><td><button type="button" disabled={busy||!!intent} onClick={()=>void act(()=>open(r.id))}>Open attendance</button></td></tr>)}
+              </DirectoryTable>
             </>
           ) : (
             <p role="status">Loading attendance…</p>
@@ -675,7 +653,7 @@ export function Attendance({
                 }}
               />
             )}
-          <form
+          <DraftForm title="Review attendance" draftKey={`attendance:${detail?.id}`} draftState={{marks,reason}} restoreState={v=>{setMarks(Object.fromEntries(detail.snapshot.roster.map(l=>[l.id,v.marks?.[l.id]||""])));setReason(v.reason||"");setAck(false);}}
             onSubmit={(e) => {
               e.preventDefault();
               void act(async () => {
@@ -694,8 +672,8 @@ export function Attendance({
               });
             }}
           >
-            <div className="directory-table">
-              <table>
+            <div className="table-container">
+              <SmartTable>
                 <caption>Review attendance — mark every student</caption>
                 <thead>
                   <tr>
@@ -711,7 +689,7 @@ export function Attendance({
                       <td>{l.code}</td>
                       <td>
                         <select
-                          aria-label={`Attendance for ${l.name}`}
+                          name={`mark:${l.id}`} aria-label={`Attendance for ${l.name}`}
                           required
                           disabled={
                             !can("review") ||
@@ -732,7 +710,7 @@ export function Attendance({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </SmartTable>
             </div>
             {can("review") && detail.status !== "rejected" && (
               <>
@@ -786,7 +764,7 @@ export function Attendance({
                 )}
               </>
             )}
-          </form>
+          </DraftForm>
           <details>
             <summary>
               Review and correction history ({detail.reviews.length})
@@ -813,7 +791,7 @@ export function Attendance({
       {policy && can("policy") && (
         <details className="panel">
           <summary>Attendance policy</summary>
-          <form
+          <DraftForm title="Attendance policy" draftKey={"attendance-policy"} draftState={policy} restoreState={v=>setPolicy({...v,version:policy?.version})}
             onSubmit={(e) => {
               e.preventDefault();
               void act(async () => {
@@ -866,7 +844,7 @@ export function Attendance({
               over five minutes require review.
             </p>
             <button disabled={busy}>Save attendance policy</button>
-          </form>
+          </DraftForm>
         </details>
       )}
     </div>

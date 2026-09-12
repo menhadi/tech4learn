@@ -1,3 +1,4 @@
+import { submittingDraft } from "./form-drafts";
 export const apiBase = (
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? "http://localhost:3000/api/v1" : "/api/v1")
@@ -16,6 +17,7 @@ export async function api<T>(
   body?: unknown,
   timeout = 15000,
 ): Promise<T> {
+  const draftKey=submittingDraft;
   const response = await fetch(`${apiBase}${path}`, {
     method,
     credentials: "include",
@@ -34,5 +36,6 @@ export async function api<T>(
         : "Something went wrong. Please try again.",
       response.status,
     );
+  if(draftKey&&method!=="GET")window.dispatchEvent(new CustomEvent("t4l:write-saved",{detail:{draftKey}}));
   return result;
 }

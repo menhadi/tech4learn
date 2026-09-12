@@ -1,3 +1,4 @@
+import { SmartTable } from "./DirectoryTable";
 import { useEffect, useState } from "react";
 import { api, apiBase } from "./api";
 type Face = {
@@ -188,8 +189,8 @@ export function FaceMatching({
               ))}
             </ol>
           )}
-          <div className="directory-table">
-            <table>
+          <div className="table-container">
+            <SmartTable>
               <caption>
                 Combined suggestions — each student appears once
               </caption>
@@ -224,7 +225,7 @@ export function FaceMatching({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </SmartTable>
           </div>
           <p>
             Unidentified students are not automatically absent. Multiple photos

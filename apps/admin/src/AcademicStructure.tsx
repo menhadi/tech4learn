@@ -1,3 +1,4 @@
+import { DraftForm } from "./DraftForm";
 import { DirectoryTable, RecordStatus } from "./DirectoryTable";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
@@ -362,7 +363,7 @@ export function AcademicStructure({
           className="record editor-panel"
         >
           <summary>{edit ? "Edit / link class" : "Add section"}</summary>
-          <form
+          <DraftForm title="Academic year" draftKey={"new-academic-year"}
             key={edit?.id || "new"}
             onSubmit={(e) => {
               const b = values(e);
@@ -436,13 +437,13 @@ export function AcademicStructure({
                 </button>
               </div>
             </fieldset>
-          </form>
+          </DraftForm>
         </details>
       )}
       {canCreate && (
         <details className="record" open={!classes.length && !loading}>
           <summary>Add class</summary>
-          <form
+          <DraftForm title="Class details" draftKey={"class-details"}
             onSubmit={(e) => {
               const b = values(e);
               void act(async () => {
@@ -490,7 +491,7 @@ export function AcademicStructure({
               </label>
               <button>Create class</button>
             </fieldset>
-          </form>
+          </DraftForm>
         </details>
       )}
       <details className="record" open={!years.length && !loading}>
@@ -545,7 +546,7 @@ export function AcademicStructure({
           ))}
         </DirectoryTable>
         {canCreate && scope === "organisation" ? (
-          <form
+          <DraftForm title="Section details" draftKey={`section:${edit?.id||"new"}`}
             onSubmit={(e) => {
               const b = values(e);
               void act(
@@ -576,7 +577,7 @@ export function AcademicStructure({
               </div>
               <button>Create academic year</button>
             </fieldset>
-          </form>
+          </DraftForm>
         ) : (
           <p>
             Organisation-wide staff with create permission manage new academic
