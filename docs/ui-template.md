@@ -19,3 +19,9 @@ Provide meaningful column headings, zebra rows, automatic field filters, search,
 Local tables filter the complete supplied collection. Large server-paged collections must use the remote query mode: learner directory, daily attendance and change history now return authorised total and filtered counts from the API. Dates and organisational/location scope constrain the collection before these counts. Sort/filter expressions are whitelisted, values parameterised and access enforced server-side.
 
 Keep editable table rows mounted when paged/filtered so view changes do not destroy unsaved inputs. Exclude table search/filter controls from form drafts. Reset table filters must not submit its enclosing form. Audit export currently exports up to 50 records from the selected offset and is labelled accordingly.
+
+## Navigation
+
+Use `GroupedMenu` for platform and organisation navigation. It follows ExamElite's vertical grouped menu pattern with line icons, collapsible submenus, an active-page indicator and matching breadcrumbs. Hide empty groups and filter working entries by existing permissions/module availability. Keep desktop navigation independently scrollable and the mobile organisation-menu toggle available.
+
+Groups cover Dashboard, Academics & students, Attendance, Exams & results, FLN & learning, Staff & permissions, Email & messaging, Settings and Audit & history. Email settings/templates, messaging settings/delivery history, ExamElite exams/results and FLN currently open explicit planned-integration descriptions. They do not send messages, store connection settings or create exams. The existing AI connection screen and superadmin face-engine controls remain working screens with their original access checks.

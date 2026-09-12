@@ -76,3 +76,5 @@ Photo setup has a direct student-directory action and one flow: take/upload → 
 ## Shared admin UI
 
 The working shared form/table pattern is documented in [UI template](ui-template.md). Learner enrolment now keeps details, placement, custom fields and photo setup together, with recoverable device drafts. Directories share automatic filtering, sorting, counts and 50/100/500 row choices.
+
+The admin navigation follows ExamElite's grouped vertical sidebar: academics/students, attendance, exams/results, FLN, staff/permissions, email/messaging, settings and audit history. This is a navigation foundation; planned integration entries are explicitly labelled and do not imply working exam, FLN or message delivery functionality.

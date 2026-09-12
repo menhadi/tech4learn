@@ -1,3 +1,4 @@
+import { GroupedMenu, plannedPages, organisationMenu } from "./GroupedMenu";
 import { DraftForm } from "./DraftForm";
 import { DirectoryTable, RecordStatus,emptyTableQuery,type TableQuery } from "./DirectoryTable";
 import { useEffect, useState, type FormEvent } from "react";
@@ -199,6 +200,10 @@ export function OrganisationWorkspace({
     ...(can("members.view") ? ["Team"] : []),
     ...(can("audit.view") ? ["History"] : []),
   ];
+  const upcoming = [...(can("groups.view") ? ["Exam workspace","Exam results","FLN workspace"] : []),...(can("configuration.view") ? ["Email settings","Email templates","Message settings","Delivery history"] : [])];
+  const menuGroups=organisationMenu(org.centre_label,tabs,upcoming);
+  const currentGroup=menuGroups.find(g=>g.items.some(i=>i.id===tab));
+  const currentLabel=currentGroup?.items.find(i=>i.id===tab)?.label || tab;
   function chooseMember(m: Member | null) {
     setMember(m);
     setGrantRole(
@@ -257,71 +262,14 @@ export function OrganisationWorkspace({
         <>
           {(() => {
             const menu = (
-              <nav
-                className="organisation-menu"
-                aria-label="Organisation sections"
-              >
-                <p className="eyebrow">{org.name}</p>
-                {[
-                  {
-                    label: "Daily work",
-                    items: ["Daily overview", "Attendance", "Photo capture"],
-                  },
-                  {
-                    label: "People and centres",
-                    items: ["Centres", "Groups", "Learners"],
-                  },
-                  {
-                    label: "Organisation settings",
-                    items: [
-                      "Profile",
-                      "Setup",
-                      "Custom fields",
-                      "AI connections",
-                    ],
-                  },
-                  {
-                    label: "Access and history",
-                    items: ["Roles", "Team", "History"],
-                  },
-                ].map((section) => (
-                  <details key={section.label} open>
-                    <summary>{section.label}</summary>
-                    {section.items
-                      .filter((t) => tabs.includes(t))
-                      .map((t) => (
-                        <button
-                          type="button"
-                          key={t}
-                          className={tab === t ? "nav-active" : ""}
-                          aria-pressed={tab === t}
-                          onClick={() => {
-                            setTab(t);
-                            setFocusGroup("");
-                            onNavigate?.();
-                            setError("");
-                            setNotice("");
-                          }}
-                        >
-                          {t === "Centres"
-                            ? `${org.centre_label}s`
-                            : t === "Groups"
-                              ? "Classes & sections"
-                              : t === "Roles"
-                                ? "Roles & permissions"
-                                : t}
-                        </button>
-                      ))}
-                  </details>
-                ))}
-              </nav>
+              <GroupedMenu label="Organisation sections" active={tab} groups={menuGroups} onSelect={(next)=>{setTab(next);setFocusGroup("");onNavigate?.();setError("");setNotice("");}} />
             );
             const target = document.getElementById("organisation-menu-slot");
             return target ? createPortal(menu, target) : menu;
           })()}
-          <h3 className="workspace-page-title">
-            {tab === "Groups" ? "Classes & sections" : tab}
-          </h3>
+          <div className="workspace-breadcrumb" aria-label="Breadcrumb"><span>{org.name}</span><span aria-hidden="true">/</span><span>{currentGroup?.label}</span><span aria-hidden="true">/</span><strong>{currentLabel}</strong></div>
+          <h3 className="workspace-page-title">{currentLabel}</h3>
+          {upcoming.includes(tab) && plannedPages[tab] && <section className="planned-workspace"><span className="feature-planned">Planned integration</span><h3>{plannedPages[tab].title}</h3><p>{plannedPages[tab].description}</p><h4>What will be available</h4><ul>{plannedPages[tab].items.map(line=><li key={line}>{line}</li>)}</ul>{plannedPages[tab].academics&&<button type="button" onClick={()=>setTab("Groups")}>Open classes & sections</button>}</section>}
           {tab === "AI connections" && <AIProviders org={org.id} />}
           {tab === "Daily overview" && (
             <>

@@ -1,3 +1,4 @@
+import { GroupedMenu } from "./GroupedMenu";
 import { DirectoryTable } from "./DirectoryTable";
 import { DraftScope } from "./DraftForm";
 import { clearDrafts } from "./form-drafts";
@@ -399,34 +400,10 @@ function App() {
             ? "Platform administration"
             : "Organisation administration"}
         </span>
-        <nav aria-label="Administration">
-          {superadmin && (
-            <button
-              className={page === "face-engine" ? "nav-active" : ""}
-              onClick={() => setPage("face-engine")}
-            >
-              Face engine
-            </button>
-          )}
-          <button
-            className={page === "organisations" ? "nav-active" : ""}
-            onClick={() => {
-              setPage("organisations");
-              setError("");
-            }}
-          >
-            {superadmin ? "Organisations" : "My organisation"}
-          </button>
-          <button
-            className={page === "password" ? "nav-active" : ""}
-            onClick={() => {
-              setPage("password");
-              setError("");
-            }}
-          >
-            Account security
-          </button>
-        </nav>
+        <GroupedMenu label="Administration" active={page} groups={[
+          {id:"platform-workspaces",label:superadmin?"Platform":"Workspace",icon:"▦",items:[{id:"organisations",label:superadmin?"Organisations":"My organisation"}]},
+          {id:"platform-settings",label:"System & account",icon:"⚙",items:[...(superadmin?[{id:"face-engine",label:"Face engine"}]:[]),{id:"password",label:"Account security"}]},
+        ]} onSelect={(next)=>{setPage(next as typeof page);setError("");}} />
         <button
           className="mobile-org-menu secondary"
           aria-expanded={organisationMenuOpen}
