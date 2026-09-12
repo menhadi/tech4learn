@@ -419,6 +419,8 @@ export function Learners({
                   Learner code
                   <input
                     name="code"
+                    pattern={"[A-Za-z0-9_\\-]+"}
+                    title="Use letters, numbers, underscores or hyphens. No spaces."
                     required
                     maxLength={40}
                     defaultValue={current?.code || newCode}

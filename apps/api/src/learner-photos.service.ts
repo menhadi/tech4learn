@@ -273,6 +273,41 @@ export class LearnerPhotosService {
     return this.db.transaction(async (sql) => {
       await this.access.lock(sql, org);
       await this.target(sql, user, org, id, true);
+      if (b.replaceReferenceId !== undefined) {
+        if (!b.reference || typeof b.replaceReferenceId !== "string")
+          throw new BadRequestException(
+            "Choose an attendance photo to replace.",
+          );
+        const hash = createHash("sha256").update(file.content).digest("hex");
+        const previous = (
+          await sql.query<{ id: string; content_hash: string }>(
+            "SELECT id,content_hash FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 AND purpose='reference' AND id::text=$3",
+            [org, id, b.replaceReferenceId],
+          )
+        ).rows[0];
+        if (!previous) {
+          const retry = (
+            await sql.query(
+              "SELECT id FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 AND purpose='reference' AND content_hash=$3",
+              [org, id, hash],
+            )
+          ).rows[0];
+          if (!retry)
+            throw new ConflictException(
+              "This photo changed. Reload the student before replacing it.",
+            );
+        } else if (previous.content_hash !== hash) {
+          await sql.query(
+            "DELETE FROM learner_photos WHERE organisation_id=$1 AND learner_id=$2 AND id=$3",
+            [org, id, previous.id],
+          );
+          await this.access.audit(sql, user, org, "learner.photo_replaced", {
+            learnerId: id,
+            photoId: previous.id,
+            purpose: "reference",
+          });
+        }
+      }
       const photos = [];
       for (const purpose of purposes) {
         const old = (

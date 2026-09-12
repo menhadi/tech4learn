@@ -163,6 +163,28 @@ test("private student photos, consent withdrawal and stateless face drafts throu
       }
       throw new Error("Matching job did not finish");
     }
+    await t.test("retakes replace atomically at the reference limit and preserve profile ownership", async () => {
+      const student=randomUUID();
+      await pg.query("INSERT INTO learners(id,organisation_id,code,name,group_id) VALUES($1,$2,$3,'Synthetic retake',$4)",[student,org,student,l.group_id]);
+      const p=`/organisations/${org}/learners/${student}`;
+      const image=(n)=>{const bytes=Buffer.from(photo,"base64");bytes[34]=n;return bytes.toString("base64");};
+      try {
+        for(let i=0;i<3;i++) assert.equal((await req(p+"/photo-setup","POST",{name:`Angle ${i}`,profile:i===0,reference:true,attested:true,photo:image(i),consentVersions:{profile:i?1:0,reference:i?1:0}})).status,201);
+        const before=(await req(p+"/photos")).body.photos;
+        const old=before.find(x=>x.purpose==="reference");
+        const body={name:"Front view",profile:false,reference:true,attested:true,photo:image(5),replaceReferenceId:old.id,consentVersions:{reference:1}};
+        assert.equal((await req(p+"/photo-setup","POST",{...body,replaceReferenceId:randomUUID()})).status,409);
+        assert.equal((await req(p+"/photo-setup","POST",{...body,consentVersions:{reference:99}})).status,409);
+        assert.ok((await req(p+"/photos")).body.photos.some(x=>x.id===old.id));
+        assert.equal((await req(p+"/photo-setup","POST",body)).status,201);
+        assert.equal((await req(p+"/photo-setup","POST",body)).status,201);
+        const after=(await req(p+"/photos")).body.photos;
+        assert.equal(after.filter(x=>x.purpose==="reference").length,3);
+        assert.ok(!after.some(x=>x.id===old.id));
+        assert.equal(after.find(x=>x.purpose==="profile").id,before.find(x=>x.purpose==="profile").id);
+        assert.equal(after.find(x=>x.name==="Front view").checked,false);
+      } finally { await pg.query("DELETE FROM learners WHERE id=$1",[student]); }
+    });
     await t.test(
       "one named portrait saves both uses atomically and keeps consent isolated",
       async () => {

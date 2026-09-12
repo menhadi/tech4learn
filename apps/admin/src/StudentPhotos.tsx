@@ -265,6 +265,17 @@ export function StudentPhotos({
       }
     }
   }, [photoDraftKey, prepared, name, profile, reference]);
+  const autoAttempt = useRef<string | null>(null);
+  useEffect(() => {
+    if (!prepared) {
+      autoAttempt.current = null;
+      return;
+    }
+    if (!attested || busy || !state || autoAttempt.current === prepared.url)
+      return;
+    autoAttempt.current = prepared.url;
+    void run(() => save());
+  }, [prepared, attested, busy, state]);
   function validatePhoto() {
     if (prepared && (!name.trim() || !attested || (!profile && !reference)))
       throw new Error(
@@ -293,6 +304,15 @@ export function StudentPhotos({
         profile,
         reference,
         attested,
+        ...(reference &&
+        slots[["Front view", "Slight left", "Slight right"].indexOf(name)]
+          ? {
+              replaceReferenceId:
+                slots[
+                  ["Front view", "Slight left", "Slight right"].indexOf(name)
+                ]!.id,
+            }
+          : {}),
         photo: prepared.url.split(",")[1],
         consentVersions: Object.fromEntries(
           (["profile", "reference"] as Purpose[]).map((p) => [
@@ -305,11 +325,9 @@ export function StudentPhotos({
     if (photoDraftKey) removeDraft(photoDraftKey);
     if (currentDraftKey.current) removeDraft(currentDraftKey.current);
     setPrepared(null);
-    setProfile(demo);
-    setReference(!demo);
+
     setDraftStatus("");
     setPhotoRecovery(null);
-    setAttested(false);
     setState(await api<State>(photoBase + "/photos"));
     const ref = result.photos.find((p) => p.purpose === "reference");
     if (ref && metadata.verificationConfigured) {
@@ -392,9 +410,8 @@ export function StudentPhotos({
         </div>
       )}
       <p>
-        Start with a clear front photo. The two extra angles are optional. Take
-        and save one photo at a time; you can also use it as the profile
-        picture.
+        Photos save automatically after capture or upload once permission is
+        confirmed. Retake a photo to replace it. Extra angles are optional.
       </p>
       {error && (
         <p role="alert" className="error">
@@ -417,6 +434,34 @@ export function StudentPhotos({
         <>
           {manage ? (
             <div className="editor-panel photo-upload-panel">
+              {!demo && (
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={profile}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setProfile(e.target.checked);
+                      setAttested(false);
+                    }}
+                  />
+                  Also use the next photo as the profile picture (optional)
+                </label>
+              )}
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={attested}
+                  disabled={busy || (!profile && !reference)}
+                  onChange={(e) => setAttested(e.target.checked)}
+                />
+                I have recorded permission from the student or authorised
+                guardian to store this photo
+                {profile ? " as the profile picture" : ""}
+                {profile && reference ? " and" : ""}
+                {reference ? " for attendance face matching" : ""}.
+              </label>
+
               <div className="portrait-slots">
                 {(demo
                   ? ["Front view"]
@@ -434,8 +479,7 @@ export function StudentPhotos({
                     busy ||
                     live ||
                     !!prepared ||
-                    (!!saved && !demo) ||
-                    (!demo && referenceCount >= 3);
+                    (!demo && !saved && referenceCount >= 3);
                   return (
                     <article
                       className="portrait-slot"
@@ -531,18 +575,17 @@ export function StudentPhotos({
                           </button>
                         </div>
                       )}
-                      {(!saved || demo) && !pending && !live && (
+                      {!pending && !live && (
                         <div className="actions">
                           <button
                             type="button"
                             disabled={blocked}
                             onClick={() => {
                               setName(title);
-                              setAttested(false);
                               void run(openCamera);
                             }}
                           >
-                            Take photo
+                            {saved ? "Retake photo" : "Take photo"}
                           </button>
                           <label
                             className={`portrait-upload ${blocked ? "is-disabled" : ""}`}
@@ -558,7 +601,6 @@ export function StudentPhotos({
                                 e.target.value = "";
                                 if (file) {
                                   setName(title);
-                                  setAttested(false);
                                   void run(async () => {
                                     const next = await prepare(file);
                                     if (mounted.current) setPrepared(next);
@@ -579,7 +621,6 @@ export function StudentPhotos({
                             setPhotoRecovery(null);
                             setDraftStatus("");
                             setPrepared(null);
-                            setAttested(false);
                           }}
                         >
                           Retake / choose another
@@ -610,20 +651,6 @@ export function StudentPhotos({
                 <div className="portrait-save-options">
                   <strong>{name} — ready to save</strong>
                   {prepared.warning && <p role="status">{prepared.warning}</p>}
-                  {!demo && (
-                    <label className="check">
-                      <input
-                        type="checkbox"
-                        checked={profile}
-                        disabled={busy}
-                        onChange={(e) => {
-                          setProfile(e.target.checked);
-                          setAttested(false);
-                        }}
-                      />
-                      Also use this photo as the profile picture (optional)
-                    </label>
-                  )}
                 </div>
               )}
               {demo && (
@@ -643,19 +670,6 @@ export function StudentPhotos({
               )}
               {prepared && (
                 <>
-                  <label className="check">
-                    <input
-                      type="checkbox"
-                      checked={attested}
-                      disabled={busy || (!profile && !reference)}
-                      onChange={(e) => setAttested(e.target.checked)}
-                    />
-                    I have recorded permission from the student or authorised
-                    guardian to store this photo
-                    {profile ? " as the profile picture" : ""}
-                    {profile && reference ? " and" : ""}
-                    {reference ? " for attendance face matching" : ""}.
-                  </label>
                   <button
                     type="button"
                     disabled={
@@ -668,14 +682,15 @@ export function StudentPhotos({
                     onClick={() => void run(() => save())}
                   >
                     {reference && state.verificationConfigured
-                      ? "Save photo & check face"
-                      : "Save photo"}
+                      ? "Retry save & check face"
+                      : "Retry save"}
                   </button>
                 </>
               )}
               {!prepared && (
                 <p className="table-help">
-                  Take or choose a photo above to enable saving.
+                  Photos save automatically. Confirm permission above before
+                  taking a photo.
                 </p>
               )}
             </div>
