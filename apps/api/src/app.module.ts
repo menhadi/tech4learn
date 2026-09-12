@@ -1,3 +1,8 @@
+import { FaceControlController } from "./face-control.controller.js";
+import {
+  FaceControlService,
+  FaceControlClient,
+} from "./face-control.service.js";
 import { FaceJobsService } from "./face-jobs.service.js";
 import { ConfigurationService } from "./configuration.service.js";
 import { LearnerPhotosService } from "./learner-photos.service.js";
@@ -25,6 +30,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        FaceControlController,
         LearnerPhotosController,
         AcademicController,
         AttendanceController,
@@ -35,6 +41,8 @@ export class AppModule {
         LearnersController,
       ],
       providers: [
+        FaceControlService,
+        FaceControlClient,
         LearnerPhotosService,
         FaceMatchingService,
         FaceJobsService,

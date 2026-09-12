@@ -163,10 +163,13 @@ export class FaceJobsService {
     );
     const job = await this.db.transaction(async (sql) => {
       const slot = (
-        await sql.query<{ job_id: string | null; lease_until: string | null }>(
-          "SELECT * FROM attendance_face_worker WHERE id=1 FOR UPDATE",
-        )
+        await sql.query<{
+          job_id: string | null;
+          lease_until: string | null;
+          paused?: boolean;
+        }>("SELECT * FROM attendance_face_worker WHERE id=1 FOR UPDATE")
       ).rows[0];
+      if (slot?.paused) return;
       if (
         slot?.lease_until &&
         new Date(slot.lease_until).getTime() > Date.now()

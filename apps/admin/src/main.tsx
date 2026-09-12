@@ -1,3 +1,4 @@
+import { FaceEngine } from "./FaceEngine";
 import { OrganisationTypeSelect } from "./OrganisationTypeSelect";
 import {
   StrictMode,
@@ -88,9 +89,9 @@ function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState("");
-  const [page, setPage] = useState<"organisations" | "password">(
-    "organisations",
-  );
+  const [page, setPage] = useState<
+    "organisations" | "password" | "face-engine"
+  >("organisations");
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [inviteToken, setInviteToken] = useState(
     () => new URLSearchParams(location.hash.slice(1)).get("invite") || "",
@@ -394,6 +395,14 @@ function App() {
             : "Organisation administration"}
         </span>
         <nav aria-label="Administration">
+          {superadmin && (
+            <button
+              className={page === "face-engine" ? "nav-active" : ""}
+              onClick={() => setPage("face-engine")}
+            >
+              Face engine
+            </button>
+          )}
           <button
             className={page === "organisations" ? "nav-active" : ""}
             onClick={() => {
@@ -456,11 +465,13 @@ function App() {
                 : org?.name || "Your workspace"}
             </p>
             <h1>
-              {page === "password"
-                ? "Account security"
-                : superadmin
-                  ? "Organisations"
-                  : "Organisation workspace"}
+              {page === "face-engine"
+                ? "Face engine"
+                : page === "password"
+                  ? "Account security"
+                  : superadmin
+                    ? "Organisations"
+                    : "Organisation workspace"}
             </h1>
           </div>
           {superadmin && page === "organisations" && (
@@ -475,7 +486,9 @@ function App() {
           )}
         </header>
         {feedback}
-        {page === "password" ? (
+        {page === "face-engine" && superadmin ? (
+          <FaceEngine />
+        ) : page === "password" ? (
           <section className="panel narrow">
             <h2>Change your password</h2>
             <p className="muted">

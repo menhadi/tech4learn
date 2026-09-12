@@ -22,11 +22,11 @@ Live dummy data is requested only in **Vecotrial Career Academy** (`vector-acade
 
 ## Attendance
 
-The target is a section of 20–50 students photographed in multiple group images, not individual daily student portraits. [Bulk attendance](bulk-attendance-release.md) implements one section/day record with up to five photos, queued comparisons, combined per-student suggestions and explicit teacher review. The engine is still pending installation and calibration.
+The target is a section of 20–50 students photographed in multiple group images, not individual daily student portraits. [Bulk attendance](bulk-attendance-release.md) implements one section/day record with up to five photos, queued comparisons, combined per-student suggestions and explicit teacher review. The engine has started on the pilot host; API-key integration and calibration remain pending.
 
 Working browser pilot: live camera capture, automatic time/location, explicit learner review, correction history and daily totals. See [attendance release](attendance-release.md) for its limits. Native capture, recognition, register scanning, CCTV and offline capture remain planned.
 
-Support classroom/group photos, physical-register photos, manual correction and future CCTV connectors. The user selected self-hosted face recognition as the direction; A bounded CompreFace verification adapter is implemented; the engine is not installed and real-image calibration is pending. See [student photos](student-photos-release.md). Four general vision adapters provide optional quality/transcription analysis, not identity matching. See [workspace and vision release](workspace-ai-release.md).
+Support classroom/group photos, physical-register photos, manual correction and future CCTV connectors. The user selected self-hosted face recognition as the direction; A bounded CompreFace verification adapter is implemented; the engine has started on the pilot host and real-image calibration is pending. See [student photos](student-photos-release.md). Four general vision adapters provide optional quality/transcription analysis, not identity matching. See [workspace and vision release](workspace-ai-release.md).
 
 1. Register and approve centre coordinates separately from map village/address labels.
 2. Assign authorised staff, groups and learners.
@@ -66,3 +66,7 @@ Teacher time saved, review/correction rates, agreement with qualified assessment
 ## Current usability and hosting direction
 
 Student profiles separate details, photo setup and enrolment/history. Photo purpose selection scopes the gallery and consent; a progress checklist guides permission, upload and face checks. Attendance suggestions use a review table. The user requests using the existing host for the initial engine pilot, subject to measured spare capacity; buying another server is not a prerequisite. Photos already reside on the existing Tech4Learn database.
+
+## Superadmin engine management
+
+[Face-engine controls](face-control-release.md) add a restricted local controller, status and suggested CPU/RAM limits, stop/start/restart, and a durable queue pause in migration 10. The engine is installed per the user’s server screenshot; control deployment, API-key connection and real-image calibration remain separate checks. Larger host capacity can be detected by refreshing the superadmin page.

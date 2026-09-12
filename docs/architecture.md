@@ -61,3 +61,7 @@ Separate local/staging/live secrets, databases and storage. VITE_ and EXPO_PUBLI
 Use the official Expo SDK 57 template's compatible React Native/React versions. Admin React matches mobile React to avoid workspace conflicts. Node.js 24, NestJS 12 and Vite 8 form the baseline; the npm lockfile is authoritative. Upgrade deliberately with compatibility checks.
 
 References consulted: https://docs.expo.dev/versions/v57.0.0/ and https://docs.nestjs.com/first-steps .
+
+## Superadmin engine management
+
+[Face-engine controls](face-control-release.md) add a restricted local controller, status and suggested CPU/RAM limits, stop/start/restart, and a durable queue pause in migration 10. The engine is installed per the user’s server screenshot; control deployment, API-key connection and real-image calibration remain separate checks. Larger host capacity can be detected by refreshing the superadmin page.

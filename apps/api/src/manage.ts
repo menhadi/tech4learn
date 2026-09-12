@@ -1,3 +1,4 @@
+import { faceControlMigration } from "./migration-face-control.js";
 import { bulkAttendanceMigration } from "./migration-bulk-attendance.js";
 import { Database } from "./database.js";
 import { photoMigration } from "./migration-photos.js";
@@ -119,8 +120,16 @@ try {
         ).rows.length
       )
         await sql.query(bulkAttendanceMigration);
+      if (
+        !(
+          await sql.query(
+            "SELECT version FROM schema_versions WHERE version=10",
+          )
+        ).rows.length
+      )
+        await sql.query(faceControlMigration);
     });
-    console.log("Database migrations through version 9 are applied.");
+    console.log("Database migrations through version 10 are applied.");
   } else if (command === "demo-academic") {
     const confirmation = process.argv[4] || "";
     if (!confirmation.startsWith("--confirm-name="))

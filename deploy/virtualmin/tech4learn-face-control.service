@@ -1,0 +1,22 @@
+[Unit]
+Description=Tech4Learn restricted face-engine controller
+After=docker.service
+Requires=docker.service
+
+[Service]
+ExecStart=/usr/bin/python3 -I /usr/local/lib/tech4learn-face-control/controller.py
+User=root
+Group=tech4learn
+RuntimeDirectory=tech4learn-face-control
+RuntimeDirectoryMode=0750
+UMask=0077
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/run/tech4learn-face-control
+
+[Install]
+WantedBy=multi-user.target
