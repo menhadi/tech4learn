@@ -1,5 +1,6 @@
+import { academicMigration } from "../dist/migration-academic.js";
 import { configurationMigration } from "../dist/migration-configuration.js";
-import { learnerMigration } from '../dist/migration-learners.js';
+import { learnerMigration } from "../dist/migration-learners.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -15,6 +16,7 @@ test("identity and organisation permissions through HTTP with the PostgreSQL eng
   await pg.exec(accessMigration);
   await pg.exec(learnerMigration);
   await pg.exec(configurationMigration);
+  await pg.exec(academicMigration);
   const adapter = {
     query: (sql, params) => pg.query(sql, params),
     transaction: (run) =>

@@ -21,8 +21,10 @@ interface Centre {
   radius: number;
   location_approved: boolean;
   archived: boolean;
+  centre_type: string;
 }
 interface Group {
+  class_id: string | null;
   id: string;
   organisation_id: string;
   centre_id: string;
@@ -35,7 +37,7 @@ export class RecordsService {
     private readonly db: Database,
     private readonly access: AccessService,
   ) {}
-  private async centreAllowed(
+  async centreAllowed(
     sql: SqlClient,
     org: string,
     id: string,
@@ -120,6 +122,21 @@ export class RecordsService {
       const before = id
         ? await this.centreAllowed(sql, org, id, a, true)
         : null;
+      const centreType =
+        body.centre_type ?? before?.centre_type ?? "learning_centre";
+      if (
+        typeof centreType !== "string" ||
+        ![
+          "school",
+          "college",
+          "coaching",
+          "community_centre",
+          "learning_centre",
+          "training_centre",
+          "other",
+        ].includes(centreType)
+      )
+        throw new BadRequestException("Choose a supported centre type.");
       if (before?.archived)
         throw new ConflictException("Archived centres cannot be edited.");
       const approved =
@@ -130,14 +147,14 @@ export class RecordsService {
       const row = id
         ? (
             await sql.query<Centre>(
-              "UPDATE centres SET name=$3,address=$4,latitude=$5,longitude=$6,radius=$7,location_approved=$8 WHERE organisation_id=$1 AND id=$2 RETURNING *",
-              [org, id, name, address, lat, lon, radius, approved],
+              "UPDATE centres SET name=$3,address=$4,latitude=$5,longitude=$6,radius=$7,location_approved=$8,centre_type=$9 WHERE organisation_id=$1 AND id=$2 RETURNING *",
+              [org, id, name, address, lat, lon, radius, approved, centreType],
             )
           ).rows[0]
         : (
             await sql.query<Centre>(
-              "INSERT INTO centres(id,organisation_id,name,address,latitude,longitude,radius) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
-              [randomUUID(), org, name, address, lat, lon, radius],
+              "INSERT INTO centres(id,organisation_id,name,address,latitude,longitude,radius,centre_type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",
+              [randomUUID(), org, name, address, lat, lon, radius, centreType],
             )
           ).rows[0];
       await this.access.audit(
@@ -175,13 +192,13 @@ export class RecordsService {
         action === "archive" &&
         (
           await sql.query(
-            "SELECT id FROM learning_groups WHERE organisation_id=$1 AND centre_id=$2 AND NOT archived",
+            "SELECT id FROM learning_groups WHERE organisation_id=$1 AND centre_id=$2 AND NOT archived UNION ALL SELECT id FROM learning_classes WHERE organisation_id=$1 AND centre_id=$2 AND NOT archived",
             [org, id],
           )
         ).rows.length
       )
         throw new ConflictException(
-          "Archive active groups in this centre first.",
+          "Archive active sections, groups and classes in this centre first.",
         );
       await sql.query(
         action === "archive"
@@ -208,7 +225,7 @@ export class RecordsService {
     const a = await this.access.require(user, org, "groups.view");
     return (
       await this.db.query<Group>(
-        `SELECT g.*,c.name AS centre_name FROM learning_groups g JOIN centres c ON c.id=g.centre_id AND c.organisation_id=g.organisation_id WHERE g.organisation_id=$1 AND ($2='organisation' OR ($2='centres' AND g.centre_id=ANY($3::uuid[])) OR ($2='groups' AND g.id=ANY($3::uuid[]))) ORDER BY g.archived,g.name`,
+        `SELECT g.*,c.name AS centre_name,k.name AS class_name,k.academic_year_id,y.name AS year_name,concat_ws(' / ',y.name,k.name,g.name) AS display_name FROM learning_groups g JOIN centres c ON c.id=g.centre_id AND c.organisation_id=g.organisation_id LEFT JOIN learning_classes k ON k.organisation_id=g.organisation_id AND k.id=g.class_id LEFT JOIN academic_years y ON y.organisation_id=k.organisation_id AND y.id=k.academic_year_id WHERE g.organisation_id=$1 AND ($2='organisation' OR ($2='centres' AND g.centre_id=ANY($3::uuid[])) OR ($2='groups' AND g.id=ANY($3::uuid[]))) ORDER BY g.archived,c.name,y.starts_on DESC,k.name,g.name`,
         [org, a.scope_type, a.scope_ids],
       )
     ).rows;
@@ -268,17 +285,54 @@ export class RecordsService {
       const centre = await this.centreAllowed(sql, org, centreId, a);
       if (centre.archived)
         throw new ConflictException("Choose an active centre.");
+      const classId =
+        body.class_id === undefined
+          ? (before?.class_id ?? null)
+          : body.class_id === null || body.class_id === ""
+            ? null
+            : uuid(body.class_id as string);
+      if (before?.class_id && classId !== before.class_id)
+        throw new ConflictException(
+          "A section cannot move between classes or years. Create a new section and transfer students instead.",
+        );
+      if (classId) {
+        if (!before?.class_id && a.scope_type === "groups")
+          throw new ForbiddenException(
+            "Section-scoped staff cannot attach groups to classes.",
+          );
+        const klass = (
+          await sql.query(
+            "SELECT k.archived,y.archived AS year_archived FROM learning_classes k JOIN academic_years y ON y.organisation_id=k.organisation_id AND y.id=k.academic_year_id WHERE k.organisation_id=$1 AND k.id=$2 AND k.centre_id=$3",
+            [org, classId, centreId],
+          )
+        ).rows[0];
+        if (!klass)
+          throw new NotFoundException("Class not found in this centre.");
+        if (klass.archived || klass.year_archived)
+          throw new ConflictException("Choose an active class and year.");
+        if (
+          (
+            await sql.query(
+              "SELECT id FROM learning_groups WHERE organisation_id=$1 AND class_id=$2 AND lower(name)=lower($3) AND id<>$4",
+              [org, classId, name, id || randomUUID()],
+            )
+          ).rows.length
+        )
+          throw new ConflictException(
+            "A section with this name already exists in the class.",
+          );
+      }
       const row = id
         ? (
             await sql.query<Group>(
-              "UPDATE learning_groups SET name=$3 WHERE organisation_id=$1 AND id=$2 RETURNING *",
-              [org, id, name],
+              "UPDATE learning_groups SET name=$3,class_id=$4 WHERE organisation_id=$1 AND id=$2 RETURNING *",
+              [org, id, name, classId],
             )
           ).rows[0]
         : (
             await sql.query<Group>(
-              "INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES ($1,$2,$3,$4) RETURNING *",
-              [randomUUID(), org, centreId, name],
+              "INSERT INTO learning_groups(id,organisation_id,centre_id,name,class_id) VALUES ($1,$2,$3,$4,$5) RETURNING *",
+              [randomUUID(), org, centreId, name, classId],
             )
           ).rows[0];
       await this.access.audit(

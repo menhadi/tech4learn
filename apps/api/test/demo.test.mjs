@@ -1,5 +1,6 @@
+import { academicMigration } from "../dist/migration-academic.js";
 import { configurationMigration } from "../dist/migration-configuration.js";
-import { learnerMigration } from '../dist/migration-learners.js';
+import { learnerMigration } from "../dist/migration-learners.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -16,6 +17,7 @@ test("demo fixture supports real logins and safe, complete cleanup", async (t) =
   await pg.exec(accessMigration);
   await pg.exec(learnerMigration);
   await pg.exec(configurationMigration);
+  await pg.exec(academicMigration);
   const db = {
     query: (s, p) => pg.query(s, p),
     transaction: (run) =>

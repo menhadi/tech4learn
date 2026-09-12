@@ -1,3 +1,4 @@
+import { groupDisplaySql } from "./academic-label.js";
 import {
   BadRequestException,
   ConflictException,
@@ -307,7 +308,7 @@ export class AttendanceService {
             centre_name: string;
           } & CentreLocation
         >(
-          `SELECT g.id AS group_id,g.centre_id,g.name AS group_name,c.name AS centre_name,c.latitude,c.longitude,c.radius,c.location_approved FROM learning_groups g JOIN centres c ON c.id=g.centre_id AND c.organisation_id=g.organisation_id WHERE g.organisation_id=$1 AND g.id=$2 AND NOT g.archived AND NOT c.archived`,
+          `SELECT g.id AS group_id,g.centre_id,${groupDisplaySql} AS group_name,c.name AS centre_name,c.latitude,c.longitude,c.radius,c.location_approved FROM learning_groups g JOIN centres c ON c.id=g.centre_id AND c.organisation_id=g.organisation_id WHERE g.organisation_id=$1 AND g.id=$2 AND NOT g.archived AND NOT c.archived`,
           [org, groupId],
         )
       ).rows[0];

@@ -1,3 +1,5 @@
+import { SectionSelect } from "./SectionSelect";
+import type { AcademicGroup } from "./AcademicStructure";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 import { readLearnerFile } from "./learner-import";
@@ -10,12 +12,7 @@ type Definition = {
   options: string[];
   archived: boolean;
 };
-type Group = {
-  id: string;
-  name: string;
-  centre_name: string;
-  archived: boolean;
-};
+type Group = AcademicGroup;
 type Learner = {
   id: string;
   code: string;
@@ -56,10 +53,12 @@ export function Learners({
   org,
   permissions,
   groups,
+  initialGroup = "",
 }: {
   org: string;
   permissions: string[];
   groups: Group[];
+  initialGroup?: string;
 }) {
   const base = `/organisations/${org}`,
     can = (p: string) => permissions.includes(p);
@@ -69,6 +68,7 @@ export function Learners({
     [creating, setCreating] = useState(false),
     [fieldEdit, setFieldEdit] = useState<Definition | null>(null),
     [search, setSearch] = useState(""),
+    [groupFilter, setGroupFilter] = useState(initialGroup),
     [offset, setOffset] = useState(0),
     [more, setMore] = useState(false),
     [error, setError] = useState(""),
@@ -76,13 +76,13 @@ export function Learners({
     [busy, setBusy] = useState(false),
     [preview, setPreview] = useState<Preview | null>(null),
     [duplicates, setDuplicates] = useState(false),
-    [importGroup, setImportGroup] = useState(""),
+    [importGroup, setImportGroup] = useState(initialGroup),
     [file, setFile] = useState<File | null>(null),
     [revision, setRevision] = useState(0);
   async function load() {
     const [list, definitions] = await Promise.all([
       api<{ items: Learner[]; hasMore: boolean }>(
-        `${base}/learners?search=${encodeURIComponent(search)}&offset=${offset}`,
+        `${base}/learners?search=${encodeURIComponent(search)}&offset=${offset}&group_id=${encodeURIComponent(groupFilter)}`,
       ),
       api<Definition[]>(base + "/learner-fields"),
     ]);
@@ -94,7 +94,7 @@ export function Learners({
     let active = true;
     Promise.all([
       api<{ items: Learner[]; hasMore: boolean }>(
-        `${base}/learners?search=${encodeURIComponent(search)}&offset=${offset}`,
+        `${base}/learners?search=${encodeURIComponent(search)}&offset=${offset}&group_id=${encodeURIComponent(groupFilter)}`,
       ),
       api<Definition[]>(base + "/learner-fields"),
     ])
@@ -111,7 +111,7 @@ export function Learners({
     return () => {
       active = false;
     };
-  }, [org, search, offset]);
+  }, [org, search, offset, groupFilter]);
   async function act(work: () => Promise<unknown>, message = "Saved.") {
     setBusy(true);
     setError("");
@@ -147,7 +147,21 @@ export function Learners({
     : can("learners.create");
   return (
     <div className="learner-workspace">
-      <h3>Learners</h3>
+      <h3>Students / learners</h3>
+      <details open={!!initialGroup}>
+        <summary>Filter students by section</summary>
+        <p>Use centre, year and class to find a section, then select it to filter the student list.</p>
+        <SectionSelect
+          groups={groups}
+          value={groupFilter}
+          initialValue={initialGroup}
+          required={false}
+          onChange={(id) => {
+            setGroupFilter(id);
+            setOffset(0);
+          }}
+        />
+      </details>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -199,19 +213,10 @@ export function Learners({
               });
             }}
           >
-            <label>
-              Group / section
-              <select name="group_id" required defaultValue="">
-                <option value="">Choose a group</option>
-                {groups
-                  .filter((g) => !g.archived)
-                  .map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.centre_name} / {g.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
+            <SectionSelect
+              groups={groups.filter((g) => !g.archived)}
+              initialValue={groupFilter}
+            />
             <button disabled={busy}>Create / open dummy student</button>
           </form>
         </details>
@@ -325,28 +330,23 @@ export function Learners({
                   />
                 </label>
                 <label>
-                  Class / level
+                  Class / level (unassigned groups)
                   <input
                     name="class_label"
                     maxLength={80}
                     defaultValue={current?.class_label}
                   />
+                  <small>
+                    For a linked section, the class is set from its academic
+                    structure when saved.
+                  </small>
                 </label>
               </div>
               {!current && (
-                <label>
-                  Group
-                  <select name="group_id" required defaultValue="">
-                    <option value="">Choose group</option>
-                    {groups
-                      .filter((g) => !g.archived)
-                      .map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.centre_name} / {g.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+                <SectionSelect
+                  groups={groups.filter((g) => !g.archived)}
+                  initialValue={groupFilter}
+                />
               )}
               {can("learners.contacts") && (
                 <div className="form-grid">
@@ -452,19 +452,11 @@ export function Learners({
             >
               <h4>Transfer enrolment</h4>
               <fieldset disabled={busy}>
-                <label>
-                  New group
-                  <select name="group_id" required defaultValue="">
-                    <option value="">Choose group</option>
-                    {groups
-                      .filter((g) => !g.archived && g.id !== current.group_id)
-                      .map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.centre_name} / {g.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+                <SectionSelect
+                  groups={groups.filter(
+                    (g) => !g.archived && g.id !== current.group_id,
+                  )}
+                />
                 <label>
                   Reason
                   <input name="reason" required maxLength={200} />
@@ -564,25 +556,15 @@ export function Learners({
           >
             Download CSV template
           </button>
-          <label>
-            Import group
-            <select
-              value={importGroup}
-              onChange={(e) => {
-                setImportGroup(e.target.value);
-                setPreview(null);
-              }}
-            >
-              <option value="">Choose group</option>
-              {groups
-                .filter((g) => !g.archived)
-                .map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.centre_name} / {g.name}
-                  </option>
-                ))}
-            </select>
-          </label>
+          <SectionSelect
+            groups={groups.filter((g) => !g.archived)}
+            value={importGroup}
+            initialValue={initialGroup}
+            onChange={(id) => {
+              setImportGroup(id);
+              setPreview(null);
+            }}
+          />
           <label>
             File
             <input

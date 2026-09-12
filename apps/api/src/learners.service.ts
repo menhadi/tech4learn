@@ -1,3 +1,4 @@
+import { groupDisplaySql } from "./academic-label.js";
 import {
   Injectable,
   BadRequestException,
@@ -84,14 +85,20 @@ export class LearnersService {
     const { guardian_name, guardian_phone, ...rest } = l;
     return rest;
   }
-  async list(user: Account, org: string, search = "", offset = 0) {
+  async list(
+    user: Account,
+    org: string,
+    search = "",
+    offset = 0,
+    groupId = "",
+  ) {
     const a = await this.access.require(user, org, "learners.view");
     if (!Number.isSafeInteger(offset) || offset < 0 || search.length > 120)
       throw new BadRequestException("Invalid search or page.");
     const rows = (
       await this.db.query<Learner>(
-        `SELECT l.id,l.code,l.name,l.age,l.class_label,l.group_id,l.archived,l.demo,l.version,g.name AS group_name,c.name AS centre_name FROM learners l JOIN learning_groups g ON g.id=l.group_id AND g.organisation_id=l.organisation_id JOIN centres c ON c.id=g.centre_id AND c.organisation_id=g.organisation_id WHERE l.organisation_id=$1 AND ${scopeSql} AND (strpos(lower(l.name),lower($4))>0 OR strpos(lower(l.code),lower($4))>0) ORDER BY l.name,l.id LIMIT 51 OFFSET $5`,
-        [...this.args(org, a), search, offset],
+        `SELECT l.id,l.code,l.name,l.age,l.class_label,l.group_id,l.archived,l.demo,l.version,${groupDisplaySql} AS group_name,c.name AS centre_name FROM learners l JOIN learning_groups g ON g.id=l.group_id AND g.organisation_id=l.organisation_id JOIN centres c ON c.id=g.centre_id AND c.organisation_id=g.organisation_id WHERE l.organisation_id=$1 AND ${scopeSql} AND ($6::uuid IS NULL OR l.group_id=$6) AND (strpos(lower(l.name),lower($4))>0 OR strpos(lower(l.code),lower($4))>0) ORDER BY l.name,l.id LIMIT 51 OFFSET $5`,
+        [...this.args(org, a), search, offset, groupId ? uuid(groupId) : null],
       )
     ).rows;
     if (user.is_superadmin)
@@ -103,7 +110,7 @@ export class LearnersService {
     const l = await this.get(this.db, org, id, a);
     const history = (
       await this.db.query(
-        `SELECT e.id,e.started_at,e.ended_at,e.reason,g.name AS group_name,c.name AS centre_name FROM learner_enrolments e JOIN learning_groups g ON g.id=e.group_id AND g.organisation_id=e.organisation_id JOIN centres c ON c.id=g.centre_id WHERE e.organisation_id=$1 AND ${scopeSql} AND e.learner_id=$4 ORDER BY e.started_at DESC,e.id`,
+        `SELECT e.id,e.started_at,e.ended_at,e.reason,${groupDisplaySql} AS group_name,c.name AS centre_name FROM learner_enrolments e JOIN learning_groups g ON g.id=e.group_id AND g.organisation_id=e.organisation_id JOIN centres c ON c.id=g.centre_id WHERE e.organisation_id=$1 AND ${scopeSql} AND e.learner_id=$4 ORDER BY e.started_at DESC,e.id`,
         [...this.args(org, a), id],
       )
     ).rows;
@@ -260,6 +267,12 @@ export class LearnersService {
         "Age must be a whole number from 0 to 120.",
       );
     const group_id = await this.group(sql, org, b.group_id, a);
+    const academicClass = (
+      await sql.query<{ name: string }>(
+        "SELECT k.name FROM learning_groups g JOIN learning_classes k ON k.organisation_id=g.organisation_id AND k.id=g.class_id WHERE g.organisation_id=$1 AND g.id=$2",
+        [org, group_id],
+      )
+    ).rows[0];
     if (before && group_id !== before.group_id)
       throw new BadRequestException(
         "Use Transfer enrolment to change the group.",
@@ -303,7 +316,7 @@ export class LearnersService {
       code,
       name,
       age,
-      class_label: optional(b.class_label, 80),
+      class_label: academicClass?.name ?? optional(b.class_label, 80),
       guardian_name,
       guardian_phone,
       custom_values,
@@ -455,6 +468,12 @@ export class LearnersService {
       if (target === l.group_id)
         throw new BadRequestException("Choose a different group.");
       const reason = field(b.reason, "Transfer reason", 200);
+      const academicClass = (
+        await sql.query<{ name: string }>(
+          "SELECT k.name FROM learning_groups g JOIN learning_classes k ON k.organisation_id=g.organisation_id AND k.id=g.class_id WHERE g.organisation_id=$1 AND g.id=$2",
+          [org, target],
+        )
+      ).rows[0];
       await sql.query(
         "UPDATE learner_enrolments SET ended_at=now() WHERE organisation_id=$1 AND learner_id=$2 AND ended_at IS NULL",
         [org, id],
@@ -464,8 +483,8 @@ export class LearnersService {
         [randomUUID(), org, id, target, user.id, reason],
       );
       await sql.query(
-        "UPDATE learners SET group_id=$3,version=version+1 WHERE organisation_id=$1 AND id=$2",
-        [org, id, target],
+        "UPDATE learners SET group_id=$3,class_label=$4,version=version+1 WHERE organisation_id=$1 AND id=$2",
+        [org, id, target, academicClass?.name ?? l.class_label],
       );
       await this.access.audit(sql, user, org, "learner.transferred", {
         learnerId: id,

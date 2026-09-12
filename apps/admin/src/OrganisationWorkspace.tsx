@@ -8,6 +8,7 @@ import { Attendance } from "./Attendance";
 import { createPortal } from "react-dom";
 import { PermissionMatrix } from "./PermissionMatrix";
 import { AIProviders } from "./AIProviders";
+import { AcademicStructure, type AcademicGroup } from "./AcademicStructure";
 
 type Scope = {
   scope_type: "organisation" | "centres" | "groups";
@@ -29,19 +30,14 @@ type Centre = {
   id: string;
   name: string;
   address: string;
+  centre_type: string;
   latitude: number | null;
   longitude: number | null;
   radius: number;
   location_approved: boolean;
   archived: boolean;
 };
-type Group = {
-  id: string;
-  name: string;
-  centre_id: string;
-  centre_name: string;
-  archived: boolean;
-};
+type Group = AcademicGroup;
 type Member = Scope & {
   user_id: string;
   name: string;
@@ -105,7 +101,7 @@ export function OrganisationWorkspace({
       scope_ids: [],
     });
   const [centre, setCentre] = useState<Centre | null>(null),
-    [group, setGroup] = useState<Group | null>(null),
+    [focusGroup, setFocusGroup] = useState(""),
     [history, setHistory] = useState<Audit[]>([]),
     [offset, setOffset] = useState(0);
   const [revision, setRevision] = useState(0);
@@ -300,6 +296,7 @@ export function OrganisationWorkspace({
                           aria-pressed={tab === t}
                           onClick={() => {
                             setTab(t);
+                            setFocusGroup("");
                             onNavigate?.();
                             setError("");
                             setNotice("");
@@ -307,9 +304,11 @@ export function OrganisationWorkspace({
                         >
                           {t === "Centres"
                             ? `${org.centre_label}s`
-                            : t === "Roles"
-                              ? "Roles & permissions"
-                              : t}
+                            : t === "Groups"
+                              ? "Classes & sections"
+                              : t === "Roles"
+                                ? "Roles & permissions"
+                                : t}
                         </button>
                       ))}
                   </details>
@@ -319,7 +318,9 @@ export function OrganisationWorkspace({
             const target = document.getElementById("organisation-menu-slot");
             return target ? createPortal(menu, target) : menu;
           })()}
-          <h3 className="workspace-page-title">{tab}</h3>
+          <h3 className="workspace-page-title">
+            {tab === "Groups" ? "Classes & sections" : tab}
+          </h3>
           {tab === "AI connections" && <AIProviders org={org.id} />}
           {tab === "Daily overview" && (
             <>
@@ -396,7 +397,8 @@ export function OrganisationWorkspace({
           )}
           {tab === "Learners" && (
             <Learners
-              key={org.id}
+              key={`${org.id}-${focusGroup}`}
+              initialGroup={focusGroup}
               org={org.id}
               permissions={data.access.permissions}
               groups={data.groups}
@@ -404,7 +406,8 @@ export function OrganisationWorkspace({
           )}
           {(tab === "Attendance" || tab === "Photo capture") && (
             <Attendance
-              key={`${org.id}-${tab}`}
+              key={`${org.id}-${tab}-${focusGroup}`}
+              initialGroup={focusGroup}
               mode={tab === "Photo capture" ? "capture" : "daily"}
               org={org.id}
               permissions={data.access.permissions}
@@ -606,6 +609,29 @@ export function OrganisationWorkspace({
                           maxLength={500}
                         />
                       </label>
+                      <label>
+                        Centre type
+                        <select
+                          name="centre_type"
+                          defaultValue={
+                            centre?.centre_type || "learning_centre"
+                          }
+                        >
+                          <option value="school">School</option>
+                          <option value="college">College</option>
+                          <option value="coaching">Coaching centre</option>
+                          <option value="community_centre">
+                            Community centre
+                          </option>
+                          <option value="learning_centre">
+                            Learning centre
+                          </option>
+                          <option value="training_centre">
+                            Training centre
+                          </option>
+                          <option value="other">Other</option>
+                        </select>
+                      </label>
                       <div className="form-grid">
                         <label>
                           Latitude
@@ -660,116 +686,30 @@ export function OrganisationWorkspace({
             </>
           )}
           {tab === "Groups" && (
-            <>
-              <h3>Learning groups</h3>
-              {!data.groups.length && (
-                <p>No groups in your access scope yet.</p>
+            <AcademicStructure
+              org={org.id}
+              centres={data.centres}
+              groups={data.groups}
+              permissions={data.access.permissions.filter(
+                (p) =>
+                  (!p.startsWith("attendance.") ||
+                    data.modules?.attendance === true) &&
+                  (!p.startsWith("learners.") ||
+                    data.modules?.learners !== false),
               )}
-              {data.groups.map((g) => (
-                <div className="record" key={g.id}>
-                  <strong>{g.name}</strong>
-                  <p>
-                    {g.centre_name}
-                    {g.archived ? " · Archived" : ""}
-                  </p>
-                  {!g.archived && (
-                    <div className="actions">
-                      {can("groups.edit") && (
-                        <button
-                          className="secondary"
-                          onClick={() => setGroup(g)}
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {can("groups.archive") && (
-                        <details>
-                          <summary>Archive group</summary>
-                          <p>The group and its history will be retained.</p>
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              void act(
-                                () =>
-                                  api(
-                                    `${base}/groups/${g.id}/archive`,
-                                    "POST",
-                                    {},
-                                  ),
-                                "Group archived.",
-                              )
-                            }
-                          >
-                            Confirm archive
-                          </button>
-                        </details>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {(group
-                ? can("groups.edit")
-                : can("groups.create") &&
-                  data.access.scope_type !== "groups") && (
-                <form
-                  key={group?.id || `new-group-${revision}`}
-                  onSubmit={(e) => {
-                    const b = form(e);
-                    void act(async () => {
-                      await api(
-                        `${base}/groups${group ? "/" + group.id : ""}`,
-                        group ? "PATCH" : "POST",
-                        b,
-                      );
-                      setGroup(null);
-                    });
-                  }}
-                >
-                  <h3>{group ? "Edit group" : "Add group"}</h3>
-                  <fieldset disabled={busy}>
-                    <label>
-                      Name
-                      <input
-                        name="name"
-                        defaultValue={group?.name}
-                        maxLength={120}
-                        required
-                      />
-                    </label>
-                    {group ? (
-                      <p>Centre: {group.centre_name}</p>
-                    ) : (
-                      <label>
-                        {org.centre_label}
-                        <select name="centre_id" required defaultValue="">
-                          <option value="">Choose a centre</option>
-                          {data.centres
-                            .filter((c) => !c.archived)
-                            .map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                    )}
-                    <div className="actions">
-                      <button>Save group</button>
-                      {group && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => setGroup(null)}
-                        >
-                          Cancel edit
-                        </button>
-                      )}
-                    </div>
-                  </fieldset>
-                </form>
-              )}
-            </>
+              scope={data.access.scope_type}
+              onRefresh={async () => {
+                setData(await load());
+              }}
+              onStudents={(id) => {
+                setFocusGroup(id);
+                setTab("Learners");
+              }}
+              onAttendance={(id) => {
+                setFocusGroup(id);
+                setTab("Photo capture");
+              }}
+            />
           )}
           {tab === "Roles" && (
             <>

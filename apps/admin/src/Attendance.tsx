@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBase } from "./api";
 import { PhotoAnalysis } from "./PhotoAnalysis";
+import { SectionSelect } from "./SectionSelect";
+import type { AcademicGroup } from "./AcademicStructure";
 
-type Group = {
-  id: string;
-  name: string;
-  centre_id: string;
-  centre_name: string;
-  archived: boolean;
-};
+type Group = AcademicGroup;
 type Field = {
   key: string;
   label: string;
@@ -95,16 +91,17 @@ export function Attendance({
   permissions,
   groups,
   mode = "all",
+  initialGroup = "",
 }: {
   org: string;
   permissions: string[];
   groups: Group[];
   mode?: "all" | "daily" | "capture";
+  initialGroup?: string;
 }) {
   const base = `/organisations/${org}/attendance`,
     can = (p: string) => permissions.includes(`attendance.${p}`);
-  const [centre, setCentre] = useState(""),
-    [group, setGroup] = useState(""),
+  const [group, setGroup] = useState(initialGroup),
     [intent, setIntent] = useState<Intent | null>(null),
     [capture, setCapture] = useState<Capture | null>(null),
     [values, setValues] = useState<Record<string, unknown>>({});
@@ -265,13 +262,6 @@ export function Attendance({
     if (mounted.current && gen === generation.current)
       setCapture({ photo, captured_at, location, custom_values: {} });
   }
-  const centres = [
-    ...new Map(
-      groups
-        .filter((g) => !g.archived)
-        .map((g) => [g.centre_id, g.centre_name]),
-    ).entries(),
-  ];
   return (
     <div className="attendance-workspace">
       <h3>Photo attendance</h3>
@@ -292,47 +282,16 @@ export function Attendance({
             Choose a group and use its live camera preview. Location and capture
             time are collected automatically. Submit within ten minutes.
           </p>
-          <div className="form-grid">
-            <label>
-              Centre
-              <select
-                value={centre}
-                disabled={busy || !!intent}
-                onChange={(e) => {
-                  reset();
-                  setCentre(e.target.value);
-                  setGroup("");
-                }}
-              >
-                <option value="">Choose a centre</option>
-                {centres.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Group
-              <select
-                value={group}
-                disabled={busy || !!intent}
-                onChange={(e) => {
-                  reset();
-                  setGroup(e.target.value);
-                }}
-              >
-                <option value="">Choose a group</option>
-                {groups
-                  .filter((g) => !g.archived && g.centre_id === centre)
-                  .map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-          </div>
+          <SectionSelect
+            groups={groups.filter((g) => !g.archived)}
+            value={group}
+            initialValue={initialGroup}
+            disabled={busy || !!intent}
+            onChange={(id) => {
+              reset();
+              setGroup(id);
+            }}
+          />
           {!intent && (
             <button disabled={busy || !group} onClick={() => void act(start)}>
               Open camera

@@ -1,3 +1,4 @@
+import { academicMigration } from "../dist/migration-academic.js";
 import { request as httpRequest } from "node:http";
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
@@ -43,6 +44,7 @@ test("organisation setup, domains, module controls and reusable custom fields", 
     await pg.query("SELECT id,key FROM learner_fields ORDER BY id")
   ).rows;
   await pg.exec(configurationMigration);
+  await pg.exec(academicMigration);
   assert.deepEqual(
     (await pg.query("SELECT id,key FROM learner_fields ORDER BY id")).rows,
     before,

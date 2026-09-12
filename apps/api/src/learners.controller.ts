@@ -24,6 +24,7 @@ export class LearnersController {
     @Param("org") org: string,
     @Query("search") search: string,
     @Query("offset") offset: string,
+    @Query("group_id") groupId: string,
     @Headers("cookie") cookie?: string,
   ) {
     return this.service.list(
@@ -31,6 +32,7 @@ export class LearnersController {
       org,
       search || "",
       Number(offset || 0),
+      groupId || "",
     );
   }
   @Get("learners/:id") async detail(

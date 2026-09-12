@@ -570,6 +570,19 @@ export async function removeDemo(db: Store, id: string) {
       "DELETE FROM learning_groups WHERE organisation_id=ANY($1::uuid[])",
       [m.organisationIds],
     );
+    if (
+      (await sql.query("SELECT version FROM schema_versions WHERE version=7"))
+        .rows.length
+    ) {
+      await sql.query(
+        "DELETE FROM learning_classes WHERE organisation_id=ANY($1::uuid[])",
+        [m.organisationIds],
+      );
+      await sql.query(
+        "DELETE FROM academic_years WHERE organisation_id=ANY($1::uuid[])",
+        [m.organisationIds],
+      );
+    }
     await sql.query(
       "DELETE FROM centres WHERE organisation_id=ANY($1::uuid[])",
       [m.organisationIds],

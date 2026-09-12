@@ -7,6 +7,7 @@ import { learnerMigration } from "../dist/migration-learners.js";
 import { configurationMigration } from "../dist/migration-configuration.js";
 import { attendanceMigration } from "../dist/migration-attendance.js";
 import { visionMigration } from "../dist/migration-vision.js";
+import { academicMigration } from "../dist/migration-academic.js";
 import { createApp } from "../dist/bootstrap.js";
 import { createDemo, seedDemoLearners, removeDemo } from "../dist/demo.js";
 import {
@@ -96,6 +97,7 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
     configurationMigration,
     attendanceMigration,
     visionMigration,
+    academicMigration,
   ])
     await pg.exec(s);
   const db = {

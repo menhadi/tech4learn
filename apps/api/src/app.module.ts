@@ -12,6 +12,8 @@ import { RecordsService } from "./records.service.js";
 import { AccessController } from "./access.controller.js";
 import { LearnersController } from "./learners.controller.js";
 import { LearnersService } from "./learners.service.js";
+import { AcademicService } from "./academic.service.js";
+import { AcademicController } from "./academic.controller.js";
 
 @Module({})
 export class AppModule {
@@ -19,6 +21,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        AcademicController,
         AttendanceController,
         ConfigurationController,
         HealthController,
@@ -27,6 +30,7 @@ export class AppModule {
         LearnersController,
       ],
       providers: [
+        AcademicService,
         AttendanceService,
         database ? { provide: Database, useValue: database } : Database,
         ConfigurationService,

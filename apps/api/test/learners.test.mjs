@@ -1,3 +1,4 @@
+import { academicMigration } from "../dist/migration-academic.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -16,6 +17,7 @@ test("learner scopes, contacts, transfers, custom fields and reviewed imports", 
   await pg.exec(accessMigration);
   await pg.exec(learnerMigration);
   await pg.exec(configurationMigration);
+  await pg.exec(academicMigration);
   const db = {
     query: (s, p) => pg.query(s, p),
     transaction: (run) =>
