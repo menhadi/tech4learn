@@ -35,7 +35,3 @@ Use a neutral page background, white top bar/cards, 6px card corners, compact fo
 ## Guided student photo boxes
 
 Student enrolment offers three illustrated boxes: Front view, Slight left and Slight right. Extra angles are optional. After permission is confirmed, camera capture and upload save automatically. Retake replaces the selected attendance reference atomically, including when all three slots are full; failure preserves the previous saved photo and the new local draft for retry. Optional profile reuse is selected before capture, and remains independently owned. Permissions are never restored from drafts. Missing learner details must be corrected before a new student's photo can reach the server. Face checks remain a separate outcome after saving; this does not enable an organisation's engine.
-
-## Simple student registration
-
-New registration presents the student's name and one class/section selector, preselected when there is only one available section or a section was selected in the directory. Organisation-required custom fields remain visible. Optional age, guardian and custom details stay mounted inside More details so drafts and entered values survive collapsing. Validation opens that section when an optional value is invalid. The primary action is Register student; after saving, the record shows its generated ID and an optional Add or update photos section. Existing records use Save changes. Photo drafts stay mounted during registration but photo controls are disclosed after the student exists.

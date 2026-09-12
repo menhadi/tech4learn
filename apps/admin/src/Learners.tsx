@@ -77,7 +77,6 @@ export function Learners({
     [defs, setDefs] = useState<Definition[]>([]),
     [selected, setSelected] = useState<Learner | null>(null),
     [creating, setCreating] = useState(false),
-    [photoOpen, setPhotoOpen] = useState(false),
     [editorKey, setEditorKey] = useState(0),
     [fieldEdit, setFieldEdit] = useState<Definition | null>(null),
     [tableQuery, setTableQuery] = useState<TableQuery>(emptyTableQuery),
@@ -184,10 +183,7 @@ export function Learners({
     }>(null);
   useEffect(() => {
     if (busy || !enrolmentError) return;
-    const invalid = enrolmentForm.current?.querySelector<
-      HTMLInputElement | HTMLSelectElement
-    >(":invalid:not(fieldset)");
-    if (invalid?.closest("details")) invalid.closest("details")!.open = true;
+    const invalid = enrolmentForm.current?.querySelector<HTMLInputElement | HTMLSelectElement>(":invalid:not(fieldset)");
     invalid?.focus();
     invalid?.reportValidity();
   }, [busy, enrolmentError]);
@@ -197,15 +193,11 @@ export function Learners({
     setEnrolmentError("");
     if (!form) throw new Error("Open the enrolment form first.");
     if (!form.checkValidity()) {
-      const invalid = form.querySelector<HTMLInputElement | HTMLSelectElement>(
-        ":invalid:not(fieldset)",
-      );
-      const label =
-        invalid?.closest("label")?.textContent?.trim() || "required field";
+      const invalid = form.querySelector<HTMLInputElement | HTMLSelectElement>(":invalid:not(fieldset)");
+      const label = invalid?.closest("label")?.textContent?.trim() || "required field";
       const message = `Please check ${label}. Your other details remain in the form.`;
       setEnrolmentError(message);
-      if (invalid?.closest("details")) invalid.closest("details")!.open = true;
-      invalid?.scrollIntoView({ block: "center", behavior: "smooth" });
+      invalid?.scrollIntoView({block:"center",behavior:"smooth"});
       invalid?.focus();
       invalid?.reportValidity();
       throw new Error(message);
@@ -232,34 +224,15 @@ export function Learners({
       version: current?.version,
       confirmDuplicate: f.get("duplicate") === "on",
     };
-    let r: { id: string };
+    let r: {id:string};
     try {
-      r = await api<{ id: string }>(
-        `${base}/learners${current ? "/" + current.id : ""}`,
-        current ? "PATCH" : "POST",
-        body,
-      );
+      r = await api<{id:string}>(`${base}/learners${current ? "/" + current.id : ""}`, current ? "PATCH" : "POST", body);
     } catch (e) {
-      const message =
-        e instanceof Error ? e.message : "Could not save. Please try again.";
+      const message = e instanceof Error ? e.message : "Could not save. Please try again.";
       setEnrolmentError(message);
-      const field = /code/i.test(message)
-        ? "code"
-        : /phone/i.test(message)
-          ? "guardian_phone"
-          : /age/i.test(message)
-            ? "age"
-            : /duplicate|name/i.test(message)
-              ? "name"
-              : /group|section/i.test(message)
-                ? "group_id"
-                : "";
-      const input = field
-        ? (form.elements.namedItem(field) as HTMLElement | null)
-        : null;
-      if (input?.closest("details")) input.closest("details")!.open = true;
-      input?.scrollIntoView({ block: "center", behavior: "smooth" });
-      input?.focus();
+      const field = /code/i.test(message) ? "code" : /phone/i.test(message) ? "guardian_phone" : /age/i.test(message) ? "age" : /duplicate|name/i.test(message) ? "name" : /group|section/i.test(message) ? "group_id" : "";
+      const input = field ? form.elements.namedItem(field) as HTMLElement | null : null;
+      input?.scrollIntoView({block:"center",behavior:"smooth"}); input?.focus();
       throw e;
     }
     if (recordDraftKey) removeDraft(recordDraftKey);
@@ -270,35 +243,6 @@ export function Learners({
   const editable = current
     ? can("learners.edit") && !current.archived
     : can("learners.create");
-  const customField = (d: Definition) => (
-    <label key={d.id}>
-      {d.label}
-      {d.required ? " *" : ""}
-      {d.kind === "choice" || d.kind === "boolean" ? (
-        <select
-          name={`custom_${d.key}`}
-          required={d.required}
-          defaultValue={String(current?.custom_values[d.key] ?? "")}
-        >
-          <option value="">Choose an option</option>
-          {(d.kind === "boolean" ? ["true", "false"] : d.options).map((v) => (
-            <option key={v}>{v}</option>
-          ))}
-        </select>
-      ) : (
-        <input
-          name={`custom_${d.key}`}
-          type={
-            d.kind === "number" ? "number" : d.kind === "date" ? "date" : "text"
-          }
-          step={d.kind === "number" ? "any" : undefined}
-          maxLength={500}
-          required={d.required}
-          defaultValue={String(current?.custom_values[d.key] ?? "")}
-        />
-      )}
-    </label>
-  );
   return (
     <div className="learner-workspace">
       {error && (
@@ -333,7 +277,6 @@ export function Learners({
             className="secondary"
             onClick={() => {
               setEditorKey((k) => k + 1);
-              setPhotoOpen(false);
               setCreating(true);
               setSelected(null);
               setEnrolmentError("");
@@ -341,7 +284,7 @@ export function Learners({
               setNotice("");
             }}
           >
-            Add student
+            Add learner
           </button>
         )}
         {can("learners.create") && (
@@ -455,7 +398,7 @@ export function Learners({
                 >
                   Open profile
                 </button>
-                {can("learners.photos") && (
+              {can("learners.photos") && (
                   <button
                     className="secondary"
                     disabled={busy}
@@ -466,7 +409,6 @@ export function Learners({
                           await api<Learner>(`${base}/learners/${l.id}`),
                         );
                         setCreating(false);
-                        setPhotoOpen(true);
                       }, "Student photo setup opened.")
                     }
                   >
@@ -479,18 +421,12 @@ export function Learners({
         </DirectoryTable>
       </div>
       {(creating || current) && (
-        <section className="record student-registration">
-          {current && (
-            <div className="registration-summary">
-              <span className="status-badge status-active">Registered</span>
-              <h3>{current.name}</h3>
-              <span>Student ID: {current.code}</span>
-            </div>
-          )}
+        <section className="record">
+          <h3>{current ? current.name : "New learner"}</h3>
           {current?.demo && <p>Clearly labelled synthetic demo learner.</p>}
           <div>
             <DraftForm
-              title={current ? "Student details" : "Register a student"}
+              title="Learner enrolment"
               noValidate
               draftKey={`learner:${current?.id || "new"}`}
               key={editorKey}
@@ -498,228 +434,170 @@ export function Learners({
               onSubmit={(e) => {
                 e.preventDefault();
                 const saving = saveDetails();
-                void act(
-                  () => saving,
-                  current
-                    ? "Changes saved."
-                    : "Student registered. Add photos below or return to the student list.",
-                );
+                void act(() => saving, "Student enrolment saved. Photos can be added or retaken separately.");
               }}
             >
-              {!current && (
-                <p className="registration-intro">
-                  Start with a name and class. You can add photos and more
-                  details afterwards.
-                </p>
-              )}
-              {enrolmentError && (
-                <p className="error" role="alert">
-                  {enrolmentError}
-                </p>
-              )}
-              <fieldset
-                disabled={busy || !editable}
-                className="registration-fields"
-              >
-                <legend className="sr-only">Registration details</legend>
-                {!current && (
-                  <input type="hidden" name="code" value={newCode} readOnly />
-                )}
+              <p>Enter the student's name and select their section. Other details can be added later, except fields marked required by your organisation.</p>
+              {enrolmentError && <p className="error" role="alert">{enrolmentError}</p>}
+              <fieldset disabled={busy || !editable}>
+                <legend>1. Student details</legend>
                 <label>
-                  Student's full name <span aria-hidden="true">*</span>
+                  Student ID (automatic for new students)
+                  <input
+                    name="code"
+                    readOnly={!current}
+                    pattern={"[A-Za-z0-9][A-Za-z0-9_\\-]*"}
+                    title="Use letters, numbers, underscores or hyphens. No spaces."
+                    required
+                    maxLength={40}
+                    defaultValue={current?.code || newCode}
+                  />
+                </label>
+                <label>
+                  Name
                   <input
                     name="name"
                     required
                     maxLength={120}
                     defaultValue={current?.name}
-                    placeholder="Enter full name"
-                    autoComplete="off"
                   />
                 </label>
-                {!current ? (
+                <div className="form-grid">
                   <label>
-                    Class / section <span aria-hidden="true">*</span>
-                    <select
-                      name="group_id"
-                      required
-                      defaultValue={
-                        groupFilter ||
-                        (groups.filter((g) => !g.archived).length === 1
-                          ? groups.find((g) => !g.archived)!.id
-                          : "")
-                      }
-                    >
-                      <option value="">Choose a class / section</option>
-                      {groups
-                        .filter((g) => !g.archived)
-                        .map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {[
-                              g.centre_name,
-                              g.class_name,
-                              g.display_name || g.name,
-                              g.year_name,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </option>
-                        ))}
-                    </select>
-                    {!groups.some((g) => !g.archived) && (
-                      <small>
-                        No sections are available. Add a section in Academics
-                        first.
-                      </small>
-                    )}
+                    Age (optional)
+                    <input
+                      name="age"
+                      type="number"
+                      min={0}
+                      max={120}
+                      step={1}
+                      defaultValue={current?.age ?? ""}
+                    />
                   </label>
-                ) : (
-                  <p className="registration-placement">
-                    Class / section:{" "}
-                    {current.group_name ||
-                      groups.find((g) => g.id === current.group_id)?.name ||
-                      "Assigned"}
-                  </p>
+                  <label>
+                    Class / level (unassigned groups)
+                    <input
+                      name="class_label"
+                      maxLength={80}
+                      defaultValue={current?.class_label}
+                    />
+                    <small>
+                      For a linked section, the class is set from its academic
+                      structure when saved.
+                    </small>
+                  </label>
+                </div>
+                <h4>2. Centre, class and section</h4>
+                {current && <p>{current.group_name}</p>}
+                {!current && (
+                  <SectionSelect
+                    groups={groups.filter((g) => !g.archived)}
+                    initialValue={groupFilter}
+                  />
                 )}
-                {defs.filter((d) => !d.archived && d.required).map(customField)}
-                <details className="registration-more">
-                  <summary>
-                    More details{" "}
-                    <span>Age, guardian and additional information</span>
-                  </summary>
+                <h4>3. Guardian and additional details</h4>
+                {can("learners.contacts") && (
                   <div className="form-grid">
                     <label>
-                      Age
+                      Guardian name (optional)
                       <input
-                        name="age"
-                        type="number"
-                        min={0}
-                        max={120}
-                        step={1}
-                        defaultValue={current?.age ?? ""}
+                        name="guardian_name"
+                        defaultValue={current?.guardian_name}
+                        maxLength={120}
                       />
                     </label>
                     <label>
-                      Class / level (if needed)
+                      Guardian phone (optional)
                       <input
-                        name="class_label"
-                        maxLength={80}
-                        defaultValue={current?.class_label}
+                        name="guardian_phone"
+                        type="tel"
+                        defaultValue={current?.guardian_phone}
+                        maxLength={40}
                       />
                     </label>
-                    {current && (
-                      <label>
-                        Student ID
-                        <input
-                          name="code"
-                          required
-                          pattern={"[A-Za-z0-9][A-Za-z0-9_\\-]*"}
-                          maxLength={40}
-                          defaultValue={current.code}
-                        />
-                      </label>
-                    )}
-                    {can("learners.contacts") && (
-                      <>
-                        <label>
-                          Guardian name
-                          <input
-                            name="guardian_name"
-                            defaultValue={current?.guardian_name}
-                            maxLength={120}
-                          />
-                        </label>
-                        <label>
-                          Guardian phone
-                          <input
-                            name="guardian_phone"
-                            type="tel"
-                            defaultValue={current?.guardian_phone}
-                            maxLength={40}
-                          />
-                        </label>
-                      </>
-                    )}
                   </div>
-                  {defs
-                    .filter((d) => !d.archived && !d.required)
-                    .map(customField)}
-                </details>
-                {editable &&
-                  /duplicate|similar|same name/i.test(enrolmentError) && (
-                    <>
-                      <label className="check">
-                        <input type="checkbox" name="duplicate" />I reviewed any
-                        duplicate-name warning and confirm this is a separate
-                        learner.
-                      </label>
-                    </>
-                  )}
+                )}
+                {defs
+                  .filter((d) => !d.archived)
+                  .map((d) => (
+                    <label key={d.id}>
+                      {d.label}
+                      {d.required ? " *" : ""}
+                      {d.kind === "choice" || d.kind === "boolean" ? (
+                        <select
+                          name={`custom_${d.key}`}
+                          required={d.required}
+                          defaultValue={String(
+                            current?.custom_values[d.key] ?? "",
+                          )}
+                        >
+                          <option value="">Not set</option>
+                          {(d.kind === "boolean"
+                            ? ["true", "false"]
+                            : d.options
+                          ).map((v) => (
+                            <option key={v}>{v}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          name={`custom_${d.key}`}
+                          type={
+                            d.kind === "number"
+                              ? "number"
+                              : d.kind === "date"
+                                ? "date"
+                                : "text"
+                          }
+                          step={d.kind === "number" ? "any" : undefined}
+                          maxLength={500}
+                          required={d.required}
+                          defaultValue={String(
+                            current?.custom_values[d.key] ?? "",
+                          )}
+                        />
+                      )}
+                    </label>
+                  ))}
+                {editable && /duplicate|similar|same name/i.test(enrolmentError) && (
+                  <>
+                    <label className="check">
+                      <input type="checkbox" name="duplicate" />I reviewed any
+                      duplicate-name warning and confirm this is a separate
+                      learner.
+                    </label>
+                  </>
+                )}
               </fieldset>
-              {editable && (
+                {editable && (
                 <div className="form-save-bar">
-                  <button disabled={busy}>
-                    {busy
-                      ? "Saving…"
-                      : current
-                        ? "Save changes"
-                        : "Register student"}
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => {
-                      setCreating(false);
-                      setSelected(null);
-                      setPhotoOpen(false);
-                    }}
-                  >
-                    Back to students
-                  </button>
-                  <span>
-                    {current
-                      ? "Photos save separately."
-                      : "A student ID will be created automatically."}
-                  </span>
-                  {enrolmentError && (
-                    <p className="error" role="alert">
-                      {enrolmentError}
-                    </p>
-                  )}
+                  <button disabled={busy}>{busy ? "Saving…" : "Save enrolment"}</button>
+                  <span>Save student details. Photos and face checks do not block enrolment.</span>
+                  {enrolmentError && <p className="error" role="alert">{enrolmentError}</p>}
                 </div>
               )}
               {can("learners.photos") && (
-                <details
-                  hidden={!current}
-                  className="registration-photos"
-                  open={photoOpen}
-                  onToggle={(e) => setPhotoOpen(e.currentTarget.open)}
-                >
-                  <summary>
-                    Add or update photos{" "}
-                    <span>Optional · camera or upload</span>
-                  </summary>
-                  <fieldset disabled={busy} className="photo-enrolment-section">
-                    <StudentPhotos
-                      org={org}
-                      id={current?.id || ""}
-                      permissions={permissions}
-                      archived={current?.archived || false}
-                      demo={current?.demo || false}
-                      ensureStudent={async () => {
-                        const saving = saveDetails();
-                        setBusy(true);
-                        try {
-                          return await saving;
-                        } finally {
-                          setBusy(false);
-                        }
-                      }}
-                      saveRef={photoSave}
-                    />
-                  </fieldset>
-                </details>
+                <fieldset disabled={busy} className="photo-enrolment-section">
+                  <StudentPhotos
+                    org={org}
+                    id={current?.id || ""}
+                    permissions={permissions}
+                    archived={current?.archived || false}
+                    demo={current?.demo || false}
+                    ensureStudent={async () => {
+                      const saving = saveDetails();
+                      setBusy(true);
+                      try {
+                        return await saving;
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                    saveRef={photoSave}
+                  />
+                </fieldset>
               )}
+
             </DraftForm>
             {current &&
               defs
@@ -812,17 +690,15 @@ export function Learners({
               </details>
             )}
           </div>
-          {!editable && (
-            <button
-              className="secondary"
-              onClick={() => {
-                setSelected(null);
-                setCreating(false);
-              }}
-            >
-              Close profile
-            </button>
-          )}
+          <button
+            className="secondary"
+            onClick={() => {
+              setSelected(null);
+              setCreating(false);
+            }}
+          >
+            Close profile
+          </button>
         </section>
       )}
       {!current &&
