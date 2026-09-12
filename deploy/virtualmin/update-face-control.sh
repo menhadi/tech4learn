@@ -17,8 +17,11 @@ cd "$repo"
 runuser -u tech4learn -- env PATH="$runtime:/usr/bin:/bin" npm ci --workspace @tech4learn/api --workspace @tech4learn/admin --workspace @tech4learn/contracts --include-workspace-root --include=dev
 runuser -u tech4learn -- env PATH="$runtime:/usr/bin:/bin" VITE_API_URL=/api/v1 npm run build
 runuser -u tech4learn -- "$runtime/node" --env-file=/etc/tech4learn/api.env "$repo/apps/api/dist/manage.js" migrate
-bash "$repo/deploy/virtualmin/install-face-control.sh"
 systemctl start tech4learn
 curl --fail --show-error --retry 8 --retry-connrefused --retry-delay 2 --max-time 15 http://127.0.0.1:3101/api/v1/health
 curl --fail --show-error --retry 5 --retry-delay 2 --max-time 15 https://tech4learn.com/api/v1/health
+if ! bash "$repo/deploy/virtualmin/install-face-control.sh"; then
+  printf '\nTech4Learn API health checks passed, but face-controller setup failed. The app remains running. Fix the controller, then rerun install-face-control.sh only.\n' >&2
+  exit 1
+fi
 printf '\nFace-engine controls deployed. Sign in as superadmin and open Face engine.\n'

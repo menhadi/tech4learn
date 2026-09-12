@@ -12,6 +12,18 @@ install -o root -g root -m 0644 "$repo/deploy/virtualmin/tech4learn-face-control
 systemctl daemon-reload
 systemctl enable tech4learn-face-control
 systemctl restart tech4learn-face-control
+# systemctl returning does not mean the process has bound and permissioned its socket.
+socket=/run/tech4learn-face-control/control.sock
+for attempt in {1..20}; do
+  if runuser -u tech4learn -- test -S "$socket" && runuser -u tech4learn -- test -w "$socket"; then
+    break
+  fi
+  sleep 1
+done
+if ! runuser -u tech4learn -- test -S "$socket" || ! runuser -u tech4learn -- test -w "$socket"; then
+  printf 'Controller socket is not ready for tech4learn. Check systemctl status tech4learn-face-control.\n' >&2
+  exit 1
+fi
 runuser -u tech4learn -- curl --fail --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 30 \
   --unix-socket /run/tech4learn-face-control/control.sock \
   -H 'Content-Type: application/json' --data '{"action":"status"}' http://localhost/

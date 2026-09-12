@@ -26,7 +26,7 @@ Requested actions, numeric limits, completion and failure are recorded in audit_
 
 ## User-run deployment
 
-Pull the checked commit into `/home/tech4learn/tech4learn-app`, then run `bash deploy/virtualmin/update-face-control.sh` from that checkout as root. The release script backs up only the Tech4Learn database, builds the app, applies migrations, installs the restricted helper and unit, restarts the Tech4Learn app and checks its health. It does not restart Docker, Apache, PostgreSQL or ExamElite, and installing the helper does not stop the face container.
+Pull the checked commit into `/home/tech4learn/tech4learn-app`, then run `bash deploy/virtualmin/update-face-control.sh` from that checkout as root. The release script backs up only the Tech4Learn database, builds the app, applies migrations, restarts the Tech4Learn app and checks its health before installing the restricted helper and unit. Controller setup failure is reported as a partial deployment and leaves the restarted app running. The installer waits up to 20 seconds for the socket to exist and be writable by the application account before checking it. It does not restart Docker, Apache, PostgreSQL or ExamElite, and installing the helper does not stop the face container.
 
 The helper installation is a one-time server setup; subsequent capacity changes use the superadmin page. The install script can also be rerun to update the helper from a later reviewed commit. It installs `/usr/local/lib/tech4learn-face-control/controller.py` and `/etc/systemd/system/tech4learn-face-control.service` as root-owned files.
 
@@ -37,3 +37,5 @@ Verify on the server with a quiet queue: Refresh → inspect limits → Stop →
 Automated HTTP/database tests cover unauthenticated access, hostile origins, stored-role revocation, operation validation, active-worker exclusion, failure pause and warm-up/resume. Python tests use synthetic Docker metadata to check resource bounds, wrong-target rejection, fixed container commands, volume preservation and idempotent start. These tests do not exercise a real Docker daemon or Linux systemd from the Windows development environment. Live installation and operational confirmation are still required.
 
 Reference: [Docker container update](https://docs.docker.com/reference/cli/docker/container/update/).
+
+Deployment regression checks: `python deploy/virtualmin/test_face_deploy.py` exercises delayed and missing sockets plus controller failure after API recovery, using mocked commands and isolated local files. It never contacts live services.
