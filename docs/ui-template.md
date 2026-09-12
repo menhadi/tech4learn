@@ -31,3 +31,7 @@ Groups cover Dashboard, Academics & students, Attendance, Exams & results, FLN &
 Load `admin-theme.css` after the base styles. Use a fixed 250px desktop sidebar, matching ExamElite's measured width, with 15.5px group labels and 14.5px submenu labels. Navigation is white with neutral grey active/hover states; organisation colours must not tint the sidebar, table toolbar, table header or zebra rows. Keep branding on deliberate primary actions and organisation marks.
 
 Use a neutral page background, white top bar/cards, 6px card corners, compact form controls and 13px table text. Filters, record counts and pagination share the same neutral card. Preserve sticky first/action columns and internal horizontal scrolling. On mobile, menus stack vertically behind the existing organisation menu control; the page itself must not overflow horizontally.
+
+## Guided student photo boxes
+
+Student enrolment offers three illustrated boxes: Front view, Slight left and Slight right. Extra angles are optional. Each empty box offers camera capture and upload; names are assigned automatically. Save one photo at a time, with explicit permission and optional reuse as the profile picture. A pending photo must be saved or discarded before selecting another box, preventing accidental loss. Failed saves retain the draft for retry. Saved portraits fill the boxes; face checks and removal remain in expandable controls. Demo records retain profile-only photo support. This UI change does not change the matching algorithm or enable an organisation’s face engine.

@@ -104,7 +104,7 @@ export function StudentPhotos({
     warning: string;
   } | null>(null);
   const [name, setName] = useState("Front view"),
-    [profile, setProfile] = useState(true),
+    [profile, setProfile] = useState(demo),
     [reference, setReference] = useState(!demo);
   const [attested, setAttested] = useState(false),
     [live, setLive] = useState(false);
@@ -268,7 +268,7 @@ export function StudentPhotos({
   function validatePhoto() {
     if (prepared && (!name.trim() || !attested || (!profile && !reference)))
       throw new Error(
-        "Name the photo, choose its uses and confirm permission before saving enrolment.",
+        "Confirm permission for the photo before saving enrolment.",
       );
   }
   useImperativeHandle(saveRef, () => ({ save, validate: validatePhoto }));
@@ -303,9 +303,10 @@ export function StudentPhotos({
       },
     );
     if (photoDraftKey) removeDraft(photoDraftKey);
-    if (currentDraftKey.current)
-      removeDraft(currentDraftKey.current);
+    if (currentDraftKey.current) removeDraft(currentDraftKey.current);
     setPrepared(null);
+    setProfile(demo);
+    setReference(!demo);
     setDraftStatus("");
     setPhotoRecovery(null);
     setAttested(false);
@@ -334,6 +335,21 @@ export function StudentPhotos({
           ? "Photo saved for your selected uses. Face checking will be available when your administrator enables the engine."
           : "Profile picture saved.",
       );
+  }
+  const referencePhotos = (state?.photos || []).filter(
+    (p) => p.purpose === "reference",
+  );
+  const referenceCount = referencePhotos.length;
+  const slots: (Photo | undefined)[] = demo
+    ? [(state?.photos || []).find((p) => p.purpose === "profile")]
+    : ["Front view", "Slight left", "Slight right"].map((title) =>
+        referencePhotos.find((p) => p.name === title),
+      );
+  for (const photo of referencePhotos) {
+    if (!slots.includes(photo)) {
+      const empty = slots.findIndex((p) => !p);
+      if (empty >= 0) slots[empty] = photo;
+    }
   }
   const groups = Object.values(
     (state?.photos || []).reduce<Record<string, Photo[]>>((all, p) => {
@@ -376,9 +392,9 @@ export function StudentPhotos({
         </div>
       )}
       <p>
-        Take or upload one portrait, name it, and use it for the profile
-        picture, attendance, or both. You do not need to upload the same photo
-        twice.
+        Start with a clear front photo. The two extra angles are optional. Take
+        and save one photo at a time; you can also use it as the profile
+        picture.
       </p>
       {error && (
         <p role="alert" className="error">
@@ -401,144 +417,215 @@ export function StudentPhotos({
         <>
           {manage ? (
             <div className="editor-panel photo-upload-panel">
-              <h4>1. Take or choose a photo</h4>
-              <p>
-                Photograph this student alone, with the face clearly visible and
-                evenly lit. Classroom group photos are captured separately in
-                Attendance.
+              <div className="portrait-slots">
+                {(demo
+                  ? ["Front view"]
+                  : ["Front view", "Slight left", "Slight right"]
+                ).map((title, index) => {
+                  const saved = slots[index];
+                  const active =
+                    name === title ||
+                    (index === 0 &&
+                      !["Front view", "Slight left", "Slight right"].includes(
+                        name,
+                      ));
+                  const pending = active && prepared;
+                  const blocked =
+                    busy ||
+                    live ||
+                    !!prepared ||
+                    (!!saved && !demo) ||
+                    (!demo && referenceCount >= 3);
+                  return (
+                    <article
+                      className="portrait-slot"
+                      key={title}
+                      aria-label={title}
+                    >
+                      <h4>
+                        {index + 1}. {title}{" "}
+                        {index > 0 && <small>Optional</small>}
+                      </h4>
+                      <div className="portrait-slot-image">
+                        {active && live ? (
+                          <video
+                            ref={video}
+                            autoPlay
+                            muted
+                            playsInline
+                            aria-label="Live student camera preview"
+                          />
+                        ) : pending ? (
+                          <img
+                            src={pending.url}
+                            alt={`${title} — not saved yet`}
+                          />
+                        ) : saved ? (
+                          <img
+                            src={`${apiBase}${base}/photos/${saved.id}`}
+                            alt={saved.name}
+                          />
+                        ) : (
+                          <svg
+                            viewBox="0 0 200 160"
+                            role="img"
+                            aria-label={`${title} example guide`}
+                          >
+                            <path
+                              d="M45 150 Q45 110 100 110 Q155 110 155 150"
+                              fill="#dce3eb"
+                            />
+                            <ellipse
+                              cx={index === 1 ? 91 : index === 2 ? 109 : 100}
+                              cy="65"
+                              rx="34"
+                              ry="43"
+                              fill="#e8edf3"
+                              stroke="#8795a8"
+                              strokeWidth="2"
+                            />
+                            <g
+                              transform={`translate(${index === 1 ? -10 : index === 2 ? 10 : 0},0)`}
+                              fill="none"
+                              stroke="#63748a"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            >
+                              <path
+                                d={
+                                  index === 1
+                                    ? "M80 58h5M73 64l-6 13h9M76 88q9 5 17 0"
+                                    : index === 2
+                                      ? "M115 58h5M127 64l6 13h-9M107 88q9 5 17 0"
+                                      : "M83 58h5m24 0h5M100 63v14h5M89 88q11 7 22 0"
+                                }
+                              />
+                            </g>
+                          </svg>
+                        )}
+                      </div>
+                      <p>
+                        {pending
+                          ? "Ready to save"
+                          : saved
+                            ? "Saved"
+                            : index === 0
+                              ? "Look straight at the camera"
+                              : `Turn your face slightly ${index === 1 ? "left" : "right"}`}
+                      </p>
+                      {active && live && (
+                        <div className="actions">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void run(capture)}
+                          >
+                            Capture photo
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={stopCamera}
+                          >
+                            Close camera
+                          </button>
+                        </div>
+                      )}
+                      {(!saved || demo) && !pending && !live && (
+                        <div className="actions">
+                          <button
+                            type="button"
+                            disabled={blocked}
+                            onClick={() => {
+                              setName(title);
+                              setAttested(false);
+                              void run(openCamera);
+                            }}
+                          >
+                            Take photo
+                          </button>
+                          <label
+                            className={`portrait-upload ${blocked ? "is-disabled" : ""}`}
+                          >
+                            Upload
+                            <input
+                              type="file"
+                              aria-label={`Upload ${title}`}
+                              accept="image/jpeg,image/png,image/webp"
+                              disabled={blocked}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = "";
+                                if (file) {
+                                  setName(title);
+                                  setAttested(false);
+                                  void run(async () => {
+                                    const next = await prepare(file);
+                                    if (mounted.current) setPrepared(next);
+                                  });
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      )}
+                      {pending && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() => {
+                            if (photoDraftKey) removeDraft(photoDraftKey);
+                            setPhotoRecovery(null);
+                            setDraftStatus("");
+                            setPrepared(null);
+                            setAttested(false);
+                          }}
+                        >
+                          Retake / choose another
+                        </button>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              <p className="table-help">
+                Use even lighting and photograph this student alone. Group
+                photos belong in Attendance.
               </p>
-              <div className="actions">
-                <label>
-                  Camera
-                  <select
-                    value={facing}
-                    disabled={busy || live}
-                    onChange={(e) =>
-                      setFacing(e.target.value as "user" | "environment")
-                    }
-                  >
-                    <option value="environment">Rear / outward-facing</option>
-                    <option value="user">Front / selfie</option>
-                  </select>
-                </label>
-                <button
-                  type="button"
+              <label className="portrait-camera-choice">
+                Camera
+                <select
+                  value={facing}
                   disabled={busy || live}
-                  onClick={() => void run(openCamera)}
+                  onChange={(e) =>
+                    setFacing(e.target.value as "user" | "environment")
+                  }
                 >
-                  Open camera
-                </button>
-                <label className="photo-file-choice">
-                  Upload photo
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    disabled={busy || live}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = "";
-                      if (file)
-                        void run(async () => {
-                          const next = await prepare(file);
-                          if (mounted.current) setPrepared(next);
-                        });
-                    }}
-                  />
-                </label>
-              </div>
-              {live && (
-                <div className="portrait-camera">
-                  <video
-                    ref={video}
-                    autoPlay
-                    muted
-                    playsInline
-                    aria-label="Live student camera preview"
-                  />
-                  <div className="actions">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void run(capture)}
-                    >
-                      Take photo
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={stopCamera}
-                    >
-                      Close camera
-                    </button>
-                  </div>
-                </div>
-              )}
-              {prepared && (
-                <div className="portrait-preview">
-                  <img
-                    className="photo-preview"
-                    src={prepared.url}
-                    alt="Student portrait preview before saving"
-                  />
-                  <div>
-                    <strong>Preview — not saved yet</strong>
-                    {prepared.warning && <p>{prepared.warning}</p>}
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() => {
-                        if (photoDraftKey)
-                          removeDraft(photoDraftKey);
-                        setPhotoRecovery(null);
-                        setDraftStatus("");
-                        setPrepared(null);
-                      }}
-                    >
-                      Discard / retake
-                    </button>
-                  </div>
-                </div>
-              )}
-              <h4>2. Name the photo and choose its uses</h4>
-              <label>
-                Photo name
-                <input
-                  value={name}
-                  maxLength={80}
-                  disabled={busy}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Front view, Left angle"
-                />
+                  <option value="environment">Rear camera</option>
+                  <option value="user">Front / selfie camera</option>
+                </select>
               </label>
-              <div className="photo-use-options">
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={profile}
-                    disabled={busy}
-                    onChange={(e) => {
-                      setProfile(e.target.checked);
-                      setAttested(false);
-                    }}
-                  />
-                  Use as profile picture{" "}
-                  <small>Replaces the current profile picture.</small>
-                </label>
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={reference}
-                    disabled={busy || demo}
-                    onChange={(e) => {
-                      setReference(e.target.checked);
-                      setAttested(false);
-                    }}
-                  />
-                  Use for attendance face matching{" "}
-                  <small>Up to 3 individual portraits.</small>
-                </label>
-              </div>
+              {prepared && (
+                <div className="portrait-save-options">
+                  <strong>{name} — ready to save</strong>
+                  {prepared.warning && <p role="status">{prepared.warning}</p>}
+                  {!demo && (
+                    <label className="check">
+                      <input
+                        type="checkbox"
+                        checked={profile}
+                        disabled={busy}
+                        onChange={(e) => {
+                          setProfile(e.target.checked);
+                          setAttested(false);
+                        }}
+                      />
+                      Also use this photo as the profile picture (optional)
+                    </label>
+                  )}
+                </div>
+              )}
               {demo && (
                 <p>
                   Demo records support a profile picture only. Register a
@@ -554,34 +641,38 @@ export function StudentPhotos({
                     : "Face checking is not enabled for this organisation yet."}
                 </p>
               )}
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={attested}
-                  disabled={busy || (!profile && !reference)}
-                  onChange={(e) => setAttested(e.target.checked)}
-                />
-                I have recorded permission from the student or authorised
-                guardian to store this photo
-                {profile ? " as the profile picture" : ""}
-                {profile && reference ? " and" : ""}
-                {reference ? " for attendance face matching" : ""}.
-              </label>
-              <button
-                type="button"
-                disabled={
-                  busy ||
-                  !prepared ||
-                  !name.trim() ||
-                  !attested ||
-                  (!profile && !reference)
-                }
-                onClick={() => void run(() => save())}
-              >
-                {reference && state.verificationConfigured
-                  ? "Save photo & check face"
-                  : "Save photo"}
-              </button>
+              {prepared && (
+                <>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={attested}
+                      disabled={busy || (!profile && !reference)}
+                      onChange={(e) => setAttested(e.target.checked)}
+                    />
+                    I have recorded permission from the student or authorised
+                    guardian to store this photo
+                    {profile ? " as the profile picture" : ""}
+                    {profile && reference ? " and" : ""}
+                    {reference ? " for attendance face matching" : ""}.
+                  </label>
+                  <button
+                    type="button"
+                    disabled={
+                      busy ||
+                      !prepared ||
+                      !name.trim() ||
+                      !attested ||
+                      (!profile && !reference)
+                    }
+                    onClick={() => void run(() => save())}
+                  >
+                    {reference && state.verificationConfigured
+                      ? "Save photo & check face"
+                      : "Save photo"}
+                  </button>
+                </>
+              )}
               {!prepared && (
                 <p className="table-help">
                   Take or choose a photo above to enable saving.
@@ -595,95 +686,100 @@ export function StudentPhotos({
                 : "You can view photos. Ask your administrator for permission to manage them."}
             </p>
           )}
-          <h4>Saved student photos</h4>
-          {!groups.length && (
-            <p className="empty-state">
-              No photos saved yet. Start with Open camera or Upload photo above.
-            </p>
-          )}
-          <div className="student-photo-grid">
-            {groups.map((photos) => {
-              const first = photos[0],
-                ref = photos.find((p) => p.purpose === "reference");
-              return (
-                <article
-                  className="student-photo-card"
-                  key={first.content_hash || first.id}
-                >
-                  <img
-                    src={`${apiBase}${base}/photos/${first.id}`}
-                    alt={first.name}
-                  />
-                  <strong>{first.name}</strong>
-                  {photos.some((p) => p.purpose === "profile") && (
-                    <span className="status-badge status-neutral">
-                      Profile picture
-                    </span>
-                  )}
-                  {ref && (
-                    <span
-                      className={`status-badge ${ref.checked ? "status-active" : "status-neutral"}`}
-                    >
-                      {ref.checked
-                        ? "Attendance · face checked"
-                        : "Attendance · needs face check"}
-                    </span>
-                  )}
-                  {manage && ref && (
-                    <button
-                      type="button"
-                      disabled={busy || !state.verificationConfigured}
-                      onClick={() =>
-                        void run(async () => {
-                          await api(
-                            `${base}/photos/${ref.id}/check`,
-                            "POST",
-                            {},
-                            20000,
-                          );
-                          await refresh();
-                          setNotice(
-                            "Face check passed. Attendance still requires review of classroom photos.",
-                          );
-                        })
-                      }
-                    >
-                      {ref.checked ? "Recheck face" : "Check face"}
-                    </button>
-                  )}
-                  {permissions.includes("learners.photo_manage") && (
-                    <details>
-                      <summary>Remove a photo use</summary>
-                      {photos.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() =>
-                            void run(async () => {
-                              await api(
-                                `${base}/photos/${p.id}/remove`,
-                                "POST",
-                                {},
-                              );
-                              await refresh();
-                              setNotice("Photo removed for the selected use.");
-                            })
-                          }
-                        >
-                          Remove{" "}
-                          {p.purpose === "profile"
-                            ? "profile picture"
-                            : "attendance reference"}
-                        </button>
-                      ))}
-                    </details>
-                  )}
-                </article>
-              );
-            })}
-          </div>
+          <details className="saved-portrait-details">
+            <summary>Saved photos and face checks ({groups.length})</summary>
+            {!groups.length && (
+              <p className="empty-state">
+                No photos saved yet. Start with Take photo or Upload in the
+                first box.
+              </p>
+            )}
+            <div className="student-photo-grid">
+              {groups.map((photos) => {
+                const first = photos[0],
+                  ref = photos.find((p) => p.purpose === "reference");
+                return (
+                  <article
+                    className="student-photo-card"
+                    key={first.content_hash || first.id}
+                  >
+                    <img
+                      src={`${apiBase}${base}/photos/${first.id}`}
+                      alt={first.name}
+                    />
+                    <strong>{first.name}</strong>
+                    {photos.some((p) => p.purpose === "profile") && (
+                      <span className="status-badge status-neutral">
+                        Profile picture
+                      </span>
+                    )}
+                    {ref && (
+                      <span
+                        className={`status-badge ${ref.checked ? "status-active" : "status-neutral"}`}
+                      >
+                        {ref.checked
+                          ? "Attendance · face checked"
+                          : "Attendance · needs face check"}
+                      </span>
+                    )}
+                    {manage && ref && (
+                      <button
+                        type="button"
+                        disabled={busy || !state.verificationConfigured}
+                        onClick={() =>
+                          void run(async () => {
+                            await api(
+                              `${base}/photos/${ref.id}/check`,
+                              "POST",
+                              {},
+                              20000,
+                            );
+                            await refresh();
+                            setNotice(
+                              "Face check passed. Attendance still requires review of classroom photos.",
+                            );
+                          })
+                        }
+                      >
+                        {ref.checked ? "Recheck face" : "Check face"}
+                      </button>
+                    )}
+                    {permissions.includes("learners.photo_manage") && (
+                      <details>
+                        <summary>Remove a photo use</summary>
+                        {photos.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="secondary"
+                            disabled={busy}
+                            onClick={() =>
+                              void run(async () => {
+                                await api(
+                                  `${base}/photos/${p.id}/remove`,
+                                  "POST",
+                                  {},
+                                );
+                                await refresh();
+                                setNotice(
+                                  "Photo removed for the selected use.",
+                                );
+                              })
+                            }
+                          >
+                            Remove{" "}
+                            {p.purpose === "profile"
+                              ? "profile picture"
+                              : "attendance reference"}
+                          </button>
+                        ))}
+                      </details>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </details>
           {permissions.includes("learners.photo_manage") && (
             <details className="consent-control">
               <summary>Manage permissions and remove photos</summary>

@@ -100,3 +100,93 @@
   .workspace .table-toolbar > button { align-self:end; }
   .workspace .table-toolbar input { width:100%; }
 }
+
+
+/* Guided student portrait capture: one clear action per photo box. */
+.portrait-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.portrait-slot {
+  border: 1px solid #dce1e8;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+  min-width: 0;
+}
+.portrait-slot h4 {
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.portrait-slot h4 small {
+  color: #697386;
+  font-weight: 400;
+}
+.portrait-slot-image {
+  height: 180px;
+  background: #f5f7fa;
+  border-radius: 6px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+.portrait-slot-image img,
+.portrait-slot-image svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.portrait-slot .actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.portrait-upload {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid #cbd3de;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.portrait-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.portrait-upload:focus-within {
+  outline: 2px solid #446bb0;
+  outline-offset: 2px;
+}
+.portrait-upload.is-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.portrait-camera-choice {
+  max-width: 230px;
+}
+.portrait-save-options {
+  margin: 16px 0;
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+.portrait-save-options .check {
+  margin-top: 12px;
+}
+@media (max-width: 800px) {
+  .portrait-slots {
+    grid-template-columns: 1fr;
+  }
+}
+
+.portrait-slot-image video { width:100%; height:100%; object-fit:contain; }
+.saved-portrait-details { margin:16px 0; }
