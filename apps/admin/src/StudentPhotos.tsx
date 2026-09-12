@@ -377,7 +377,7 @@ export function StudentPhotos({
   );
   return (
     <section className="subpanel student-photos">
-      <h3>4. Student photos</h3>
+      <h3>Student photos (optional for enrolment)</h3>
       {draftStatus && <p role="status">{draftStatus}</p>}
       {photoRecovery && !prepared && (
         <div className="draft-recovery">

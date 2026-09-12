@@ -85,6 +85,7 @@ export function Learners({
     [groupFilter, setGroupFilter] = useState(initialGroup),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
+    [enrolmentError, setEnrolmentError] = useState(""),
     [busy, setBusy] = useState(false),
     [preview, setPreview] = useState<Preview | null>(null),
     [duplicates, setDuplicates] = useState(false),
@@ -180,11 +181,27 @@ export function Learners({
       save: (studentId?: string) => Promise<void>;
       validate: () => void;
     }>(null);
+  useEffect(() => {
+    if (busy || !enrolmentError) return;
+    const invalid = enrolmentForm.current?.querySelector<HTMLInputElement | HTMLSelectElement>(":invalid:not(fieldset)");
+    invalid?.focus();
+    invalid?.reportValidity();
+  }, [busy, enrolmentError]);
   const recordDraftKey = useDraftKey(`learner:${current?.id || "new"}`);
   async function saveDetails() {
     const form = enrolmentForm.current;
-    if (!form || !form.reportValidity())
-      throw new Error("Complete the required student fields first.");
+    setEnrolmentError("");
+    if (!form) throw new Error("Open the enrolment form first.");
+    if (!form.checkValidity()) {
+      const invalid = form.querySelector<HTMLInputElement | HTMLSelectElement>(":invalid:not(fieldset)");
+      const label = invalid?.closest("label")?.textContent?.trim() || "required field";
+      const message = `Please check ${label}. Your other details remain in the form.`;
+      setEnrolmentError(message);
+      invalid?.scrollIntoView({block:"center",behavior:"smooth"});
+      invalid?.focus();
+      invalid?.reportValidity();
+      throw new Error(message);
+    }
     const f = new FormData(form);
     const custom_values = Object.fromEntries(
       defs
@@ -207,11 +224,17 @@ export function Learners({
       version: current?.version,
       confirmDuplicate: f.get("duplicate") === "on",
     };
-    const r = await api<{ id: string }>(
-      `${base}/learners${current ? "/" + current.id : ""}`,
-      current ? "PATCH" : "POST",
-      body,
-    );
+    let r: {id:string};
+    try {
+      r = await api<{id:string}>(`${base}/learners${current ? "/" + current.id : ""}`, current ? "PATCH" : "POST", body);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not save. Please try again.";
+      setEnrolmentError(message);
+      const field = /code/i.test(message) ? "code" : /phone/i.test(message) ? "guardian_phone" : /age/i.test(message) ? "age" : /duplicate|name/i.test(message) ? "name" : /group|section/i.test(message) ? "group_id" : "";
+      const input = field ? form.elements.namedItem(field) as HTMLElement | null : null;
+      input?.scrollIntoView({block:"center",behavior:"smooth"}); input?.focus();
+      throw e;
+    }
     if (recordDraftKey) removeDraft(recordDraftKey);
     setSelected(await api<Learner>(`${base}/learners/${r.id}`));
     setCreating(false);
@@ -256,6 +279,9 @@ export function Learners({
               setEditorKey((k) => k + 1);
               setCreating(true);
               setSelected(null);
+              setEnrolmentError("");
+              setError("");
+              setNotice("");
             }}
           >
             Add learner
@@ -372,7 +398,7 @@ export function Learners({
                 >
                   Open profile
                 </button>
-                {can("learners.photos") && (
+              {can("learners.photos") && (
                   <button
                     className="secondary"
                     disabled={busy}
@@ -401,25 +427,26 @@ export function Learners({
           <div>
             <DraftForm
               title="Learner enrolment"
+              noValidate
               draftKey={`learner:${current?.id || "new"}`}
               key={editorKey}
               formRef={enrolmentForm}
               onSubmit={(e) => {
                 e.preventDefault();
-                void act(async () => {
-                  photoSave.current?.validate();
-                  const id = await saveDetails();
-                  await photoSave.current?.save(id);
-                }, "Enrolment saved. Check the photo section for face-check results.");
+                const saving = saveDetails();
+                void act(() => saving, "Student enrolment saved. Photos can be added or retaken separately.");
               }}
             >
+              <p>Enter the student's name and select their section. Other details can be added later, except fields marked required by your organisation.</p>
+              {enrolmentError && <p className="error" role="alert">{enrolmentError}</p>}
               <fieldset disabled={busy || !editable}>
                 <legend>1. Student details</legend>
                 <label>
-                  Learner code
+                  Student ID (automatic for new students)
                   <input
                     name="code"
-                    pattern={"[A-Za-z0-9_\\-]+"}
+                    readOnly={!current}
+                    pattern={"[A-Za-z0-9][A-Za-z0-9_\\-]*"}
                     title="Use letters, numbers, underscores or hyphens. No spaces."
                     required
                     maxLength={40}
@@ -532,7 +559,7 @@ export function Learners({
                       )}
                     </label>
                   ))}
-                {editable && (
+                {editable && /duplicate|similar|same name/i.test(enrolmentError) && (
                   <>
                     <label className="check">
                       <input type="checkbox" name="duplicate" />I reviewed any
@@ -542,6 +569,13 @@ export function Learners({
                   </>
                 )}
               </fieldset>
+                {editable && (
+                <div className="form-save-bar">
+                  <button disabled={busy}>{busy ? "Saving…" : "Save enrolment"}</button>
+                  <span>Save student details. Photos and face checks do not block enrolment.</span>
+                  {enrolmentError && <p className="error" role="alert">{enrolmentError}</p>}
+                </div>
+              )}
               {can("learners.photos") && (
                 <fieldset disabled={busy} className="photo-enrolment-section">
                   <StudentPhotos
@@ -551,9 +585,10 @@ export function Learners({
                     archived={current?.archived || false}
                     demo={current?.demo || false}
                     ensureStudent={async () => {
+                      const saving = saveDetails();
                       setBusy(true);
                       try {
-                        return await saveDetails();
+                        return await saving;
                       } finally {
                         setBusy(false);
                       }
@@ -562,15 +597,7 @@ export function Learners({
                   />
                 </fieldset>
               )}
-              {editable && (
-                <div className="form-save-bar">
-                  <button disabled={busy}>Save enrolment</button>
-                  <span>
-                    Student details, section, custom fields and any prepared
-                    photo.
-                  </span>
-                </div>
-              )}
+
             </DraftForm>
             {current &&
               defs

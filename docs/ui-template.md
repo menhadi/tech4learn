@@ -10,7 +10,7 @@ Drafts save automatically on the current browser/device, scoped by signed-in use
 
 Never persist passwords, API keys, tokens or consent/confirmation acknowledgements in drafts. Explicitly model controlled fields with `draftState`/`restoreState` when native input restoration is insufficient. Learner portrait previews and organisation logos have explicit draft handling; arbitrary file inputs and classroom capture batches are not automatically persisted.
 
-Learner save creates/updates the student first, then saves the prepared photo against that ID. A photo failure retains the prepared photo for retry; it does not undo an already saved student. Face checking remains a subsequent operation with its own visible result.
+Save enrolment saves student details independently of photo permission, pending photos and face checks. Photo capture saves automatically after permission, creating the student first if required details are valid. A photo failure retains the photo draft for retry. New student IDs are generated automatically; duplicate confirmation is only shown after a duplicate warning.
 
 ## Tables
 
