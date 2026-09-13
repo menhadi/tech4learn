@@ -1,6 +1,13 @@
 <?php
 // Uses the installed ExamElite model definitions against an isolated in-memory database.
 require $argv[1];
+// Optional read-only source snapshot lets local checks use the deployed model revision.
+if(isset($argv[2])) {
+ $models=realpath($argv[2]);if(!$models||!is_dir($models))throw new InvalidArgumentException('Invalid model snapshot.');
+ spl_autoload_register(function($class)use($models){
+  if(preg_match('/^App\\\\Models\\\\([A-Za-z0-9_]+)$/D',$class,$match)&&is_file($models.'/'.$match[1].'.php'))require $models.'/'.$match[1].'.php';
+ },true,true);
+}
 require __DIR__.'/Tech4LearnWorkspacePolicy.php';
 require __DIR__.'/Tech4LearnContentCopies.php';
 use Illuminate\Database\Capsule\Manager;
@@ -33,8 +40,8 @@ $tables=[
  'question_sections'=>['organization_id','name'], 'question_section_groups'=>['question_section_id','group_id'],
  'exams'=>['organization_id','name','slug','duration','created_by_student_id','is_student_practice','category_level_1','category_level_2'],
  'exam_groups'=>['exam_id','group_id'], 'exam_sections'=>['exam_id','question_section_id','name','duration','display_order'],
- 'exam_questions'=>['exam_id','question_id','exam_section_id'], 'exam_subject_durations'=>['exam_id','subject_id','duration'],
- 'exam_languages'=>['exam_id','language_id','translation_status','last_error','translating_at','translated_at','auto_translate','auto_pdf','translation_approved_at','translation_approved_by'],
+ 'exam_questions'=>['exam_id','question_id','exam_section_id','is_public','is_indexable','published_at'], 'exam_subject_durations'=>['exam_id','subject_id','duration'],
+ 'exam_languages'=>['exam_id','language_id','translation_status','last_error','translating_at','translated_at','auto_translate','auto_pdf','translation_approved_at','translation_approved_by','translation_failed_source_fingerprint'],
  'exam_language_translations'=>['exam_id','language_id','name','instruction','translated_by'],
  'exam_quality_sources'=>['organization_id','exam_id','role','kind','label','storage_disk','file_path','source_url','provider','provider_file_id','provider_uploaded_at','is_active'],
 ];
