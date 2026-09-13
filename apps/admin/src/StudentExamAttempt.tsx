@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ExamRichContent } from "./ExamRichContent";
+import { ExamCamera } from "./ExamCamera";
 import { ExamCalculator } from "./ExamCalculator";
 import { api, apiBase } from "./api";
 
@@ -26,6 +27,7 @@ type Attempt = {
   settings: {
     allow_answer_change: boolean;
     calculator_allowed?: boolean;
+    proctor?: boolean;
     browser_tolerance?: boolean;
     tolerance_count?: number;
   };
@@ -58,6 +60,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
     [sectionRemaining, setSectionRemaining] = useState<number | null>(null),
     [notice, setNotice] = useState(""),
     [visibilityQueued, setVisibilityQueued] = useState(0),
+    [cameraReady, setCameraReady] = useState(false),
     [confirm, setConfirm] = useState(false);
   const pending = useRef<{ action: string; body: any } | null>(null),
     running = useRef(false),
@@ -266,6 +269,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
       previous[key] === value ? previous : { ...previous, [key]: value },
     );
   const frozen =
+    (!!attempt?.settings?.proctor && !cameraReady) ||
     visibilityQueued > 0 ||
     busy ||
     !!pending.current ||
@@ -374,6 +378,14 @@ export function StudentExamAttempt({ base }: { base: string }) {
                   {attempt.tolerance_count ?? 0}.
                 </p>
               )}
+            {attempt.settings.proctor && remaining !== 0 && (
+              <ExamCamera
+                key={`${base}:${attempt.attempt_id}`}
+                base={base}
+                attemptId={attempt.attempt_id}
+                onReady={setCameraReady}
+              />
+            )}
             {attempt.settings.calculator_allowed && <ExamCalculator />}
             {attempt.section_clock?.active && (
               <div>

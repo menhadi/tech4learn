@@ -41,7 +41,7 @@ final class Tech4LearnProctorEvidence
    return $this->receipt((object)$record);
   });
  }
- private function receipt(object $row):array {return ['saved'=>true,'capture_id'=>$row->request_id,'attempt_id'=>(int)$row->attempt_id,'received_at'=>(string)$row->received_at,'expires_at'=>(string)$row->expires_at];}
+ private function receipt(object $row):array {return ['saved'=>true,'capture_id'=>$row->request_id,'attempt_id'=>(int)$row->attempt_id,'received_at'=>Carbon::parse($row->received_at)->toIso8601String(),'expires_at'=>Carbon::parse($row->expires_at)->toIso8601String()];}
  /** Maintenance only: records expire independently of continued learner activity. */
  public function purgeExpired(int $limit=500):int {
   abort_unless($limit>=1&&$limit<=500,422);

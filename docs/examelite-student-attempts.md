@@ -83,7 +83,7 @@ This is the native browser-visibility rule, not a claim of tamper-proof proctori
 
 ## Private camera evidence foundation (not enabled)
 
-The native add-on now has an isolated evidence store and a same-domain student capture API. The camera UI is not enabled yet. The existing proctored-paper start gate remains in place until camera UI and authorised review are complete. ExamElite's legacy public-image upload is not used.
+The native add-on now has an isolated evidence store and a same-domain student capture API. The student camera component is implemented locally, but proctored-paper start remains blocked pending authorised staff review and pre-start camera checks. The existing proctored-paper start gate remains in place until camera UI and authorised review are complete. ExamElite's legacy public-image upload is not used.
 
 A capture is bound to the platform workspace, active mapped student and unsubmitted native attempt. The paper must enable proctoring and permit online delivery. New captures obey the attempt deadline, exam close time and captured section schedule. The store accepts only canonical base64 JPEGs up to 256 KiB and 1280×960, with a 25-second minimum interval and 1,200 captures per attempt. A request UUID and image hash make retries idempotent; receipts contain no image bytes or public path. Taking revocation also rejects receipt retries.
 
@@ -94,3 +94,9 @@ Images are stored transactionally in the native database's additive `tech4learn_
 The capture API derives the learner and exam from the active student grant, rejects client identity fields, rechecks access after the native call, and returns only a matching receipt. Its bounded image payload allowance does not enlarge other native student actions. Native and HTTP checks cover wrong-exam attempts, forged identities, mismatched receipts, private-byte stripping and interval errors.
 
 Retention deployment installs root-owned service/timer/CLI files with backups. Operators can inspect failures with `systemctl status tech4learn-proctor-cleanup.service` and `journalctl -u tech4learn-proctor-cleanup.service`; the task emits a deletion count, not image contents. The timer has not been installed or executed on live by this assistant.
+
+## Student camera component (launch still gated)
+
+For camera-enabled attempt payloads the student screen requests video only after an explicit button press. It shows a small preview and sends a bounded JPEG about every 30 seconds. Permission denial, stopped tracks and failed uploads freeze new answer edits/saves while the server timer continues. Students can still submit saved answers. A lost upload response retains the same image and request UUID in memory for retry; camera frames never enter form drafts or browser storage. Stop, completion and unmount release camera tracks, including a permission request that resolves after leaving the screen.
+
+The component has passed a local synthetic browser check using a generated canvas stream: permission denial, lost upload response, exact-image/UUID retry, answer freezing, stopping and submission. This is not a real-device camera or live exam validation. The native proctored-paper start gate is deliberately unchanged; authorised private staff review and camera readiness before the attempt starts remain prerequisites.
