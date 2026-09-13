@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import { DraftForm } from "./DraftForm";
 import { ExamQuestions } from "./ExamContent";
+import { ExamTaxonomy } from "./ExamTaxonomy";
 
 const labels = {
   subjects: "Subjects, topics and sections",
@@ -25,6 +26,7 @@ export function ExamWorkspace({
   const [rules, setRules] = useState<Rules | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const [page, setPage] = useState("questions");
   const [restrictions, setRestrictions] = useState<Feature[]>([]);
   useEffect(() => {
     let active = true;
@@ -44,7 +46,48 @@ export function ExamWorkspace({
       active = false;
     };
   }, [base]);
-  if (!controls) return resultsOnly ? null : <ExamQuestions org={org} />;
+  if (!controls)
+    return resultsOnly ? null : (
+      <section>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {!rules && !error && <p role="status">Loading exam access�</p>}
+        {rules && (
+          <>
+            <nav aria-label="Exam tools">
+              {!rules.restrictions.includes("questions") && (
+                <button
+                  className={page === "questions" ? "" : "secondary"}
+                  onClick={() => setPage("questions")}
+                >
+                  Question bank
+                </button>
+              )}
+              {!rules.restrictions.includes("subjects") && (
+                <button
+                  className={page === "subjects" ? "" : "secondary"}
+                  onClick={() => setPage("subjects")}
+                >
+                  Subjects, topics and sections
+                </button>
+              )}
+            </nav>
+            {page === "questions" &&
+            !rules.restrictions.includes("questions") ? (
+              <ExamQuestions org={org} />
+            ) : page === "subjects" &&
+              !rules.restrictions.includes("subjects") ? (
+              <ExamTaxonomy org={org} />
+            ) : (
+              <p>Select an available exam tool.</p>
+            )}
+          </>
+        )}
+      </section>
+    );
   return (
     <section className="panel">
       <h3>

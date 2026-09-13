@@ -12,6 +12,67 @@ import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get("organisations/:org/exam-content/taxonomy/:kind/:id")
+  async taxonomy(
+    @Param("org") org: string,
+    @Param("kind") kind: string,
+    @Param("id") id: string,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.taxonomy(
+      await this.identity.account(session(cookie)),
+      org,
+      kind,
+      id,
+    );
+  }
+  @Post("organisations/:org/exam-content/taxonomy/:kind/:id")
+  async saveTaxonomy(
+    @Param("org") org: string,
+    @Param("kind") kind: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.saveQuestion(
+      await this.identity.account(session(cookie)),
+      org,
+      id,
+      body ?? {},
+      kind,
+    );
+  }
+
+  @Get("organisations/:org/exam-content/choices/:kind")
+  async questionChoices(
+    @Param("org") org: string,
+    @Param("kind") kind: string,
+    @Query("search") search = "",
+    @Query("after") after = "0",
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.questionChoices(
+      await this.identity.account(session(cookie)),
+      org,
+      kind,
+      search,
+      after,
+    );
+  }
+  @Post("organisations/:org/exam-content/questions")
+  async createQuestion(
+    @Param("org") org: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.saveQuestion(
+      await this.identity.account(session(cookie)),
+      org,
+      "new",
+      body ?? {},
+    );
+  }
+
   @Get("organisations/:org/exam-content/questions/:id")
   async question(
     @Param("org") org: string,

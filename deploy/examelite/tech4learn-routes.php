@@ -8,6 +8,10 @@ use App\Http\Controllers\Tech4LearnContentController;
 use App\Http\Controllers\Tech4LearnAuthoringController;
 
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
+    Route::get('/authoring/{org}/taxonomy/{kind}/{id}', [Tech4LearnAuthoringController::class, 'taxonomy']);
+    Route::post('/authoring/{org}/taxonomy/{kind}/{id}', [Tech4LearnAuthoringController::class, 'saveTaxonomy']);
+    Route::get('/authoring/{org}/choices/{kind}', [Tech4LearnAuthoringController::class, 'choices']);
+    Route::post('/authoring/{org}/questions', [Tech4LearnAuthoringController::class, 'create']);
     Route::get('/authoring/{org}/questions/{id}', [Tech4LearnAuthoringController::class, 'question']);
     Route::post('/authoring/{org}/questions/{id}', [Tech4LearnAuthoringController::class, 'save']);
     Route::get('/content/{org}/questions', [Tech4LearnContentController::class, 'questions']);

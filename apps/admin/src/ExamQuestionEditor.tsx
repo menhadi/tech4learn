@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { api } from "./api";
 import { DraftForm } from "./DraftForm";
+import { QuestionChoiceField } from "./QuestionChoiceField";
 
 type Snapshot = {
   id: number;
@@ -127,7 +128,7 @@ export function ExamQuestionEditor({
   onClose,
 }: {
   org: string;
-  id: number;
+  id: number | "new";
   onClose: () => void;
 }) {
   const [record, setRecord] = useState<Snapshot | null>(null),
@@ -137,7 +138,9 @@ export function ExamQuestionEditor({
     [notice, setNotice] = useState(""),
     [request, setRequest] = useState<string | null>(null),
     [reload, setReload] = useState(0);
-  const base = `/organisations/${org}/exam-content/questions/${id}`;
+  const [activeId, setActiveId] = useState<number | "new">(id);
+  const [selectedType, setSelectedType] = useState("");
+  const base = `/organisations/${org}/exam-content/questions/${activeId}`;
   useEffect(() => {
     let active = true;
     setBusy(true);
@@ -146,6 +149,7 @@ export function ExamQuestionEditor({
       .then((r) => {
         if (active) {
           setRecord(r);
+          setSelectedType(r.type ?? "");
           setChanges({});
           setRequest(null);
         }
@@ -168,7 +172,9 @@ export function ExamQuestionEditor({
   const values = { ...record?.fields, ...changes };
   return (
     <section className="panel">
-      <h3>Question #{id}</h3>
+      <h3>
+        {activeId === "new" ? "Create question" : `Question #${activeId}`}
+      </h3>
       <button className="secondary" onClick={onClose} disabled={busy}>
         Back to question bank
       </button>
@@ -180,9 +186,15 @@ export function ExamQuestionEditor({
       {notice && <p role="status">{notice}</p>}
       {record && (
         <DraftForm
-          draftKey={`exam-question-${org}-${id}`}
+          key={activeId}
+          draftKey={`exam-question-${org}-${activeId}`}
           title={record.type_name ?? "Question details"}
-          draftState={{ revision: record.revision, changes }}
+          draftState={{
+            revision: record.revision,
+            changes,
+            selectedType,
+            request,
+          }}
           restoreState={(s) => {
             if (
               s?.revision === record.revision &&
@@ -191,7 +203,12 @@ export function ExamQuestionEditor({
               !Array.isArray(s.changes)
             ) {
               setChanges(s.changes);
-              setRequest(null);
+              setSelectedType(
+                typeof s.selectedType === "string"
+                  ? s.selectedType
+                  : (record.type ?? ""),
+              );
+              setRequest(typeof s.request === "string" ? s.request : null);
             } else
               setError(
                 "This draft belongs to an older question version. Reload and review the current question before making changes.",
@@ -205,12 +222,17 @@ export function ExamQuestionEditor({
             setError("");
             setNotice("");
             try {
-              const saved = await api<Snapshot>(base, "POST", {
-                fields: changes,
-                revision: record.revision,
-                request_id: requestId,
-              });
+              const saved = await api<Snapshot>(
+                activeId === "new" ? base.replace(/\/new$/, "") : base,
+                "POST",
+                {
+                  fields: activeId === "new" ? values : changes,
+                  revision: record.revision,
+                  request_id: requestId,
+                },
+              );
               setRecord({ ...record, ...saved });
+              if (activeId === "new") setActiveId(saved.id);
               setChanges({});
               setRequest(null);
               setNotice("Question saved in your organisation.");
@@ -224,13 +246,72 @@ export function ExamQuestionEditor({
             }
           }}
         >
+          {activeId === "new" && (
+            <QuestionChoiceField
+              org={org}
+              kind="types"
+              label="Question type"
+              value={values.qtype_id ?? null}
+              required
+              disabled={busy}
+              onChange={(v, option) => {
+                set("qtype_id", v);
+                setSelectedType(option?.type ?? "");
+              }}
+            />
+          )}
+          <details open={activeId === "new"}>
+            <summary>Classification and language</summary>
+            <QuestionChoiceField
+              org={org}
+              kind="groups"
+              label="Exam groups"
+              multiple
+              required
+              value={values.group_ids ?? []}
+              disabled={busy}
+              onChange={(v) => set("group_ids", v)}
+            />
+            <QuestionChoiceField
+              org={org}
+              kind="languages"
+              label="Language"
+              required
+              value={values.language_id ?? null}
+              disabled={busy}
+              onChange={(v) => set("language_id", v)}
+            />
+            {(
+              [
+                ["subjects", "subject_id", "Subject"],
+                ["topics", "topic_id", "Topic"],
+                ["subtopics", "stopic_id", "Subtopic"],
+                ["sections", "question_section_id", "Question section"],
+                ["difficulties", "diff_id", "Difficulty"],
+              ] as const
+            ).map(([kind, key, label]) => (
+              <QuestionChoiceField
+                key={key}
+                org={org}
+                kind={kind}
+                label={label}
+                value={values[key] ?? null}
+                disabled={busy}
+                onChange={(v) => set(key, v)}
+              />
+            ))}
+            <p>
+              ExamElite validates that subjects, topics and sections belong to
+              the selected exam groups.
+            </p>
+          </details>
           <FormattedField
             label="Question"
             value={String(values.question ?? "")}
             disabled={busy}
             onChange={(v) => set("question", v)}
           />
-          {record.type === "M" && (
+          {selectedType === "M" && (
             <fieldset>
               <legend>Options and correct answers</legend>
               {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -263,7 +344,7 @@ export function ExamQuestionEditor({
               ))}
             </fieldset>
           )}
-          {record.type === "T" && (
+          {selectedType === "T" && (
             <label>
               Correct answer
               <select
@@ -277,7 +358,7 @@ export function ExamQuestionEditor({
               </select>
             </label>
           )}
-          {record.type === "NAT" && (
+          {selectedType === "NAT" && (
             <fieldset>
               <legend>Numerical answer</legend>
               <label>
@@ -323,7 +404,7 @@ export function ExamQuestionEditor({
               ))}
             </fieldset>
           )}
-          {["F", "B"].includes(record.type ?? "") && (
+          {["F", "B"].includes(selectedType) && (
             <fieldset>
               <legend>Accepted answers for each blank</legend>
               {(values.fill_blank_answers ?? []).map(
@@ -362,7 +443,7 @@ export function ExamQuestionEditor({
               </button>
             </fieldset>
           )}
-          {record.type === "S" && (
+          {selectedType === "S" && (
             <FormattedField
               label="Model answer"
               value={String(values.si_answer1 ?? "")}

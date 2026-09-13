@@ -55,3 +55,18 @@ def hosting_config(socket, certificate_root):
     </FilesMatch>
 </VirtualHost>
 '''
+
+def fix_exam_creation_validation(text):
+    """Keep the native validated pass threshold instead of casting an undefined value."""
+    start = text.find('public function store(Request $request)')
+    end = text.find('public function edit(', start)
+    if start < 0 or end < 0:
+        raise ValueError('Unsupported native exam controller; no files changed.')
+    block = text[start:end]
+    if "$validated['passing_percentage']" not in block:
+        return text
+    if '$validated = $request->validate([' in block:
+        return text
+    if block.count('$request->validate([') != 1 or '$validated =' in block:
+        raise ValueError('Review native exam creation validation before installing.')
+    return text[:start] + block.replace('$request->validate([', '$validated = $request->validate([', 1) + text[end:]

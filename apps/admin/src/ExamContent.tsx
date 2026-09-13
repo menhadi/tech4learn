@@ -126,7 +126,7 @@ export function ExamQuestions({
     [notice, setNotice] = useState(""),
     [loadedSearch, setLoadedSearch] = useState("");
   const [request, setRequest] = useState<string | null>(null);
-  const [editing, setEditing] = useState<number | null>(null);
+  const [editing, setEditing] = useState<number | "new" | null>(null);
   const [history, setHistory] = useState<
     {
       request_id: string;
@@ -199,6 +199,11 @@ export function ExamQuestions({
           ? "Share central questions with this organisation, or pull its questions into the central bank. Each destination owns its copy."
           : "Questions shared with your organisation appear here. Open a question to edit its text, answers and marks."}
       </p>
+      {(!central || source === "organisation") && (
+        <button disabled={busy} onClick={() => setEditing("new")}>
+          Create question
+        </button>
+      )}
       {central && (
         <label>
           Source bank

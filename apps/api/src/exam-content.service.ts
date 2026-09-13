@@ -13,20 +13,96 @@ import type { Account } from "./identity.service.js";
 
 @Injectable()
 export class ExamContentService {
-  private async questionAccess(user: Account, org: string, id: string) {
+  private async questionAccess(
+    user: Account,
+    org: string,
+    id: string,
+    feature = "questions",
+  ) {
     await this.access.require(user, org, "exams.manage");
-    if (!/^[1-9][0-9]{0,14}$/.test(id))
+    if (id !== "new" && !/^[1-9][0-9]{0,14}$/.test(id))
       throw new BadRequestException("Invalid question.");
     const rules = await this.workspace.status(user, org);
-    if (rules.restrictions.includes("questions"))
+    if (rules.restrictions.includes(feature))
       throw new ForbiddenException("Question bank is restricted.");
+  }
+  async questionChoices(
+    user: Account,
+    org: string,
+    kind: string,
+    search: string,
+    after: string,
+  ) {
+    await this.access.require(user, org, "exams.manage");
+    const rules = await this.workspace.status(user, org);
+    if (
+      rules.restrictions.includes("questions") &&
+      rules.restrictions.includes("subjects")
+    )
+      throw new ForbiddenException("Exam authoring is restricted.");
+    if (
+      ![
+        "groups",
+        "subjects",
+        "sections",
+        "topics",
+        "subtopics",
+        "languages",
+        "types",
+        "difficulties",
+      ].includes(kind) ||
+      typeof search !== "string" ||
+      search.length > 120 ||
+      !/^[0-9]{1,15}$/.test(after)
+    )
+      throw new BadRequestException("Invalid question lookup.");
+    return this.remote.request(
+      await this.config(),
+      org,
+      `authoring/${org}/choices/${kind}?search=${encodeURIComponent(search)}&after=${after}`,
+    );
   }
   async question(user: Account, org: string, id: string) {
     await this.questionAccess(user, org, id);
+    if (id === "new") {
+      await this.workspace.launch(user, org, { feature: "questions" }, true);
+      return {
+        id: 0,
+        revision: "new",
+        fields: {
+          question: "",
+          marks: 1,
+          negative_marks: 0,
+          status: "Yes",
+          group_ids: [],
+          tag_ids: [],
+          correct_answers: [],
+          nat_mode: "exact",
+          fill_blank_answers: [{ accepted_answers: "" }],
+        },
+      };
+    }
     return this.remote.request(
       await this.config(),
       org,
       `authoring/${org}/questions/${id}`,
+    );
+  }
+  private taxonomyKind(kind: string) {
+    if (
+      !["groups", "subjects", "topics", "subtopics", "sections"].includes(kind)
+    )
+      throw new BadRequestException("Invalid exam classification.");
+  }
+  async taxonomy(user: Account, org: string, kind: string, id: string) {
+    this.taxonomyKind(kind);
+    await this.questionAccess(user, org, id, "subjects");
+    if (id === "new")
+      await this.workspace.launch(user, org, { feature: "subjects" }, true);
+    return this.remote.request(
+      await this.config(),
+      org,
+      `authoring/${org}/taxonomy/${kind}/${id}`,
     );
   }
   async saveQuestion(
@@ -34,26 +110,33 @@ export class ExamContentService {
     org: string,
     id: string,
     b: Record<string, unknown>,
+    kind = "questions",
   ) {
-    await this.questionAccess(user, org, id);
+    if (kind !== "questions") this.taxonomyKind(kind);
+    const feature = kind === "questions" ? "questions" : "subjects";
+    await this.questionAccess(user, org, id, feature);
     if (
       !b.fields ||
       typeof b.fields !== "object" ||
       Array.isArray(b.fields) ||
       JSON.stringify(b.fields).length > 250000 ||
       typeof b.revision !== "string" ||
-      !/^[a-f0-9]{64}$/.test(b.revision) ||
+      (id === "new"
+        ? b.revision !== "new"
+        : !/^[a-f0-9]{64}$/.test(b.revision)) ||
       typeof b.request_id !== "string" ||
       !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(
         b.request_id,
       )
     )
       throw new BadRequestException("Invalid question changes.");
-    await this.workspace.launch(user, org, { feature: "questions" }, true);
+    await this.workspace.launch(user, org, { feature }, true);
     const response = await this.remote.request(
       await this.config(),
       org,
-      `authoring/${org}/questions/${id}`,
+      kind === "questions"
+        ? `authoring/${org}/questions${id === "new" ? "" : "/" + id}`
+        : `authoring/${org}/taxonomy/${kind}/${id}`,
       {
         fields: b.fields,
         revision: b.revision,
@@ -75,10 +158,16 @@ export class ExamContentService {
         messages.join(" ") || "ExamElite could not save this question.",
       );
     }
-    await this.access.audit(this.db, user, org, "exams.question.updated", {
-      questionId: id,
-      requestId: b.request_id,
-    });
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      `exams.${kind}.${id === "new" ? "created" : "updated"}`,
+      {
+        questionId: response.question?.id,
+        requestId: b.request_id,
+      },
+    );
     return response.question;
   }
   constructor(

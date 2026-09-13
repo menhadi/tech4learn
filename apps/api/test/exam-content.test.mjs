@@ -71,6 +71,8 @@ test("central question sharing requires superadmin; organisation reads respect m
   let saveOutcome = "success";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    if (path.includes("/choices/"))
+      return { items: [{ id: 3, label: "Own classification" }], next: null };
     if (path.startsWith("authoring/"))
       return body
         ? saveOutcome === "conflict"
@@ -188,6 +190,72 @@ test("central question sharing requires superadmin; organisation reads respect m
       "Numerical answer is required.",
     );
     saveOutcome = "success";
+    const create = {
+      fields: { question: "Created", qtype_id: 2 },
+      revision: "new",
+      request_id: randomUUID(),
+      actor_id: admin,
+    };
+    assert.equal((await call(own + "/new", undefined, member)).status, 200);
+    assert.equal((await call(own, create, member)).status, 201);
+    assert.equal(requests.at(-1).body.actor_id, member);
+    assert.equal(requests.at(-1).path, `authoring/${org}/questions`);
+    assert.equal(
+      (await call(own, { ...create, revision: "a".repeat(64) }, member)).status,
+      400,
+    );
+    const taxonomy = `/organisations/${org}/exam-content/taxonomy/subjects`;
+    assert.equal(
+      (await call(taxonomy + "/new", undefined, member)).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call(
+          taxonomy + "/new",
+          {
+            ...create,
+            fields: { subject_name: "Own subject", group_ids: [3] },
+          },
+          member,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      requests.at(-1).path,
+      `authoring/${org}/taxonomy/subjects/new`,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${other}/exam-content/taxonomy/subjects/new`,
+          create,
+          member,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/choices/subjects?search=own&after=0`,
+          undefined,
+          member,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/choices/users`,
+          undefined,
+          member,
+        )
+      ).status,
+      400,
+    );
     const body = {
       direction: "share",
       question_ids: [9, 2, 9],
@@ -213,6 +281,31 @@ test("central question sharing requires superadmin; organisation reads respect m
     );
     assert.equal((await call(own, undefined, member)).status, 403);
     assert.equal((await call(own + "/9", edit, member)).status, 403);
+    assert.equal((await call(own, create, member)).status, 403);
+    assert.equal(
+      (await call(taxonomy + "/new", undefined, member)).status,
+      200,
+    );
+    await pg.query(
+      "UPDATE examelite_workspaces SET restrictions=$2 WHERE organisation_id=$1",
+      [org, ["questions", "subjects"]],
+    );
+    assert.equal(
+      (await call(taxonomy + "/new", undefined, member)).status,
+      403,
+    );
+    assert.equal((await call(taxonomy + "/new", create, member)).status, 403);
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/choices/subjects`,
+          undefined,
+          member,
+        )
+      ).status,
+      403,
+    );
+
     assert.equal((await call(platform + "/transfer", body)).status, 403);
     assert.equal(
       (

@@ -14,6 +14,9 @@ foreach([
  ['GET','api/tech4learn/v1/workspace/status','Tech4LearnWorkspaceController@health'],
  ['GET','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/questions','Tech4LearnContentController@questions'],
  ['POST','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/transfer','Tech4LearnContentController@transfer'],
+ ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/choices/groups','Tech4LearnAuthoringController@choices'],
+ ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions','Tech4LearnAuthoringController@create'],
+ ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/taxonomy/subjects/new','Tech4LearnAuthoringController@saveTaxonomy'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1','Tech4LearnAuthoringController@save'],
 ] as [$method,$path,$expected]) {
     $request=\Illuminate\Http\Request::create('https://examelite.com/'.$path,$method);

@@ -10,8 +10,9 @@ namespace App\Support {
  class SaasAccess {public static function abortIfLimitReached($feature):void{}}
 }
 namespace {
+if(isset($argv[3])){ $taxonomy=dirname($argv[3]).'/CurriculumTaxonomyService.php'; if(is_file($taxonomy))require $taxonomy; }
 require __DIR__.'/test-content-copies.php';
-if(isset($argv[3]))require $argv[3];
+if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController'] as $controller){$path=dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
 require __DIR__.'/Tech4LearnQuestionAuthoring.php';
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -75,6 +76,49 @@ foreach([
  $result=$service->save($workspace,20,$actor,$item->id,['marks'=>5],$snapshot['revision'],'answers-'.$index);
  foreach(['correct_answers','fill_blank_answers','true_false','nat_mode','nat_value','nat_min','nat_max','nat_tolerance'] as $field)check(($result['fields'][$field]??null)==($snapshot['fields'][$field]??null),'Answer preserved: '.$index.' '.$field);
 }
+
+$createFields=['qtype_id'=>2,'question'=>'Created through the native controller','language_id'=>$language->id,'group_ids'=>[$group->id],'nat_mode'=>'exact','nat_value'=>9,'marks'=>4,'status'=>'Yes'];
+foreach(['option1','option2','option3','option4','option5','option6','hint','explanation','fill_blank'] as $field)DB::statement('ALTER TABLE question_langs ADD COLUMN '.$field.' TEXT');
+$beforeCount=App\Models\Question::count();$originalEvents=App\Models\Question::getEventDispatcher();
+$created=$service->save($workspace,20,$actor,0,$createFields,'new','create-1');
+check(App\Models\Question::count()===$beforeCount+1 && $created['fields']['nat_value']==9,'Native question creation');
+check(App\Models\QuestionLang::where('question_id',$created['id'])->count()===1,'Native language record created');
+check($service->save($workspace,20,$actor,0,$createFields,'new','create-1')===$created && App\Models\Question::count()===$beforeCount+1,'Create retry does not duplicate');
+check(App\Models\Question::getEventDispatcher()===$originalEvents,'Native event dispatcher restored');
+try{$service->save($workspace,20,$actor,0,array_replace($createFields,['nat_value'=>null]),'new','create-invalid');throw new RuntimeException('Expected create validation');}catch(Illuminate\Validation\ValidationException $e){}
+check(App\Models\Question::count()===$beforeCount+1,'Invalid create has no partial record');
+
+foreach(['groups','topics','stopics','question_sections'] as $table)DB::statement('ALTER TABLE '.$table.' ADD COLUMN display_order INTEGER');
+DB::statement('ALTER TABLE subjects ADD COLUMN category_ids TEXT');DB::statement('ALTER TABLE question_sections ADD COLUMN status INTEGER');
+foreach(['groups','subjects','topics','stopics','sections'] as $route)$routes->add((new Illuminate\Routing\Route(['GET'],$route,fn()=>null))->name($route.'.index'));
+$subject=$service->save($workspace,20,$actor,0,['subject_name'=>'Synthetic syllabus','group_ids'=>[$group->id]],'new','subject-1','subjects');
+$topic=$service->save($workspace,20,$actor,0,['name'=>'Synthetic topic','subject_id'=>$subject['id'],'group_id'=>$group->id,'display_order'=>0],'new','topic-1','topics');
+$subtopic=$service->save($workspace,20,$actor,0,['name'=>'Synthetic subtopic','subject_id'=>$subject['id'],'group_id'=>$group->id,'topic_id'=>$topic['id'],'display_order'=>0],'new','subtopic-1','subtopics');
+$section=$service->save($workspace,20,$actor,0,['name'=>'Synthetic section','group_ids'=>[$group->id],'status'=>true],'new','section-1','sections');
+$newGroup=$service->save($workspace,20,$actor,0,['group_name'=>'Synthetic new exam group','display_order'=>0],'new','group-1','groups');
+check($subject['id']&&$topic['id']&&$subtopic['id']&&$section['id']&&$newGroup['id'],'Native taxonomy creation');
+$renamed=$service->save($workspace,20,$actor,$subject['id'],['subject_name'=>'Renamed syllabus'],$subject['revision'],'subject-update','subjects');
+check($renamed['fields']['subject_name']==='Renamed syllabus' && $renamed['fields']['group_ids']===[$group->id],'Native subject edit preserves scope');
+$beforeTaxonomy=App\Models\Topic::count();
+try{$service->save($workspace,20,$actor,0,['name'=>'Foreign','subject_id'=>1,'group_id'=>$group->id],'new','foreign-topic','topics');throw new RuntimeException('Expected foreign subject denial');}catch(Illuminate\Database\Eloquent\ModelNotFoundException|Symfony\Component\HttpKernel\Exception\HttpException|Illuminate\Validation\ValidationException $e){}
+check(App\Models\Topic::count()===$beforeTaxonomy,'Foreign taxonomy create has no partial records');
+require __DIR__.'/Tech4LearnPlatformController.php';require __DIR__.'/Tech4LearnAuthoringController.php';
+$controller=new class extends App\Http\Controllers\Tech4LearnAuthoringController {
+ protected function configuration(Request $r):array{return ['_platform'=>['organization_id'=>10]];}
+ protected function reply(int $tenant,array $data){return $data;}
+};
+foreach(['groups','subjects','topics','subtopics','sections','languages','types','difficulties'] as $kind){
+ $choices=$controller->choices(Request::create('/','GET',['after'=>'0']),$workspace,$kind);
+ foreach($choices['items'] as $item){
+  if(in_array($kind,['types','difficulties'],true))continue;
+  if($kind==='languages')check(App\Models\Language::find($item['id'])->organization_id==20,'Language choices tenant scope');
+  else check($service->owned($kind,20)->whereKey($item['id'])->exists(),'Taxonomy choices tenant scope');
+ }
+}
+$beforeRequests=DB::table('tech4learn_authoring_requests')->count();
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'["subjects"]']);
+try{$service->save($workspace,20,$actor,$subject['id'],['subject_name'=>'Blocked'],$renamed['revision'],'blocked','subjects');throw new RuntimeException('Expected taxonomy restriction');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===403,'Taxonomy feature restriction');}
+check(DB::table('tech4learn_authoring_requests')->count()===$beforeRequests,'Denied taxonomy save has no ledger entry');
 
 echo "Native question adapter: native validation, unchanged answers, scope, stale edits, replay and context restoration passed.\n";
 }

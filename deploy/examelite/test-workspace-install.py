@@ -1,5 +1,5 @@
 import unittest
-from workspace_install import add_provider, add_navigation, hosting_config
+from workspace_install import add_provider, add_navigation, hosting_config, fix_exam_creation_validation
 
 class WorkspaceInstallTests(unittest.TestCase):
     def test_additive_and_repeatable(self):
@@ -18,6 +18,14 @@ class WorkspaceInstallTests(unittest.TestCase):
         for fn in (add_provider, add_navigation):
             with self.assertRaises(ValueError): fn('unknown source')
         with self.assertRaises(ValueError): add_navigation("@yield('content') @yield('content')")
+
+    def test_native_creation_keeps_validated_pass_threshold(self):
+        source = "public function store(Request $request) { $request->validate(['passing_percentage'=>'numeric']); $data['passing_percentage'] = $validated['passing_percentage']; } public function edit(Exam $exam) {}"
+        expected = source.replace("$request->validate([", "$validated = $request->validate([", 1)
+        self.assertEqual(fix_exam_creation_validation(source), expected)
+        self.assertEqual(fix_exam_creation_validation(expected), expected)
+        with self.assertRaises(ValueError): fix_exam_creation_validation('unknown controller')
+        with self.assertRaises(ValueError): fix_exam_creation_validation(source.replace("$request->validate([", "$request->validate([]); $request->validate(["))
 
     def test_scoped_host_and_injection_denial(self):
         config = hosting_config('/run/php/example.sock','/etc/letsencrypt/live/examelite-workspaces')

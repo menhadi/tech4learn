@@ -18,6 +18,29 @@ final class Tech4LearnQuestionAuthoring
         'hint','explanation','answer','true_false','fill_blank','fill_blank_answers','nat_mode','nat_value','nat_min','nat_max',
         'nat_tolerance','status','correct_answers','si_answer1','group_ids','tag_ids'];
 
+    public function definition(string $kind):array {
+        $definitions=[
+          'questions'=>[Question::class,QuestionController::class,self::FIELDS,'question'],
+          'groups'=>[\App\Models\Group::class,\App\Http\Controllers\GroupController::class,['group_name','display_order'],'group'],
+          'subjects'=>[\App\Models\Subject::class,\App\Http\Controllers\SubjectController::class,['subject_name','group_ids','category_ids'],'subject'],
+          'topics'=>[\App\Models\Topic::class,\App\Http\Controllers\TopicController::class,['name','group_id','subject_id','display_order'],'topic'],
+          'subtopics'=>[\App\Models\Stopic::class,\App\Http\Controllers\StopicController::class,['name','group_id','subject_id','topic_id','display_order'],'stopic'],
+          'sections'=>[\App\Models\QuestionSection::class,\App\Http\Controllers\SectionController::class,['name','group_ids','display_order','status'],'section'],
+        ];
+        abort_unless(isset($definitions[$kind]),404);return $definitions[$kind];
+    }
+    public function owned(string $kind,int $tenant){
+        [$model]=$this->definition($kind);$query=$model::query();
+        if(in_array($kind,['topics','subtopics'],true))return $query->whereHas('subject',fn($q)=>$q->where('organization_id',$tenant))->whereHas('group',fn($q)=>$q->where('organization_id',$tenant));
+        return $query->where('organization_id',$tenant);
+    }
+    public function record(string $kind,\Illuminate\Database\Eloquent\Model $model):array {
+        if($kind==='questions')return $this->snapshot($model);
+        $fields=$model->only($this->definition($kind)[2]);
+        if(in_array($kind,['subjects','sections'],true))$fields['group_ids']=$model->groups()->orderBy('groups.id')->pluck('groups.id')->map(fn($id)=>(int)$id)->all();
+        $raw=$model->getAttributes();ksort($raw);
+        return ['id'=>(int)$model->id,'fields'=>$fields,'revision'=>hash('sha256',json_encode([$raw,$fields],JSON_THROW_ON_ERROR))];
+    }
     public function snapshot(Question $question):array {
         $fields=$question->only(self::FIELDS);
         $fields['group_ids']=$question->groups()->orderBy('groups.id')->pluck('groups.id')->map(fn($id)=>(int)$id)->all();
@@ -26,35 +49,37 @@ final class Tech4LearnQuestionAuthoring
         $fields['fill_blank_answers']=array_map(fn($b)=>['accepted_answers'=>implode(' | ',$b['answers']??[])],$question->fill_blank_config['blanks']??[]);
         foreach(['mode','value','min','max','tolerance'] as $key)$fields['nat_'.$key]=$question->nat_config[$key]??null;
         $fields['nat_mode']=$fields['nat_mode']??'exact';
-        return ['id'=>(int)$question->id,'fields'=>$fields,'revision'=>$this->revision($question)];
+        return ['id'=>(int)$question->id,'fields'=>$fields,'type'=>$question->qtype?->type,'type_name'=>$question->qtype?->question_type,'revision'=>$this->revision($question)];
     }
     private function revision(Question $question):string {
         $attributes=$question->getAttributes();ksort($attributes);
         return hash('sha256',json_encode([$attributes,$question->groups()->orderBy('groups.id')->pluck('groups.id')->all(),$question->tags()->orderBy('question_tags.id')->pluck('question_tags.id')->all()],JSON_THROW_ON_ERROR));
     }
-    public function save(string $workspace,int $tenant,string $actor,int $id,array $fields,string $revision,string $requestId):array {
-        abort_unless($id>0,422);
-        if(array_diff(array_keys($fields),self::FIELDS))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
+    public function save(string $workspace,int $tenant,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind='questions'):array {
+        [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
+        abort_unless($id>=0,422);
+        if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
         if(strlen(json_encode($fields,JSON_THROW_ON_ERROR))>250000)throw ValidationException::withMessages(['fields'=>'Question is too large.']);
-        foreach(['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'] as $key){
+        if($kind==='questions')foreach(['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'] as $key){
             if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         }
-        $fingerprint=hash('sha256',json_encode([$tenant,$actor,$id,$fields,$revision],JSON_THROW_ON_ERROR));
-        return DB::transaction(function()use($workspace,$tenant,$actor,$id,$fields,$revision,$requestId,$fingerprint){
+        $fingerprint=hash('sha256',json_encode([$kind,$tenant,$actor,$id,$fields,$revision],JSON_THROW_ON_ERROR));
+        return DB::transaction(function()use($workspace,$tenant,$actor,$id,$fields,$revision,$requestId,$fingerprint,$kind){
             $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->lockForUpdate()->first();
             abort_unless($w && (int)$w->organization_id===$tenant,403);
-            abort_unless(!in_array('questions',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
+            abort_unless(!in_array($kind==='questions'?'questions':'subjects',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
             $prior=DB::table('tech4learn_authoring_requests')->where('workspace_id',$workspace)->where('request_id',$requestId)->first();
             if($prior){abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);}
             $nativeId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$actor)->where('kind','staff')->value('external_id');
             $user=User::findOrFail($nativeId);
             abort_unless(DB::table('organization_users')->where('organization_id',$tenant)->where('user_id',$user->id)->where('status',1)->exists(),403);
-            $question=Question::where('organization_id',$tenant)->lockForUpdate()->findOrFail($id);
-            abort_unless(hash_equals($this->revision($question),$revision),409,'Question changed. Reload before saving.');
-            $values=array_replace($this->snapshot($question)['fields'],$fields);
+            $question=$id?$this->owned($kind,$tenant)->lockForUpdate()->findOrFail($id):null;
+            if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Question changed. Reload before saving.');
+            else abort_unless($revision==='new',422);
+            $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             // The native controller accepts its web form. Give it a private request/session,
             // and translate its redirect feedback into an atomic API outcome.
-            $result=$this->invoke($tenant,$user,$values,$question);
+            $result=$this->invoke($tenant,$user,$values,$question,$kind);
             DB::table('tech4learn_authoring_requests')->insert(['workspace_id'=>$workspace,'request_id'=>$requestId,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });
@@ -76,22 +101,35 @@ final class Tech4LearnQuestionAuthoring
         $clean='';foreach($body->childNodes as $node){if($node instanceof \DOMElement||$node instanceof \DOMText)$clean.=$dom->saveHTML($node);}
         return $clean;
     }
-    private function invoke(int $tenant,User $user,array $fields,Question $question):array {
+    private function invoke(int $tenant,User $user,array $fields,?\Illuminate\Database\Eloquent\Model $question,string $kind):array {
+        [$modelClass,$controllerClass,,$parameter]=$this->definition($kind);
         $organisation=Organization::where('status','active')->findOrFail($tenant);
         $app=app();$oldRequest=$app->make('request');$oldRedirect=$app->make('redirect');$guard=Auth::guard('web');$oldUser=$guard->user();
         $session=new Store('t4l-authoring',new ArraySessionHandler(5));$session->start();
-        $request=Request::create('https://'.$organisation->domain.'/questions','POST',$fields);
+        $request=Request::create('https://'.$organisation->domain.'/'.$kind,'POST',$fields);
         $request->setLaravelSession($session);$request->setUserResolver(fn()=>$user);
         $redirect=new Redirector($app->make('url'));$redirect->setSession($session);
         $app->instance('request',$request);$app->instance('redirect',$redirect);$guard->setUser($user);Tenant::clear();
+        // Capture the native create result without guessing the latest ID (other
+        // ExamElite requests may be writing concurrently). Restore the dispatcher.
+        $originalDispatcher=Question::getEventDispatcher();
+        $dispatcher=$originalDispatcher?clone $originalDispatcher:new \Illuminate\Events\Dispatcher($app);
+        $created=[];
+        if(!$question){
+            Question::setEventDispatcher($dispatcher);
+            $dispatcher->listen('eloquent.created: '.$modelClass,function($model)use(&$created){$created[]=$model;});
+        }
         try {
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
-            $controller=app(QuestionController::class);
-            $controller->update($request,$question);
+            $controller=app($controllerClass);
+            $arguments=['request'=>$request];if($question)$arguments[$parameter]=$question;
+            $app->call([$controller,$question?'update':'store'],$arguments);
             if($session->has('errors'))throw ValidationException::withMessages($session->get('errors')->getBag('default')->messages());
             if(!$session->has('success') || $session->has('error'))throw ValidationException::withMessages(['question'=>'ExamElite could not save this question. Check its fields and related records.']);
-            return $this->snapshot($question->fresh());
+            if(!$question){abort_unless(count($created)===1,500,'Native create did not return one question.');$question=$created[0];}
+            return $this->record($kind,$this->owned($kind,$tenant)->findOrFail($question->id));
         }finally{
+            if(!$originalDispatcher)Question::unsetEventDispatcher();else Question::setEventDispatcher($originalDispatcher);
             $oldUser?$guard->setUser($oldUser):$guard->forgetUser();
             $app->instance('request',$oldRequest);$app->instance('redirect',$oldRedirect);Tenant::clear();
             $session->invalidate();
