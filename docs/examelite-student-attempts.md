@@ -1,6 +1,16 @@
 # Internal student attempts: implementation status
 
-The full student portal is not ready for deployment. This increment implements and locally tests two private native adapter components. It creates no student login, exam launch link or public answer endpoint.
+The full student portal is not ready for deployment. Private native answer/payload adapters and a Tech4Learn student sign-in/access boundary are implemented and tested locally. Start, resume and submission are not yet wired into the student screen.
+
+## Student sign-in and exam grants
+
+Migration 15 adds exam-specific learner grants and separate student sessions. Authorised exam staff can issue, list and revoke grants through the organisation API. Issuance verifies the active Tech4Learn learner and the organisation-owned native exam. A grant lasts 1–168 hours; reissuing for the same student and paper revokes the previous grant and sessions. Email does not merge accounts, and granting exam access creates no staff user or organisation membership.
+
+The response contains a one-use URL fragment, never a token in the query string. The student entry screen captures and removes it from the address before making API requests, then exchanges it only after the student clicks Sign in. Tokens remain in memory, are not placed in drafts/browser storage, and are stored only as hashes on the server. Successful exchange sets a separate HttpOnly SameSite cookie with a maximum 12-hour session; the server also enforces the earlier grant expiry. The normal staff application does not mount in this student entry.
+
+Every student access check revalidates the grant, expiry, active learner, organisation Exams module and Taking restriction. The session resolves one student and one exam server-side. It cannot authenticate to staff APIs or another organisation's student endpoint. Concurrent first exchanges have one winner; a same-browser retry can reuse its already-issued cookie. A consumed link on another browser requires staff to issue a new link.
+
+The sign-in screen currently displays the assigned exam and an explicit unavailable-delivery notice. There is no staff button issuing these links yet, to avoid offering incomplete exam delivery in the organisation workflow. Backend issue/list/revoke and student exchange/me/logout routes are implemented. Native student provisioning and the private attempt adapters still need to be connected to this authenticated context.
 
 ## Implemented components
 
@@ -18,7 +28,7 @@ The installer copies these classes and the explicit migration creates the reques
 
 ## Remaining integration
 
-- Authenticate the Tech4Learn student and resolve an explicit organisation/exam grant server-side before calling either adapter. Never accept a browser-selected learner ID as authority.
+- Connect the authenticated Tech4Learn student/grant context to each native call. Never accept a browser-selected learner ID or exam ID as authority.
 - Replace the older launch path's automatic membership in every native exam group with explicit exam access. Existing external launch/session behaviour is not changed by these private components.
 - Invoke native start/resume and submit under a private student context. Start and submit must coordinate with the same attempt locking, enforce attempt limits, preserve the selected language and avoid duplicate attempts/submissions.
 - Build the same-domain student screen, navigation, server save status, retry/resume, countdown and final submission flow.
@@ -28,3 +38,5 @@ The installer copies these classes and the explicit migration creates the reques
 ## Local verification
 
 `test-attempt-answers.php` extends the existing synthetic native-authoring fixture and calls the installed native answer persistence service. Tests cover tenant/student mismatches, forged type, malformed input, stale edits, changed retry IDs, newer-answer preservation, native locks, captured deadline, submitted attempts, revoked restrictions, supported native answer shapes and payload minimisation. A read-only snapshot of the current native source is also used locally. The SQLite fixture and request-context doubles do not prove production database concurrency or the complete student UI.
+
+`exam-student-access.test.mjs` exercises real HTTP routes against isolated PostgreSQL-compatible storage: token hashing, one-use and concurrent exchanges, session/grant expiry, hostile origins, cross-organisation and staff access denial, reissue/revoke, archived students and module/restriction changes. A synthetic browser check uses the real application entry to verify token removal, explicit sign-in, student-only display and sign-out. No live learner or exam records are used.

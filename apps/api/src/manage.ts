@@ -1,6 +1,7 @@
 import { attendanceTestingMigration } from "./migration-attendance-testing.js";
 import { examEliteMigration } from "./migration-examelite.js";
 import { examWorkspaceMigration } from "./migration-exam-workspace.js";
+import { examStudentAccessMigration } from "./migration-exam-student-access.js";
 import { photoNamesMigration } from "./migration-photo-names.js";
 import { faceControlMigration } from "./migration-face-control.js";
 import { bulkAttendanceMigration } from "./migration-bulk-attendance.js";
@@ -140,14 +141,40 @@ try {
         ).rows.length
       )
         await sql.query(photoNamesMigration);
-      if (!(await sql.query("SELECT version FROM schema_versions WHERE version=12")).rows.length)
+      if (
+        !(
+          await sql.query(
+            "SELECT version FROM schema_versions WHERE version=12",
+          )
+        ).rows.length
+      )
         await sql.query(attendanceTestingMigration);
-      if (!(await sql.query("SELECT version FROM schema_versions WHERE version=13")).rows.length)
+      if (
+        !(
+          await sql.query(
+            "SELECT version FROM schema_versions WHERE version=13",
+          )
+        ).rows.length
+      )
         await sql.query(examEliteMigration);
-      if (!(await sql.query("SELECT version FROM schema_versions WHERE version=14")).rows.length)
+      if (
+        !(
+          await sql.query(
+            "SELECT version FROM schema_versions WHERE version=14",
+          )
+        ).rows.length
+      )
         await sql.query(examWorkspaceMigration);
+      if (
+        !(
+          await sql.query(
+            "SELECT version FROM schema_versions WHERE version=15",
+          )
+        ).rows.length
+      )
+        await sql.query(examStudentAccessMigration);
     });
-    console.log("Database migrations through version 14 are applied.");
+    console.log("Database migrations through version 15 are applied.");
   } else if (command === "demo-academic") {
     const confirmation = process.argv[4] || "";
     if (!confirmation.startsWith("--confirm-name="))

@@ -1,4 +1,5 @@
 import { GroupedMenu } from "./GroupedMenu";
+import {StudentExamPortal,takeStudentEntry} from "./StudentExamPortal";
 import { DirectoryTable } from "./DirectoryTable";
 import { DraftScope } from "./DraftForm";
 import { clearDrafts } from "./form-drafts";
@@ -682,8 +683,25 @@ function App() {
     </div></DraftScope>
   );
 }
+const studentEntry=takeStudentEntry();
+function Entry() {
+  const [entry,setEntry]=useState(studentEntry);
+  useEffect(()=>{
+    let currentAddress=location.href;
+    const update=()=>{
+      // Fragment navigation can emit both popstate and hashchange. Consume its
+      // one-use token once, keeping the in-memory entry for the second event.
+      if(location.href===currentAddress)return;
+      const next=takeStudentEntry();currentAddress=location.href;setEntry(next);
+    };
+    window.addEventListener("hashchange",update);
+    window.addEventListener("popstate",update);
+    return ()=>{window.removeEventListener("hashchange",update);window.removeEventListener("popstate",update);};
+  },[]);
+  return entry.requested?<StudentExamPortal key={entry.token||entry.org} entry={entry}/>:<App/>;
+}
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <Entry />
   </StrictMode>,
 );
