@@ -542,6 +542,18 @@ export function Attendance({
           <p>
             {detail.snapshot.centre_name} · {detail.status}
           </p>
+          {detail.status === "confirmed" && (
+            <div className="success" role="status">
+              <strong>Attendance saved and confirmed.</strong>
+              <p>
+                {detail.snapshot.roster.filter(l => detail.marks[l.id] === "present").length} present ·{" "}
+                {detail.snapshot.roster.filter(l => detail.marks[l.id] === "absent").length} absent ·{" "}
+                {detail.snapshot.roster.filter(l => detail.marks[l.id] === "excused").length} excused.
+                {" "}No further action is needed. To change a mark, edit it below and save a correction.
+              </p>
+              {detail.snapshot.test_run && <p>This test run is excluded from daily totals.</p>}
+            </div>
+          )}
           <p>
             Captured: {new Date(detail.evidence.captured_at).toLocaleString()} ·
             Received: {new Date(detail.received_at).toLocaleString()}
@@ -556,7 +568,7 @@ export function Attendance({
               ? `±${Math.round(detail.evidence.location.accuracy)} m`
               : "unavailable"}
           </p>
-          {detail.snapshot.test_run && <p role="status">Testing mode: location is accepted for this test. No GPS policy changes or location approval are needed. Review the student marks below and confirm attendance.</p>}
+          {detail.snapshot.test_run && detail.status === "pending" && <p role="status">Testing mode: location is accepted for this test. Review the student marks below, then confirm attendance.</p>}
           {!detail.snapshot.test_run && <p>Limits used for this capture: GPS uncertainty {detail.snapshot.policy.accuracy_limit} m; centre radius {detail.snapshot.centre.radius} m.</p>}
           {!detail.snapshot.test_run && <p className="muted">Centre radius controls distance from the centre. GPS uncertainty controls how precise your device location must be. Changing one does not change the other.</p>}
           {!detail.snapshot.test_run && policy && policy.accuracy_limit !== detail.snapshot.policy.accuracy_limit && <p>The current GPS limit is {policy.accuracy_limit} m. Start a new capture to use it; this record retains its original checks.</p>}
@@ -659,6 +671,8 @@ export function Attendance({
           {can("match") &&
             can("photos") &&
             permissions.includes("learners.photos") && (
+              <details key={`comparison-${detail.id}-${detail.status}`} open={detail.status === "pending"} className="subpanel">
+                <summary>{detail.status === "confirmed" ? "Optional: compare photos again for a correction" : "Compare class photos"}</summary>
               <FaceMatching
                 key={`${detail.id}-${detail.version}`}
                 org={org}
@@ -672,12 +686,15 @@ export function Attendance({
                     ),
                   }));
                   setNotice(
-                    "Face suggestions loaded into the draft. Review every student, then confirm attendance separately.",
+                    detail.status === "confirmed"
+                      ? "Suggestions loaded into the correction draft. Review the marks and save a correction if needed. Saved attendance has not changed."
+                      : "Suggestions filled in. Review the marks below, then click Confirm attendance to save them.",
                   );
                 }}
               />
+              </details>
             )}
-          <DraftForm title="Review attendance" draftKey={`attendance:${detail?.id}`} draftState={{marks,reason}} restoreState={v=>{setMarks(Object.fromEntries(detail.snapshot.roster.map(l=>[l.id,v.marks?.[l.id]||""])));setReason(v.reason||"");setAck(false);}}
+          <DraftForm title={detail.status === "confirmed" ? "Saved attendance / corrections" : "Review attendance"} draftKey={`attendance:${detail?.id}`} draftState={{marks,reason}} restoreState={v=>{setMarks(Object.fromEntries(detail.snapshot.roster.map(l=>[l.id,v.marks?.[l.id]||""])));setReason(v.reason||"");setAck(false);}}
             onSubmit={(e) => {
               e.preventDefault();
               void act(async () => {
@@ -698,7 +715,7 @@ export function Attendance({
           >
             <div className="table-container">
               <SmartTable>
-                <caption>Review attendance — mark every student</caption>
+                <caption>{detail.status === "confirmed" ? "Student marks — changes require Save correction" : "Review attendance — mark every student"}</caption>
                 <thead>
                   <tr>
                     <th>Student</th>
