@@ -13,6 +13,7 @@ targets={
  'Tech4LearnStudentContext.php':'app/Services/Tech4LearnStudentContext.php',
  'Tech4LearnStudentAttempts.php':'app/Services/Tech4LearnStudentAttempts.php',
  'Tech4LearnQuestionMedia.php':'app/Services/Tech4LearnQuestionMedia.php',
+ 'Tech4LearnProctorEvidence.php':'app/Services/Tech4LearnProctorEvidence.php',
  'Tech4LearnAttemptClock.php':'app/Services/Tech4LearnAttemptClock.php',
  'Tech4LearnStudentController.php':'app/Http/Controllers/Tech4LearnStudentController.php',
  'Tech4LearnAuthoringController.php':'app/Http/Controllers/Tech4LearnAuthoringController.php',

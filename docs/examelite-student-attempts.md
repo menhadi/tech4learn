@@ -80,3 +80,13 @@ The student screen records tab-hidden events when native browser tolerance is en
 The native adapter checks the assigned attempt and increments the persisted native count under its existing transaction/attempt lock. It calls ExamElite's own counter update and finalisation methods. Duplicate requests do not increment twice; aggregate browser counts are rejected. Reaching the configured limit submits through the native engine, and ended attempts cannot be reopened by event retries. Start/resume also finalises an attempt already at its limit; new answers are rejected there.
 
 This is the native browser-visibility rule, not a claim of tamper-proof proctoring: a modified client can suppress events, and closing a page can interrupt delivery of a pending event. Camera capture remains unavailable. Synthetic native, HTTP and browser checks cover identity scope, forged counters, duplicate delivery, unsaved answer preservation and finalisation. No real student events were generated.
+
+## Private camera evidence foundation (not enabled)
+
+The native add-on now has an isolated evidence store; no student capture endpoint or camera UI is enabled yet. The existing proctored-paper start gate remains in place until capture, authorised review and scheduled retention are complete. ExamElite's legacy public-image upload is not used.
+
+A capture is bound to the platform workspace, active mapped student and unsubmitted native attempt. The paper must enable proctoring and permit online delivery. New captures obey the attempt deadline, exam close time and captured section schedule. The store accepts only canonical base64 JPEGs up to 256 KiB and 1280×960, with a 25-second minimum interval and 1,200 captures per attempt. A request UUID and image hash make retries idempotent; receipts contain no image bytes or public path. Taking revocation also rejects receipt retries.
+
+Images are stored transactionally in the native database's additive `tech4learn_proctor_evidence` table, not a public filesystem directory. Records have a server receipt timestamp and 30-day expiry. `purge-proctor-evidence.php` provides bounded CLI cleanup; scheduling and review-time expiry checks are required before enabling capture. This foundation does not claim that expiry alone removes records without running maintenance, nor that a submitted image proves camera liveness or identity.
+
+`test-proctor-evidence.php` runs the preceding native integration suite and tests a locally generated solid-colour JPEG: scope, disabled mode, size/type bounds, capture interval, one-record retries, revoked access, ended attempts and expiry deletion. Deployment validation now includes this suite. No live images or learner records were used.

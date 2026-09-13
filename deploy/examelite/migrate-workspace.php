@@ -30,4 +30,8 @@ if(!Schema::hasTable('tech4learn_attempt_clocks'))Schema::create('tech4learn_att
  $t->unsignedBigInteger('attempt_id')->primary();$t->uuid('workspace_id');$t->unsignedBigInteger('organization_id');$t->unsignedBigInteger('student_id');$t->unsignedBigInteger('exam_id');$t->string('mode',10);$t->longText('groups');$t->timestamp('created_at');
 });
 
+if(!Schema::hasTable('tech4learn_proctor_evidence'))Schema::create('tech4learn_proctor_evidence',function(Blueprint $t){
+ $t->uuid('workspace_id');$t->uuid('request_id');$t->unsignedBigInteger('organization_id');$t->unsignedBigInteger('student_id');$t->unsignedBigInteger('attempt_id');$t->unsignedBigInteger('exam_id');$t->string('image_hash',64);$t->longText('image_base64');$t->timestamp('received_at');$t->timestamp('expires_at');$t->primary(['workspace_id','request_id'],'t4l_proctor_pk');$t->index(['workspace_id','attempt_id','received_at'],'t4l_proctor_attempt');$t->index('expires_at','t4l_proctor_expiry');
+});
+
 echo "Native exam workspace tables ready.\n";

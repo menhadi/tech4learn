@@ -23,7 +23,7 @@ php "$source/test-launch-tickets.php" /home/examelite/public_html/vendor/autoloa
 php "$source/test-workspace-gate.php" /home/examelite/public_html/vendor/autoload.php
 python3 -B "$source/install-read-connector.py"
 python3 -B "$source/install-workspace.py"
-php "$source/test-student-attempts.php" /home/examelite/public_html/vendor/autoload.php
+php "$source/test-proctor-evidence.php" /home/examelite/public_html/vendor/autoload.php
 runuser -u examelite -- php < "$source/migrate-workspace.php"
 runuser -u examelite -- php /home/examelite/public_html/artisan config:clear
 runuser -u examelite -- php /home/examelite/public_html/artisan route:clear

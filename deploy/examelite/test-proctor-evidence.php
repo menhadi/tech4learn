@@ -1,0 +1,44 @@
+<?php
+// Solid-colour JPEG fixture generated locally; contains no learner photo.
+require __DIR__.'/test-student-attempts.php';
+require __DIR__.'/Tech4LearnProctorEvidence.php';
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+DB::statement('CREATE TABLE tech4learn_proctor_evidence(workspace_id TEXT,request_id TEXT,organization_id INTEGER,student_id INTEGER,attempt_id INTEGER,exam_id INTEGER,image_hash TEXT,image_base64 TEXT,received_at TEXT,expires_at TEXT,PRIMARY KEY(workspace_id,request_id))');
+Carbon::setTestNow(Carbon::parse('2026-09-13 13:00:00','UTC'));
+$jpeg='/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAACAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDtKKKKAP/Z';
+$evidence=new App\Services\Tech4LearnProctorEvidence();
+// Create the synthetic attempt before enabling the still-gated proctor mode.
+$cameraPaper=$paper->replicate();$cameraPaper->forceFill(['proctor'=>false,'timer_mode'=>'none','browser_tolerance'=>false,'name'=>'Synthetic camera paper'])->save();$cameraPaper->questions()->sync([$q->id]);
+$cameraLearner='eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+$cameraAttempt=$lifecycle->run($workspace,10,$cameraLearner,'Synthetic camera candidate',$cameraPaper->id,'start',['request_id'=>$next()]);
+$cameraId=$cameraAttempt['attempt_id'];$captureId=$next();
+rejectAnswer(fn()=>$evidence->capture($workspace,10,$cameraLearner,$cameraId,$captureId,$jpeg),'disabled proctor cannot receive captures');
+$cameraPaper->proctor=true;$cameraPaper->save();
+$receipt=$evidence->capture($workspace,10,$cameraLearner,$cameraId,$captureId,$jpeg);
+check($receipt['saved']&&$receipt['attempt_id']===$cameraId&&!str_contains(json_encode($receipt),$jpeg)&&!isset($receipt['image_base64']),'Capture returns private metadata only');
+check($evidence->capture($workspace,10,$cameraLearner,$cameraId,$captureId,$jpeg)===$receipt,'Capture retry is idempotent before cooldown');
+check(DB::table('tech4learn_proctor_evidence')->count()===1,'Retry stores one capture');
+rejectAnswer(fn()=>$evidence->capture($workspace,10,$cameraLearner,$cameraId,$captureId,base64_encode(base64_decode($jpeg).'changed')),'request ID cannot replace image bytes');
+rejectAnswer(fn()=>$evidence->capture($workspace,99,$cameraLearner,$cameraId,$next(),$jpeg),'foreign source');
+rejectAnswer(fn()=>$evidence->capture($workspace,10,$newLearner,$cameraId,$next(),$jpeg),'foreign learner');
+rejectAnswer(fn()=>$evidence->capture($workspace,10,$cameraLearner,$cameraId,$next(),$jpeg),'rapid capture');
+rejectAnswer(fn()=>$evidence->capture($workspace,10,$cameraLearner,$cameraId,$next(),base64_encode('<svg/>')),'non-JPEG capture');
+rejectAnswer(fn()=>$evidence->capture($workspace,10,$cameraLearner,$cameraId,$next(),str_repeat('A',349529)),'oversized capture');
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'["taking"]']);
+rejectAnswer(fn()=>$evidence->capture($workspace,10,$cameraLearner,$cameraId,$captureId,$jpeg),'revocation also rejects receipt retries');
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'[]']);
+Carbon::setTestNow(Carbon::parse('2026-09-13 13:00:25','UTC'));
+$evidence->capture($workspace,10,$cameraLearner,$cameraId,$next(),$jpeg);
+check(DB::table('tech4learn_proctor_evidence')->count()===2,'Next capture allowed at the boundary');
+App\Models\ExamResult::where('id',$cameraId)->update(['end_time'=>now()]);
+Carbon::setTestNow(Carbon::parse('2026-09-13 13:01:00','UTC'));
+rejectAnswer(fn()=>$evidence->capture($workspace,10,$cameraLearner,$cameraId,$next(),$jpeg),'ended attempt');
+check($evidence->capture($workspace,10,$cameraLearner,$cameraId,$captureId,$jpeg)===$receipt,'Accepted receipt remains replayable after submission');
+check($evidence->purgeExpired()===0,'Unexpired records survive cleanup');
+Carbon::setTestNow(Carbon::parse('2026-10-13 13:00:00','UTC'));
+check($evidence->purgeExpired()===1&&DB::table('tech4learn_proctor_evidence')->count()===1,'Expiry cleanup preserves newer captures');
+Carbon::setTestNow(Carbon::parse('2026-10-13 13:00:25','UTC'));
+check($evidence->purgeExpired()===1,'Final expired image is deleted');
+Carbon::setTestNow();
+echo "Private proctor evidence: ownership, bounds, cooldown, retries, revoked access and expiry passed.\n";
