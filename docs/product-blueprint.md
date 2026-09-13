@@ -55,6 +55,10 @@ The user confirms ExamElite provides complete exam capabilities and millions of 
 
 Verify actual APIs, permissions, stable learner identity mapping, question/version references and result synchronisation. An existing web interface does not establish external API availability. Present integrated workflows within Tech4Learn with appropriate branding.
 
+Confirmed ownership and access direction: Tech4Learn stores its students, organisation membership, enrolment, attendance and other programme records. When exam access is needed, it provisions or explicitly links an ExamElite student identity behind the scenes, sharing only the details needed for exams. ExamElite owns exam delivery and marking and returns results to the corresponding Tech4Learn student. Existing ExamElite students are not imported into Tech4Learn, granted Tech4Learn access or shown attendance and other Tech4Learn features by this connection.
+
+Tech4Learn superadmin manages the central ExamElite connection and assigns access to connected organisations. ExamElite subjects, question and exam workflows, online delivery and results should follow the ExamElite interface and flow. Shared exam content does not share student records or results between organisations. The verified pilot reads one explicitly shared exam and its mapped student's completed result; central sharing controls, student provisioning and integrated exam delivery remain planned.
+
 ## Future options
 
 CCTV, parent messaging, community volunteers, real-life concept videos, resource sharing, broader assessments, automation rules, sponsor reporting and additional providers. These are expansion options, not all first-release commitments.

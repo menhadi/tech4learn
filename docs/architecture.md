@@ -44,7 +44,11 @@ Migration 5 introduces scoped attendance intents, immutable capture snapshots/ev
 
 ## ExamElite integration
 
-Connect through authenticated, versioned APIs. Its Laravel application owns its database and engine. No direct database writes. The [read connector](examelite-read-release.md) adds private credentials, explicit organisation/exam/student grants, exam catalogue reads and summary-result reads. It remains disconnected until user deployment and configuration. Exam launch, student provisioning, result revisions and durable reconciliation are not implemented by this slice.
+Connect through authenticated, versioned APIs. Its Laravel application owns its database and engine. No direct database writes from Tech4Learn. The [read connector](examelite-read-release.md) adds private credentials, explicit organisation/exam/student grants, exam catalogue reads and summary-result reads. User screenshots confirm live catalogue and completed-result retrieval for the pilot. Exam launch, student provisioning, result revisions and durable reconciliation are not implemented by this slice.
+
+Tech4Learn is the source of truth for its own students and organisation/enrolment/attendance records. Future provisioning sends only required exam identity data to an ExamElite-owned API; exam attempts and marking remain authoritative in ExamElite. Use stable organisation and learner IDs with idempotent provisioning and an explicit external identity mapping. Email alone must not automatically merge accounts or grant access; existing-account linking requires verified ownership or an authorised reviewed mapping. Retry must not create duplicate students.
+
+The central connection is controlled by Tech4Learn superadmin. Organisation grants determine which ExamElite content and capabilities are available; a shared catalogue never authorises cross-organisation student or result reads. Match each result to the organisation-scoped learner mapping. Existing ExamElite accounts remain independent and receive no Tech4Learn membership or attendance features automatically. Attendance photos, location evidence and programme records are outside exam identity provisioning. Secrets remain server-side, and a superadmin browser session is not an integration credential.
 
 ## Reliability
 

@@ -1,6 +1,6 @@
 # ExamElite read connector
 
-Implemented locally: dedicated revocable credentials, explicit organisation/exam/student grants, connection status, a shared exam catalogue and finished result summaries. Requires user deployment on the shared host. No production records have been changed by the assistant.
+Implemented and user-deployed for the pilot: dedicated revocable credentials, explicit organisation/exam/student grants, connection status, a shared exam catalogue and finished result summaries. User screenshots confirm successful live catalogue and completed-result retrieval after the routing correction. No production records have been changed by the assistant.
 
 This first slice does not provision students, create or launch exams, import questions, provide SSO, or maintain a local result archive. Exam creation, delivery and marking continue in ExamElite. Refresh starts at the first page so corrected summaries can be re-read; cursors are pagination, not incremental synchronisation tokens.
 

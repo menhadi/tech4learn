@@ -18,9 +18,9 @@ Approved coordinates, staff assignment, capture, upload, configurable geofence d
 
 Read-only contract inspection; one end-to-end exam path with identity/result mapping, then complete agreed functionality. No duplicate exam engine.
 
-Local student-API inspection has started; see [ExamElite integration discovery](examelite-integration.md). Student APIs exist, but an organisation-level connector and stable learner/result synchronisation contract are not yet verified. No live integration is enabled.
+Student-API and read-only live source inspection are recorded in [ExamElite integration discovery](examelite-integration.md). The pilot connector now reads the selected exam and a completed mapped result, confirmed in user screenshots. Full learner provisioning and result synchronisation remain unimplemented.
 
-The [first read connector](examelite-read-release.md) is implemented locally with dedicated credentials, explicit grants and exam/result screens. User deployment and real mapping verification remain required. Student provisioning, exam launch and durable result synchronisation remain future slices.
+The [first read connector](examelite-read-release.md) is deployed for the pilot with dedicated credentials, explicit grants and working exam/result screens. Next: central superadmin connection and organisation sharing controls, then idempotent Tech4Learn-to-ExamElite student provisioning/verified linking and exam access. Follow ExamElite's subject/question/exam interface and workflow without rebuilding its engine. Existing ExamElite students remain independent of Tech4Learn. Student provisioning, exam launch and durable result synchronisation remain future slices.
 
 ## M4 — FLN
 
