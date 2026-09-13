@@ -38,6 +38,7 @@ final class Tech4LearnAttemptAnswers
             $prior=DB::table('tech4learn_attempt_requests')->where('workspace_id',$workspace)->where('request_id',$requestId)->first();
             if($prior){abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);}
             abort_unless(!$result->end_time,409,'This attempt has already been submitted.');
+            abort_unless(!$exam->browser_tolerance||(int)$exam->tolerance_count<=0||(int)$result->tolerance_count<(int)$exam->tolerance_count,409,'Browser tolerance limit reached. Resume to finish this attempt.');
             abort_unless($exam->status==='Active'&&$exam->isFrontendVisible()&&$exam->allowsOnlineAttempt(),403);
             $now=Carbon::now();$start=Carbon::parse($result->start_time,config('app.timezone','UTC'));
             abort_unless($start->lte($now),409,'Attempt start time is invalid.');

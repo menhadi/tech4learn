@@ -52,7 +52,7 @@ final class Tech4LearnAttemptPayload
             'attempt_id'=>(int)$result->id,'exam_id'=>(int)$exam->id,'name'=>(string)$exam->name,
             'remaining_seconds'=>max(0,(int)($view['remainingTime']??0)),
             'time_limited'=>(float)$exam->duration>0||$exam->end_date!==null,
-            'language_id'=>$language?:null,'questions'=>$questions,
+            'language_id'=>$language?:null,'questions'=>$questions,'tolerance_count'=>(int)$result->tolerance_count,
             'group_durations'=>$view['subjectDurations']??[],
             'settings'=>[
                 'allow_answer_change'=>(bool)$exam->allow_answer_change,'option_shuffle'=>(bool)$exam->option_shuffle,

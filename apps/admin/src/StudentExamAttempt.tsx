@@ -23,7 +23,12 @@ type Attempt = {
   remaining_seconds: number;
   time_limited: boolean;
   questions: Question[];
-  settings: { allow_answer_change: boolean; calculator_allowed?: boolean };
+  settings: {
+    allow_answer_change: boolean;
+    calculator_allowed?: boolean;
+    browser_tolerance?: boolean;
+    tolerance_count?: number;
+  };
   section_clock?: {
     mode: string;
     active: {
@@ -34,6 +39,7 @@ type Attempt = {
     } | null;
     remaining_seconds: number;
   } | null;
+  tolerance_count?: number;
   completed?: boolean;
   result?: { status: string; score_percent: number } | null;
 };
@@ -51,6 +57,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
     [remaining, setRemaining] = useState<number | null>(null),
     [sectionRemaining, setSectionRemaining] = useState<number | null>(null),
     [notice, setNotice] = useState(""),
+    [visibilityQueued, setVisibilityQueued] = useState(0),
     [confirm, setConfirm] = useState(false);
   const pending = useRef<{ action: string; body: any } | null>(null),
     running = useRef(false),
@@ -92,7 +99,16 @@ export function StudentExamAttempt({ base }: { base: string }) {
         "POST",
         request.body,
       );
-      if (request.action === "answer") {
+      if (request.action === "visibility" && !result.completed) {
+        setAttempt((previous) =>
+          previous
+            ? { ...previous, tolerance_count: result.tolerance_count }
+            : previous,
+        );
+        setNotice(
+          `Tab leaves recorded: ${result.tolerance_count} of ${result.tolerance_limit}. Stay on this exam tab.`,
+        );
+      } else if (request.action === "answer") {
         const updated = {
           ...attempt!,
           questions: attempt!.questions.map((question) =>
@@ -110,6 +126,10 @@ export function StudentExamAttempt({ base }: { base: string }) {
         setAttempt(updated);
         select(updated, index, false);
       } else {
+        if (request.action === "visibility")
+          setNotice(
+            "The exam was submitted at its configured tab-leave limit.",
+          );
         setAttempt(result);
         const active = result.section_clock?.active;
         select(
@@ -128,7 +148,9 @@ export function StudentExamAttempt({ base }: { base: string }) {
         sectionDeadline.current = active
           ? Date.now() + active.remaining_seconds * 1000
           : 0;
-        setSectionRemaining(result.section_clock ? (active?.remaining_seconds ?? 0) : null);
+        setSectionRemaining(
+          result.section_clock ? (active?.remaining_seconds ?? 0) : null,
+        );
       }
       pending.current = null;
       setConfirm(false);
@@ -175,14 +197,55 @@ export function StudentExamAttempt({ base }: { base: string }) {
   }, [sectionRemaining, busy]);
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
-      if (dirty || pending.current) {
+      if (dirty || pending.current || visibilityQueued) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [dirty, visibilityQueued]);
+  useEffect(() => {
+    if (
+      !attempt ||
+      attempt.completed ||
+      !attempt.settings.browser_tolerance ||
+      !attempt.settings.tolerance_count
+    ) {
+      setVisibilityQueued(0);
+      return;
+    }
+    let wasHidden = false;
+    const changed = () => {
+      if (document.hidden && !wasHidden)
+        setVisibilityQueued((count) => count + 1);
+      wasHidden = document.hidden;
+    };
+    document.addEventListener("visibilitychange", changed);
+    changed();
+    return () => document.removeEventListener("visibilitychange", changed);
+  }, [
+    attempt?.attempt_id,
+    attempt?.completed,
+    attempt?.settings?.browser_tolerance,
+    attempt?.settings?.tolerance_count,
+  ]);
+  useEffect(() => {
+    if (
+      !visibilityQueued ||
+      !attempt ||
+      attempt.completed ||
+      busy ||
+      pending.current ||
+      running.current
+    )
+      return;
+    setVisibilityQueued((count) => count - 1);
+    void send("visibility", {
+      attempt_id: attempt.attempt_id,
+      event: "hidden",
+    });
+  }, [visibilityQueued, busy, attempt?.completed]);
   const mediaBase =
     attempt && q
       ? `${apiBase}${base}/media/${attempt.attempt_id}/${q.id}`
@@ -203,6 +266,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
       previous[key] === value ? previous : { ...previous, [key]: value },
     );
   const frozen =
+    visibilityQueued > 0 ||
     busy ||
     !!pending.current ||
     !!q?.answer_locked ||
@@ -248,23 +312,25 @@ export function StudentExamAttempt({ base }: { base: string }) {
           >
             Retry last request
           </button>
-          {attempt && !attempt.completed && (
-            <button
-              className="secondary"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "Reload saved answers from the server? Any unsaved answer on this screen will be discarded.",
-                  )
-                ) {
-                  pending.current = null;
-                  void send("start", {});
-                }
-              }}
-            >
-              Resume saved answers
-            </button>
-          )}
+          {attempt &&
+            !attempt.completed &&
+            pending.current.action !== "visibility" && (
+              <button
+                className="secondary"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Reload saved answers from the server? Any unsaved answer on this screen will be discarded.",
+                    )
+                  ) {
+                    pending.current = null;
+                    void send("start", {});
+                  }
+                }}
+              >
+                Resume saved answers
+              </button>
+            )}
         </>
       )}
       {!attempt && !pending.current && (
@@ -299,6 +365,15 @@ export function StudentExamAttempt({ base }: { base: string }) {
                 ? "No time limit"
                 : `Time remaining: ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
             </p>
+            {attempt.settings.browser_tolerance &&
+              !!attempt.settings.tolerance_count && (
+                <p role="status">
+                  Stay on this exam tab. Leaving it is recorded; at{" "}
+                  {attempt.settings.tolerance_count} tab leaves, saved answers
+                  are submitted automatically. Recorded:{" "}
+                  {attempt.tolerance_count ?? 0}.
+                </p>
+              )}
             {attempt.settings.calculator_allowed && <ExamCalculator />}
             {attempt.section_clock?.active && (
               <div>
@@ -542,7 +617,10 @@ export function StudentExamAttempt({ base }: { base: string }) {
             {!confirm ? (
               <button
                 disabled={
-                  busy || !!pending.current || (dirty && remaining !== 0)
+                  busy ||
+                  visibilityQueued > 0 ||
+                  !!pending.current ||
+                  (dirty && remaining !== 0)
                 }
                 onClick={() => setConfirm(true)}
               >
@@ -556,7 +634,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
                   {dirty ? " Unsaved changes will not be included." : ""}
                 </p>
                 <button
-                  disabled={busy}
+                  disabled={busy || visibilityQueued > 0 || !!pending.current}
                   onClick={() =>
                     void send("submit", { attempt_id: attempt.attempt_id })
                   }

@@ -284,6 +284,62 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
     };
     assert.equal((await call(mediaPath, undefined, studentCookie)).status, 401);
     await pg.query("UPDATE learners SET archived=false WHERE id=$1", [learner]);
+    const visibilityPath = root + "/student-exam/attempt/visibility";
+    const visibilityBody = {
+      request_id: randomUUID(),
+      attempt_id: 11,
+      event: "hidden",
+    };
+    assert.equal(
+      (await call(visibilityPath, visibilityBody, staff)).status,
+      401,
+    );
+    assert.equal(
+      (
+        await call(
+          visibilityPath,
+          { ...visibilityBody, tolerance_count: 0 },
+          studentCookie,
+        )
+      ).status,
+      400,
+    );
+    engine.request = async (config, owner, path, payload) => {
+      assert.equal(owner, org);
+      assert.equal(path, `student/${org}/visibility`);
+      assert.equal(payload.learner_id, learner);
+      assert.equal(payload.exam_id, 7);
+      assert.deepEqual(payload.fields, visibilityBody);
+      return {
+        data: {
+          attempt_id: 11,
+          exam_id: 7,
+          completed: false,
+          tolerance_count: 1,
+          tolerance_limit: 2,
+        },
+      };
+    };
+    const visibleReply = await call(
+      visibilityPath,
+      visibilityBody,
+      studentCookie,
+    );
+    assert.equal(visibleReply.status, 200);
+    assert.equal((await visibleReply.json()).tolerance_count, 1);
+    engine.request = async () => ({
+      data: {
+        attempt_id: 99,
+        exam_id: 7,
+        completed: false,
+        tolerance_count: 1,
+        tolerance_limit: 2,
+      },
+    });
+    assert.equal(
+      (await call(visibilityPath, visibilityBody, studentCookie)).status,
+      503,
+    );
     const answerBody = {
       request_id: randomUUID(),
       attempt_id: 11,

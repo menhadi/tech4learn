@@ -157,6 +157,25 @@ DB::table('tech4learn_attempt_clocks')->insert($clockRow);
 Carbon::setTestNow(Carbon::parse('2026-09-13 12:20:40','UTC'));
 check($lifecycle->run($workspace,10,$subjectLearner,'Synthetic subject candidate',$subjectPaper->id,'start',['request_id'=>$next()])['completed'],'Closing time reaches native finalisation before subject allocation ends');
 
+Carbon::setTestNow(Carbon::parse('2026-09-13 12:30:00','UTC'));
+$browserPaper=$paper->replicate();$browserPaper->forceFill(['name'=>'Synthetic browser paper','browser_tolerance'=>true,'tolerance_count'=>2,'timer_mode'=>'none'])->save();$browserPaper->questions()->sync([$q->id]);
+$browserLearner='cccccccc-cccc-cccc-cccc-cccccccccccc';
+$browserAttempt=$lifecycle->run($workspace,10,$browserLearner,'Synthetic browser candidate',$browserPaper->id,'start',['request_id'=>$next()]);
+$event=['request_id'=>$next(),'attempt_id'=>$browserAttempt['attempt_id'],'event'=>'hidden'];
+$eventReply=$lifecycle->run($workspace,10,$browserLearner,'Synthetic browser candidate',$browserPaper->id,'visibility',$event);
+check($eventReply['tolerance_count']===1&&!$eventReply['completed'],'Native browser counter increments once');
+check($lifecycle->run($workspace,10,$browserLearner,'Synthetic browser candidate',$browserPaper->id,'visibility',$event)===$eventReply,'Visibility retry cannot double-count a tab leave');
+rejectAnswer(fn()=>$lifecycle->run($workspace,10,$browserLearner,'Synthetic browser candidate',$browserPaper->id,'visibility',$event+['tolerance_count'=>0]),'Browser aggregate counts are rejected');
+rejectAnswer(fn()=>$lifecycle->run($workspace,10,$newLearner,'Synthetic foreign candidate',$browserPaper->id,'visibility',$event),'Visibility events cannot target another student');
+$event['request_id']=$next();$browserEnd=$lifecycle->run($workspace,10,$browserLearner,'Synthetic browser candidate',$browserPaper->id,'visibility',$event);
+check($browserEnd['completed']&&(int)App\Models\ExamResult::find($browserAttempt['attempt_id'])->tolerance_count===2,'Native submission occurs at the configured limit');
+check($lifecycle->run($workspace,10,$browserLearner,'Synthetic browser candidate',$browserPaper->id,'visibility',$event)['completed'],'Final event retries do not reopen the exam');
+$legacyBrowserLearner='dddddddd-dddd-dddd-dddd-dddddddddddd';
+$legacyBrowser=$lifecycle->run($workspace,10,$legacyBrowserLearner,'Synthetic existing count',$browserPaper->id,'start',['request_id'=>$next()]);
+App\Models\ExamResult::where('id',$legacyBrowser['attempt_id'])->update(['tolerance_count'=>3]);
+check($lifecycle->run($workspace,10,$legacyBrowserLearner,'Synthetic existing count',$browserPaper->id,'visibility',['request_id'=>$next(),'attempt_id'=>$legacyBrowser['attempt_id'],'event'=>'hidden'])['completed'],'An existing over-limit count finalises');
+check((int)App\Models\ExamResult::find($legacyBrowser['attempt_id'])->tolerance_count===3,'A lower configured limit never decreases the native counter');
+
 Carbon::setTestNow();
 require_once __DIR__.'/Tech4LearnPlatformController.php';
 DB::table('organizations')->insert(['id'=>10,'domain'=>'central.example.test','status'=>'active']);

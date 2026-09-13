@@ -1,6 +1,6 @@
 # Internal student attempts: implementation status
 
-The full student portal is not ready for deployment. Separate student sign-in and a basic same-domain attempt screen are implemented locally, with authenticated start/resume, answer saving and submission through ExamElite. Raster images, bounded TeX/MathML, native calculator and shuffled options are integrated locally. Section timers are also integrated locally. Browser/proctor controls and production paper verification remain incomplete.
+The full student portal is not ready for deployment. Separate student sign-in and a basic same-domain attempt screen are implemented locally, with authenticated start/resume, answer saving and submission through ExamElite. Raster images, bounded TeX/MathML, native calculator and shuffled options are integrated locally. Section timers are also integrated locally. Camera proctoring and production paper verification remain incomplete.
 
 ## Student sign-in and exam grants
 
@@ -30,7 +30,7 @@ The installer copies these classes and the explicit migration creates the reques
 
 The private lifecycle service now invokes ExamElite's actual student controller for start/resume and finalisation, and its existing answer persistence service for saves. It creates only an explicitly mapped native student, without enrolling that student in all exam groups. The server caller must supply the identity and paper from the stored Tech4Learn grant; the browser cannot supply learner or exam identity to the attempt endpoint. Tech4Learn checks the grant before and after each native call, including revocation during an in-flight request.
 
-Workspace and attempt locks serialise lifecycle mutations. Submission retries return the existing completed attempt without grading it again. Start retries rebuild the current view/countdown. First-load answer revisions use persisted rows including database defaults. Completed scores obey both the native publication setting and the current Results restriction. An existing timed-out or closed-paper attempt enters native finalisation rather than failing the start-availability check. A duration edit during an attempt currently prevents resume with an explicit error; automatic reconciliation of changed timing is not implemented. Browser/proctor modes remain unavailable through this adapter.
+Workspace and attempt locks serialise lifecycle mutations. Submission retries return the existing completed attempt without grading it again. Start retries rebuild the current view/countdown. First-load answer revisions use persisted rows including database defaults. Completed scores obey both the native publication setting and the current Results restriction. An existing timed-out or closed-paper attempt enters native finalisation rather than failing the start-availability check. A duration edit during an attempt currently prevents resume with an explicit error; automatic reconciliation of changed timing is not implemented. Camera proctoring remains unavailable through this adapter.
 
 `test-student-attempts.php` exercises the current native controller, grouping service, language service and answer evaluator using isolated synthetic records. It verifies numerical marking, first saves, resumed countdowns, duplicate submissions, attempt limits, cross-student/paper denial, result restrictions, timeout completion and restoration of request/session/identity after errors. Activity tracking and UI-language infrastructure are test doubles. Deployment scripts run this suite, which includes the preceding authoring and answer tests, after installing the private components. These checks do not establish the complete browser workflow or production concurrency.
 
@@ -39,7 +39,7 @@ Workspace and attempt locks serialise lifecycle mutations. Submission retries re
 - Finish the advanced exam controls before enabling staff link issuance. The current native transaction rejects SVG, interactive media and proctoring, rolling back a newly created attempt rather than showing an incomplete paper.
 - Replace the older launch path's automatic membership in every native exam group with explicit exam access. Existing external launch/session behaviour is not changed by these private components.
 - Verify the supported raster/formula formats against representative native papers before deployment; SVG and interactive media remain unsupported.
-- Integrate browser/proctor requirements, result release and manual marking before claiming those modes work in Tech4Learn.
+- Integrate camera proctoring, result release and manual marking before claiming those modes work in Tech4Learn.
 
 ## Local verification
 
@@ -63,7 +63,7 @@ Native synthetic tests cover image projection, authorised bytes, cross-student d
 
 Calculator-enabled papers now expose the native scientific calculator keypad inside the student screen. Its small expression parser is adapted from the audited ExamElite student template: radians, arithmetic precedence, sin/cos/tan, log/ln/square root and native rounding. There is no dynamic code evaluation; an input bound and finite-result checks prevent runaway expressions. Disabled papers do not show the calculator.
 
-The native payload uses the same collection shuffle as the ExamElite template and returns original option IDs in display order. Empty choices are excluded. The browser sends original IDs, never display positions. A resume may reshuffle as the native page does; persisted selections retain their original identities. Synthetic native tests verify start/save/resume with these flags, and a browser fixture checks shuffled selection, calculator interaction, lost-response retry and submission. Proctoring and browser tolerance remain blocked until their controls are integrated.
+The native payload uses the same collection shuffle as the ExamElite template and returns original option IDs in display order. Empty choices are excluded. The browser sends original IDs, never display positions. A resume may reshuffle as the native page does; persisted selections retain their original identities. Synthetic native tests verify start/save/resume with these flags, and a browser fixture checks shuffled selection, calculator interaction, lost-response retry and submission. Camera proctoring remains blocked until its private capture/review workflow is integrated.
 
 ## Captured section and subject timing
 
@@ -72,3 +72,11 @@ The additive native `tech4learn_attempt_clocks` table stores the native timer mo
 New answer writes must belong to the current group according to server time, in addition to existing overall-duration and closing-time checks. Future and expired groups reject new answers. Previously accepted request retries still acknowledge the saved write after its section expires. The native controller finalises the attempt when all allocated section time has elapsed. No marking algorithm is copied into Tech4Learn.
 
 The student screen shows the active section and its countdown, prevents navigation into other sections, and refreshes server state at boundaries. Unsaved edits are not submitted after expiry; the screen explicitly says that only saved answers were kept. Failed boundary requests stay retryable and keep answers locked. The last boundary reaches native finalisation. Native tests cover exact boundaries, reloads, allocation changes, future/expired writes, retry acknowledgements and finalisation; a short synthetic browser exam checks navigation, the unsaved-expiry notice and automatic transition/submission.
+
+## Browser tolerance events
+
+The student screen records tab-hidden events when native browser tolerance is enabled with a positive limit. Events wait behind an in-flight save and retain their request identity on retry. Pending event failures keep answers frozen and cannot be discarded through the answer-reload button. A successful non-final event preserves unsaved answer text. The configured limit and recorded count are shown on the exam screen.
+
+The native adapter checks the assigned attempt and increments the persisted native count under its existing transaction/attempt lock. It calls ExamElite's own counter update and finalisation methods. Duplicate requests do not increment twice; aggregate browser counts are rejected. Reaching the configured limit submits through the native engine, and ended attempts cannot be reopened by event retries. Start/resume also finalises an attempt already at its limit; new answers are rejected there.
+
+This is the native browser-visibility rule, not a claim of tamper-proof proctoring: a modified client can suppress events, and closing a page can interrupt delivery of a pending event. Camera capture remains unavailable. Synthetic native, HTTP and browser checks cover identity scope, forged counters, duplicate delivery, unsaved answer preservation and finalisation. No real student events were generated.

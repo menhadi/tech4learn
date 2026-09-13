@@ -9,10 +9,10 @@ use Illuminate\Contracts\View\View;
 final class Tech4LearnStudentAttempts
 {
  public function run(string $workspace,int $source,string $learner,string $name,int $examId,string $action,array $fields):array {
-  abort_unless(in_array($action,['start','answer','submit','media'],true)&&$examId>0,422);
+  abort_unless(in_array($action,['start','answer','submit','media','visibility'],true)&&$examId>0,422);
   foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   $requestId=$fields['request_id']??'';abort_unless(is_string($requestId)&&preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$requestId),422);
-  $allowed=match($action){'start'=>['request_id','language_id'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'submit'=>['request_id','attempt_id'],'media'=>['request_id','attempt_id','question_id','asset']};
+  $allowed=match($action){'start'=>['request_id','language_id'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'submit'=>['request_id','attempt_id'],'visibility'=>['request_id','attempt_id','event'],'media'=>['request_id','attempt_id','question_id','asset']};
   abort_unless(array_diff(array_keys($fields),$allowed)===[],422);
   if(isset($fields['language_id']))abort_unless(is_int($fields['language_id'])&&$fields['language_id']>0,422);
   if($action==='answer')abort_unless(is_int($fields['question_id']??null)&&is_array($fields['fields']??null)&&is_string($fields['revision']??null),422);
@@ -38,8 +38,21 @@ final class Tech4LearnStudentAttempts
    $fingerprint=hash('sha256',json_encode([$action,$source,$learner,$examId,$fields],JSON_THROW_ON_ERROR));
    $prior=DB::table('tech4learn_attempt_requests')->where('workspace_id',$workspace)->where('request_id',$requestId)->first();
    if($prior)abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');
-   $attempt=$action==='submit'?$this->attempt($tenant,$student->id,$examId,$fields['attempt_id']??null):($prior?$this->attempt($tenant,$student->id,$examId,json_decode($prior->result,true)['attempt_id']):ExamResult::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_id',$examId)->whereNull('end_time')->lockForUpdate()->first());
+   $attempt=in_array($action,['submit','visibility'],true)?$this->attempt($tenant,$student->id,$examId,$fields['attempt_id']??null):($prior?$this->attempt($tenant,$student->id,$examId,json_decode($prior->result,true)['attempt_id']):ExamResult::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_id',$examId)->whereNull('end_time')->lockForUpdate()->first());
    if($attempt?->end_time)return $this->completed($exam,$attempt,$showResults);
+   if($action==='visibility'){
+    abort_unless(($fields['event']??null)==='hidden'&&$exam->browser_tolerance&&(int)$exam->tolerance_count>0,422);
+    if($prior)return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);
+    abort_unless($exam->status==='Active'&&$exam->isFrontendVisible()&&$exam->allowsOnlineAttempt(),403);
+    $count=max(0,(int)$attempt->tolerance_count);if($count<(int)$exam->tolerance_count)$count++;
+    $response=app(Tech4LearnStudentContext::class)->run($tenant,$student,['exam_result_id'=>$attempt->id,'tolerance_count'=>$count],function($request)use($exam,$attempt,$count,$showResults){
+     $native=app(StudentExamsController::class);$native->updateToleranceCount($request);
+     if($count>=(int)$exam->tolerance_count){$native->finishExam($request);$attempt->refresh();abort_unless($attempt->end_time,409,'ExamElite could not finish this attempt.');return $this->completed($exam,$attempt,$showResults);}
+     return ['attempt_id'=>(int)$attempt->id,'exam_id'=>(int)$exam->id,'completed'=>false,'tolerance_count'=>$count,'tolerance_limit'=>(int)$exam->tolerance_count];
+    });
+    DB::table('tech4learn_attempt_requests')->insert(['workspace_id'=>$workspace,'request_id'=>$requestId,'fingerprint'=>$fingerprint,'result'=>json_encode($response,JSON_THROW_ON_ERROR),'created_at'=>now()]);
+    return $response;
+   }
    if($action==='start'&&!$attempt){
     $count=ExamResult::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_id',$examId)->whereNotNull('end_time')->count();
     abort_unless((int)$exam->attempt_count===0||$count<(int)$exam->attempt_count,409,'No attempts remain for this exam.');
@@ -47,7 +60,7 @@ final class Tech4LearnStudentAttempts
    if($action==='start'){
     abort_unless(!$attempt||$attempt->total_test_time===null||(float)$attempt->total_test_time===(float)$exam->duration,409,'The paper duration changed after this attempt started. Ask exam staff to restore its duration before resuming.');
     // Do not silently launch modes whose internal controls are not wired yet.
-    abort_unless(!$exam->proctor&&!$exam->browser_tolerance,422,'This exam requires delivery controls that are not yet available in Tech4Learn.');
+    abort_unless(!$exam->proctor,422,'This exam requires delivery controls that are not yet available in Tech4Learn.');
     abort_unless($exam->questions()->count()<=500,422,'This paper exceeds the current online question limit.');
    }
    // Native start rejects a closed paper before reaching its timeout handler.
@@ -58,6 +71,7 @@ final class Tech4LearnStudentAttempts
     if($exam->end_date&&now()->greaterThanOrEqualTo(\Carbon\Carbon::parse($exam->end_date)))$expired=true;
     $clock=app(Tech4LearnAttemptClock::class)->state($workspace,$exam,$attempt);
     if($clock!==null&&$clock['remaining_seconds']===0)$expired=true;
+    if($exam->browser_tolerance&&(int)$exam->tolerance_count>0&&(int)$attempt->tolerance_count>=(int)$exam->tolerance_count)$expired=true;
     if($expired)$action='submit';
    }
    $language=$attempt?->language_id??($fields['language_id']??null);

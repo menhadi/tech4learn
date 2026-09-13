@@ -98,6 +98,7 @@ export class ExamStudentAttemptService {
       start: ["request_id", "language_id"],
       answer: ["request_id", "attempt_id", "question_id", "fields", "revision"],
       submit: ["request_id", "attempt_id"],
+      visibility: ["request_id", "attempt_id", "event"],
     };
     if (
       !Object.hasOwn(allowed, action) ||
@@ -108,6 +109,8 @@ export class ExamStudentAttemptService {
     )
       throw new BadRequestException("Invalid exam request.");
     uuid(body.request_id);
+    if (action === "visibility" && body.event !== "hidden")
+      throw new BadRequestException("Invalid visibility event.");
     const id = (value: unknown) =>
       typeof value === "number" && Number.isSafeInteger(value) && value > 0;
     if (
@@ -157,9 +160,12 @@ export class ExamStudentAttemptService {
         duration_changed:
           "The paper duration changed after you started. Ask exam staff to restore it before resuming.",
         attempts_exhausted: "You have used all allowed attempts for this exam.",
-        section_ended: "This question is outside the current section time. Resume saved answers to continue.",
-        schedule_missing: "This older attempt has no saved section schedule. Ask exam staff for a new attempt.",
-        timer_changed: "The paper timer mode changed after you started. Ask exam staff to restore it before resuming.",
+        section_ended:
+          "This question is outside the current section time. Resume saved answers to continue.",
+        schedule_missing:
+          "This older attempt has no saved section schedule. Ask exam staff for a new attempt.",
+        timer_changed:
+          "The paper timer mode changed after you started. Ask exam staff to restore it before resuming.",
       };
       const messages: Record<number, string> = {
         403: "Exam access is no longer available.",
@@ -179,7 +185,10 @@ export class ExamStudentAttemptService {
       );
     }
     const data = response.data;
-    if (action === "submit" && data?.attempt_id !== body.attempt_id)
+    if (
+      (action === "submit" || action === "visibility") &&
+      data?.attempt_id !== body.attempt_id
+    )
       throw new ServiceUnavailableException(
         "The exam service returned a different attempt.",
       );
@@ -224,6 +233,24 @@ export class ExamStudentAttemptService {
         completed: true,
         result: rules?.restrictions?.includes("results") ? null : data.result,
       };
+    if (action === "visibility") {
+      if (
+        !Number.isSafeInteger(data.tolerance_count) ||
+        data.tolerance_count < 0 ||
+        !Number.isSafeInteger(data.tolerance_limit) ||
+        data.tolerance_limit <= data.tolerance_count
+      )
+        throw new ServiceUnavailableException(
+          "Invalid exam event acknowledgement.",
+        );
+      return {
+        attempt_id: data.attempt_id,
+        exam_id: data.exam_id,
+        completed: false,
+        tolerance_count: data.tolerance_count,
+        tolerance_limit: data.tolerance_limit,
+      };
+    }
     return data;
   }
 }
