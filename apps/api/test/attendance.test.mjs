@@ -1,3 +1,4 @@
+import { attendanceTestingMigration } from "../dist/migration-attendance-testing.js";
 import { bulkAttendanceMigration } from "../dist/migration-bulk-attendance.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -97,6 +98,7 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
     learnerMigration,
     configurationMigration,
     attendanceMigration,
+    attendanceTestingMigration,
     bulkAttendanceMigration,
     visionMigration,
     academicMigration,
@@ -465,6 +467,25 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
           ).status,
           409,
         );
+        // Only the designated pilot can create independent repeated daily runs.
+        const originalSlug = (await pg.query("SELECT slug FROM organisations WHERE id=$1", [org])).rows[0].slug;
+        await pg.query("UPDATE organisations SET slug='vector-academy' WHERE id=$1", [org]);
+        try {
+          for (let n = 0; n < 2; n++) {
+            const retry = await ok(p + "/captures", "POST", { group_id: teacherGroup.id, resume_existing: true }, teacher, 201);
+            assert.ok(retry.id);
+            assert.equal(retry.snapshot.test_run, true);
+            await ok(`${p}/captures/${retry.id}/submit`, "POST", { ...body, captured_at: new Date().toISOString() }, teacher, 201);
+            const saved = await ok(`${p}/${retry.id}`, "GET", undefined, admin);
+            await ok(`${p}/${retry.id}/review`, "POST", {version:saved.version,decision:"confirmed",marks:Object.fromEntries(saved.snapshot.roster.map(l=>[l.id,"present"])),reason:"Synthetic repeat test",acknowledge_warnings:true}, admin, 201);
+          }
+          const listed = await ok(p + "?date=" + detail.attendance_date, "GET", undefined, admin);
+          assert.equal(listed.rows.filter(r=>r.test_run).length, 2);
+          assert.equal(listed.totals.length, 0);
+        } finally {
+          await pg.query("DELETE FROM attendance_sessions WHERE organisation_id=$1 AND snapshot->>'test_run'='true'", [org]);
+          await pg.query("UPDATE organisations SET slug=$2 WHERE id=$1", [org, originalSlug]);
+        }
         const marks = Object.fromEntries(
           detail.snapshot.roster.map((l, i) => [
             l.id,

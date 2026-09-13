@@ -23,6 +23,7 @@ type Policy = {
   version: number;
 };
 type Snapshot = {
+  test_run?: boolean;
   group_name: string;
   centre_name: string;
   roster: { id: string; name: string; code: string }[];
@@ -43,6 +44,7 @@ type Capture = {
   custom_values: Record<string, unknown>;
 };
 type Entry = {
+  test_run?: boolean;
   attendance_date:string;
   id: string;
   status: string;
@@ -266,6 +268,7 @@ export function Attendance({
     }
     stream.current = media;
     setIntent(i);
+    if (i.snapshot.test_run) setNotice("Test mode: you can submit this class again today. This run is excluded from daily totals.");
     setLive(true);
   }
   async function take() {
@@ -522,7 +525,7 @@ export function Attendance({
                 . Missing captures are not counted as absences.
               </p>
               <DirectoryTable title="Daily attendance" columns={["Class / section","Centre","Date","Status","Location","Actions"]} columnKeys={["group_name","centre_name","attendance_date","status","location_status",""]} remote={{query:tableQuery,onChange:q=>setTableQuery({...q,sort:q.sort||"attendance_date"}),total:listing.total,filtered:listing.filtered,loading:listLoading}}>
-                {listing.rows.map(r=><tr key={r.id}><th scope="row">{r.group_name}</th><td>{r.centre_name}</td><td>{r.attendance_date}</td><td>{r.status}</td><td>{r.location_status}</td><td><button type="button" disabled={busy||!!intent} onClick={()=>void act(()=>open(r.id))}>Open attendance</button></td></tr>)}
+                {listing.rows.map(r=><tr key={r.id}><th scope="row">{r.group_name}</th><td>{r.centre_name}</td><td>{r.attendance_date}</td><td>{r.status}{r.test_run && " - Test run"}</td><td>{r.location_status}</td><td><button type="button" disabled={busy||!!intent} onClick={()=>void act(()=>open(r.id))}>Open attendance</button></td></tr>)}
               </DirectoryTable>
             </>
           ) : (
@@ -533,7 +536,7 @@ export function Attendance({
       {detail && (
         <section className="panel" key={detail.id}>
           <h4>
-            {detail.snapshot.group_name} — {detail.attendance_date}
+            {detail.snapshot.test_run && "Test run (excluded from daily totals): "}{detail.snapshot.group_name} — {detail.attendance_date}
           </h4>
           <p>
             {detail.snapshot.centre_name} · {detail.status}

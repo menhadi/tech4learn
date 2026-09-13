@@ -33,6 +33,7 @@ type Policy = {
   version: number;
 };
 type Snapshot = {
+  test_run?: boolean;
   group_name: string;
   centre_name: string;
   centre: CentreLocation;
@@ -315,10 +316,12 @@ export class AttendanceService {
       ).rows[0];
       if (!group) throw new NotFoundException("Active group not found.");
       this.allowed(a, group);
-      if (b.resume_existing === true) {
+      // Temporary pilot exception; remove this slug match when repeat testing ends.
+      const testRun = (await sql.query("SELECT id FROM organisations WHERE id=$1 AND slug='vector-academy'", [org])).rows.length > 0;
+      if (!testRun && b.resume_existing === true) {
         const policy = await this.policy(sql, org);
         const date = new Intl.DateTimeFormat("en-CA", {timeZone:policy.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-        const existing = (await sql.query<{id:string;status:string}>("SELECT id,status FROM attendance_sessions WHERE organisation_id=$1 AND group_id=$2 AND attendance_date=$3 AND status IN ('pending','confirmed')",[org,groupId,date])).rows[0];
+        const existing = (await sql.query<{id:string;status:string}>("SELECT id,status FROM attendance_sessions WHERE organisation_id=$1 AND group_id=$2 AND attendance_date=$3 AND status IN ('pending','confirmed') AND COALESCE(snapshot->>'test_run','false') <> 'true'",[org,groupId,date])).rows[0];
         if (existing) return { existingId:existing.id, status:existing.status };
       }
       const roster = (
@@ -353,6 +356,7 @@ export class AttendanceService {
         )
       ).rows;
       const snapshot: Snapshot = {
+        test_run: testRun,
         group_name: group.group_name,
         centre_name: group.centre_name,
         centre: {
@@ -438,9 +442,10 @@ export class AttendanceService {
         day: "2-digit",
       }).format(new Date(captured));
       if (
+        !r.snapshot.test_run &&
         (
           await sql.query(
-            "SELECT id FROM attendance_sessions WHERE organisation_id=$1 AND group_id=$2 AND attendance_date=$3 AND status IN ('pending','confirmed')",
+            "SELECT id FROM attendance_sessions WHERE organisation_id=$1 AND group_id=$2 AND attendance_date=$3 AND status IN ('pending','confirmed') AND COALESCE(snapshot->>'test_run','false') <> 'true'",
             [org, r.group_id, date],
           )
         ).rows.length
@@ -498,7 +503,7 @@ export class AttendanceService {
       throw new BadRequestException("Choose a valid date and page.");
     const params = [org, a.scope_type, a.scope_ids, date];
     const where = `organisation_id=$1 AND ${scope} AND attendance_date=$4 AND status<>'draft'`;
-    const page=await directoryPage(this.db,{select:"id,attendance_date,status,version,snapshot->>'group_name' AS group_name,snapshot->>'centre_name' AS centre_name,evidence->>'location_status' AS location_status,marks",from:"FROM attendance_sessions",scope:where,params,columns:{group_name:"snapshot->>'group_name'",centre_name:"snapshot->>'centre_name'",status:"status",location_status:"evidence->>'location_status'",attendance_date:"attendance_date"},sort:"attendance_date",id:"id"},query||{offset,direction:"desc"});
+    const page=await directoryPage(this.db,{select:"id,attendance_date,status,version,(snapshot->>'test_run'='true') AS test_run,snapshot->>'group_name' AS group_name,snapshot->>'centre_name' AS centre_name,evidence->>'location_status' AS location_status,marks",from:"FROM attendance_sessions",scope:where,params,columns:{group_name:"snapshot->>'group_name'",centre_name:"snapshot->>'centre_name'",status:"status",location_status:"evidence->>'location_status'",attendance_date:"attendance_date"},sort:"attendance_date",id:"id"},query||{offset,direction:"desc"});
     const counts = (
       await this.db.query<{ status: string; n: string }>(
         `SELECT status,count(*) AS n FROM attendance_sessions WHERE ${where} GROUP BY status`,
@@ -507,7 +512,7 @@ export class AttendanceService {
     ).rows;
     const totals = (
       await this.db.query<{ mark: string; n: string }>(
-        `SELECT m.value AS mark,count(*) AS n FROM attendance_sessions s CROSS JOIN LATERAL jsonb_each_text(s.marks) m WHERE ${where} AND status='confirmed' GROUP BY m.value`,
+        `SELECT m.value AS mark,count(*) AS n FROM attendance_sessions s CROSS JOIN LATERAL jsonb_each_text(s.marks) m WHERE ${where} AND status='confirmed' AND COALESCE(snapshot->>'test_run','false') <> 'true' GROUP BY m.value`,
         params,
       )
     ).rows;
