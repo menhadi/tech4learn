@@ -46,6 +46,7 @@ final class Tech4LearnAttemptAnswers
             $minutes=(float)($result->total_test_time??$exam->duration??0);
             if($minutes>0)abort_unless($now->lt($start->copy()->addSeconds((int)($minutes*60))),409,'The time for this attempt has ended.');
             if($exam->end_date)abort_unless($now->lt(Carbon::parse($exam->end_date,config('app.timezone','UTC'))),409,'This exam has closed.');
+            app(Tech4LearnAttemptClock::class)->assertQuestion($workspace,$exam,$result,$questionId);
             abort_unless(hash_equals($this->revision($stat),$revision),409,'This answer changed. Reload before saving.');
             $type=app(QuestionAnswerEvaluator::class)->questionType($question);
             $selected=$fields['option_selected']??null;

@@ -2,9 +2,12 @@
 require __DIR__.'/test-exam-authoring.php';
 if(isset($argv[3]))foreach(['QuestionAnswerEvaluator','ExamAnswerPersistenceService'] as $class){$file=dirname($argv[3]).'/'.$class.'.php';if(is_file($file))require_once $file;}
 require __DIR__.'/Tech4LearnAttemptAnswers.php';
+require_once __DIR__.'/Tech4LearnAttemptClock.php';
+if(isset($argv[3]))require_once dirname($argv[3]).'/ExamGroupingService.php';
 use Illuminate\Support\Facades\DB;
 use App\Models\{Exam,ExamStat,ExamResult,Student};
 use Carbon\Carbon;
+DB::statement('CREATE TABLE tech4learn_attempt_clocks(attempt_id INTEGER PRIMARY KEY,workspace_id TEXT,organization_id INTEGER,student_id INTEGER,exam_id INTEGER,mode TEXT,groups TEXT,created_at TEXT)');
 DB::statement('CREATE TABLE tech4learn_attempt_requests(workspace_id TEXT,request_id TEXT,fingerprint TEXT,result TEXT,created_at TEXT,PRIMARY KEY(workspace_id,request_id))');
 DB::statement('CREATE TABLE students(id INTEGER PRIMARY KEY,organization_id INTEGER,status TEXT,name TEXT,created_at TEXT,updated_at TEXT)');
 foreach(['exam_results'=>new ExamResult,'exam_stats'=>new ExamStat] as $table=>$model){
@@ -15,7 +18,7 @@ $app['config']->set('app.timezone','UTC');Carbon::setTestNow(Carbon::parse('2026
 $learner='33333333-3333-3333-3333-333333333333';
 $student=Student::create(['organization_id'=>20,'status'=>'Active','name'=>'Synthetic learner']);
 DB::table('tech4learn_workspace_users')->insert(['workspace_id'=>$workspace,'local_id'=>$learner,'kind'=>'student','external_id'=>$student->id]);
-$paper=Exam::find($exam['id']);$paper->forceFill(['status'=>'Active','frontend_visible'=>true,'online_attempt_enabled'=>true,'allow_answer_change'=>true,'end_date'=>'2026-09-13 14:00:00'])->save();
+$paper=Exam::find($exam['id']);$paper->forceFill(['timer_mode'=>'none','is_subject_timer'=>false,'status'=>'Active','frontend_visible'=>true,'online_attempt_enabled'=>true,'allow_answer_change'=>true,'end_date'=>'2026-09-13 14:00:00'])->save();
 $attempt=ExamResult::create(['organization_id'=>20,'student_id'=>$student->id,'exam_id'=>$paper->id,'start_time'=>'2026-09-13 11:45:00','total_test_time'=>60]);
 $stat=ExamStat::create(['organization_id'=>20,'student_id'=>$student->id,'exam_id'=>$paper->id,'exam_result_id'=>$attempt->id,'question_id'=>$q->id,'correct_answer'=>'DO NOT EXPOSE','marks'=>4,'negative_marks'=>1]);
 $answers=new App\Services\Tech4LearnAttemptAnswers();

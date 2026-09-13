@@ -47,7 +47,7 @@ final class Tech4LearnStudentAttempts
    if($action==='start'){
     abort_unless(!$attempt||$attempt->total_test_time===null||(float)$attempt->total_test_time===(float)$exam->duration,409,'The paper duration changed after this attempt started. Ask exam staff to restore its duration before resuming.');
     // Do not silently launch modes whose internal controls are not wired yet.
-    abort_unless(!$exam->proctor&&!$exam->browser_tolerance&&($exam->timer_mode??'none')==='none',422,'This exam requires delivery controls that are not yet available in Tech4Learn.');
+    abort_unless(!$exam->proctor&&!$exam->browser_tolerance,422,'This exam requires delivery controls that are not yet available in Tech4Learn.');
     abort_unless($exam->questions()->count()<=500,422,'This paper exceeds the current online question limit.');
    }
    // Native start rejects a closed paper before reaching its timeout handler.
@@ -56,10 +56,12 @@ final class Tech4LearnStudentAttempts
     $duration=(float)($attempt->total_test_time??$exam->duration);
     $expired=$duration>0&&now()->greaterThanOrEqualTo(\Carbon\Carbon::parse($attempt->start_time)->addSeconds((int)($duration*60)));
     if($exam->end_date&&now()->greaterThanOrEqualTo(\Carbon\Carbon::parse($exam->end_date)))$expired=true;
+    $clock=app(Tech4LearnAttemptClock::class)->state($workspace,$exam,$attempt);
+    if($clock!==null&&$clock['remaining_seconds']===0)$expired=true;
     if($expired)$action='submit';
    }
    $language=$attempt?->language_id??($fields['language_id']??null);
-   $result=app(Tech4LearnStudentContext::class)->run($tenant,$student,['lang'=>$language,'exam_result_id'=>$attempt?->id],function($request,$session)use($action,$examId,$tenant,$student,$exam,$attempt,$showResults){
+   $result=app(Tech4LearnStudentContext::class)->run($tenant,$student,['lang'=>$language,'exam_result_id'=>$attempt?->id],function($request,$session)use($workspace,$action,$examId,$tenant,$student,$exam,$attempt,$showResults){
     $native=app(StudentExamsController::class);
     $response=$action==='start'?$native->startExam($request,$examId):$native->finishExam($request);
     abort_unless(!$session->has('error'),409,(string)$session->get('error'));
@@ -69,6 +71,15 @@ final class Tech4LearnStudentAttempts
      // first answer uses the same revision as a subsequent read or resume.
      $view['examStats']=\App\Models\ExamStat::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_result_id',$view['examResult']->id)->get()->keyBy('question_id');
      $payload=app(Tech4LearnAttemptPayload::class)->fromNativeView($view,$tenant,$student->id);
+     $clockService=app(Tech4LearnAttemptClock::class);
+     $clockService->initialise($workspace,$exam,$view['examResult'],$view,$attempt===null);
+     $clock=$clockService->state($workspace,$exam,$view['examResult']);
+     $payload['section_clock']=$clock;
+     if($clock!==null){
+      $payload['remaining_seconds']=$payload['time_limited']?min($payload['remaining_seconds'],$clock['remaining_seconds']):$clock['remaining_seconds'];
+      $payload['time_limited']=true;
+      if($clock['active'])$payload['section_clock']['active']['remaining_seconds']=min($clock['active']['remaining_seconds'],$payload['remaining_seconds']);
+     }
      foreach($payload['questions'] as &$question){
       $texts=array_values($question['content']);$texts[]=$question['passage']['content']??'';
       foreach($texts as $text)abort_unless(!preg_match('/<(?:svg|math-field|iframe|video|audio|object|embed)\b/i',$text),422,'This paper needs media or formula display that is not available yet.');

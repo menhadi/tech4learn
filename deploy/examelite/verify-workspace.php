@@ -3,10 +3,10 @@ require '/home/examelite/public_html/vendor/autoload.php';
 $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
-foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_workspace_tickets','tech4learn_workspace_copies','tech4learn_content_transfers','tech4learn_authoring_requests','tech4learn_attempt_requests'] as $table) {
+foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_workspace_tickets','tech4learn_workspace_copies','tech4learn_content_transfers','tech4learn_authoring_requests','tech4learn_attempt_requests','tech4learn_attempt_clocks'] as $table) {
     if(!\Illuminate\Support\Facades\Schema::hasTable($table))throw new RuntimeException('Workspace migration is incomplete.');
 }
-foreach([\App\Services\Tech4LearnQuestionMedia::class,\App\Services\Tech4LearnAttemptAnswers::class,\App\Services\Tech4LearnAttemptPayload::class,\App\Services\Tech4LearnStudentContext::class,\App\Services\Tech4LearnStudentAttempts::class] as $service)if(!class_exists($service))throw new RuntimeException('Student attempt adapter is missing.');
+foreach([\App\Services\Tech4LearnAttemptClock::class,\App\Services\Tech4LearnQuestionMedia::class,\App\Services\Tech4LearnAttemptAnswers::class,\App\Services\Tech4LearnAttemptPayload::class,\App\Services\Tech4LearnStudentContext::class,\App\Services\Tech4LearnStudentAttempts::class] as $service)if(!class_exists($service))throw new RuntimeException('Student attempt adapter is missing.');
 foreach([
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/media','Tech4LearnStudentController@attempt'],
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/start','Tech4LearnStudentController@attempt'],

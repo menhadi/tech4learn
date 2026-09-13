@@ -31,6 +31,9 @@ class Tech4LearnStudentController extends Tech4LearnPlatformController
     'This exam requires delivery controls that are not yet available in Tech4Learn.'=>'controls_unavailable',
     'The paper duration changed after this attempt started. Ask exam staff to restore its duration before resuming.'=>'duration_changed',
     'No attempts remain for this exam.'=>'attempts_exhausted',
+    'This question is outside the current timed section.'=>'section_ended',
+    'This timed attempt has no captured section schedule.'=>'schedule_missing',
+    'The paper timer mode changed after this attempt started.'=>'timer_changed',
     default=>null,
    };
    return $this->reply($central,['error'=>['status'=>$status,'code'=>$code]]);

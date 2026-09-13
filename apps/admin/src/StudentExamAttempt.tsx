@@ -24,6 +24,16 @@ type Attempt = {
   time_limited: boolean;
   questions: Question[];
   settings: { allow_answer_change: boolean; calculator_allowed?: boolean };
+  section_clock?: {
+    mode: string;
+    active: {
+      key: string;
+      label: string;
+      questions: number[];
+      remaining_seconds: number;
+    } | null;
+    remaining_seconds: number;
+  } | null;
   completed?: boolean;
   result?: { status: string; score_percent: number } | null;
 };
@@ -39,10 +49,13 @@ export function StudentExamAttempt({ base }: { base: string }) {
     [displayGeneration, setDisplayGeneration] = useState(0),
     [displayReady, setDisplayReady] = useState<Record<string, boolean>>({}),
     [remaining, setRemaining] = useState<number | null>(null),
+    [sectionRemaining, setSectionRemaining] = useState<number | null>(null),
+    [notice, setNotice] = useState(""),
     [confirm, setConfirm] = useState(false);
   const pending = useRef<{ action: string; body: any } | null>(null),
     running = useRef(false),
-    deadline = useRef(0);
+    deadline = useRef(0),
+    sectionDeadline = useRef(0);
   const q = attempt?.questions?.[index];
   function select(next: Attempt, i: number, refresh = true) {
     setIndex(i);
@@ -98,9 +111,24 @@ export function StudentExamAttempt({ base }: { base: string }) {
         select(updated, index, false);
       } else {
         setAttempt(result);
-        select(result, 0);
+        const active = result.section_clock?.active;
+        select(
+          result,
+          active
+            ? Math.max(
+                0,
+                result.questions.findIndex((question: Question) =>
+                  active.questions.includes(question.id),
+                ),
+              )
+            : 0,
+        );
         deadline.current = Date.now() + result.remaining_seconds * 1000;
         setRemaining(result.time_limited ? result.remaining_seconds : null);
+        sectionDeadline.current = active
+          ? Date.now() + active.remaining_seconds * 1000
+          : 0;
+        setSectionRemaining(result.section_clock ? (active?.remaining_seconds ?? 0) : null);
       }
       pending.current = null;
       setConfirm(false);
@@ -117,15 +145,34 @@ export function StudentExamAttempt({ base }: { base: string }) {
   }
   useEffect(() => {
     if (!attempt || attempt.completed || !attempt.time_limited) return;
-    const timer = setInterval(
-      () =>
-        setRemaining(
-          Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000)),
-        ),
-      1000,
-    );
+    const timer = setInterval(() => {
+      setRemaining(
+        Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000)),
+      );
+      if (sectionDeadline.current)
+        setSectionRemaining(
+          Math.max(0, Math.ceil((sectionDeadline.current - Date.now()) / 1000)),
+        );
+    }, 1000);
     return () => clearInterval(timer);
   }, [attempt?.attempt_id, attempt?.completed]);
+  useEffect(() => {
+    if (
+      sectionRemaining !== 0 ||
+      !attempt?.section_clock ||
+      attempt.completed ||
+      busy ||
+      pending.current ||
+      running.current
+    )
+      return;
+    setNotice(
+      dirty
+        ? "Section time ended. Only saved answers were kept."
+        : "Section time ended. Saved answers were kept.",
+    );
+    void send("start", {});
+  }, [sectionRemaining, busy]);
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
       if (dirty || pending.current) {
@@ -160,6 +207,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
     !!pending.current ||
     !!q?.answer_locked ||
     remaining === 0 ||
+    sectionRemaining === 0 ||
     !!displayError ||
     required.some((key) => !displayReady[key]);
   const edit = (value: any) => {
@@ -168,6 +216,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
   };
   return (
     <section aria-label="Exam attempt">
+      {notice && <p role="status">{notice}</p>}
       {displayError && !pending.current && (
         <button
           className="secondary"
@@ -251,6 +300,20 @@ export function StudentExamAttempt({ base }: { base: string }) {
                 : `Time remaining: ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
             </p>
             {attempt.settings.calculator_allowed && <ExamCalculator />}
+            {attempt.section_clock?.active && (
+              <div>
+                <h3>{attempt.section_clock.active.label}</h3>
+                <p>
+                  Section time remaining:{" "}
+                  {Math.floor((sectionRemaining ?? 0) / 60)}:
+                  {String((sectionRemaining ?? 0) % 60).padStart(2, "0")}
+                </p>
+                <p>
+                  Save each answer before time ends. Sections advance
+                  automatically; finished sections cannot be reopened.
+                </p>
+              </div>
+            )}
             {remaining === 0 && (
               <p role="alert">
                 Time has ended. Submit your saved answers below. New answers
@@ -440,7 +503,17 @@ export function StudentExamAttempt({ base }: { base: string }) {
                 <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
                   <button
                     className="secondary"
-                    disabled={busy || dirty || !!pending.current || index === 0}
+                    disabled={
+                      busy ||
+                      dirty ||
+                      !!pending.current ||
+                      index === 0 ||
+                      sectionRemaining === 0 ||
+                      (!!attempt.section_clock &&
+                        !attempt.section_clock.active?.questions.includes(
+                          attempt.questions[index - 1]?.id,
+                        ))
+                    }
                     onClick={() => select(attempt, index - 1)}
                   >
                     Previous question
@@ -451,7 +524,12 @@ export function StudentExamAttempt({ base }: { base: string }) {
                       busy ||
                       dirty ||
                       !!pending.current ||
-                      index === attempt.questions.length - 1
+                      index === attempt.questions.length - 1 ||
+                      sectionRemaining === 0 ||
+                      (!!attempt.section_clock &&
+                        !attempt.section_clock.active?.questions.includes(
+                          attempt.questions[index + 1]?.id,
+                        ))
                     }
                     onClick={() => select(attempt, index + 1)}
                   >

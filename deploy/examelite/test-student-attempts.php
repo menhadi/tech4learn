@@ -11,7 +11,7 @@ namespace App\Services {
 namespace {
 function getConfiguration(){return null;}
 require __DIR__.'/test-attempt-answers.php';
-if(isset($argv[3]))foreach(['ExamGroupingService','StudentExamsController'] as $class)require dirname($argv[3]).'/'.$class.'.php';
+if(isset($argv[3]))foreach(['ExamGroupingService','StudentExamsController'] as $class)require_once dirname($argv[3]).'/'.$class.'.php';
 require __DIR__.'/Tech4LearnStudentContext.php';
 require __DIR__.'/Tech4LearnStudentAttempts.php';
 require_once __DIR__.'/Tech4LearnQuestionMedia.php';
@@ -111,6 +111,52 @@ check($controlAnswer['saved'],'Shuffled option is saved through native answer pe
 $controlResume=$lifecycle->run($workspace,10,$controlsLearner,'Synthetic controls candidate',$paper->id,'start',['request_id'=>$next()]);
 check(array_map('intval',$controlResume['questions'][0]['answer'])===[2],'Reshuffling on resume keeps the saved answer identity');
 $q->forceFill($beforeOptions)->save();$paper->forceFill(['calculator_allowed'=>false,'option_shuffle'=>false])->save();
+// Section time is captured from the native allocations, not the browser clock.
+Carbon::setTestNow(Carbon::parse('2026-09-13 12:10:00','UTC'));
+$timedPaper=$paper->replicate();$timedPaper->forceFill(['name'=>'Synthetic timed paper','duration'=>10,'timer_mode'=>'section','grouping_mode'=>'section','is_subject_timer'=>true])->save();
+$secondQuestion=$q->replicate();$secondQuestion->save();
+$sectionOne=App\Models\ExamSection::create(['exam_id'=>$timedPaper->id,'name'=>'First section','display_order'=>1,'duration'=>1]);
+$sectionTwo=App\Models\ExamSection::create(['exam_id'=>$timedPaper->id,'name'=>'Second section','display_order'=>2,'duration'=>2]);
+$timedPaper->questions()->sync([$q->id=>['exam_section_id'=>$sectionOne->id],$secondQuestion->id=>['exam_section_id'=>$sectionTwo->id]]);
+$timedLearner='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+$timed=$lifecycle->run($workspace,10,$timedLearner,'Synthetic timed candidate',$timedPaper->id,'start',['request_id'=>$next()]);
+check($timed['section_clock']['active']['questions']===[$q->id]&&$timed['section_clock']['active']['remaining_seconds']===60&&$timed['remaining_seconds']===180,'Native section allocations set the active group and total time');
+$saveTimed=function($questionId,$revision,$requestId)use($lifecycle,$workspace,$timedLearner,$timedPaper,$timed){return $lifecycle->run($workspace,10,$timedLearner,'Synthetic timed candidate',$timedPaper->id,'answer',['request_id'=>$requestId,'attempt_id'=>$timed['attempt_id'],'question_id'=>$questionId,'revision'=>$revision,'fields'=>['option_selected'=>'7']]);};
+rejectAnswer(fn()=>$saveTimed($secondQuestion->id,$timed['questions'][1]['revision'],$next()),'future timed section cannot be answered');
+$acceptedRequest=$next();$accepted=$saveTimed($q->id,$timed['questions'][0]['revision'],$acceptedRequest);
+Carbon::setTestNow(Carbon::parse('2026-09-13 12:10:30','UTC'));
+$sectionOne->duration=8;$sectionOne->save();
+$timedResume=$lifecycle->run($workspace,10,$timedLearner,'Synthetic timed candidate',$timedPaper->id,'start',['request_id'=>$next()]);
+check($timedResume['section_clock']['active']['remaining_seconds']===30,'Resume and later duration edits do not restart a section');
+Carbon::setTestNow(Carbon::parse('2026-09-13 12:11:00','UTC'));
+rejectAnswer(fn()=>$saveTimed($q->id,$accepted['revision'],$next()),'expired timed section cannot be answered');
+check($saveTimed($q->id,$timed['questions'][0]['revision'],$acceptedRequest)===$accepted,'Accepted answer replay survives section expiry');
+$nextSection=$lifecycle->run($workspace,10,$timedLearner,'Synthetic timed candidate',$timedPaper->id,'start',['request_id'=>$next()]);
+check($nextSection['section_clock']['active']['questions']===[$secondQuestion->id]&&$nextSection['section_clock']['active']['remaining_seconds']===120,'Server advances at the exact section boundary');
+$saveTimed($secondQuestion->id,$nextSection['questions'][1]['revision'],$next());
+$timedPaper->timer_mode='none';$timedPaper->save();
+rejectAnswer(fn()=>$lifecycle->run($workspace,10,$timedLearner,'Synthetic timed candidate',$timedPaper->id,'start',['request_id'=>$next()]),'changing timer mode cannot bypass captured schedule');
+$timedPaper->timer_mode='section';$timedPaper->save();
+Carbon::setTestNow(Carbon::parse('2026-09-13 12:13:00','UTC'));
+$timedEnd=$lifecycle->run($workspace,10,$timedLearner,'Synthetic timed candidate',$timedPaper->id,'start',['request_id'=>$next()]);
+check($timedEnd['completed'],'Native finalisation runs after the last section ends');
+Carbon::setTestNow(Carbon::parse('2026-09-13 12:20:00','UTC'));
+$subjectPaper=$paper->replicate();$subjectPaper->forceFill(['name'=>'Synthetic subject paper','duration'=>10,'timer_mode'=>'subject','grouping_mode'=>'subject','is_subject_timer'=>true])->save();
+$subjectPaper->questions()->sync([$q->id]);
+$subjectLearner='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+$subjectAttempt=$lifecycle->run($workspace,10,$subjectLearner,'Synthetic subject candidate',$subjectPaper->id,'start',['request_id'=>$next()]);
+check($subjectAttempt['section_clock']['mode']==='subject'&&$subjectAttempt['section_clock']['active']['remaining_seconds']===600,'Native automatic subject allocation is captured');
+Carbon::setTestNow(Carbon::parse('2026-09-13 12:20:30','UTC'));
+$subjectPaper->end_date='2026-09-13 12:20:40';$subjectPaper->save();
+$subjectResume=$lifecycle->run($workspace,10,$subjectLearner,'Synthetic subject candidate',$subjectPaper->id,'start',['request_id'=>$next()]);
+check($subjectResume['remaining_seconds']===10&&$subjectResume['section_clock']['active']['remaining_seconds']===10,'Earlier exam closure caps both overall and subject countdowns');
+$clockRow=(array)DB::table('tech4learn_attempt_clocks')->where('attempt_id',$subjectAttempt['attempt_id'])->first();
+DB::table('tech4learn_attempt_clocks')->where('attempt_id',$subjectAttempt['attempt_id'])->delete();
+rejectAnswer(fn()=>$lifecycle->run($workspace,10,$subjectLearner,'Synthetic subject candidate',$subjectPaper->id,'start',['request_id'=>$next()]),'older timed attempts cannot invent a replacement schedule');
+DB::table('tech4learn_attempt_clocks')->insert($clockRow);
+Carbon::setTestNow(Carbon::parse('2026-09-13 12:20:40','UTC'));
+check($lifecycle->run($workspace,10,$subjectLearner,'Synthetic subject candidate',$subjectPaper->id,'start',['request_id'=>$next()])['completed'],'Closing time reaches native finalisation before subject allocation ends');
+
 Carbon::setTestNow();
 require_once __DIR__.'/Tech4LearnPlatformController.php';
 DB::table('organizations')->insert(['id'=>10,'domain'=>'central.example.test','status'=>'active']);

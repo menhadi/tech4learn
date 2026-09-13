@@ -157,6 +157,9 @@ export class ExamStudentAttemptService {
         duration_changed:
           "The paper duration changed after you started. Ask exam staff to restore it before resuming.",
         attempts_exhausted: "You have used all allowed attempts for this exam.",
+        section_ended: "This question is outside the current section time. Resume saved answers to continue.",
+        schedule_missing: "This older attempt has no saved section schedule. Ask exam staff for a new attempt.",
+        timer_changed: "The paper timer mode changed after you started. Ask exam staff to restore it before resuming.",
       };
       const messages: Record<number, string> = {
         403: "Exam access is no longer available.",
