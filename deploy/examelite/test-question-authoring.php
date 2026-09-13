@@ -6,6 +6,7 @@ namespace App\Support {
   public static function clear():void{self::$tenant=null;}
   public static function resolve($host=null){$org=\App\Models\Organization::where('domain',$host??request()->getHost())->firstOrFail();self::$tenant=(int)$org->id;return $org;}
   public static function id(){return self::$tenant??self::resolve()->id;}
+  public static function hostId($host){return self::resolve($host)->id;}
  }
  class SaasAccess {public static function abortIfLimitReached($feature):void{}}
 }
@@ -20,7 +21,7 @@ $app=new Illuminate\Foundation\Application(__DIR__);
 $app->instance('db',$db->getDatabaseManager());$app->bind('db.schema',fn()=>$db->getConnection()->getSchemaBuilder());
 $app->instance('config',new Illuminate\Config\Repository(['app'=>['locale'=>'en','fallback_locale'=>'en']]));
 Illuminate\Support\Facades\Facade::setFacadeApplication($app);
-$guard=new class {public $current=null;function user(){return $this->current;}function setUser($u){$this->current=$u;return $this;}function forgetUser(){$this->current=null;return $this;}};
+$guard=new class {public $current=null;function user(){return $this->current;}function id(){return $this->current?->id;}function setUser($u){$this->current=$u;return $this;}function forgetUser(){$this->current=null;return $this;}};
 $app->instance('auth',new class($guard){function __construct(private $guard){}function guard($name){return $this->guard;}});
 $translator=new Illuminate\Translation\Translator(new Illuminate\Translation\ArrayLoader(),'en');
 $validator=new Illuminate\Validation\Factory($translator,$app);$validator->setPresenceVerifier(new Illuminate\Validation\DatabasePresenceVerifier($db->getDatabaseManager()));

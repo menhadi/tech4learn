@@ -26,6 +26,14 @@ An answer revision rejects stale edits. `tech4learn_attempt_requests` records a 
 
 The installer copies these classes and the explicit migration creates the request table. Neither component is exposed by a new route yet. No live files or records were changed during development.
 
+## Private native lifecycle
+
+The private lifecycle service now invokes ExamElite's actual student controller for start/resume and finalisation, and its existing answer persistence service for saves. It creates only an explicitly mapped native student, without enrolling that student in all exam groups. The server caller must supply the identity and paper from the stored Tech4Learn grant; there is still no public route to this service.
+
+Workspace and attempt locks serialise lifecycle mutations. Submission retries return the existing completed attempt without grading it again. Start retries rebuild the current view/countdown. First-load answer revisions use persisted rows including database defaults. Completed scores obey both the native publication setting and the current Results restriction. An existing timed-out or closed-paper attempt enters native finalisation rather than failing the start-availability check. A duration edit during an attempt currently prevents resume with an explicit error; automatic reconciliation of changed timing is not implemented. Advanced timer/proctor modes remain unavailable through this adapter.
+
+`test-student-attempts.php` exercises the current native controller, grouping service, language service and answer evaluator using isolated synthetic records. It verifies numerical marking, first saves, resumed countdowns, duplicate submissions, attempt limits, cross-student/paper denial, result restrictions, timeout completion and restoration of request/session/identity after errors. Activity tracking and UI-language infrastructure are test doubles. Deployment scripts run this suite, which includes the preceding authoring and answer tests, after installing the private components. These checks do not establish the complete browser workflow or production concurrency.
+
 ## Remaining integration
 
 - Connect the authenticated Tech4Learn student/grant context to each native call. Never accept a browser-selected learner ID or exam ID as authority.
