@@ -20,6 +20,8 @@ Read-only contract inspection; one end-to-end exam path with identity/result map
 
 Local student-API inspection has started; see [ExamElite integration discovery](examelite-integration.md). Student APIs exist, but an organisation-level connector and stable learner/result synchronisation contract are not yet verified. No live integration is enabled.
 
+The [first read connector](examelite-read-release.md) is implemented locally with dedicated credentials, explicit grants and exam/result screens. User deployment and real mapping verification remain required. Student provisioning, exam launch and durable result synchronisation remain future slices.
+
 ## M4 — FLN
 
 Select language/resources, review items/rubrics, build digital activities, evidence capture, follow-up, teacher review and progress. Include paper/observation mode. Calibrate before claiming validity.

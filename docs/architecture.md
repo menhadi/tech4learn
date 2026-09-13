@@ -44,7 +44,7 @@ Migration 5 introduces scoped attendance intents, immutable capture snapshots/ev
 
 ## ExamElite integration
 
-Connect through authenticated, versioned APIs. Its Laravel application owns its database and engine. No direct database writes. Define permissions, learner mapping, exam IDs, result revisions, retries and reconciliation after inspecting real contracts. This scaffold does not contact ExamElite.
+Connect through authenticated, versioned APIs. Its Laravel application owns its database and engine. No direct database writes. The [read connector](examelite-read-release.md) adds private credentials, explicit organisation/exam/student grants, exam catalogue reads and summary-result reads. It remains disconnected until user deployment and configuration. Exam launch, student provisioning, result revisions and durable reconciliation are not implemented by this slice.
 
 ## Reliability
 

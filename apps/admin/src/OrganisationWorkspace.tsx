@@ -1,4 +1,5 @@
 import { CentreLocation } from "./CentreLocation";
+import { ExamElite } from "./ExamElite";
 import { GroupedMenu, plannedPages, organisationMenu } from "./GroupedMenu";
 import { DraftForm } from "./DraftForm";
 import { DirectoryTable, RecordStatus,emptyTableQuery,type TableQuery } from "./DirectoryTable";
@@ -203,7 +204,8 @@ export function OrganisationWorkspace({
     ...(can("members.view") ? ["Team"] : []),
     ...(can("audit.view") ? ["History"] : []),
   ];
-  const upcoming = [...(can("groups.view") ? ["Exam workspace","Exam results","FLN workspace"] : []),...(can("configuration.view") ? ["Email settings","Email templates","Message settings","Delivery history"] : [])];
+  if (can("configuration.view")) tabs.push("Exam workspace", "Exam results");
+  const upcoming = [...(can("groups.view") ? ["FLN workspace"] : []),...(can("configuration.view") ? ["Email settings","Email templates","Message settings","Delivery history"] : [])];
   const menuGroups=organisationMenu(org.centre_label,tabs,upcoming);
   const currentGroup=menuGroups.find(g=>g.items.some(i=>i.id===tab));
   const currentLabel=currentGroup?.items.find(i=>i.id===tab)?.label || tab;
@@ -272,6 +274,7 @@ export function OrganisationWorkspace({
           })()}
           <div className="workspace-breadcrumb" aria-label="Breadcrumb"><span>{org.name}</span><span aria-hidden="true">/</span><span>{currentGroup?.label}</span><span aria-hidden="true">/</span><strong>{currentLabel}</strong></div>
           <h3 className="workspace-page-title">{currentLabel}</h3>
+          {can("configuration.view") && ["Exam workspace", "Exam results"].includes(tab) && <ExamElite key={`${org.id}-${tab}`} org={org.id} results={tab === "Exam results"} />}
           {upcoming.includes(tab) && plannedPages[tab] && <section className="planned-workspace"><span className="feature-planned">Planned integration</span><h3>{plannedPages[tab].title}</h3><p>{plannedPages[tab].description}</p><h4>What will be available</h4><ul>{plannedPages[tab].items.map(line=><li key={line}>{line}</li>)}</ul>{plannedPages[tab].academics&&<button type="button" onClick={()=>setTab("Groups")}>Open classes & sections</button>}</section>}
           {tab === "AI connections" && <AIProviders org={org.id} />}
           {tab === "Daily overview" && (

@@ -24,7 +24,7 @@ Keep editable table rows mounted when paged/filtered so view changes do not dest
 
 Use `GroupedMenu` for platform and organisation navigation. It follows ExamElite's vertical grouped menu pattern with line icons, collapsible submenus, an active-page indicator and matching breadcrumbs. Hide empty groups and filter working entries by existing permissions/module availability. Keep desktop navigation independently scrollable and the mobile organisation-menu toggle available.
 
-Groups cover Dashboard, Academics & students, Attendance, Exams & results, FLN & learning, Staff & permissions, Email & messaging, Settings and Audit & history. Email settings/templates, messaging settings/delivery history, ExamElite exams/results and FLN currently open explicit planned-integration descriptions. They do not send messages, store connection settings or create exams. The existing AI connection screen and superadmin face-engine controls remain working screens with their original access checks.
+Groups cover Dashboard, Academics & students, Attendance, Exams & results, FLN & learning, Staff & permissions, Email & messaging, Settings and Audit & history. Email settings/templates, messaging settings/delivery history and FLN currently open explicit planned-integration descriptions. ExamElite now has connection status, shared catalogue and linked-result read screens for users with organisation-wide configuration access; user deployment and private grants are required. Exam creation and launch are not implemented in Tech4Learn. The existing AI connection screen and superadmin face-engine controls remain working screens with their original access checks.
 
 ## Neutral visual styling
 
