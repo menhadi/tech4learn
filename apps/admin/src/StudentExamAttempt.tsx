@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ExamRichContent } from "./ExamRichContent";
+import { ExamCalculator } from "./ExamCalculator";
 import { api, apiBase } from "./api";
 
 type Question = {
@@ -7,6 +8,7 @@ type Question = {
   number: number;
   type: string;
   content: Record<string, string>;
+  option_order?: number[];
   passage: { name: string; content: string } | null;
   blank_count: number;
   answer: any;
@@ -21,7 +23,7 @@ type Attempt = {
   remaining_seconds: number;
   time_limited: boolean;
   questions: Question[];
-  settings: { allow_answer_change: boolean };
+  settings: { allow_answer_change: boolean; calculator_allowed?: boolean };
   completed?: boolean;
   result?: { status: string; score_percent: number } | null;
 };
@@ -143,7 +145,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
         "question",
         ...(q.passage ? ["passage"] : []),
         ...(q.type.startsWith("multiple_choice")
-          ? [1, 2, 3, 4, 5, 6]
+          ? (q.option_order ?? [1, 2, 3, 4, 5, 6])
               .filter((n) => q.content[`option${n}`])
               .map((n) => `option${n}`)
           : []),
@@ -248,6 +250,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
                 ? "No time limit"
                 : `Time remaining: ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
             </p>
+            {attempt.settings.calculator_allowed && <ExamCalculator />}
             {remaining === 0 && (
               <p role="alert">
                 Time has ended. Submit your saved answers below. New answers
@@ -281,7 +284,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
                 <fieldset disabled={frozen}>
                   <legend>Your answer</legend>
                   {q.type.startsWith("multiple_choice") &&
-                    [1, 2, 3, 4, 5, 6]
+                    (q.option_order ?? [1, 2, 3, 4, 5, 6])
                       .filter((n) => q.content[`option${n}`])
                       .map((n) => (
                         <label

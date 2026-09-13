@@ -47,7 +47,7 @@ final class Tech4LearnStudentAttempts
    if($action==='start'){
     abort_unless(!$attempt||$attempt->total_test_time===null||(float)$attempt->total_test_time===(float)$exam->duration,409,'The paper duration changed after this attempt started. Ask exam staff to restore its duration before resuming.');
     // Do not silently launch modes whose internal controls are not wired yet.
-    abort_unless(!$exam->proctor&&!$exam->browser_tolerance&&!$exam->option_shuffle&&!$exam->calculator_allowed&&($exam->timer_mode??'none')==='none',422,'This exam requires delivery controls that are not yet available in Tech4Learn.');
+    abort_unless(!$exam->proctor&&!$exam->browser_tolerance&&($exam->timer_mode??'none')==='none',422,'This exam requires delivery controls that are not yet available in Tech4Learn.');
     abort_unless($exam->questions()->count()<=500,422,'This paper exceeds the current online question limit.');
    }
    // Native start rejects a closed paper before reaching its timeout handler.

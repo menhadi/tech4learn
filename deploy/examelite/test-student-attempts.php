@@ -99,6 +99,18 @@ rejectAnswer(fn()=>$lifecycle->run($workspace,10,$imageLearner,'Synthetic image 
 $reader=new class extends App\Services\Tech4LearnQuestionMedia {public function testSource($source){return $this->bytes($source);}};
 foreach(['file:///etc/passwd','https://evil.test/storage/question-images/a.png','/storage/question-images/%2e%2e/%2e%2e/private.png','/storage/learner-photos/private.png','javascript:alert(1)'] as $bad)rejectAnswer(fn()=>$reader->testSource($bad),'unsafe image source');
 $q->question=$originalText;$q->save();
+$beforeOptions=$q->only(['qtype_id','option1','option2','option3','option4','option5','option6']);
+$q->forceFill(['qtype_id'=>1,'option1'=>'Synthetic first','option2'=>'Synthetic second','option3'=>'','option4'=>'','option5'=>'','option6'=>''])->save();
+$paper->forceFill(['calculator_allowed'=>true,'option_shuffle'=>true])->save();
+$controlsLearner='99999999-9999-9999-9999-999999999999';
+$controlsAttempt=$lifecycle->run($workspace,10,$controlsLearner,'Synthetic controls candidate',$paper->id,'start',['request_id'=>$next()]);
+check($controlsAttempt['settings']['calculator_allowed']&&$controlsAttempt['settings']['option_shuffle'],'Native calculator and shuffle settings are accepted');
+$order=$controlsAttempt['questions'][0]['option_order'];sort($order);check($order===[1,2],'Shuffled options preserve original answer IDs and exclude empty choices');
+$controlAnswer=$lifecycle->run($workspace,10,$controlsLearner,'Synthetic controls candidate',$paper->id,'answer',['request_id'=>$next(),'attempt_id'=>$controlsAttempt['attempt_id'],'question_id'=>$q->id,'revision'=>$controlsAttempt['questions'][0]['revision'],'fields'=>['option_selected'=>[2]]]);
+check($controlAnswer['saved'],'Shuffled option is saved through native answer persistence');
+$controlResume=$lifecycle->run($workspace,10,$controlsLearner,'Synthetic controls candidate',$paper->id,'start',['request_id'=>$next()]);
+check(array_map('intval',$controlResume['questions'][0]['answer'])===[2],'Reshuffling on resume keeps the saved answer identity');
+$q->forceFill($beforeOptions)->save();$paper->forceFill(['calculator_allowed'=>false,'option_shuffle'=>false])->save();
 Carbon::setTestNow();
 require_once __DIR__.'/Tech4LearnPlatformController.php';
 DB::table('organizations')->insert(['id'=>10,'domain'=>'central.example.test','status'=>'active']);

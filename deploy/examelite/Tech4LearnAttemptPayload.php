@@ -34,9 +34,12 @@ final class Tech4LearnAttemptPayload
                 abort_unless(!preg_match('/<(?:svg|math-field|iframe|video|audio|object|embed)\b/i',$passageContent['content']),422,'This paper needs media or formula display that is not available yet.');
                 $passageContent['content']=$media->rewrite($passageContent['content']);
             }
+            $optionOrder=collect(range(1,6))->filter(fn($n)=>$content['option'.$n]!=='');
+            if($exam->option_shuffle)$optionOrder=$optionOrder->shuffle();
             $questions[]=[
                 'id'=>(int)$question->id,'number'=>(int)$stat->ques_no,'type'=>$type,
                 'content'=>$content,'passage'=>$passageContent,
+                'option_order'=>$optionOrder->values()->all(),
                 'group_key'=>(string)($question->exam_group_key??'all'),'group_label'=>(string)($question->exam_group_label??''),
                 'blank_count'=>$type==='fill_blank'?(int)$question->fill_blank_count:0,
                 'marks'=>(float)$stat->marks,'negative_marks'=>(float)$stat->negative_marks,

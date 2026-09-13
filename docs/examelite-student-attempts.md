@@ -1,6 +1,6 @@
 # Internal student attempts: implementation status
 
-The full student portal is not ready for deployment. Separate student sign-in and a basic same-domain attempt screen are implemented locally, with authenticated start/resume, answer saving and submission through ExamElite. Advanced delivery and media/formula rendering remain incomplete.
+The full student portal is not ready for deployment. Separate student sign-in and a basic same-domain attempt screen are implemented locally, with authenticated start/resume, answer saving and submission through ExamElite. Raster images, bounded TeX/MathML, native calculator and shuffled options are integrated locally. Advanced delivery controls and production paper verification remain incomplete.
 
 ## Student sign-in and exam grants
 
@@ -36,7 +36,7 @@ Workspace and attempt locks serialise lifecycle mutations. Submission retries re
 
 ## Remaining integration
 
-- Finish the advanced exam controls before enabling staff link issuance. The current native transaction rejects SVG, interactive media, proctoring, group timers, shuffled options and calculator modes, rolling back a newly created attempt rather than showing an incomplete paper.
+- Finish the advanced exam controls before enabling staff link issuance. The current native transaction rejects SVG, interactive media, proctoring and group timer modes, rolling back a newly created attempt rather than showing an incomplete paper.
 - Replace the older launch path's automatic membership in every native exam group with explicit exam access. Existing external launch/session behaviour is not changed by these private components.
 - Verify the supported raster/formula formats against representative native papers before deployment; SVG and interactive media remain unsupported.
 - Integrate section timers, browser/proctor requirements, result release and manual marking before claiming those modes work in Tech4Learn.
@@ -58,3 +58,9 @@ Implemented locally: native question/option/passage images become opaque referen
 The browser sanitises text/MathML and renders TeX using the locally bundled MathJax 4 input parser, including fractions, matrices and chemistry. This follows the [MathJax direct input interface](https://docs.mathjax.org/en/stable/server/direct.html). Each expression receives a fresh bounded parser without external loaders or URL commands; no CDN scripts or font requests are required. Answer controls wait for formulas and images to finish loading. A failed image or formula shows a retry action without discarding unsaved answers silently.
 
 Native synthetic tests cover image projection, authorised bytes, cross-student denial and excluded explanation/protocol/path sources. HTTP tests cover scoped image bytes, private response headers, mismatched references and revocation in flight. A local browser fixture verifies actual MathML fractions/chemistry, loaded raster content and unsafe markup rejection. Production paper compatibility remains unverified.
+
+## Native calculator and option ordering
+
+Calculator-enabled papers now expose the native scientific calculator keypad inside the student screen. Its small expression parser is adapted from the audited ExamElite student template: radians, arithmetic precedence, sin/cos/tan, log/ln/square root and native rounding. There is no dynamic code evaluation; an input bound and finite-result checks prevent runaway expressions. Disabled papers do not show the calculator.
+
+The native payload uses the same collection shuffle as the ExamElite template and returns original option IDs in display order. Empty choices are excluded. The browser sends original IDs, never display positions. A resume may reshuffle as the native page does; persisted selections retain their original identities. Synthetic native tests verify start/save/resume with these flags, and a browser fixture checks shuffled selection, calculator interaction, lost-response retry and submission. Proctoring, browser tolerance and group timers remain blocked until their controls are integrated.
