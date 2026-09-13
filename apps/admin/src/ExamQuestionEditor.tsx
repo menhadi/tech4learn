@@ -11,7 +11,7 @@ type Snapshot = {
   type?: string;
   type_name?: string;
 };
-function FormattedField({
+export function FormattedField({
   label,
   value,
   onChange,

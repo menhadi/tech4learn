@@ -37,11 +37,14 @@ export class ExamContentService {
     const rules = await this.workspace.status(user, org);
     if (
       rules.restrictions.includes("questions") &&
-      rules.restrictions.includes("subjects")
+      rules.restrictions.includes("subjects") &&
+      rules.restrictions.includes("exams")
     )
       throw new ForbiddenException("Exam authoring is restricted.");
     if (
       ![
+        "exams",
+        "packages",
         "groups",
         "subjects",
         "sections",
@@ -56,6 +59,8 @@ export class ExamContentService {
       !/^[0-9]{1,15}$/.test(after)
     )
       throw new BadRequestException("Invalid question lookup.");
+    if (kind === "exams" && rules.restrictions.includes("exams"))
+      throw new ForbiddenException("Exams are restricted.");
     return this.remote.request(
       await this.config(),
       org,
@@ -88,17 +93,44 @@ export class ExamContentService {
       `authoring/${org}/questions/${id}`,
     );
   }
+  async examQuestions(user: Account, org: string, id: string, after: string) {
+    await this.questionAccess(user, org, id, "exams");
+    if (id === "new" || !/^[0-9]{1,15}$/.test(after))
+      throw new BadRequestException("Invalid exam page.");
+    return this.remote.request(
+      await this.config(),
+      org,
+      `authoring/${org}/exams/${id}/questions?after=${after}`,
+    );
+  }
   private taxonomyKind(kind: string) {
     if (
-      !["groups", "subjects", "topics", "subtopics", "sections"].includes(kind)
+      ![
+        "exams",
+        "groups",
+        "subjects",
+        "topics",
+        "subtopics",
+        "sections",
+      ].includes(kind)
     )
       throw new BadRequestException("Invalid exam classification.");
   }
   async taxonomy(user: Account, org: string, kind: string, id: string) {
     this.taxonomyKind(kind);
-    await this.questionAccess(user, org, id, "subjects");
+    await this.questionAccess(
+      user,
+      org,
+      id,
+      kind === "exams" ? "exams" : "subjects",
+    );
     if (id === "new")
-      await this.workspace.launch(user, org, { feature: "subjects" }, true);
+      await this.workspace.launch(
+        user,
+        org,
+        { feature: kind === "exams" ? "exams" : "subjects" },
+        true,
+      );
     return this.remote.request(
       await this.config(),
       org,
@@ -111,9 +143,22 @@ export class ExamContentService {
     id: string,
     b: Record<string, unknown>,
     kind = "questions",
+    action?: string,
   ) {
+    if (
+      action &&
+      (kind !== "exams" ||
+        id === "new" ||
+        !["add-questions", "remove-questions"].includes(action))
+    )
+      throw new BadRequestException("Invalid exam action.");
     if (kind !== "questions") this.taxonomyKind(kind);
-    const feature = kind === "questions" ? "questions" : "subjects";
+    const feature =
+      kind === "questions"
+        ? "questions"
+        : kind === "exams"
+          ? "exams"
+          : "subjects";
     await this.questionAccess(user, org, id, feature);
     if (
       !b.fields ||
@@ -134,9 +179,11 @@ export class ExamContentService {
     const response = await this.remote.request(
       await this.config(),
       org,
-      kind === "questions"
-        ? `authoring/${org}/questions${id === "new" ? "" : "/" + id}`
-        : `authoring/${org}/taxonomy/${kind}/${id}`,
+      action
+        ? `authoring/${org}/exams/${id}/actions/${action}`
+        : kind === "questions"
+          ? `authoring/${org}/questions${id === "new" ? "" : "/" + id}`
+          : `authoring/${org}/taxonomy/${kind}/${id}`,
       {
         fields: b.fields,
         revision: b.revision,
@@ -162,7 +209,7 @@ export class ExamContentService {
       this.db,
       user,
       org,
-      `exams.${kind}.${id === "new" ? "created" : "updated"}`,
+      `exams.${kind}.${action ?? (id === "new" ? "created" : "updated")}`,
       {
         questionId: response.question?.id,
         requestId: b.request_id,

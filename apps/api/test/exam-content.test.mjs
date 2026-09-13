@@ -256,6 +256,50 @@ test("central question sharing requires superadmin; organisation reads respect m
       ).status,
       400,
     );
+    const exams = `/organisations/${org}/exam-content/taxonomy/exams`;
+    assert.equal((await call(exams + "/new", undefined, member)).status, 200);
+    assert.equal(
+      (
+        await call(
+          exams + "/new",
+          { ...create, fields: { name: "Synthetic exam" } },
+          member,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(requests.at(-1).path, `authoring/${org}/taxonomy/exams/new`);
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/exams/9/actions/add-questions`,
+          { ...edit, fields: { question_ids: [9] } },
+          member,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(requests.at(-1).body.actor_id, member);
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/exams/9/actions/destroy`,
+          edit,
+          member,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${other}/exam-content/exams/9/questions`,
+          undefined,
+          member,
+        )
+      ).status,
+      404,
+    );
     const body = {
       direction: "share",
       question_ids: [9, 2, 9],
@@ -288,13 +332,24 @@ test("central question sharing requires superadmin; organisation reads respect m
     );
     await pg.query(
       "UPDATE examelite_workspaces SET restrictions=$2 WHERE organisation_id=$1",
-      [org, ["questions", "subjects"]],
+      [org, ["questions", "subjects", "exams"]],
     );
     assert.equal(
       (await call(taxonomy + "/new", undefined, member)).status,
       403,
     );
     assert.equal((await call(taxonomy + "/new", create, member)).status, 403);
+    assert.equal((await call(exams + "/new", create, member)).status, 403);
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/choices/exams`,
+          undefined,
+          member,
+        )
+      ).status,
+      403,
+    );
     assert.equal(
       (
         await call(

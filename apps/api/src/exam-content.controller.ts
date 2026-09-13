@@ -12,6 +12,38 @@ import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get("organisations/:org/exam-content/exams/:id/questions")
+  async examQuestions(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Query("after") after = "0",
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.examQuestions(
+      await this.identity.account(session(cookie)),
+      org,
+      id,
+      after,
+    );
+  }
+  @Post("organisations/:org/exam-content/exams/:id/actions/:action")
+  async examAction(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("action") action: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.saveQuestion(
+      await this.identity.account(session(cookie)),
+      org,
+      id,
+      body ?? {},
+      "exams",
+      action,
+    );
+  }
+
   @Get("organisations/:org/exam-content/taxonomy/:kind/:id")
   async taxonomy(
     @Param("org") org: string,

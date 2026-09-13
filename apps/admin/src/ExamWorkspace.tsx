@@ -3,6 +3,7 @@ import { api } from "./api";
 import { DraftForm } from "./DraftForm";
 import { ExamQuestions } from "./ExamContent";
 import { ExamTaxonomy } from "./ExamTaxonomy";
+import { ExamBuilder } from "./ExamBuilder";
 
 const labels = {
   subjects: "Subjects, topics and sections",
@@ -74,6 +75,14 @@ export function ExamWorkspace({
                   Subjects, topics and sections
                 </button>
               )}
+              {!rules.restrictions.includes("exams") && (
+                <button
+                  className={page === "exams" ? "" : "secondary"}
+                  onClick={() => setPage("exams")}
+                >
+                  Create and manage exams
+                </button>
+              )}
             </nav>
             {page === "questions" &&
             !rules.restrictions.includes("questions") ? (
@@ -81,6 +90,8 @@ export function ExamWorkspace({
             ) : page === "subjects" &&
               !rules.restrictions.includes("subjects") ? (
               <ExamTaxonomy org={org} />
+            ) : page === "exams" && !rules.restrictions.includes("exams") ? (
+              <ExamBuilder org={org} />
             ) : (
               <p>Select an available exam tool.</p>
             )}
