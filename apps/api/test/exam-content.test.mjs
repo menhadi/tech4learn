@@ -170,6 +170,30 @@ test("central question sharing requires superadmin; organisation reads respect m
     };
     assert.equal((await call(own + "/9", edit, member)).status, 201);
     assert.equal(requests.at(-1).body.actor_id, member);
+    for (const [action, fields] of Object.entries({
+      "create-section": { name: "Part A", duration: 20 },
+      "update-section": { section_id: 3, name: "Part A", duration: 25 },
+      "remove-section": { section_id: 3 },
+      "assign-section": { question_ids: [9], question_section_id: 3 },
+      "subject-timers": { subject_ids: [2], durations: [30] },
+      "set-status": { status: "Active" },
+    })) {
+      assert.equal(
+        (
+          await call(
+            `/organisations/${org}/exam-content/exams/9/actions/${action}`,
+            { ...edit, fields, actor_id: admin },
+            member,
+          )
+        ).status,
+        201,
+      );
+      assert.equal(requests.at(-1).body.actor_id, member);
+      assert.equal(
+        requests.at(-1).path,
+        `authoring/${org}/exams/9/actions/${action}`,
+      );
+    }
     assert.equal(
       (
         await call(

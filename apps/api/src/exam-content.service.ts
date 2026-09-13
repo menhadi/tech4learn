@@ -149,7 +149,16 @@ export class ExamContentService {
       action &&
       (kind !== "exams" ||
         id === "new" ||
-        !["add-questions", "remove-questions"].includes(action))
+        ![
+          "add-questions",
+          "remove-questions",
+          "create-section",
+          "update-section",
+          "remove-section",
+          "assign-section",
+          "subject-timers",
+          "set-status",
+        ].includes(action))
     )
       throw new BadRequestException("Invalid exam action.");
     if (kind !== "questions") this.taxonomyKind(kind);

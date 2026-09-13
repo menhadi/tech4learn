@@ -7,12 +7,22 @@ import {
   type QuestionChoice,
 } from "./QuestionChoiceField";
 import { FormattedField } from "./ExamQuestionEditor";
-type Exam = {
+import { ExamPaperControls } from "./ExamPaperControls";
+export type Exam = {
   id: number;
   revision: string;
   fields: Record<string, any>;
   test_types: Record<string, string>;
   timezone: string;
+  status?: string;
+  sections?: {
+    id: number;
+    name: string;
+    display_order: number;
+    duration: number | null;
+  }[];
+  subject_durations?: { subject_id: number; duration: number }[];
+  paper_subjects?: { id: number; name: string }[];
 };
 const flags = {
   online_attempt_enabled: "Allow online attempts",
@@ -49,6 +59,13 @@ function ExamQuestionsEditor({
     [request, setRequest] = useState<string | null>(null);
   const [search, setSearch] = useState(""),
     [loadedSearch, setLoadedSearch] = useState("");
+  const [sectionDefinition, setSectionDefinition] = useState<number | null>(
+    null,
+  );
+  const [assignmentRetry, setAssignmentRetry] = useState<{
+    key: string;
+    id: string;
+  } | null>(null);
   const base = `/organisations/${org}/exam-content`;
   async function load(after = 0) {
     setBusy(true);
@@ -203,6 +220,64 @@ function ExamQuestionsEditor({
       <p>
         Removing a question from this exam preserves it in the question bank.
       </p>
+      {mode === "attached" && (
+        <div>
+          <QuestionChoiceField
+            org={org}
+            kind="sections"
+            label="Section for selected questions (empty means General)"
+            value={sectionDefinition}
+            disabled={busy || disabled}
+            onChange={setSectionDefinition}
+          />
+          <p>
+            Choose a question section linked to an exam group. ExamElite creates
+            its matching exam section when needed; edit its duration above.
+          </p>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy || disabled || !selected.length}
+            onClick={async () => {
+              const fields = {
+                question_ids: selected,
+                question_section_id: sectionDefinition,
+              };
+              const key = JSON.stringify([fields, record.revision]);
+              const requestId =
+                assignmentRetry?.key === key
+                  ? assignmentRetry.id
+                  : crypto.randomUUID();
+              setAssignmentRetry({ key, id: requestId });
+              setBusy(true);
+              setError("");
+              try {
+                onSaved(
+                  await api<Exam>(
+                    `${base}/exams/${record.id}/actions/assign-section`,
+                    "POST",
+                    {
+                      fields,
+                      revision: record.revision,
+                      request_id: requestId,
+                    },
+                  ),
+                );
+                setSelected([]);
+                setAssignmentRetry(null);
+              } catch (e) {
+                setError(
+                  e instanceof Error ? e.message : "Unable to assign section.",
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Assign selected questions to section
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -537,6 +612,14 @@ function ExamEditor({
               Reload saved exam
             </button>
           </DraftForm>
+          {record.id > 0 && (
+            <ExamPaperControls
+              org={org}
+              record={record}
+              onSaved={setRecord}
+              disabled={busy || Object.keys(changes).length > 0}
+            />
+          )}
           {record.id > 0 && (
             <ExamQuestionsEditor
               org={org}

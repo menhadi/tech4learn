@@ -13,6 +13,15 @@ use Illuminate\Validation\ValidationException;
 /** Adapts the installed native controller; answer validation and persistence stay in ExamElite. */
 final class Tech4LearnQuestionAuthoring
 {
+    public const EXAM_ACTIONS=[
+        'add-questions'=>['question_ids'],'remove-questions'=>['question_ids'],
+        'create-section'=>['name','display_order','duration'],
+        'update-section'=>['section_id','name','display_order','duration'],
+        'remove-section'=>['section_id'],
+        'assign-section'=>['question_ids','question_section_id'],
+        'subject-timers'=>['subject_ids','durations'],
+        'set-status'=>['status'],
+    ];
     public const FIELDS=['qtype_id','subject_id','question_section_id','topic_id','stopic_id','diff_id','passage_id','language_id',
         'question','option1','option2','option3','option4','option5','option6','marks','negative_marks','scoring_policy',
         'hint','explanation','answer','true_false','fill_blank','fill_blank_answers','nat_mode','nat_value','nat_min','nat_max',
@@ -50,9 +59,9 @@ final class Tech4LearnQuestionAuthoring
             foreach(['start_date','end_date'] as $date)$fields[$date]=$model->getRawOriginal($date);
             $fields['use_group_timer']=($fields['timer_mode']??'none')!=='none';
         }
-        $relations=$kind==='exams'?[$model->questions()->orderBy('questions.id')->pluck('questions.id')->all(),$model->sections()->orderBy('id')->get()->toArray()]:[];
+        $relations=$kind==='exams'?[DB::table('exam_questions')->where('exam_id',$model->id)->orderBy('question_id')->get(['question_id','exam_section_id'])->toArray(),$model->sections()->orderBy('id')->get()->toArray(),$model->subjectDurations()->orderBy('subject_id')->get()->toArray()]:[];
         $raw=$model->getAttributes();ksort($raw);
-        return array_merge(['id'=>(int)$model->id,'fields'=>$fields,'revision'=>hash('sha256',json_encode([$raw,$fields,$relations],JSON_THROW_ON_ERROR))],$kind==='exams'?['test_types'=>\App\Models\Exam::testTypeLabels(),'timezone'=>config('app.timezone','UTC')]:[]);
+        return array_merge(['id'=>(int)$model->id,'fields'=>$fields,'revision'=>hash('sha256',json_encode([$raw,$fields,$relations],JSON_THROW_ON_ERROR))],$kind==='exams'?['test_types'=>\App\Models\Exam::testTypeLabels(),'timezone'=>config('app.timezone','UTC'),'status'=>$model->status,'sections'=>$relations[1],'subject_durations'=>$relations[2],'paper_subjects'=>\App\Models\Subject::where('organization_id',$model->organization_id)->whereIn('id',$model->questions()->select('questions.subject_id'))->orderBy('id')->get(['id','subject_name'])->map(fn($s)=>['id'=>(int)$s->id,'name'=>strip_tags($s->subject_name)])->values()->all()]:[]);
     }
     public function snapshot(Question $question):array {
         $fields=$question->only(self::FIELDS);
@@ -71,7 +80,7 @@ final class Tech4LearnQuestionAuthoring
     public function save(string $workspace,int $tenant,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind='questions',?string $action=null):array {
         [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
         abort_unless($id>=0,422);
-        if($action!==null){abort_unless($kind==='exams'&&$id>0&&in_array($action,['add-questions','remove-questions'],true),422);$allowedFields=['question_ids'];}
+        if($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
         if(strlen(json_encode($fields,JSON_THROW_ON_ERROR))>250000)throw ValidationException::withMessages(['fields'=>'Question is too large.']);
@@ -92,13 +101,27 @@ final class Tech4LearnQuestionAuthoring
             $question=$id?$this->owned($kind,$tenant)->lockForUpdate()->findOrFail($id):null;
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Question changed. Reload before saving.');
             else abort_unless($revision==='new',422);
-            if($action!==null){
+            if(in_array($action,['add-questions','remove-questions','assign-section'],true)){
                 $ids=$fields['question_ids']??null;
                 if(!is_array($ids)||count($ids)<1||count($ids)>100||count(array_filter($ids,fn($v)=>is_int($v)&&$v>0))!==count($ids))throw ValidationException::withMessages(['question_ids'=>'Select between 1 and 100 questions.']);
                 $ids=array_values(array_unique($ids));
                 abort_unless(Question::where('organization_id',$tenant)->whereIn('id',$ids)->count()===count($ids),422);
                 $fields['question_ids']=$ids;
+                if($action!=='add-questions')abort_unless($question->questions()->whereIn('questions.id',$ids)->count()===count($ids),422);
             }
+            if(in_array($action,['update-section','remove-section'],true)){
+                abort_unless(is_int($fields['section_id']??null)&&$fields['section_id']>0,422);
+                $question->sections()->findOrFail($fields['section_id']);
+            }
+            if($action==='subject-timers'){
+                $ids=$fields['subject_ids']??null;$durations=$fields['durations']??null;
+                abort_unless(is_array($ids)&&array_is_list($ids)&&count($ids)>0&&count($ids)<=100&&is_array($durations)&&array_is_list($durations)&&count($ids)===count($durations),422);
+                abort_unless(count(array_unique($ids))===count($ids)&&count(array_filter($ids,fn($v)=>is_int($v)&&$v>0))===count($ids)&&count(array_filter($durations,fn($v)=>is_int($v)&&$v>=1))===count($durations),422);
+                $paperIds=$question->questions()->whereNotNull('subject_id')->distinct()->pluck('subject_id')->map(fn($v)=>(int)$v)->all();
+                abort_unless(!array_diff($ids,$paperIds)&&!array_diff($paperIds,$ids),422);
+                abort_unless(\App\Models\Subject::where('organization_id',$tenant)->whereIn('id',$ids)->count()===count($ids),422);
+            }
+            if($action==='set-status')abort_unless(in_array($fields['status']??null,['Active','Inactive'],true),422);
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             // The native controller accepts its web form. Give it a private request/session,
             // and translate its redirect feedback into an atomic API outcome.
@@ -146,7 +169,10 @@ final class Tech4LearnQuestionAuthoring
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
             $controller=app($controllerClass);
             $arguments=['request'=>$request];if($question)$arguments[$parameter]=$question;
-            $method=$action==='add-questions'?'bulkAddQuestions':($action==='remove-questions'?'removeQuestions':($question?'update':'store'));
+            $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','set-status'=>'toggleStatus'];
+            if(in_array($action,['update-section','remove-section'],true))$arguments['section']=$question->sections()->findOrFail($fields['section_id']);
+            if($action==='set-status'&&$question->status===$fields['status'])return $this->record($kind,$question);
+            $method=$action!==null?$methods[$action]:($question?'update':'store');
             $response=$app->call([$controller,$method],$arguments);
             if($session->has('errors'))throw ValidationException::withMessages($session->get('errors')->getBag('default')->messages());
             $jsonSuccess=$action!==null&&$response instanceof \Illuminate\Http\JsonResponse&&$response->getStatusCode()<300&&($response->getData(true)['success']??false)===true;

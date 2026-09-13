@@ -45,5 +45,33 @@ $removed=$service->save($workspace,20,$actor,$exam['id'],['question_ids'=>[$q->i
 check(App\Models\Exam::find($exam['id'])->questions()->count()===0 && App\Models\Question::find($q->id),'Removal preserves question bank');
 check(App\Services\ExamDocumentInvalidationService::$calls===2,'Native paper invalidation occurs once per mutation');
 
+$active=$service->save($workspace,20,$actor,$exam['id'],['status'=>'Active'],$removed['revision'],'activate','exams','set-status');
+check($active['status']==='Active','Native activation');
+check($service->save($workspace,20,$actor,$exam['id'],['status'=>'Active'],$removed['revision'],'activate','exams','set-status')===$active,'Activation retry does not toggle back');
+$current=$service->save($workspace,20,$actor,$exam['id'],['status'=>'Active'],$active['revision'],'activate-again','exams','set-status');
+check($current['status']==='Active','Desired publication status is idempotent with a new request');
+$current=$service->save($workspace,20,$actor,$exam['id'],['name'=>'Part A','duration'=>30,'display_order'=>1],$current['revision'],'section-create','exams','create-section');
+$sectionId=$current['sections'][0]['id'];
+check(count($current['sections'])===1 && $current['sections'][0]['duration']===30,'Native section creation');
+try{$service->save($workspace,20,$actor,$exam['id'],['name'=>'Too long','duration'=>60],$current['revision'],'section-overflow','exams','create-section');throw new RuntimeException('Expected total duration validation');}catch(Illuminate\Validation\ValidationException $e){}
+check($service->record('exams',App\Models\Exam::find($exam['id']))===$current,'Overflow rejection leaves paper unchanged');
+try{$service->save($workspace,20,$actor,$exam['id'],['section_id'=>1,'name'=>'Foreign','duration'=>1],$current['revision'],'foreign-section','exams','update-section');throw new RuntimeException('Expected section ownership rejection');}catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
+$current=$service->save($workspace,20,$actor,$exam['id'],['section_id'=>$sectionId,'name'=>'Part A renamed','duration'=>25],$current['revision'],'section-edit','exams','update-section');
+check($current['sections'][0]['name']==='Part A renamed' && $current['sections'][0]['duration']===25,'Native section edit');
+$q->subject_id=$subject['id'];$q->save();
+$current=$service->save($workspace,20,$actor,$exam['id'],['question_ids'=>[$q->id]],$current['revision'],'re-add','exams','add-questions');
+$beforeAssignment=$current;
+$current=$service->save($workspace,20,$actor,$exam['id'],['question_ids'=>[$q->id],'question_section_id'=>$section['id']],$current['revision'],'assign-section','exams','assign-section');
+check($current['revision']!==$beforeAssignment['revision'],'Assignment changes paper revision');
+$assignedId=DB::table('exam_questions')->where('exam_id',$exam['id'])->value('exam_section_id');
+check($assignedId && (int)$assignedId!==$sectionId,'Native assignment uses scoped section definition');
+try{$service->save($workspace,20,$actor,$exam['id'],['subject_ids'=>[1],'durations'=>[5]],$current['revision'],'foreign-timer','exams','subject-timers');throw new RuntimeException('Expected foreign timer denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){}
+try{$service->save($workspace,20,$actor,$exam['id'],['subject_ids'=>[$subject['id']],'durations'=>[-1]],$current['revision'],'negative-timer','exams','subject-timers');throw new RuntimeException('Expected invalid timer denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){}
+$current=$service->save($workspace,20,$actor,$exam['id'],['subject_ids'=>[$subject['id']],'durations'=>[70]],$current['revision'],'subject-time','exams','subject-timers');
+check($current['fields']['timer_mode']==='subject' && (int)$current['subject_durations'][0]['duration']===70,'Native subject timer');
+try{$service->save($workspace,20,$actor,$exam['id'],['subject_ids'=>[$subject['id']],'durations'=>[80]],$current['revision'],'excess-timer','exams','subject-timers');throw new RuntimeException('Expected timer overflow rejection');}catch(Illuminate\Validation\ValidationException $e){}
+$current=$service->save($workspace,20,$actor,$exam['id'],['section_id'=>$sectionId],$current['revision'],'remove-section','exams','remove-section');
+check(!App\Models\ExamSection::find($sectionId),'Native empty section removal');
+
 echo "Native exam adapter: create, scope, languages, exact pass threshold, update and replay passed.\n";
 }
