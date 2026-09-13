@@ -23,4 +23,7 @@ if(!Schema::hasTable('tech4learn_authoring_requests'))Schema::create('tech4learn
  $t->uuid('workspace_id');$t->uuid('request_id');$t->string('fingerprint',64);$t->longText('result');$t->timestamp('created_at');$t->primary(['workspace_id','request_id'],'t4l_authoring_pk');
 });
 
+if(!Schema::hasTable('tech4learn_attempt_requests'))Schema::create('tech4learn_attempt_requests',function(Blueprint $t){
+ $t->uuid('workspace_id');$t->uuid('request_id');$t->string('fingerprint',64);$t->text('result');$t->timestamp('created_at');$t->primary(['workspace_id','request_id'],'t4l_attempt_request_pk');
+});
 echo "Native exam workspace tables ready.\n";
