@@ -4,6 +4,7 @@ import { DraftScope } from "./DraftForm";
 import { clearDrafts } from "./form-drafts";
 import { DraftForm } from "./DraftForm";
 import { FaceEngine } from "./FaceEngine";
+import { ExamElitePlatform } from "./ExamElitePlatform";
 import { OrganisationTypeSelect } from "./OrganisationTypeSelect";
 import {
   StrictMode,
@@ -96,7 +97,7 @@ function App() {
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState("");
   const [page, setPage] = useState<
-    "organisations" | "password" | "face-engine"
+    "organisations" | "password" | "face-engine" | "examelite"
   >("organisations");
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [inviteToken, setInviteToken] = useState(
@@ -403,7 +404,7 @@ function App() {
         </span>
         <GroupedMenu label="Administration" active={page} groups={[
           {id:"platform-workspaces",label:superadmin?"Platform":"Workspace",icon:"▦",items:[{id:"organisations",label:superadmin?"Organisations":"My organisation"}]},
-          {id:"platform-settings",label:"System & account",icon:"⚙",items:[...(superadmin?[{id:"face-engine",label:"Face engine"}]:[]),{id:"password",label:"Account security"}]},
+          {id:"platform-settings",label:"System & account",icon:"⚙",items:[...(superadmin?[{id:"face-engine",label:"Face engine"},{id:"examelite",label:"ExamElite connection"}]:[]),{id:"password",label:"Account security"}]},
         ]} onSelect={(next)=>{setPage(next as typeof page);setError("");}} />
         <button
           className="mobile-org-menu secondary"
@@ -449,7 +450,7 @@ function App() {
                 : org?.name || "Your workspace"}
             </p>
             <h1>
-              {page === "face-engine"
+              {page === 'examelite' ? 'ExamElite connection' : page === "face-engine"
                 ? "Face engine"
                 : page === "password"
                   ? "Account security"
@@ -470,7 +471,7 @@ function App() {
           )}
         </header>
         {feedback}
-        {page === "face-engine" && superadmin ? (
+        {page === 'examelite' && superadmin ? <ExamElitePlatform/> : page === "face-engine" && superadmin ? (
           <FaceEngine />
         ) : page === "password" ? (
           <section className="panel narrow">

@@ -4,6 +4,8 @@ Implemented and user-deployed for the pilot: dedicated revocable credentials, ex
 
 This first slice does not provision students, create or launch exams, import questions, provide SSO, or maintain a local result archive. Exam creation, delivery and marking continue in ExamElite. Refresh starts at the first page so corrected summaries can be re-read; cursors are pagination, not incremental synchronisation tokens.
 
+The subsequent [central sharing release](examelite-platform-release.md) adds superadmin controls and student provisioning locally. Its deployment replaces per-organisation runtime grants with central configuration and database sharing rules; this page describes the earlier read-only pilot.
+
 ## Access
 
 Tech4Learn requires organisation-wide `configuration.view` for the connector. Student results additionally use the existing learner-detail permission and centre/group scope check. The server returns only selected summary fields. Secrets are never returned to the browser. Remote requests use the fixed HTTPS ExamElite origin, disallow redirects, time out after ten seconds and cap responses at 512 KB.

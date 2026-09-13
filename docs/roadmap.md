@@ -22,6 +22,8 @@ Student-API and read-only live source inspection are recorded in [ExamElite inte
 
 The [first read connector](examelite-read-release.md) is deployed for the pilot with dedicated credentials, explicit grants and working exam/result screens. Next: central superadmin connection and organisation sharing controls, then idempotent Tech4Learn-to-ExamElite student provisioning/verified linking and exam access. Follow ExamElite's subject/question/exam interface and workflow without rebuilding its engine. Existing ExamElite students remain independent of Tech4Learn. Student provisioning, exam launch and durable result synchronisation remain future slices.
 
+Central ExamElite sharing and student identity provisioning are now implemented locally; see [deployment and limits](examelite-platform-release.md). User deployment and live provisioning validation are pending. The next ExamElite slice is student login/launch and the subject/question workflows, keeping ExamElite as the engine.
+
 ## M4 — FLN
 
 Select language/resources, review items/rubrics, build digital activities, evidence capture, follow-up, teacher review and progress. Include paper/observation mode. Calibrate before claiming validity.

@@ -1,5 +1,6 @@
 import { FaceControlController } from "./face-control.controller.js";
 import { ExamEliteController } from "./examelite.controller.js";
+import { ExamElitePlatformController } from "./examelite-platform.controller.js";
 import { ExamEliteService } from "./examelite.service.js";
 import {
   FaceControlService,
@@ -33,6 +34,7 @@ export class AppModule {
       module: AppModule,
       controllers: [
         ExamEliteController,
+        ExamElitePlatformController,
         FaceControlController,
         LearnerPhotosController,
         AcademicController,

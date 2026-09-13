@@ -20,6 +20,7 @@ rewrite_updated = add_connector_rewrite(rewrite_original.decode('utf-8')).encode
 backup = pathlib.Path('/root/tech4learn-backups') / ('examelite-connector-' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%f'))
 backup.mkdir(parents=True, mode=0o700)
 targets = [(source/'Tech4LearnReadController.php',root/'app/Http/Controllers/Tech4LearnReadController.php'),(source/'tech4learn-routes.php',root/'routes/tech4learn-routes.php')]
+targets.append((source/'Tech4LearnPlatformController.php',root/'app/Http/Controllers/Tech4LearnPlatformController.php'))
 for src, dest in targets:
     if dest.is_symlink(): raise SystemExit('Refusing symlink target.')
     subprocess.run(['php','-l',str(src)],check=True)

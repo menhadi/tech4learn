@@ -29,6 +29,7 @@ export function ExamElite({
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [revision, setRevision] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const base = `/organisations/${org}/examelite`;
   useEffect(() => {
     let active = true;
@@ -39,7 +40,11 @@ export function ExamElite({
     setError("");
     api<any>(base + "/status")
       .then((c) => {
-        if (active) setConnection(c);
+        if (active) {
+          setConnection(c);
+          if (c.linkedLearners?.length === 1)
+            setLearner(c.linkedLearners[0].id);
+        }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -49,6 +54,7 @@ export function ExamElite({
     };
   }, [base, revision]);
   useEffect(() => {
+    setLoaded(false);
     setRows([]);
     setNext(null);
     setError("");
@@ -62,6 +68,7 @@ export function ExamElite({
       );
       setRows((old) => (after ? [...old, ...page.items] : page.items));
       setNext(page.next);
+      setLoaded(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load ExamElite.");
     } finally {
@@ -128,30 +135,45 @@ export function ExamElite({
           >
             {busy ? "Loading…" : results ? "Load results" : "Load shared exams"}
           </button>
-          <SmartTable>
-            <caption>
-              {results ? "Result summaries" : "Shared exam catalogue"} —{" "}
-              {rows.length} loaded
-            </caption>
-            <thead>
-              <tr>
-                <th>{results ? "Exam" : "Name"}</th>
-                <th>{results ? "Score (%)" : "Duration (minutes)"}</th>
-                {results && <th>Result</th>}
-                {results && <th>Finished</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <th scope="row">{results ? r.exam_name : r.name}</th>
-                  <td>{results ? r.percent : r.duration}</td>
-                  {results && <td>{r.result}</td>}
-                  {results && <td>{r.end_time}</td>}
+          {!loaded && (
+            <p>
+              Select Load {results ? "results" : "shared exams"} to retrieve
+              records.
+            </p>
+          )}
+          {loaded && !rows.length && (
+            <p>
+              {results
+                ? "No completed attempts were returned for this student’s shared exams."
+                : "No exams have been shared with this organisation."}
+            </p>
+          )}
+          {loaded && rows.length > 0 && (
+            <SmartTable>
+              <caption>
+                {results ? "Result summaries" : "Shared exam catalogue"} —{" "}
+                {rows.length} loaded
+              </caption>
+              <thead>
+                <tr>
+                  <th>{results ? "Exam" : "Name"}</th>
+                  <th>{results ? "Score (%)" : "Duration (minutes)"}</th>
+                  {results && <th>Result</th>}
+                  {results && <th>Finished</th>}
                 </tr>
-              ))}
-            </tbody>
-          </SmartTable>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <th scope="row">{results ? r.exam_name : r.name}</th>
+                    <td>{results ? r.percent : r.duration}</td>
+                    {results && <td>{r.result}</td>}
+                    {results && <td>{r.end_time}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </SmartTable>
+          )}
           {next !== null && (
             <button
               type="button"
