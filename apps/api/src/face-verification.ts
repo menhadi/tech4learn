@@ -44,7 +44,7 @@ export function faceConfig(org: string) {
 }
 const fail = () =>
   new ServiceUnavailableException(
-    "Face verification failed. No attendance was changed.",
+    "Face verification received an unexpected or incomplete response. Check face-engine compatibility. No attendance was changed.",
   );
 export function parseBox(value: unknown): Box {
   const b = value as Box;
@@ -93,11 +93,18 @@ export async function verifyFace(org: string, source: Buffer, target: Buffer) {
       },
     );
   } catch {
-    throw fail();
+    throw new ServiceUnavailableException("The face service could not be reached or exceeded the 12-second response limit. Check the service connection and load, then retry.");
   }
   if (!response.ok) {
     await response.body?.cancel();
-    throw fail();
+    const status = response.status;
+    throw new ServiceUnavailableException(
+      status === 401 || status === 403 ? "The face service rejected authentication. Check that Tech4Learn uses the API key from a VERIFY service."
+      : status === 400 || status === 422 ? "The face service rejected the photos. Check that the reference contains one clear face and the classroom photo contains visible faces."
+      : status === 404 ? "The face verification endpoint was not found. Check the configured service address."
+      : status === 429 ? "The face service is busy or rate limited. Wait and retry."
+      : `The face service returned HTTP ${status}. Check its health and retry.`
+    );
   }
   const reader = response.body?.getReader();
   if (!reader) throw fail();

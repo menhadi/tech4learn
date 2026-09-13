@@ -1,5 +1,8 @@
 import {
   Injectable,
+  BadRequestException,
+  ServiceUnavailableException,
+  ForbiddenException,
   ConflictException,
   NotFoundException,
 } from "@nestjs/common";
@@ -8,6 +11,14 @@ import { Database } from "./database.js";
 import { FaceMatchingService } from "./face-matching.service.js";
 import type { Account } from "./identity.service.js";
 import { uuid } from "./security.js";
+export function faceJobError(error: unknown): string {
+  // Only expose application-authored HTTP errors, never raw provider/DB errors.
+  if (error instanceof ConflictException || error instanceof BadRequestException || error instanceof ServiceUnavailableException) return error.message;
+  if (error instanceof ForbiddenException) return "Your access to face matching or student photos changed. Ask an administrator to check your permissions.";
+  if (error instanceof NotFoundException) return "The attendance, account or reference is no longer accessible. Reopen attendance and retry.";
+  return "An internal comparison error occurred. No attendance marks changed. Ask the administrator to check the comparison service.";
+}
+
 type Job = {
   id: string;
   organisation_id: string;
@@ -264,10 +275,7 @@ export class FaceJobsService {
         [job.id, JSON.stringify(result)],
       );
     } catch (e) {
-      const message =
-        e instanceof ConflictException
-          ? e.message
-          : "Matching could not complete. Check reference consent, access and the face service, then retry.";
+      const message = faceJobError(e);
       await this.db.query(
         "UPDATE attendance_face_jobs SET status='failed',result=NULL,error=$2 WHERE id=$1 AND status='processing'",
         [job.id, message],
