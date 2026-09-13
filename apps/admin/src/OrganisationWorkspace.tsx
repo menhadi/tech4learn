@@ -1,3 +1,4 @@
+import { CentreLocation } from "./CentreLocation";
 import { GroupedMenu, plannedPages, organisationMenu } from "./GroupedMenu";
 import { DraftForm } from "./DraftForm";
 import { DirectoryTable, RecordStatus,emptyTableQuery,type TableQuery } from "./DirectoryTable";
@@ -619,32 +620,9 @@ export function OrganisationWorkspace({
                           <option value="other">Other</option>
                         </select>
                       </label>
-                      <div className="form-grid">
-                        <label>
-                          Latitude
-                          <input
-                            name="latitude"
-                            type="number"
-                            step="any"
-                            min={-90}
-                            max={90}
-                            defaultValue={centre?.latitude ?? ""}
-                          />
-                        </label>
-                        <label>
-                          Longitude
-                          <input
-                            name="longitude"
-                            type="number"
-                            step="any"
-                            min={-180}
-                            max={180}
-                            defaultValue={centre?.longitude ?? ""}
-                          />
-                        </label>
-                      </div>
+                      <CentreLocation latitude={centre?.latitude ?? null} longitude={centre?.longitude ?? null} />
                       <label>
-                        Allowed radius (metres)
+                        Allowed radius (metres; default 100)
                         <input
                           name="radius"
                           type="number"
