@@ -315,6 +315,12 @@ export class AttendanceService {
       ).rows[0];
       if (!group) throw new NotFoundException("Active group not found.");
       this.allowed(a, group);
+      if (b.resume_existing === true) {
+        const policy = await this.policy(sql, org);
+        const date = new Intl.DateTimeFormat("en-CA", {timeZone:policy.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+        const existing = (await sql.query<{id:string;status:string}>("SELECT id,status FROM attendance_sessions WHERE organisation_id=$1 AND group_id=$2 AND attendance_date=$3 AND status IN ('pending','confirmed')",[org,groupId,date])).rows[0];
+        if (existing) return { existingId:existing.id, status:existing.status };
+      }
       const roster = (
         await sql.query<{ id: string; name: string; code: string }>(
           "SELECT id,name,code FROM learners WHERE organisation_id=$1 AND group_id=$2 AND NOT archived ORDER BY name,id LIMIT 501",

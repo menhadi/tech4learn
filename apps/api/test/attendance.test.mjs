@@ -444,6 +444,9 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
     await t.test(
       "daily duplicate, mandatory review, roster validation and correction history",
       async () => {
+        const resumed = await ok(p + "/captures", "POST", { group_id: teacherGroup.id, resume_existing: true }, teacher, 201);
+        assert.equal(resumed.existingId, intent.id);
+        assert.equal(resumed.status, "pending");
         const second = await ok(
           p + "/captures",
           "POST",
@@ -503,6 +506,9 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
           400,
         );
         await ok(`${p}/${intent.id}/review`, "POST", review, admin, 201);
+        const confirmed = await ok(p + "/captures", "POST", { group_id: teacherGroup.id, resume_existing: true }, admin, 201);
+        assert.equal(confirmed.existingId, intent.id);
+        assert.equal(confirmed.status, "confirmed");
         assert.equal(
           (await req(`${p}/${intent.id}/review`, "POST", review, admin)).status,
           409,

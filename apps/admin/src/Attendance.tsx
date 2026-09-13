@@ -233,13 +233,25 @@ export function Attendance({
       setDetail(null);
       setExtraPhotos([]);
     }
-    const i = await api<Intent>(
+    const response = await api<Intent | {existingId:string;status:string}>(
       parentId ? `${base}/${parentId}/photos/captures` : `${base}/captures`,
       "POST",
       {
         group_id: group,
+        resume_existing: true,
       },
     );
+    if ("existingId" in response) {
+      await open(response.existingId);
+      if (response.status === "pending") {
+        setNotice("Today's attendance is open. Take another photo and submit it to this record.");
+        await start(response.existingId);
+      } else {
+        setNotice("Today's attendance is already confirmed. Open its review to correct marks; no duplicate was created.");
+      }
+      return;
+    }
+    const i = response;
     if (!navigator.mediaDevices?.getUserMedia)
       throw new Error(
         "Camera capture needs HTTPS and a browser with camera support.",
