@@ -758,6 +758,7 @@ export class AttendanceService {
       // A stricter current policy also applies to old pending captures.
       const policy = await this.policy(sql, org);
       if (
+        !r.snapshot.test_run &&
         (!policy.self_review || !r.snapshot.policy.self_review) &&
         r.actor_id === user.id
       )
@@ -777,6 +778,7 @@ export class AttendanceService {
         )
       ).rows;
       if (
+        !r.snapshot.test_run &&
         (!policy.self_review || !r.snapshot.policy.self_review) &&
         extra.some((p) => p.actor_id === user.id)
       )
@@ -790,7 +792,7 @@ export class AttendanceService {
       const reason = typeof b.reason === "string" ? b.reason.trim() : "";
       if (
         reason.length > 1000 ||
-        ((warnings.length > 0 ||
+        (((!r.snapshot.test_run && warnings.length > 0) ||
           r.status === "confirmed" ||
           b.decision === "rejected") &&
           reason.length < 5)
@@ -798,7 +800,7 @@ export class AttendanceService {
         throw new BadRequestException(
           "Add a review or correction reason (5–1000 characters).",
         );
-      if (warnings.length && b.acknowledge_warnings !== true)
+      if (!r.snapshot.test_run && warnings.length && b.acknowledge_warnings !== true)
         throw new BadRequestException(
           "Acknowledge the location warnings before deciding.",
         );

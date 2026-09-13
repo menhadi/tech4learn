@@ -477,7 +477,7 @@ test("attendance HTTP workflow, tenant scopes, immutable evidence and correction
             assert.equal(retry.snapshot.test_run, true);
             await ok(`${p}/captures/${retry.id}/submit`, "POST", { ...body, captured_at: new Date().toISOString() }, teacher, 201);
             const saved = await ok(`${p}/${retry.id}`, "GET", undefined, admin);
-            await ok(`${p}/${retry.id}/review`, "POST", {version:saved.version,decision:"confirmed",marks:Object.fromEntries(saved.snapshot.roster.map(l=>[l.id,"present"])),reason:"Synthetic repeat test",acknowledge_warnings:true}, admin, 201);
+            await ok(`${p}/${retry.id}/review`, "POST", {version:saved.version,decision:"confirmed",marks:Object.fromEntries(saved.snapshot.roster.map(l=>[l.id,"present"])),reason:"",acknowledge_warnings:false}, admin, 201);
           }
           const listed = await ok(p + "?date=" + detail.attendance_date, "GET", undefined, admin);
           assert.equal(listed.rows.filter(r=>r.test_run).length, 2);

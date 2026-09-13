@@ -526,7 +526,7 @@ export function Attendance({
                 . Missing captures are not counted as absences.
               </p>
               <DirectoryTable title="Daily attendance" columns={["Class / section","Centre","Date","Status","Location","Actions"]} columnKeys={["group_name","centre_name","attendance_date","status","location_status",""]} remote={{query:tableQuery,onChange:q=>setTableQuery({...q,sort:q.sort||"attendance_date"}),total:listing.total,filtered:listing.filtered,loading:listLoading}}>
-                {listing.rows.map(r=><tr key={r.id}><th scope="row">{r.group_name}</th><td>{r.centre_name}</td><td>{r.attendance_date}</td><td>{r.status}{r.test_run && " - Test run"}</td><td>{r.location_status}</td><td><button type="button" disabled={busy||!!intent} onClick={()=>void act(()=>open(r.id))}>Open attendance</button></td></tr>)}
+                {listing.rows.map(r=><tr key={r.id}><th scope="row">{r.group_name}</th><td>{r.centre_name}</td><td>{r.attendance_date}</td><td>{r.status}{r.test_run && " - Test run"}</td><td>{r.test_run ? "Accepted for testing" : r.location_status}</td><td><button type="button" disabled={busy||!!intent} onClick={()=>void act(()=>open(r.id))}>Open attendance</button></td></tr>)}
               </DirectoryTable>
             </>
           ) : (
@@ -547,7 +547,7 @@ export function Attendance({
             Received: {new Date(detail.received_at).toLocaleString()}
           </p>
           <p>
-            {detail.evidence.location_status} · Distance:{" "}
+            {detail.snapshot.test_run ? "Test capture saved" : detail.evidence.location_status} · Distance:{" "}
             {detail.evidence.distance === null
               ? "unavailable"
               : `${detail.evidence.distance} m`}{" "}
@@ -556,14 +556,15 @@ export function Attendance({
               ? `±${Math.round(detail.evidence.location.accuracy)} m`
               : "unavailable"}
           </p>
-          <p>Limits used for this capture: GPS uncertainty {detail.snapshot.policy.accuracy_limit} m; centre radius {detail.snapshot.centre.radius} m.</p>
-          <p className="muted">Centre radius controls distance from the centre. GPS uncertainty controls how precise your device location must be. Changing one does not change the other.</p>
-          {policy && policy.accuracy_limit !== detail.snapshot.policy.accuracy_limit && <p>The current GPS limit is {policy.accuracy_limit} m. Start a new capture to use it; this record retains its original checks.</p>}
-          {can("policy") && <button type="button" className="secondary" onClick={e => {
+          {detail.snapshot.test_run && <p role="status">Testing mode: location is accepted for this test. No GPS policy changes or location approval are needed. Review the student marks below and confirm attendance.</p>}
+          {!detail.snapshot.test_run && <p>Limits used for this capture: GPS uncertainty {detail.snapshot.policy.accuracy_limit} m; centre radius {detail.snapshot.centre.radius} m.</p>}
+          {!detail.snapshot.test_run && <p className="muted">Centre radius controls distance from the centre. GPS uncertainty controls how precise your device location must be. Changing one does not change the other.</p>}
+          {!detail.snapshot.test_run && policy && policy.accuracy_limit !== detail.snapshot.policy.accuracy_limit && <p>The current GPS limit is {policy.accuracy_limit} m. Start a new capture to use it; this record retains its original checks.</p>}
+          {!detail.snapshot.test_run && can("policy") && <button type="button" className="secondary" onClick={e => {
             const panel = e.currentTarget.closest(".attendance-workspace")?.querySelector<HTMLDetailsElement>("[data-attendance-policy]");
             if (panel) { panel.open = true; panel.scrollIntoView({behavior:"smooth",block:"start"}); panel.querySelector<HTMLInputElement>("input")?.focus({preventScroll:true}); }
           }}>Change GPS accuracy limit</button>}
-          {detail.evidence.warnings.length > 0 && (
+          {!detail.snapshot.test_run && detail.evidence.warnings.length > 0 && (
             <div className="error">
               <strong>Review required</strong>
               <ul>
@@ -606,7 +607,7 @@ export function Attendance({
                 Captured {new Date(p.evidence.captured_at).toLocaleString()} ·
                 Received {new Date(p.received_at).toLocaleString()}
               </p>
-              {p.evidence.warnings.map((w) => (
+              {!detail.snapshot.test_run && p.evidence.warnings.map((w) => (
                 <p className="error" key={w}>
                   {w}
                 </p>
@@ -738,14 +739,14 @@ export function Attendance({
             {can("review") && detail.status !== "rejected" && (
               <>
                 <label>
-                  Review / correction reason
+                  {detail.snapshot.test_run && detail.status === "pending" ? "Note (optional for confirming this test)" : "Review / correction reason"}
                   <textarea
                     maxLength={1000}
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                   />
                 </label>
-                {(detail.evidence.warnings.length > 0 ||
+                {!detail.snapshot.test_run && (detail.evidence.warnings.length > 0 ||
                   extraPhotos.some((p) => p.evidence.warnings.length > 0)) && (
                   <label>
                     <input
