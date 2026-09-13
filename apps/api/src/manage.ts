@@ -1,5 +1,6 @@
 import { attendanceTestingMigration } from "./migration-attendance-testing.js";
 import { examEliteMigration } from "./migration-examelite.js";
+import { examWorkspaceMigration } from "./migration-exam-workspace.js";
 import { photoNamesMigration } from "./migration-photo-names.js";
 import { faceControlMigration } from "./migration-face-control.js";
 import { bulkAttendanceMigration } from "./migration-bulk-attendance.js";
@@ -143,8 +144,10 @@ try {
         await sql.query(attendanceTestingMigration);
       if (!(await sql.query("SELECT version FROM schema_versions WHERE version=13")).rows.length)
         await sql.query(examEliteMigration);
+      if (!(await sql.query("SELECT version FROM schema_versions WHERE version=14")).rows.length)
+        await sql.query(examWorkspaceMigration);
     });
-    console.log("Database migrations through version 13 are applied.");
+    console.log("Database migrations through version 14 are applied.");
   } else if (command === "demo-academic") {
     const confirmation = process.argv[4] || "";
     if (!confirmation.startsWith("--confirm-name="))

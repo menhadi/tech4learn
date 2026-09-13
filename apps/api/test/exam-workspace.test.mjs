@@ -1,0 +1,60 @@
+import 'reflect-metadata';
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID,randomBytes} from 'node:crypto';
+import {PGlite} from '@electric-sql/pglite';
+import {migration} from '../dist/schema.js';
+import {accessMigration} from '../dist/migration-access.js';
+import {learnerMigration} from '../dist/migration-learners.js';
+import {examWorkspaceMigration} from '../dist/migration-exam-workspace.js';
+import {createApp} from '../dist/bootstrap.js';
+import {ExamEliteService} from '../dist/examelite.service.js';
+import {FaceJobsService} from '../dist/face-jobs.service.js';
+import {digest} from '../dist/security.js';
+import {allPermissions} from '../dist/access-model.js';
+
+test('native exam entry enforces dedicated permission, tenant scope, restrictions and minimal identity',async()=>{
+ const pg=new PGlite();await pg.exec(migration);await pg.exec(accessMigration);await pg.exec(learnerMigration);await pg.exec(examWorkspaceMigration);
+ await pg.exec('CREATE TABLE organisation_settings(organisation_id uuid,enabled_modules jsonb)');
+ const org=randomUUID(),other=randomUUID(),admin=randomUUID(),member=randomUUID(),branding=randomUUID(),role=randomUUID(),brandRole=randomUUID(),learner=randomUUID(),foreign=randomUUID();
+ const centre=randomUUID(),group=randomUUID();
+ await pg.query("INSERT INTO organisations(id,name,slug) VALUES($1,'Owned','owned'),($2,'Other','other')",[org,other]);
+ await pg.query("INSERT INTO users(id,email,name,password_hash,is_superadmin) VALUES($1,'admin@example.test','Admin','unused',true),($2,'member@example.test','Member','unused',false),($3,'branding@example.test','Branding','unused',false)",[admin,member,branding]);
+ await pg.query("INSERT INTO access_roles(id,organisation_id,name,permissions,protected) VALUES($1,$2,'Exam admin',$3,true),($4,$2,'Branding',ARRAY['organisation.view','configuration.view','configuration.manage'],false)",[role,org,allPermissions,brandRole]);
+ await pg.query("INSERT INTO memberships(user_id,organisation_id,role,role_id) VALUES($1,$2,'admin',$3),($4,$2,'admin',$5)",[member,org,role,branding,brandRole]);
+ await pg.query("INSERT INTO centres(id,organisation_id,name) VALUES($1,$2,'Centre')",[centre,org]);
+ await pg.query("INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES($1,$2,$3,'Group')",[group,org,centre]);
+ await pg.query("INSERT INTO learners(id,organisation_id,group_id,name,code) VALUES($1,$2,$3,'Learner','CODE')",[learner,org,group]);
+ const tokens={};for(const u of [admin,member,branding]){tokens[u]=randomBytes(32).toString('hex');await pg.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[digest(tokens[u]),u]);}
+ const db={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)})),onModuleDestroy:async()=>{}};
+ const app=await createApp(undefined,db);app.get(FaceJobsService).onModuleInit=()=>{};
+ const remote=app.get(ExamEliteService);remote.configuration=async()=>({central:true,organization_id:1,token:'private'});
+ const requests=[];let badHost=false,fail=false;
+ remote.request=async(c,o,path,body)=>{requests.push({o,path,body});if(fail)throw new Error('Provider unavailable');return path.endsWith('/launch')?{host:badHost?'evil.example':`t4l-${o.replaceAll('-','')}.examelite.com`,ticket:'a'.repeat(64)}:{saved:true}};
+ await app.listen(0,'127.0.0.1');
+ const base=(await app.getUrl())+'/api/v1/organisations/';
+ const call=(path='',body,actor=member,organisation=org,origin='http://localhost:5173')=>fetch(base+organisation+'/exam-workspace'+path,{method:body===undefined?'GET':'POST',headers:{Cookie:'t4l_session='+tokens[actor],Origin:origin,'Content-Type':'application/json','X-Tech4Learn-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});
+ try{
+  assert.equal((await call('',undefined,branding)).status,403);
+  assert.equal((await call('',undefined,member,other)).status,404);
+  assert.deepEqual((await (await call()).json()).restrictions,[]);
+  assert.equal((await call('/launch',{feature:'questions'},member,org,'https://evil.example')).status,403);
+  assert.equal((await call('/launch',{feature:'taking',learner:foreign})).status,404);
+  assert.equal(requests.length,0);
+  assert.equal((await call('/launch',{feature:'taking',learner})).status,201);
+  assert.deepEqual(requests.at(-1).body.learner,{id:learner,name:'Learner'});
+  assert.equal(JSON.stringify(requests).includes('example.test'),false);
+  assert.equal((await call('/restrictions',{restrictions:['questions'],revision:0})).status,403);
+  assert.equal((await call('/restrictions',{restrictions:['questions'],revision:0},admin)).status,201);
+  assert.equal((await call('/restrictions',{restrictions:[],revision:0},admin)).status,409);
+  assert.equal((await call('/launch',{feature:'questions'})).status,403);
+  assert.equal((await call('/launch',{feature:'exams'})).status,201);
+  badHost=true;assert.equal((await call('/launch',{feature:'exams'})).status,503);badHost=false;
+  fail=true;assert.equal((await call('/restrictions',{restrictions:[],revision:1},admin)).status,500);fail=false;
+  assert.equal((await (await call()).json()).revision,1);
+  await pg.query("UPDATE memberships SET scope_type='centres',scope_ids=$1 WHERE user_id=$2",[[centre],member]);
+  assert.equal((await call('/launch',{feature:'exams'})).status,403);
+  await pg.query("UPDATE memberships SET scope_type='organisation',scope_ids='{}',status='suspended' WHERE user_id=$1",[member]);
+  assert.equal((await call('/launch',{feature:'exams'})).status,404);
+ }finally{await app.close();await pg.close()}
+});

@@ -1,0 +1,34 @@
+<?php
+require '/home/examelite/public_html/vendor/autoload.php';
+$app=require '/home/examelite/public_html/bootstrap/app.php';
+$app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
+foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_workspace_tickets','tech4learn_workspace_copies'] as $table) {
+    if(!\Illuminate\Support\Facades\Schema::hasTable($table))throw new RuntimeException('Workspace migration is incomplete.');
+}
+foreach([
+ ['GET','tech4learn/launch','Tech4LearnNativeController@launch'],
+ ['POST','tech4learn/launch','Tech4LearnNativeController@accept'],
+ ['GET','tech4learn/library','Tech4LearnLibraryController@index'],
+ ['POST','tech4learn/library/exam/1/copy','Tech4LearnLibraryController@copy'],
+ ['GET','api/tech4learn/v1/workspace/status','Tech4LearnWorkspaceController@health'],
+] as [$method,$path,$expected]) {
+    $request=\Illuminate\Http\Request::create('https://examelite.com/'.$path,$method);
+    $route=$app['router']->getRoutes()->match($request);
+    if(!str_ends_with($route->getActionName(),$expected)) throw new RuntimeException('Workspace route is shadowed: '.$path);
+}
+$kernel=$app->make(\Illuminate\Contracts\Http\Kernel::class);
+if(!in_array(\App\Http\Middleware\Tech4LearnWorkspaceGate::class,$kernel->getMiddlewareGroups()['web'],true))throw new RuntimeException('Workspace session gate is not registered.');
+$csrf=$app->make(\App\Http\Middleware\VerifyCsrfToken::class);
+$reflection=new ReflectionObject($csrf);$property=$reflection->getProperty('except');$property->setAccessible(true);
+foreach($property->getValue($csrf) as $except) {
+    if(\Illuminate\Support\Str::is(trim($except,'/'),'tech4learn/launch'))throw new RuntimeException('Launch must not be excluded from CSRF checks.');
+}
+foreach(['launch','library','navigation'] as $view) {
+    if(!view()->exists('tech4learn::'.$view)) throw new RuntimeException('Missing workspace view.');
+    $compiled=\Illuminate\Support\Facades\Blade::compileString(file_get_contents(resource_path('views/tech4learn/'.$view.'.blade.php')));
+    $temp=tempnam(sys_get_temp_dir(),'t4l-blade-');file_put_contents($temp,$compiled);
+    try {passthru('php -l '.escapeshellarg($temp),$code);if($code!==0)throw new RuntimeException('Workspace view does not compile.');}
+    finally {unlink($temp);}
+}
+echo "Workspace provider, routes, middleware, schema and Blade templates verified.\n";

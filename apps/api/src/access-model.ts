@@ -1,4 +1,6 @@
 export const permissionCatalogue = [
+  ["exams.view", "View exam workspace access"],
+  ["exams.manage", "Manage exams and open the ExamElite workspace"],
   ["learners.photos", "View private student photos and consent"],
   ["learners.photo_manage", "Manage student photos and record consent"],
   ["attendance.match", "Suggest attendance from consented face references"],
@@ -72,6 +74,7 @@ export function permissionDependencies(key: Permission): Permission[] {
   return [...result];
 }
 export const widePermissions: Permission[] = [
+  "exams.manage",
   "attendance.policy",
   "configuration.view",
   "configuration.manage",

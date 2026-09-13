@@ -1,5 +1,6 @@
 import { CentreLocation } from "./CentreLocation";
 import { ExamElite } from "./ExamElite";
+import { ExamWorkspace } from "./ExamWorkspace";
 import { GroupedMenu, plannedPages, organisationMenu } from "./GroupedMenu";
 import { DraftForm } from "./DraftForm";
 import { DirectoryTable, RecordStatus,emptyTableQuery,type TableQuery } from "./DirectoryTable";
@@ -204,7 +205,8 @@ export function OrganisationWorkspace({
     ...(can("members.view") ? ["Team"] : []),
     ...(can("audit.view") ? ["History"] : []),
   ];
-  if (can("configuration.view")) tabs.push("Exam workspace", "Exam results");
+  if (can("exams.manage")) tabs.push("Exam workspace");
+  if (can("configuration.view") || can("exams.manage")) tabs.push("Exam results");
   const upcoming = [...(can("groups.view") ? ["FLN workspace"] : []),...(can("configuration.view") ? ["Email settings","Email templates","Message settings","Delivery history"] : [])];
   const menuGroups=organisationMenu(org.centre_label,tabs,upcoming);
   const currentGroup=menuGroups.find(g=>g.items.some(i=>i.id===tab));
@@ -274,7 +276,8 @@ export function OrganisationWorkspace({
           })()}
           <div className="workspace-breadcrumb" aria-label="Breadcrumb"><span>{org.name}</span><span aria-hidden="true">/</span><span>{currentGroup?.label}</span><span aria-hidden="true">/</span><strong>{currentLabel}</strong></div>
           <h3 className="workspace-page-title">{currentLabel}</h3>
-          {can("configuration.view") && ["Exam workspace", "Exam results"].includes(tab) && <ExamElite key={`${org.id}-${tab}`} org={org.id} results={tab === "Exam results"} />}
+          {can("exams.manage") && tab === "Exam workspace" && <ExamWorkspace key={org.id} org={org.id} />}
+          {tab === "Exam results" && <>{can("exams.manage") && <ExamWorkspace key={org.id} org={org.id} resultsOnly />}{can("configuration.view") && <details><summary>Previously linked ExamElite results</summary><ExamElite key={`${org.id}-${tab}`} org={org.id} results /></details>}</>}
           {upcoming.includes(tab) && plannedPages[tab] && <section className="planned-workspace"><span className="feature-planned">Planned integration</span><h3>{plannedPages[tab].title}</h3><p>{plannedPages[tab].description}</p><h4>What will be available</h4><ul>{plannedPages[tab].items.map(line=><li key={line}>{line}</li>)}</ul>{plannedPages[tab].academics&&<button type="button" onClick={()=>setTab("Groups")}>Open classes & sections</button>}</section>}
           {tab === "AI connections" && <AIProviders org={org.id} />}
           {tab === "Daily overview" && (

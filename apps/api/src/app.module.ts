@@ -2,6 +2,8 @@ import { FaceControlController } from "./face-control.controller.js";
 import { ExamEliteController } from "./examelite.controller.js";
 import { ExamElitePlatformController } from "./examelite-platform.controller.js";
 import { ExamEliteService } from "./examelite.service.js";
+import { ExamWorkspaceService } from "./exam-workspace.service.js";
+import { ExamWorkspaceController } from "./exam-workspace.controller.js";
 import {
   FaceControlService,
   FaceControlClient,
@@ -35,6 +37,7 @@ export class AppModule {
       controllers: [
         ExamEliteController,
         ExamElitePlatformController,
+        ExamWorkspaceController,
         FaceControlController,
         LearnerPhotosController,
         AcademicController,
@@ -47,6 +50,7 @@ export class AppModule {
       ],
       providers: [
         ExamEliteService,
+        ExamWorkspaceService,
         FaceControlService,
         FaceControlClient,
         LearnerPhotosService,

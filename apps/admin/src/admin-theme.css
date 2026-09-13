@@ -193,3 +193,5 @@
 
 .photo-upload-panel .portrait-upload input[type="file"],
 .photo-upload-panel .portrait-upload input[type="file"]:disabled { opacity:0; padding:0; border:0; }
+.exam-student-access { margin-top: 1.25rem; padding: 1rem; border: 1px solid #d7dce2; border-radius: 10px; }
+.exam-student-access legend { padding: 0 .4rem; font-weight: 600; }

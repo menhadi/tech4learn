@@ -52,6 +52,8 @@ The central connection is controlled by Tech4Learn superadmin. Organisation gran
 
 The [central sharing release](examelite-platform-release.md) implements these controls locally in migration 13 and a dedicated ExamElite identity bridge. Provisioning uses stable organisation/learner keys and a transactional remote mapping; reviewed pilot links are adopted explicitly, never inferred from email. The initial provisioning operation is triggered by superadmin's Connect student action. New student sign-in/SSO and online exam launch remain unimplemented; creating an exam identity does not yet expose a login to the learner.
 
+The [native ExamElite workspace](examelite-native-workspace.md) is implemented locally with default-enabled capabilities, revisioned superadmin restrictions, isolated native sessions and organisation-owned copies. ExamElite supplies authoring and student templates and owns the engine. Migration 14 and the additive provider require user-run deployment; live end-to-end verification remains outstanding. The release document records session revocation limits and provider-dependent functionality.
+
 ## Reliability
 
 Use idempotent submission identifiers, durable media uploads and background processing. Acknowledge saved data only after persistence. Preserve capture and receipt timestamps separately. Keep large media out of list/report endpoints. Safe retry/resume does not imply full offline assessments.

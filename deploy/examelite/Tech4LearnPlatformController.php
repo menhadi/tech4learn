@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Hash;
 class Tech4LearnPlatformController extends Controller
 {
     protected function configPath(): string { return '/etc/examelite/tech4learn-read.json'; }
-    private function configuration(Request $r): array {
+    protected function configuration(Request $r): array {
         $token=(string)$r->bearerToken();
         abort_unless(preg_match('/^[a-f0-9]{64}$/D',$token),401);
         abort_unless(is_readable($this->configPath()),503);
@@ -24,7 +24,7 @@ class Tech4LearnPlatformController extends Controller
             && $g['organization_id']===(int)Tenant::hostId($r->getHost()),403);
         return $config;
     }
-    private function uuid(string $id): void {
+    protected function uuid(string $id): void {
         abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
     }
     private function cursor(Request $r): int {
@@ -34,7 +34,7 @@ class Tech4LearnPlatformController extends Controller
         $s=(string)$r->query('exams',''); abort_unless(strlen($s)<=17000 && preg_match('/^(?:[1-9]\d{0,14}(?:,[1-9]\d{0,14})*)?$/D',$s),422);
         $ids=$s==='' ? [] : array_map('intval',explode(',',$s)); abort_unless(count($ids)<=1000,422); return $ids;
     }
-    private function reply(int $tenant,array $data) {
+    protected function reply(int $tenant,array $data) {
         return response()->json(array_merge(['version'=>1,'organization_id'=>$tenant],$data))->header('Cache-Control','no-store');
     }
     public function status(Request $r) {
