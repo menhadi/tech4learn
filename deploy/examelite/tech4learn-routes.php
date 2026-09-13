@@ -5,8 +5,11 @@ use App\Http\Controllers\Tech4LearnReadController;
 use App\Http\Controllers\Tech4LearnPlatformController;
 use App\Http\Controllers\Tech4LearnWorkspaceController;
 use App\Http\Controllers\Tech4LearnContentController;
+use App\Http\Controllers\Tech4LearnAuthoringController;
 
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
+    Route::get('/authoring/{org}/questions/{id}', [Tech4LearnAuthoringController::class, 'question']);
+    Route::post('/authoring/{org}/questions/{id}', [Tech4LearnAuthoringController::class, 'save']);
     Route::get('/content/{org}/questions', [Tech4LearnContentController::class, 'questions']);
     Route::get('/content/{org}/transfers', [Tech4LearnContentController::class, 'history']);
     Route::post('/content/{org}/transfer', [Tech4LearnContentController::class, 'transfer']);

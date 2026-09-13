@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import { DraftForm } from "./DraftForm";
 import { SmartTable } from "./DirectoryTable";
+import { ExamQuestionEditor } from "./ExamQuestionEditor";
 
 type Modules = { enabled_modules: Record<string, boolean>; version: number };
 type Question = {
@@ -125,6 +126,7 @@ export function ExamQuestions({
     [notice, setNotice] = useState(""),
     [loadedSearch, setLoadedSearch] = useState("");
   const [request, setRequest] = useState<string | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
   const [history, setHistory] = useState<
     {
       request_id: string;
@@ -181,13 +183,21 @@ export function ExamQuestions({
       setBusy(false);
     }
   }
+  if (editing !== null)
+    return (
+      <ExamQuestionEditor
+        org={org}
+        id={editing}
+        onClose={() => setEditing(null)}
+      />
+    );
   return (
     <section className="panel">
       <h3>{central ? "Question sharing" : "Question bank"}</h3>
       <p>
         {central
           ? "Share central questions with this organisation, or pull its questions into the central bank. Each destination owns its copy."
-          : "Questions shared with your organisation appear here. Question editing inside Tech4Learn is still being integrated."}
+          : "Questions shared with your organisation appear here. Open a question to edit its text, answers and marks."}
       </p>
       {central && (
         <label>
@@ -288,6 +298,7 @@ export function ExamQuestions({
             <th>Question</th>
             <th>ID</th>
             {central && <th>Select</th>}
+            {(!central || source === "organisation") && <th>Actions</th>}
           </tr>
         </thead>
         <tbody>
@@ -314,6 +325,13 @@ export function ExamQuestions({
                       );
                     }}
                   />
+                </td>
+              )}
+              {(!central || source === "organisation") && (
+                <td>
+                  <button disabled={busy} onClick={() => setEditing(q.id)}>
+                    Edit question
+                  </button>
                 </td>
               )}
             </tr>

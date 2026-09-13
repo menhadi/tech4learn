@@ -18,6 +18,7 @@ php "$source/test-workspace-provision.php" /home/examelite/public_html/vendor/au
 php "$source/test-workspace-views.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-content-copies.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-content-api.php" /home/examelite/public_html/vendor/autoload.php
+php "$source/test-question-authoring.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-launch-tickets.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-workspace-gate.php" /home/examelite/public_html/vendor/autoload.php
 python3 -B "$source/install-read-connector.py"

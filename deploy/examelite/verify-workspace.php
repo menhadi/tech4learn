@@ -3,7 +3,7 @@ require '/home/examelite/public_html/vendor/autoload.php';
 $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
-foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_workspace_tickets','tech4learn_workspace_copies','tech4learn_content_transfers'] as $table) {
+foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_workspace_tickets','tech4learn_workspace_copies','tech4learn_content_transfers','tech4learn_authoring_requests'] as $table) {
     if(!\Illuminate\Support\Facades\Schema::hasTable($table))throw new RuntimeException('Workspace migration is incomplete.');
 }
 foreach([
@@ -14,6 +14,7 @@ foreach([
  ['GET','api/tech4learn/v1/workspace/status','Tech4LearnWorkspaceController@health'],
  ['GET','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/questions','Tech4LearnContentController@questions'],
  ['POST','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/transfer','Tech4LearnContentController@transfer'],
+ ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1','Tech4LearnAuthoringController@save'],
 ] as [$method,$path,$expected]) {
     $request=\Illuminate\Http\Request::create('https://examelite.com/'.$path,$method);
     $route=$app['router']->getRoutes()->match($request);

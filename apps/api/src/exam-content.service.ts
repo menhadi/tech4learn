@@ -13,6 +13,74 @@ import type { Account } from "./identity.service.js";
 
 @Injectable()
 export class ExamContentService {
+  private async questionAccess(user: Account, org: string, id: string) {
+    await this.access.require(user, org, "exams.manage");
+    if (!/^[1-9][0-9]{0,14}$/.test(id))
+      throw new BadRequestException("Invalid question.");
+    const rules = await this.workspace.status(user, org);
+    if (rules.restrictions.includes("questions"))
+      throw new ForbiddenException("Question bank is restricted.");
+  }
+  async question(user: Account, org: string, id: string) {
+    await this.questionAccess(user, org, id);
+    return this.remote.request(
+      await this.config(),
+      org,
+      `authoring/${org}/questions/${id}`,
+    );
+  }
+  async saveQuestion(
+    user: Account,
+    org: string,
+    id: string,
+    b: Record<string, unknown>,
+  ) {
+    await this.questionAccess(user, org, id);
+    if (
+      !b.fields ||
+      typeof b.fields !== "object" ||
+      Array.isArray(b.fields) ||
+      JSON.stringify(b.fields).length > 250000 ||
+      typeof b.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(b.revision) ||
+      typeof b.request_id !== "string" ||
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(
+        b.request_id,
+      )
+    )
+      throw new BadRequestException("Invalid question changes.");
+    await this.workspace.launch(user, org, { feature: "questions" }, true);
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `authoring/${org}/questions/${id}`,
+      {
+        fields: b.fields,
+        revision: b.revision,
+        request_id: b.request_id,
+        actor_id: user.id,
+      },
+    );
+    if (response.conflict === true)
+      throw new ConflictException(
+        "Question changed. Reload it before saving again.",
+      );
+    if (response.saved !== true) {
+      const messages = Object.values(response.errors ?? {})
+        .flat()
+        .filter((v): v is string => typeof v === "string")
+        .slice(0, 12)
+        .map((v) => v.slice(0, 300));
+      throw new BadRequestException(
+        messages.join(" ") || "ExamElite could not save this question.",
+      );
+    }
+    await this.access.audit(this.db, user, org, "exams.question.updated", {
+      questionId: id,
+      requestId: b.request_id,
+    });
+    return response.question;
+  }
   constructor(
     private readonly db: Database,
     private readonly access: AccessService,

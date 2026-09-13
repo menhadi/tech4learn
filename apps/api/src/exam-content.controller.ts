@@ -12,6 +12,32 @@ import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get("organisations/:org/exam-content/questions/:id")
+  async question(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.question(
+      await this.identity.account(session(cookie)),
+      org,
+      id,
+    );
+  }
+  @Post("organisations/:org/exam-content/questions/:id")
+  async updateQuestion(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.saveQuestion(
+      await this.identity.account(session(cookie)),
+      org,
+      id,
+      body ?? {},
+    );
+  }
   @Get("platform/exam-content/:org/transfers")
   async history(@Param("org") org: string, @Headers("cookie") cookie?: string) {
     return this.content.history(
