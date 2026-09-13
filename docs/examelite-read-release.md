@@ -16,6 +16,8 @@ Read operations use bounded database SELECT queries, including result summaries,
 
 Use an exact checked Tech4Learn commit. The ExamElite installation is additive: it copies a new controller and route file and appends one require to `routes/api.php`, retaining existing controllers and local/live differences. It backs up affected files and performs PHP syntax checks. No Composer installation or database migration is needed for these new files.
 
+The live root `.htaccess` excludes `/api/` for legacy PHP scripts. The installer therefore also backs up that file and prepends a narrowly scoped rewrite for `/api/tech4learn/v1/` to Laravel's `public/index.php`, forwarding the bearer header. Existing API scripts and all original rules are retained. The Apache 2.4 `[END]` flag prevents the old exclusion from intercepting the rewritten request. Run `python -B deploy/examelite/test-connector-rewrite.py` for preservation, repeat-install and prefix-boundary checks. A credential-free request to the deployed status endpoint must return HTTP 401 rather than the previous Apache 404; authenticated validation still requires Check connection in Tech4Learn.
+
 After fetching/checking out the release in `/home/tech4learn/tech4learn-app`, run as root:
 
 ```bash
@@ -36,3 +38,5 @@ Run `bash /home/tech4learn/tech4learn-app/deploy/virtualmin/update-ui-template.s
 Run `npm run check`. The connector tests check fail-closed private configuration, local access checks before network calls, tenant/learner response matching, redacted errors, response limits and pagination. The isolated PHP SQLite test uses the existing local ExamElite vendor autoloader: `php deploy/examelite/test-read-connector.php /path/to/examelite/vendor/autoload.php`. It never boots the application or reads its environment. It exercises real SELECT queries for cross-tenant rows, unshared exams, other/unmapped students, unfinished attempts, bad credentials, revoked grants and cursor pages.
 
 For rollback, restore the backed-up `routes/api.php` and connector files, clear ExamElite's route cache, and restore the prior Tech4Learn build. Disable/revoke the grant when removing the connection. No schema/data rollback is required by this connector. Live operation, a real mapped result and full exam delivery remain separate validation steps.
+
+For a routing rollback, also restore `root.htaccess` from the installer backup to the ExamElite root `.htaccess`.
