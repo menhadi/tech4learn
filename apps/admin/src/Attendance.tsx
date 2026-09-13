@@ -23,6 +23,7 @@ type Policy = {
   version: number;
 };
 type Snapshot = {
+  centre: { radius: number };
   test_run?: boolean;
   group_name: string;
   centre_name: string;
@@ -555,6 +556,13 @@ export function Attendance({
               ? `±${Math.round(detail.evidence.location.accuracy)} m`
               : "unavailable"}
           </p>
+          <p>Limits used for this capture: GPS uncertainty {detail.snapshot.policy.accuracy_limit} m; centre radius {detail.snapshot.centre.radius} m.</p>
+          <p className="muted">Centre radius controls distance from the centre. GPS uncertainty controls how precise your device location must be. Changing one does not change the other.</p>
+          {policy && policy.accuracy_limit !== detail.snapshot.policy.accuracy_limit && <p>The current GPS limit is {policy.accuracy_limit} m. Start a new capture to use it; this record retains its original checks.</p>}
+          {can("policy") && <button type="button" className="secondary" onClick={e => {
+            const panel = e.currentTarget.closest(".attendance-workspace")?.querySelector<HTMLDetailsElement>("[data-attendance-policy]");
+            if (panel) { panel.open = true; panel.scrollIntoView({behavior:"smooth",block:"start"}); panel.querySelector<HTMLInputElement>("input")?.focus({preventScroll:true}); }
+          }}>Change GPS accuracy limit</button>}
           {detail.evidence.warnings.length > 0 && (
             <div className="error">
               <strong>Review required</strong>
@@ -804,7 +812,7 @@ export function Attendance({
         </section>
       )}
       {policy && can("policy") && (
-        <details className="panel">
+        <details className="panel" data-attendance-policy>
           <summary>Attendance policy</summary>
           <DraftForm title="Attendance policy" draftKey={"attendance-policy"} draftState={policy} restoreState={v=>setPolicy({...v,version:policy?.version})}
             onSubmit={(e) => {
@@ -812,13 +820,13 @@ export function Attendance({
               void act(async () => {
                 setPolicy(await api<Policy>(`${base}/policy`, "PATCH", policy));
                 setNotice(
-                  "Policy saved. Existing capture evidence is preserved.",
+                  `GPS uncertainty limit saved: ${policy.accuracy_limit} metres. Start a new capture to use it. Existing records keep their original checks.`,
                 );
               });
             }}
           >
             <label>
-              Maximum GPS uncertainty (metres)
+              Maximum GPS uncertainty (metres; separate from centre radius)
               <input
                 type="number"
                 min={5}

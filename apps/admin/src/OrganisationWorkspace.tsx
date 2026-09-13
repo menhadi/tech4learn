@@ -581,7 +581,7 @@ export function OrganisationWorkspace({
                   <h3>Update location: {locationCentre.name}</h3>
                   <fieldset disabled={busy}>
                     <CentreLocation latitude={locationCentre.latitude} longitude={locationCentre.longitude} />
-                    <label>Allowed radius (metres)<input name="radius" type="number" min={10} max={10000} step={1} defaultValue={locationCentre.radius} required /></label>
+                    <label>Allowed distance from centre (metres)<input name="radius" type="number" min={10} max={10000} step={1} defaultValue={locationCentre.radius} required /></label>
                     <div className="actions"><button>Save location for approval</button><button type="button" className="secondary" onClick={()=>setLocationCentre(null)}>Cancel</button></div>
                   </fieldset>
                 </DraftForm>
@@ -657,7 +657,7 @@ export function OrganisationWorkspace({
                       </label>
                       <CentreLocation latitude={centre?.latitude ?? null} longitude={centre?.longitude ?? null} />
                       <label>
-                        Allowed radius (metres; default 100)
+                        Allowed distance from centre (metres; default 100)
                         <input
                           name="radius"
                           type="number"
