@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { StudentExamAttempt } from "./StudentExamAttempt";
 
 export type StudentEntry = { org: string; token: string; requested: boolean };
 export function takeStudentEntry(): StudentEntry {
@@ -109,11 +110,7 @@ export function StudentExamPortal({ entry }: { entry: StudentEntry }) {
               <p>
                 Access expires: {new Date(session.expires_at).toLocaleString()}
               </p>
-              <p role="status">
-                Exam delivery is not yet available in this build. Your
-                organisation will provide the completed exam screen when it is
-                ready.
-              </p>
+              <StudentExamAttempt base={base} />
               <button
                 className="secondary"
                 disabled={busy}
@@ -121,6 +118,12 @@ export function StudentExamPortal({ entry }: { entry: StudentEntry }) {
                   setBusy(true);
                   setError("");
                   try {
+                    if (
+                      !window.confirm(
+                        "Sign out of this exam? Save your current answer first; unsaved changes will be lost.",
+                      )
+                    )
+                      return;
                     await api(`${base}/logout`, "POST", {});
                     setSession(null);
                     setSecret("");

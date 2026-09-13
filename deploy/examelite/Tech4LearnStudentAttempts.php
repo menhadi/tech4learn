@@ -46,7 +46,7 @@ final class Tech4LearnStudentAttempts
    if($action==='start'){
     abort_unless(!$attempt||$attempt->total_test_time===null||(float)$attempt->total_test_time===(float)$exam->duration,409,'The paper duration changed after this attempt started. Ask exam staff to restore its duration before resuming.');
     // Do not silently launch modes whose internal controls are not wired yet.
-    abort_unless(!$exam->proctor&&!$exam->browser_tolerance&&($exam->timer_mode??'none')==='none',422,'This exam requires delivery controls that are not yet available in Tech4Learn.');
+    abort_unless(!$exam->proctor&&!$exam->browser_tolerance&&!$exam->option_shuffle&&!$exam->calculator_allowed&&($exam->timer_mode??'none')==='none',422,'This exam requires delivery controls that are not yet available in Tech4Learn.');
     abort_unless($exam->questions()->count()<=500,422,'This paper exceeds the current online question limit.');
    }
    // Native start rejects a closed paper before reaching its timeout handler.
@@ -67,7 +67,12 @@ final class Tech4LearnStudentAttempts
      // Native first-load models omit database defaults. Hash persisted rows so the
      // first answer uses the same revision as a subsequent read or resume.
      $view['examStats']=\App\Models\ExamStat::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_result_id',$view['examResult']->id)->get()->keyBy('question_id');
-     return app(Tech4LearnAttemptPayload::class)->fromNativeView($view,$tenant,$student->id);
+     $payload=app(Tech4LearnAttemptPayload::class)->fromNativeView($view,$tenant,$student->id);
+     foreach($payload['questions'] as $question){
+      $texts=array_values($question['content']);$texts[]=$question['passage']['content']??'';
+      foreach($texts as $text)abort_unless(!preg_match('/<(?:img|svg|math|math-field|iframe|video|audio|object|embed)\b|\\\\(?:\(|\[)|\$\$/i',$text),422,'This paper needs media or formula display that is not available yet.');
+     }
+     return $payload;
     }
     $ended=$attempt?->fresh()??ExamResult::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_id',$examId)->latest('id')->first();
     abort_unless($ended&&$ended->end_time,409,'ExamElite could not open or finish this attempt.');

@@ -8,6 +8,7 @@ foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_worksp
 }
 foreach([\App\Services\Tech4LearnAttemptAnswers::class,\App\Services\Tech4LearnAttemptPayload::class,\App\Services\Tech4LearnStudentContext::class,\App\Services\Tech4LearnStudentAttempts::class] as $service)if(!class_exists($service))throw new RuntimeException('Student attempt adapter is missing.');
 foreach([
+ ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/start','Tech4LearnStudentController@attempt'],
  ['GET','tech4learn/launch','Tech4LearnNativeController@launch'],
  ['POST','tech4learn/launch','Tech4LearnNativeController@accept'],
  ['GET','tech4learn/library','Tech4LearnLibraryController@index'],

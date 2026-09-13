@@ -13,6 +13,7 @@ import type { Response } from "express";
 import { ExamStudentAccessService } from "./exam-student-access.service.js";
 import { IdentityService } from "./identity.service.js";
 import { session } from "./identity.controller.js";
+import { ExamStudentAttemptService } from "./exam-student-attempt.service.js";
 const name = () =>
   process.env.NODE_ENV === "production" ? "__Host-t4l_exam" : "t4l_exam";
 export const examSession = (cookie?: string) =>
@@ -35,6 +36,7 @@ export class ExamStudentAccessController {
   constructor(
     private readonly service: ExamStudentAccessService,
     private readonly identity: IdentityService,
+    private readonly attempts: ExamStudentAttemptService,
   ) {}
   @Post("exam-student-access") async issue(
     @Param("org") org: string,
@@ -95,6 +97,14 @@ export class ExamStudentAccessController {
       exam_name: context.exam_name,
       expires_at: context.expires_at,
     };
+  }
+  @Post("student-exam/attempt/:action") @HttpCode(200) async attempt(
+    @Param("org") org: string,
+    @Param("action") action: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookies?: string,
+  ) {
+    return this.attempts.run(org, examSession(cookies), action, body);
   }
   @Post("student-exam/logout") @HttpCode(200) async logout(
     @Headers("cookie") cookies: string | undefined,

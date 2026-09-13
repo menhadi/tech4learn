@@ -1,5 +1,6 @@
 import { FaceControlController } from "./face-control.controller.js";
 import { ExamStudentAccessService } from "./exam-student-access.service.js";
+import { ExamStudentAttemptService } from "./exam-student-attempt.service.js";
 import { ExamStudentAccessController } from "./exam-student-access.controller.js";
 import { ExamEliteController } from "./examelite.controller.js";
 import { ExamContentController } from "./exam-content.controller.js";
@@ -56,6 +57,7 @@ export class AppModule {
       ],
       providers: [
         ExamStudentAccessService,
+        ExamStudentAttemptService,
         ExamContentService,
         ExamEliteService,
         ExamWorkspaceService,

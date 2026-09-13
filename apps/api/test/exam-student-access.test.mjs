@@ -11,6 +11,7 @@ import { examWorkspaceMigration } from "../dist/migration-exam-workspace.js";
 import { examStudentAccessMigration } from "../dist/migration-exam-student-access.js";
 import { createApp } from "../dist/bootstrap.js";
 import { ExamContentService } from "../dist/exam-content.service.js";
+import { ExamEliteService } from "../dist/examelite.service.js";
 import { FaceJobsService } from "../dist/face-jobs.service.js";
 import { digest, token } from "../dist/security.js";
 test("student exam links are single-use, paper-scoped and immediately revocable without staff membership", async () => {
@@ -162,6 +163,169 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
     assert.match(response.headers.get("set-cookie"), /HttpOnly/);
     assert.match(response.headers.get("set-cookie"), /SameSite=Lax/);
     const studentCookie = response.headers.get("set-cookie").split(";")[0];
+    const engine = app.get(ExamEliteService);
+    engine.configuration = async () => ({
+      central: true,
+      organization_id: 10,
+      token: "synthetic",
+    });
+    let calls = 0;
+    engine.request = async (config, owner, path, payload) => {
+      calls++;
+      assert.equal(owner, org);
+      assert.equal(path, `student/${org}/start`);
+      assert.equal(payload.learner_id, learner);
+      assert.equal(payload.exam_id, 7);
+      assert.equal(payload.name, "Synthetic student");
+      return {
+        data: { attempt_id: 11, exam_id: 7, completed: true, result: null },
+      };
+    };
+    const startPath = root + "/student-exam/attempt/start";
+    assert.equal(
+      (await call(startPath, { request_id: randomUUID() }, staff)).status,
+      401,
+    );
+    assert.equal(calls, 0);
+    assert.equal(
+      (
+        await call(
+          startPath,
+          { request_id: randomUUID(), learner_id: foreign },
+          studentCookie,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          startPath,
+          { request_id: randomUUID(), exam_id: 99 },
+          studentCookie,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          startPath,
+          { request_id: randomUUID() },
+          studentCookie,
+          "https://evil.test",
+        )
+      ).status,
+      403,
+    );
+    assert.equal(calls, 0);
+    const startReply = await call(
+      startPath,
+      { request_id: randomUUID() },
+      studentCookie,
+    );
+    assert.equal(startReply.status, 200);
+    assert.deepEqual(await startReply.json(), {
+      attempt_id: 11,
+      exam_id: 7,
+      completed: true,
+      result: null,
+    });
+    assert.equal(calls, 1);
+    const answerBody = {
+      request_id: randomUUID(),
+      attempt_id: 11,
+      question_id: 4,
+      revision: "a".repeat(64),
+      fields: { option_selected: "7" },
+    };
+    engine.request = async (config, owner, path, payload) => {
+      assert.equal(path, `student/${org}/answer`);
+      assert.equal(payload.exam_id, 7);
+      assert.equal(payload.learner_id, learner);
+      assert.deepEqual(payload.fields, answerBody);
+      return {
+        data: {
+          saved: true,
+          question_id: 4,
+          revision: "b".repeat(64),
+          answer_locked: false,
+        },
+      };
+    };
+    assert.equal(
+      (
+        await call(
+          root + "/student-exam/attempt/answer",
+          answerBody,
+          studentCookie,
+        )
+      ).status,
+      200,
+    );
+    engine.request = async () => ({
+      data: {
+        saved: true,
+        question_id: 99,
+        revision: "b".repeat(64),
+        answer_locked: false,
+      },
+    });
+    assert.equal(
+      (
+        await call(
+          root + "/student-exam/attempt/answer",
+          answerBody,
+          studentCookie,
+        )
+      ).status,
+      503,
+    );
+    engine.request = async () => ({
+      data: { attempt_id: 12, exam_id: 7, completed: true, result: null },
+    });
+    assert.equal(
+      (
+        await call(
+          root + "/student-exam/attempt/submit",
+          { request_id: randomUUID(), attempt_id: 11 },
+          studentCookie,
+        )
+      ).status,
+      503,
+    );
+    engine.request = async () => ({
+      error: { status: 409, message: "PRIVATE SQL STACK" },
+    });
+    const conflict = await call(
+      startPath,
+      { request_id: randomUUID() },
+      studentCookie,
+    );
+    assert.equal(conflict.status, 409);
+    assert.ok(!(await conflict.text()).includes("PRIVATE"));
+    engine.request = async () => ({
+      data: { attempt_id: 11, exam_id: 99, completed: true, result: null },
+    });
+    assert.equal(
+      (await call(startPath, { request_id: randomUUID() }, studentCookie))
+        .status,
+      503,
+    );
+    engine.request = async () => {
+      await pg.query("UPDATE learners SET archived=true WHERE id=$1", [
+        learner,
+      ]);
+      return {
+        data: { attempt_id: 11, exam_id: 7, completed: true, result: null },
+      };
+    };
+    assert.equal(
+      (await call(startPath, { request_id: randomUUID() }, studentCookie))
+        .status,
+      401,
+    );
+    await pg.query("UPDATE learners SET archived=false WHERE id=$1", [learner]);
     assert.deepEqual(await response.json(), { ok: true });
     assert.equal(
       (await call(root + "/student-exam/exchange", { token: secret }, ""))

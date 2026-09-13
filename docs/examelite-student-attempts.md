@@ -1,6 +1,6 @@
 # Internal student attempts: implementation status
 
-The full student portal is not ready for deployment. Private native answer/payload adapters and a Tech4Learn student sign-in/access boundary are implemented and tested locally. Start, resume and submission are not yet wired into the student screen.
+The full student portal is not ready for deployment. Separate student sign-in and a basic same-domain attempt screen are implemented locally, with authenticated start/resume, answer saving and submission through ExamElite. Advanced delivery and media/formula rendering remain incomplete.
 
 ## Student sign-in and exam grants
 
@@ -10,7 +10,7 @@ The response contains a one-use URL fragment, never a token in the query string.
 
 Every student access check revalidates the grant, expiry, active learner, organisation Exams module and Taking restriction. The session resolves one student and one exam server-side. It cannot authenticate to staff APIs or another organisation's student endpoint. Concurrent first exchanges have one winner; a same-browser retry can reuse its already-issued cookie. A consumed link on another browser requires staff to issue a new link.
 
-The sign-in screen currently displays the assigned exam and an explicit unavailable-delivery notice. There is no staff button issuing these links yet, to avoid offering incomplete exam delivery in the organisation workflow. Backend issue/list/revoke and student exchange/me/logout routes are implemented. Native student provisioning and the private attempt adapters still need to be connected to this authenticated context.
+The sign-in screen displays the assigned exam and a Start or resume action. The basic attempt screen has question navigation, explicit Save answer, review flags, clearing, answer locks, countdown and submission confirmation. Unsaved edits prevent navigation. A failed save freezes editing until the same request is retried or the student explicitly reloads saved work. Exam answers stay in memory until the server acknowledges saving; browser storage is not used. Staff link-issuing controls are still withheld while the full delivery workflow is unfinished.
 
 ## Implemented components
 
@@ -24,11 +24,11 @@ An answer revision rejects stale edits. `tech4learn_attempt_requests` records a 
 
 `Tech4LearnAttemptPayload` explicitly projects the native start-view data into question content, options, selected translation, the student's prefilled answer, navigation state and timing/display settings. It does not serialise Eloquent models. Correct answers, explanations, numerical answer rules, private configuration and model metadata are excluded. It checks the attempt/student/question ownership before projecting. The native math normaliser remains in use.
 
-The installer copies these classes and the explicit migration creates the request table. Neither component is exposed by a new route yet. No live files or records were changed during development.
+The installer copies these classes and the explicit migration creates the request table. The credential-authenticated native student controller now connects these components to the Tech4Learn student API. No live files or records were changed during development.
 
 ## Private native lifecycle
 
-The private lifecycle service now invokes ExamElite's actual student controller for start/resume and finalisation, and its existing answer persistence service for saves. It creates only an explicitly mapped native student, without enrolling that student in all exam groups. The server caller must supply the identity and paper from the stored Tech4Learn grant; there is still no public route to this service.
+The private lifecycle service now invokes ExamElite's actual student controller for start/resume and finalisation, and its existing answer persistence service for saves. It creates only an explicitly mapped native student, without enrolling that student in all exam groups. The server caller must supply the identity and paper from the stored Tech4Learn grant; the browser cannot supply learner or exam identity to the attempt endpoint. Tech4Learn checks the grant before and after each native call, including revocation during an in-flight request.
 
 Workspace and attempt locks serialise lifecycle mutations. Submission retries return the existing completed attempt without grading it again. Start retries rebuild the current view/countdown. First-load answer revisions use persisted rows including database defaults. Completed scores obey both the native publication setting and the current Results restriction. An existing timed-out or closed-paper attempt enters native finalisation rather than failing the start-availability check. A duration edit during an attempt currently prevents resume with an explicit error; automatic reconciliation of changed timing is not implemented. Advanced timer/proctor modes remain unavailable through this adapter.
 
@@ -36,11 +36,9 @@ Workspace and attempt locks serialise lifecycle mutations. Submission retries re
 
 ## Remaining integration
 
-- Connect the authenticated Tech4Learn student/grant context to each native call. Never accept a browser-selected learner ID or exam ID as authority.
+- Finish media/formula rendering and the advanced exam controls before enabling staff link issuance. The current native transaction rejects unsupported media/formulas, proctoring, group timers, shuffled options and calculator modes, rolling back a newly created attempt rather than showing an incomplete paper.
 - Replace the older launch path's automatic membership in every native exam group with explicit exam access. Existing external launch/session behaviour is not changed by these private components.
-- Invoke native start/resume and submit under a private student context. Start and submit must coordinate with the same attempt locking, enforce attempt limits, preserve the selected language and avoid duplicate attempts/submissions.
-- Build the same-domain student screen, navigation, server save status, retry/resume, countdown and final submission flow.
-- Route authorised question media through the same domain and sanitise HTML at rendering. The payload currently carries native content; it is not itself an HTML sanitizer or media authorisation mechanism.
+- Route authorised question media through the same domain and add formula display. The basic screen sanitises supported HTML; the payload itself is not a media authorisation mechanism.
 - Integrate section timers, browser/proctor requirements, result release and manual marking before claiming those modes work in Tech4Learn.
 
 ## Local verification
@@ -48,3 +46,7 @@ Workspace and attempt locks serialise lifecycle mutations. Submission retries re
 `test-attempt-answers.php` extends the existing synthetic native-authoring fixture and calls the installed native answer persistence service. Tests cover tenant/student mismatches, forged type, malformed input, stale edits, changed retry IDs, newer-answer preservation, native locks, captured deadline, submitted attempts, revoked restrictions, supported native answer shapes and payload minimisation. A read-only snapshot of the current native source is also used locally. The SQLite fixture and request-context doubles do not prove production database concurrency or the complete student UI.
 
 `exam-student-access.test.mjs` exercises real HTTP routes against isolated PostgreSQL-compatible storage: token hashing, one-use and concurrent exchanges, session/grant expiry, hostile origins, cross-organisation and staff access denial, reissue/revoke, archived students and module/restriction changes. A synthetic browser check uses the real application entry to verify token removal, explicit sign-in, student-only display and sign-out. No live learner or exam records are used.
+
+The native endpoint uses the existing central credential and a separate prefixed 6,000/minute limiter, excluding the inherited shared-IP 60/minute API bucket for this route only. Tech4Learn also limits each authenticated grant to 120/minute. Limits need production load verification. Raw JSON preserves blank answers across Laravel request normalisation. Native errors return only allowlisted status codes; backend exception details are not forwarded.
+
+HTTP tests verify trusted grant-derived learner/paper values, hostile-origin and identity-override denial, private error suppression, mismatched-paper responses and access revocation during the engine call. The synthetic browser test verifies HTML sanitisation, saving after a lost response with unchanged request identity, unsaved navigation blocking and explicit submission. This is local integration verification, not a deployed student attempt.

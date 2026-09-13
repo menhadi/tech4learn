@@ -73,6 +73,47 @@ $timed=$lifecycle->run($workspace,10,$timeoutLearner,'Synthetic timed candidate'
 Carbon::setTestNow(Carbon::parse('2026-09-13 14:01:00','UTC'));
 $expired=$lifecycle->run($workspace,10,$timeoutLearner,'Synthetic timed candidate',$paper->id,'start',['request_id'=>$next()]);
 check($expired['completed']&&$expired['attempt_id']===$timed['attempt_id'],'Closed paper resumes into native finalisation');
+Carbon::setTestNow(Carbon::parse('2026-09-13 12:05:00','UTC'));
+$beforeCount=App\Models\ExamResult::count();$beforeStudents=App\Models\Student::count();
+$originalText=$q->fresh()->question;
+foreach(['<img src="/question.png">','Formula \\(x+1\\)'] as $unsupported){
+ $q->question=$unsupported;$q->save();
+ rejectAnswer(fn()=>$lifecycle->run($workspace,10,'77777777-7777-7777-7777-777777777777','Synthetic media candidate',$paper->id,'start',['request_id'=>$next()]),'unsupported display rejected');
+ check(App\Models\ExamResult::count()===$beforeCount&&App\Models\Student::count()===$beforeStudents,'Unsupported display rolls back attempt and student provisioning');
+}
+$q->question=$originalText;$q->save();
 Carbon::setTestNow();
+require_once __DIR__.'/Tech4LearnPlatformController.php';
+DB::table('organizations')->insert(['id'=>10,'domain'=>'central.example.test','status'=>'active']);
+require __DIR__.'/Tech4LearnStudentController.php';
+$credential=bin2hex(random_bytes(32));$configurationFile=tempnam(sys_get_temp_dir(),'t4l-student-test-');
+file_put_contents($configurationFile,json_encode(['_platform'=>['enabled'=>true,'organization_id'=>10,'token_hash'=>hash('sha256',$credential)]]));
+$controller=new class($configurationFile) extends App\Http\Controllers\Tech4LearnStudentController {
+ public function __construct(private string $path){}protected function configPath():string{return $this->path;}
+};
+try {
+ $body=['learner_id'=>$newLearner,'name'=>'Synthetic candidate','exam_id'=>$paper->id,'fields'=>['request_id'=>$next(),'attempt_id'=>$opened['attempt_id']]];
+ $makeRequest=fn($token,$data)=>Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/student/'.$workspace.'/submit','POST',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$token,'CONTENT_TYPE'=>'application/json'],json_encode($data));
+ rejectAnswer(fn()=>$controller->attempt($makeRequest(str_repeat('0',64),$body),$workspace,'submit'),'student native endpoint requires central credential');
+ $reply=$controller->attempt($makeRequest($credential,$body),$workspace,'submit')->getData(true);
+ check($reply['organization_id']===10&&$reply['data']['completed'],'Credential-authenticated controller returns scoped native result');
+ $foreignBody=$body;$foreignBody['learner_id']=$learner;
+ $denied=$controller->attempt($makeRequest($credential,$foreignBody),$workspace,'submit')->getData(true);
+ check($denied['error']['status']===404&&!isset($denied['data']),'Native controller converts ownership error into minimal public code');
+ Carbon::setTestNow(Carbon::parse('2026-09-13 12:05:00','UTC'));
+ $blankLearner='88888888-8888-8888-8888-888888888888';
+ $blankAttempt=$lifecycle->run($workspace,10,$blankLearner,'Synthetic blank candidate',$paper->id,'start',['request_id'=>$next()]);
+ $blankBody=['learner_id'=>$blankLearner,'name'=>'Synthetic blank candidate','exam_id'=>$paper->id,'fields'=>['request_id'=>$next(),'attempt_id'=>$blankAttempt['attempt_id'],'question_id'=>$q->id,'revision'=>$blankAttempt['questions'][0]['revision'],'fields'=>['option_selected'=>'']]];
+ $blankRequest=$makeRequest($credential,$blankBody);$blankRequest->merge(['fields'=>null]);
+ $blankReply=$controller->attempt($blankRequest,$workspace,'answer')->getData(true);
+ check($blankReply['data']['saved'],'Raw JSON preserves a cleared answer despite global request normalisation');
+ Carbon::setTestNow();
+}finally{unlink($configurationFile);}
+$router=new Illuminate\Routing\Router(new Illuminate\Events\Dispatcher($app),$app);$app->instance('router',$router);Illuminate\Support\Facades\Route::clearResolvedInstance('router');
+$router->prefix('api')->middleware('api')->group(function(){require __DIR__.'/tech4learn-routes.php';});
+$studentRoute=$router->getRoutes()->match(Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/student/'.$workspace.'/answer','POST'));
+check(in_array('throttle:6000,1,t4l-student:',$studentRoute->gatherMiddleware(),true)&&in_array('throttle:api',$studentRoute->excludedMiddleware(),true),'Student route has a separate prefixed limit instead of the inherited shared-IP API bucket');
+$authorRoute=$router->getRoutes()->match(Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/authoring/'.$workspace.'/questions/1','GET'));
+check(in_array('throttle:30,1',$authorRoute->gatherMiddleware(),true)&&!in_array('throttle:api',$authorRoute->excludedMiddleware(),true),'Authoring rate limits remain intact');
 echo "Native student lifecycle: start, resume, answers, submission and restrictions passed.\n";
 }
