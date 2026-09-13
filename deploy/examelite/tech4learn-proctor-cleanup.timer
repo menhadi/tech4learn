@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly private exam evidence retention
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=300
+Unit=tech4learn-proctor-cleanup.service
+
+[Install]
+WantedBy=timers.target

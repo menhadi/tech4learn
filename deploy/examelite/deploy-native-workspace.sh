@@ -29,6 +29,7 @@ runuser -u examelite -- php /home/examelite/public_html/artisan config:clear
 runuser -u examelite -- php /home/examelite/public_html/artisan route:clear
 runuser -u examelite -- php /home/examelite/public_html/artisan view:clear
 runuser -u examelite -- php < "$source/verify-workspace.php"
+bash "$source/install-proctor-retention.sh"
 python3 -B "$source/check-workspace-connection.py"
 python3 -B "$source/install-workspace-hosts.py"
 http_code=$(curl --silent --show-error --max-time 20 -o /dev/null -w '%{http_code}' https://t4l-00000000000000000000000000000000.examelite.com/tech4learn/launch)

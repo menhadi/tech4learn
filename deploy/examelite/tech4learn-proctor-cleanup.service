@@ -1,0 +1,14 @@
+[Unit]
+Description=Remove expired private Tech4Learn exam camera evidence
+After=network.target
+
+[Service]
+Type=oneshot
+User=examelite
+Group=examelite
+WorkingDirectory=/home/examelite/public_html
+ExecStart=/usr/bin/php /usr/local/lib/tech4learn/purge-proctor-evidence.php
+TimeoutStartSec=300
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true

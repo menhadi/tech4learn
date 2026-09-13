@@ -18,6 +18,7 @@ runuser -u examelite -- php /home/examelite/public_html/artisan config:clear
 runuser -u examelite -- php /home/examelite/public_html/artisan route:clear
 runuser -u examelite -- php /home/examelite/public_html/artisan view:clear
 runuser -u examelite -- php < "$source/verify-workspace.php"
+bash "$source/install-proctor-retention.sh"
 python3 -B "$source/check-workspace-connection.py"
 bash "$repo/deploy/virtualmin/update-ui-template.sh"
 printf '\nCentral module controls and question sharing installed. Full in-page authoring and exam taking are still under development.\n'
