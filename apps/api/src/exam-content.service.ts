@@ -4,7 +4,9 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
+import { uuid } from "./security.js";
 import { Database } from "./database.js";
 import { AccessService } from "./access.service.js";
 import { ExamEliteService } from "./examelite.service.js";
@@ -13,6 +15,117 @@ import type { Account } from "./identity.service.js";
 
 @Injectable()
 export class ExamContentService {
+  private async proctorAccess(user: Account, org: string) {
+    await this.access.require(user, org, "exams.manage");
+    const rules = await this.workspace.status(user, org);
+    if (rules.restrictions.includes("results"))
+      throw new ForbiddenException("Exam review is restricted.");
+  }
+  async proctorReview(
+    user: Account,
+    org: string,
+    learner: string,
+    attempt?: string,
+    capture?: string,
+    after = "0",
+  ) {
+    await this.proctorAccess(user, org);
+    uuid(learner);
+    if (
+      !/^[0-9]{1,15}$/.test(after) ||
+      (attempt !== undefined && !/^[1-9][0-9]{0,14}$/.test(attempt))
+    )
+      throw new BadRequestException("Invalid exam review request.");
+    if (capture !== undefined) uuid(capture);
+    const path =
+      `review/${org}/learners/${learner}/attempts` +
+      (attempt
+        ? `/${attempt}/captures${capture ? `/${capture}` : ""}`
+        : `?after=${after}`);
+    const data = await this.remote.request(await this.config(), org, path);
+    await this.proctorAccess(user, org);
+    const invalid = () =>
+      new ServiceUnavailableException("Private exam evidence is unavailable.");
+    const positive = (n: unknown) =>
+      typeof n === "number" && Number.isSafeInteger(n) && n > 0;
+    const date = (s: unknown) =>
+      typeof s === "string" && Number.isFinite(Date.parse(s));
+    if (attempt && data.attempt_id !== Number(attempt)) throw invalid();
+    if (capture) {
+      if (
+        data.capture_id !== capture ||
+        data.mime !== "image/jpeg" ||
+        typeof data.base64 !== "string" ||
+        data.base64.length > 349528 ||
+        !date(data.expires_at) ||
+        Date.parse(data.expires_at) <= Date.now()
+      )
+        throw invalid();
+      const buffer = Buffer.from(data.base64, "base64");
+      if (
+        buffer.length < 3 ||
+        buffer.length > 262144 ||
+        buffer.toString("base64") !== data.base64 ||
+        buffer[0] !== 255 ||
+        buffer[1] !== 216 ||
+        buffer[2] !== 255
+      )
+        throw invalid();
+      await this.access.audit(this.db, user, org, "exams.camera.viewed", {
+        learnerId: learner,
+        attemptId: Number(attempt),
+        captureId: capture,
+      });
+      return { buffer };
+    }
+    if (!Array.isArray(data.items) || data.items.length > (attempt ? 1200 : 50))
+      throw invalid();
+    if (attempt)
+      return {
+        attempt_id: Number(attempt),
+        items: data.items
+          .map((row: any) => {
+            if (
+              row.attempt_id !== Number(attempt) ||
+              typeof row.capture_id !== "string" ||
+              !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(
+                row.capture_id,
+              ) ||
+              !date(row.received_at) ||
+              !date(row.expires_at)
+            )
+              throw invalid();
+            return {
+              capture_id: row.capture_id,
+              received_at: row.received_at,
+              expires_at: row.expires_at,
+            };
+          })
+          .filter((row: any) => Date.parse(row.expires_at) > Date.now()),
+      };
+    if (data.next !== null && !positive(data.next)) throw invalid();
+    return {
+      next: data.next,
+      items: data.items.map((row: any) => {
+        if (
+          !positive(row.attempt_id) ||
+          !positive(row.exam_id) ||
+          typeof row.exam_name !== "string" ||
+          row.exam_name.length > 250 ||
+          (row.started_at !== null && !date(row.started_at)) ||
+          (row.finished_at !== null && !date(row.finished_at))
+        )
+          throw invalid();
+        return {
+          attempt_id: row.attempt_id,
+          exam_id: row.exam_id,
+          exam_name: row.exam_name,
+          started_at: row.started_at,
+          finished_at: row.finished_at,
+        };
+      }),
+    };
+  }
   private async questionAccess(
     user: Account,
     org: string,

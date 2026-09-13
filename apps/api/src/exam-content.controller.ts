@@ -6,12 +6,67 @@ import {
   Param,
   Post,
   Query,
+  Res,
 } from "@nestjs/common";
+import type { Response } from "express";
 import { IdentityService } from "./identity.service.js";
 import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get("organisations/:org/exam-proctor/:learner/attempts")
+  async proctorAttempts(
+    @Param("org") org: string,
+    @Param("learner") learner: string,
+    @Query("after") after = "0",
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.proctorReview(
+      await this.identity.account(session(cookie)),
+      org,
+      learner,
+      undefined,
+      undefined,
+      after,
+    );
+  }
+  @Get("organisations/:org/exam-proctor/:learner/attempts/:attempt/captures")
+  async proctorCaptures(
+    @Param("org") org: string,
+    @Param("learner") learner: string,
+    @Param("attempt") attempt: string,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.proctorReview(
+      await this.identity.account(session(cookie)),
+      org,
+      learner,
+      attempt,
+    );
+  }
+  @Get(
+    "organisations/:org/exam-proctor/:learner/attempts/:attempt/captures/:capture",
+  )
+  async proctorImage(
+    @Param("org") org: string,
+    @Param("learner") learner: string,
+    @Param("attempt") attempt: string,
+    @Param("capture") capture: string,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const image = await this.content.proctorReview(
+      await this.identity.account(session(cookie)),
+      org,
+      learner,
+      attempt,
+      capture,
+    );
+    response.setHeader("Content-Type", "image/jpeg");
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send("buffer" in image ? image.buffer : undefined);
+  }
   @Get("organisations/:org/exam-content/exams/:id/questions")
   async examQuestions(
     @Param("org") org: string,

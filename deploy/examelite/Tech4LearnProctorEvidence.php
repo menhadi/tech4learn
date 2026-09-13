@@ -5,9 +5,46 @@ use App\Models\{Exam,ExamResult,Student};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
-/** Private native evidence store. Not exposed until capture/review adapters are ready. */
+/** Private native evidence storage and scoped review; no public image paths. */
 final class Tech4LearnProctorEvidence
 {
+ /** Server-credential callers must also enforce the staff permission in Tech4Learn. */
+ private function reviewer(string $workspace,int $source,string $learner):array {
+  foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
+  $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$source)->first();abort_unless($w&&$w->organization_id,404);
+  abort_unless(\App\Models\Organization::where('id',$w->organization_id)->where('status','active')->exists(),403);
+  abort_unless(!in_array('results',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
+  $studentId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$learner)->where('kind','student')->value('external_id');
+  $student=Student::where('organization_id',$w->organization_id)->findOrFail($studentId);
+  return [(int)$w->organization_id,(int)$student->id];
+ }
+ private function visible(string $workspace,int $owner,int $student,int $attempt,int $exam) {
+  return DB::table('tech4learn_proctor_evidence')->where('workspace_id',$workspace)->where('organization_id',$owner)->where('student_id',$student)->where('attempt_id',$attempt)->where('exam_id',$exam)->where('expires_at','>',now());
+ }
+ public function attempts(string $workspace,int $source,string $learner,int $after=0):array {
+  abort_unless($after>=0,422);[$owner,$student]=$this->reviewer($workspace,$source,$learner);
+  $rows=ExamResult::where('organization_id',$owner)->where('student_id',$student)->where('id','>',$after)
+   ->whereExists(function($q)use($workspace,$owner,$student){$q->selectRaw('1')->from('tech4learn_proctor_evidence')->whereColumn('attempt_id','exam_results.id')->whereColumn('exam_id','exam_results.exam_id')->where('workspace_id',$workspace)->where('organization_id',$owner)->where('student_id',$student)->where('expires_at','>',now());})
+   ->orderBy('id')->limit(51)->get(['id','exam_id','start_time','end_time']);
+  $more=$rows->count()>50;$rows=$rows->take(50);
+  return ['items'=>$rows->map(function($row)use($owner){
+   $exam=Exam::where('organization_id',$owner)->findOrFail($row->exam_id);
+   return ['attempt_id'=>(int)$row->id,'exam_id'=>(int)$row->exam_id,'exam_name'=>mb_substr(strip_tags((string)$exam->name),0,250),'started_at'=>$row->start_time?Carbon::parse($row->start_time)->toIso8601String():null,'finished_at'=>$row->end_time?Carbon::parse($row->end_time)->toIso8601String():null];
+  })->values()->all(),'next'=>$more?(int)$rows->last()->id:null];
+ }
+ public function review(string $workspace,int $source,string $learner,int $attemptId,?string $capture=null):array {
+  abort_unless($attemptId>0,422);[$owner,$student]=$this->reviewer($workspace,$source,$learner);
+  $attempt=ExamResult::where('organization_id',$owner)->where('student_id',$student)->findOrFail($attemptId);
+  Exam::where('organization_id',$owner)->findOrFail($attempt->exam_id);
+  $query=$this->visible($workspace,$owner,$student,$attemptId,(int)$attempt->exam_id);
+  if($capture===null){
+   $rows=$query->orderBy('received_at')->orderBy('request_id')->limit(1200)->get(['request_id','attempt_id','received_at','expires_at']);
+   return ['attempt_id'=>$attemptId,'items'=>$rows->map(fn($row)=>array_diff_key($this->receipt($row),['saved'=>true]))->values()->all()];
+  }
+  abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$capture),422);
+  $row=$query->where('request_id',$capture)->first();abort_unless($row,404);
+  return ['attempt_id'=>$attemptId,'capture_id'=>$capture,'mime'=>'image/jpeg','base64'=>$row->image_base64,'expires_at'=>Carbon::parse($row->expires_at)->toIso8601String()];
+ }
  public function capture(string $workspace,int $source,string $learner,int $attemptId,string $requestId,string $base64):array {
   foreach([$workspace,$learner,$requestId] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   abort_unless($attemptId>0&&strlen($base64)<=349528,422);

@@ -2,6 +2,7 @@
 // Solid-colour JPEG fixture generated locally; contains no learner photo.
 require __DIR__.'/test-student-attempts.php';
 require __DIR__.'/Tech4LearnProctorEvidence.php';
+require __DIR__.'/Tech4LearnProctorController.php';
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 DB::statement('CREATE TABLE tech4learn_proctor_evidence(workspace_id TEXT,request_id TEXT,organization_id INTEGER,student_id INTEGER,attempt_id INTEGER,exam_id INTEGER,image_hash TEXT,image_base64 TEXT,received_at TEXT,expires_at TEXT,PRIMARY KEY(workspace_id,request_id))');
@@ -37,6 +38,12 @@ try {
  $request=Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/student/'.$workspace.'/proctor','POST',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$cameraToken,'CONTENT_TYPE'=>'application/json'],json_encode($captureBody));
  $reply=$cameraController->attempt($request,$workspace,'proctor')->getData(true);
  check($reply['data']['saved']&&$reply['data']['exam_id']===$cameraPaper->id&&!isset($reply['data']['image_base64']),'Credential capture route supports bounded images over the ordinary request limit');
+ $reviewController=new class($configFile) extends App\Http\Controllers\Tech4LearnProctorController {public function __construct(private string $file){}protected function configPath():string{return $this->file;}};
+ $reviewRequest=Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/review/'.$workspace.'/learners/'.$cameraLearner.'/attempts','GET',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$cameraToken]);
+ $reviewReply=$reviewController->attempts($reviewRequest,$workspace,$cameraLearner);
+ check($reviewReply->headers->get('Cache-Control')==='no-store, private'&&count($reviewReply->getData(true)['items'])===1,'Review controller authenticates and returns no-store history');
+ $badRequest=Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/review/'.$workspace.'/learners/'.$cameraLearner.'/attempts','GET');
+ rejectAnswer(fn()=>$reviewController->attempts($badRequest,$workspace,$cameraLearner),'Review controller rejects missing credential');
  $wrong=$captureBody['fields'];$wrong['request_id']=$next();
  rejectAnswer(fn()=>$lifecycle->run($workspace,10,$cameraLearner,'Synthetic camera candidate',$browserPaper->id,'proctor',$wrong),'Capture cannot escape the granted exam');
 }finally{unlink($configFile);}
@@ -46,7 +53,24 @@ Carbon::setTestNow(Carbon::parse('2026-09-13 13:01:00','UTC'));
 rejectAnswer(fn()=>$evidence->capture($workspace,10,$cameraLearner,$cameraId,$next(),$jpeg),'ended attempt');
 check($evidence->capture($workspace,10,$cameraLearner,$cameraId,$captureId,$jpeg)===$receipt,'Accepted receipt remains replayable after submission');
 check($evidence->purgeExpired()===0,'Unexpired records survive cleanup');
+$review=$evidence->review($workspace,10,$cameraLearner,$cameraId);
+check(count($review['items'])===2&&!str_contains(json_encode($review),$jpeg),'Review lists private metadata only');
+check($evidence->review($workspace,10,$cameraLearner,$cameraId,$captureId)['base64']===$jpeg,'Scoped review reads a private JPEG');
+$history=$evidence->attempts($workspace,10,$cameraLearner);
+check(count($history['items'])===1&&$history['items'][0]['attempt_id']===$cameraId,'Review history is mapped to this learner only');
+check($evidence->attempts($workspace,10,$cameraLearner,$cameraId)['items']===[],'Review attempt cursor is bounded');
+rejectAnswer(fn()=>$evidence->review($workspace,99,$cameraLearner,$cameraId,$captureId),'Review source isolation');
+rejectAnswer(fn()=>$evidence->review($workspace,10,$newLearner,$cameraId,$captureId),'Review learner isolation');
+rejectAnswer(fn()=>$evidence->review($workspace,10,$cameraLearner,$cameraId+100000,$captureId),'Review attempt isolation');
+rejectAnswer(fn()=>$evidence->review($workspace,10,$cameraLearner,$cameraId,'../image'),'Review capture validation');
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'["results"]']);
+rejectAnswer(fn()=>$evidence->review($workspace,10,$cameraLearner,$cameraId,$captureId),'Results restriction denies images');
+rejectAnswer(fn()=>$evidence->attempts($workspace,10,$cameraLearner),'Results restriction denies history');
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'[]']);
+
 Carbon::setTestNow(Carbon::parse('2026-10-13 13:00:00','UTC'));
+rejectAnswer(fn()=>$evidence->review($workspace,10,$cameraLearner,$cameraId,$captureId),'Expired image is hidden before cleanup');
+check(count($evidence->review($workspace,10,$cameraLearner,$cameraId)['items'])===1,'Expired metadata is hidden before cleanup');
 check($evidence->purgeExpired()===1&&DB::table('tech4learn_proctor_evidence')->count()===1,'Expiry cleanup preserves newer captures');
 Carbon::setTestNow(Carbon::parse('2026-10-13 13:00:25','UTC'));
 check($evidence->purgeExpired()===1,'Final expired image is deleted');

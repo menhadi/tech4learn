@@ -324,6 +324,143 @@ test("central question sharing requires superadmin; organisation reads respect m
       ).status,
       404,
     );
+    const nativeRequest = remote.request;
+    const learner = randomUUID(),
+      capture = randomUUID();
+    const reviewPath = `/organisations/${org}/exam-proctor/${learner}/attempts`;
+    const imagePath = reviewPath + `/19/captures/${capture}`;
+    let invalidImage = false,
+      expiredImage = false,
+      revokeReview = false;
+    remote.request = async (c, o, path) => {
+      assert.equal(o, org);
+      assert.ok(path.startsWith(`review/${org}/learners/${learner}/attempts`));
+      if (revokeReview)
+        await pg.query(
+          "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
+          [member, org],
+        );
+      const expires_at = new Date(
+        Date.now() + (expiredImage ? -60000 : 60000),
+      ).toISOString();
+      if (path.endsWith(capture))
+        return {
+          attempt_id: invalidImage ? 20 : 19,
+          capture_id: capture,
+          mime: "image/jpeg",
+          base64: "/9j/",
+          expires_at,
+        };
+      if (path.endsWith("/captures"))
+        return {
+          attempt_id: 19,
+          items: [
+            {
+              attempt_id: 19,
+              capture_id: capture,
+              received_at: new Date().toISOString(),
+              expires_at,
+              base64: "PRIVATE",
+            },
+          ],
+        };
+      return {
+        items: [
+          {
+            attempt_id: 19,
+            exam_id: 2,
+            exam_name: "Synthetic paper",
+            started_at: null,
+            finished_at: null,
+            base64: "PRIVATE",
+          },
+        ],
+        next: null,
+      };
+    };
+    assert.equal(
+      (
+        await call(
+          `/organisations/${other}/exam-proctor/${learner}/attempts`,
+          undefined,
+          member,
+        )
+      ).status,
+      404,
+    );
+    assert.equal((await fetch(base + reviewPath)).status, 401);
+    assert.equal(
+      (
+        await fetch(base + reviewPath, {
+          headers: { Cookie: "t4l_exam=" + tokens[member] },
+        })
+      ).status,
+      401,
+    );
+    const history = await call(reviewPath, undefined, member);
+    assert.equal(history.status, 200);
+    assert.equal(
+      JSON.stringify(await history.json()).includes("PRIVATE"),
+      false,
+    );
+    const metadata = await call(reviewPath + "/19/captures", undefined, member);
+    assert.equal(metadata.status, 200);
+    assert.equal(
+      JSON.stringify(await metadata.json()).includes("PRIVATE"),
+      false,
+    );
+    const image = await call(imagePath, undefined, member);
+    assert.equal(image.status, 200);
+    assert.equal(image.headers.get("content-type"), "image/jpeg");
+    assert.equal(image.headers.get("cache-control"), "no-store");
+    assert.equal(image.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(
+      Buffer.from(await image.arrayBuffer()).toString("base64"),
+      "/9j/",
+    );
+    invalidImage = true;
+    assert.equal((await call(imagePath, undefined, member)).status, 503);
+    invalidImage = false;
+    expiredImage = true;
+    assert.equal((await call(imagePath, undefined, member)).status, 503);
+    expiredImage = false;
+    revokeReview = true;
+    assert.equal((await call(imagePath, undefined, member)).status, 404);
+    revokeReview = false;
+    await pg.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    await pg.query(
+      "UPDATE memberships SET scope_type='centres',scope_ids=$3 WHERE user_id=$1 AND organisation_id=$2",
+      [member, org, [randomUUID()]],
+    );
+    assert.equal((await call(reviewPath, undefined, member)).status, 403);
+    await pg.query(
+      "UPDATE memberships SET scope_type='organisation',scope_ids='{}' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    const audits = await pg.query(
+      "SELECT actor_id,details FROM audit_events WHERE organisation_id=$1 AND action='exams.camera.viewed'",
+      [org],
+    );
+    assert.equal(audits.rows.length, 1);
+    assert.equal(audits.rows[0].actor_id, member);
+    assert.deepEqual(audits.rows[0].details, {
+      learnerId: learner,
+      attemptId: 19,
+      captureId: capture,
+    });
+    await pg.query(
+      "INSERT INTO examelite_workspaces(organisation_id,restrictions) VALUES($1,$2)",
+      [org, ["results"]],
+    );
+    assert.equal((await call(imagePath, undefined, member)).status, 403);
+    await pg.query(
+      "DELETE FROM examelite_workspaces WHERE organisation_id=$1",
+      [org],
+    );
+    remote.request = nativeRequest;
     const body = {
       direction: "share",
       question_ids: [9, 2, 9],
