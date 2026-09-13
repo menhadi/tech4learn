@@ -172,6 +172,14 @@ test("role upgrade, delegation and location scopes through authenticated HTTP", 
         c1 = await ok(prefix + "/centres", "POST", body, admin, 201);
         assert.equal(c1.location_approved, false);
         await ok(`${prefix}/centres/${c1.id}/approve`, "POST", {}, admin, 201);
+        const locationOnly = await ok(`${prefix}/centres/${c1.id}/location`, "PATCH", {latitude:22.55,longitude:88.35,radius:150,name:"Must not replace",address:"Must not replace",centre_type:"other",location_approved:true}, admin);
+        assert.equal(locationOnly.name, "North");
+        assert.equal(locationOnly.address, "Village");
+        assert.equal(locationOnly.centre_type, c1.centre_type);
+        assert.equal(locationOnly.latitude, 22.55);
+        assert.equal(locationOnly.radius, 150);
+        assert.equal(locationOnly.location_approved, false);
+        assert.equal((await req(`${prefix}/centres/${c1.id}/location`, "PATCH", {latitude:91,longitude:88.3,radius:100}, admin)).status, 400);
         c1 = await ok(
           `${prefix}/centres/${c1.id}`,
           "PATCH",
@@ -373,6 +381,7 @@ test("role upgrade, delegation and location scopes through authenticated HTTP", 
           owner,
           201,
         );
+        assert.equal((await req(`${prefix}/centres/${alien.id}/location`, "PATCH", {latitude:22.5,longitude:88.3,radius:100}, admin)).status, 404);
         assert.equal(
           (
             await req(

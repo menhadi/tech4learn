@@ -80,13 +80,15 @@ export class RecordsService {
     org: string,
     body: Record<string, unknown>,
     id?: string,
+    locationOnly = false,
   ) {
-    const name = field(body.name, "Centre name");
-    if (typeof body.address !== "string" || body.address.length > 500)
+    if (locationOnly && !id) throw new BadRequestException("Choose an existing centre.");
+    const name = locationOnly ? "" : field(body.name, "Centre name");
+    if (!locationOnly && (typeof body.address !== "string" || body.address.length > 500))
       throw new BadRequestException(
         "Address must be text of up to 500 characters.",
       );
-    const address = body.address.trim();
+    const address = locationOnly ? "" : (body.address as string).trim();
     const number = (
       value: unknown,
       min: number,
@@ -123,7 +125,7 @@ export class RecordsService {
         ? await this.centreAllowed(sql, org, id, a, true)
         : null;
       const centreType =
-        body.centre_type ?? before?.centre_type ?? "learning_centre";
+        locationOnly ? before!.centre_type : body.centre_type ?? before?.centre_type ?? "learning_centre";
       if (
         typeof centreType !== "string" ||
         ![
@@ -148,7 +150,7 @@ export class RecordsService {
         ? (
             await sql.query<Centre>(
               "UPDATE centres SET name=$3,address=$4,latitude=$5,longitude=$6,radius=$7,location_approved=$8,centre_type=$9 WHERE organisation_id=$1 AND id=$2 RETURNING *",
-              [org, id, name, address, lat, lon, radius, approved, centreType],
+              [org, id, locationOnly ? before!.name : name, locationOnly ? before!.address : address, lat, lon, radius, approved, centreType],
             )
           ).rows[0]
         : (

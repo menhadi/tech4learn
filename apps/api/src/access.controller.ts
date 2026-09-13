@@ -125,6 +125,14 @@ export class AccessController {
       id,
     );
   }
+  @Patch("centres/:id/location") async centreLocation(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.records.saveCentre(await this.user(cookie), org, body ?? {}, id, true);
+  }
   @Post("centres/:id/archive") async archiveCentre(
     @Param("org") org: string,
     @Param("id") id: string,

@@ -107,6 +107,8 @@ export function OrganisationWorkspace({
     [history, setHistory] = useState<Audit[]>([]),
     [historyQuery,setHistoryQuery]=useState<TableQuery>({...emptyTableQuery,sort:"created_at",direction:"desc"}),
     [historyCounts,setHistoryCounts]=useState({total:0,filtered:0});
+  const [locationCentre, setLocationCentre] = useState<Centre | null>(null);
+  const [showCentreEditor, setShowCentreEditor] = useState(false);
   const [revision, setRevision] = useState(0);
   const base = `/organisations/${org.id}`;
   async function load() {
@@ -422,6 +424,8 @@ export function OrganisationWorkspace({
                   type="button"
                   onClick={() => {
                     setCentre(null);
+                    setLocationCentre(null);
+                    setShowCentreEditor(true);
                     requestAnimationFrame(() =>
                       document.getElementById("centre-editor")?.scrollIntoView({
                         behavior: "smooth",
@@ -486,6 +490,8 @@ export function OrganisationWorkspace({
                               className="secondary"
                               onClick={() => {
                                 setCentre(c);
+                                setLocationCentre(null);
+                                setShowCentreEditor(true);
                                 requestAnimationFrame(() =>
                                   document
                                     .getElementById("centre-editor")
@@ -498,6 +504,13 @@ export function OrganisationWorkspace({
                             >
                               Edit
                             </button>
+                          )}
+                          {can("centres.edit") && (
+                            <button type="button" className="secondary" onClick={() => {
+                              setLocationCentre(c);
+                              setShowCentreEditor(false);
+                              requestAnimationFrame(() => document.getElementById("centre-location-editor")?.scrollIntoView({behavior:"smooth",block:"start"}));
+                            }}>Update location</button>
                           )}
                           {can("centres.approve") &&
                             !c.location_approved &&
@@ -552,7 +565,28 @@ export function OrganisationWorkspace({
                   </tr>
                 ))}
               </DirectoryTable>
-              {(centre ? can("centres.edit") : can("centres.create")) &&
+              {locationCentre && can("centres.edit") && data.access.scope_type !== "groups" && (
+                <DraftForm title="Update centre location" draftKey={`centre-location:${locationCentre.id}`} key={locationCentre.id} id="centre-location-editor"
+                  onSubmit={e => {
+                    const b = form(e);
+                    void act(async () => {
+                      await api(`${base}/centres/${locationCentre.id}/location`, "PATCH", {
+                        latitude: b.latitude === "" ? null : Number(b.latitude),
+                        longitude: b.longitude === "" ? null : Number(b.longitude),
+                        radius: Number(b.radius),
+                      });
+                      setLocationCentre(null);
+                    }, "Location saved. Use Approve location in this centre's row to approve the change.");
+                  }}>
+                  <h3>Update location: {locationCentre.name}</h3>
+                  <fieldset disabled={busy}>
+                    <CentreLocation latitude={locationCentre.latitude} longitude={locationCentre.longitude} />
+                    <label>Allowed radius (metres)<input name="radius" type="number" min={10} max={10000} step={1} defaultValue={locationCentre.radius} required /></label>
+                    <div className="actions"><button>Save location for approval</button><button type="button" className="secondary" onClick={()=>setLocationCentre(null)}>Cancel</button></div>
+                  </fieldset>
+                </DraftForm>
+              )}
+              {showCentreEditor && (centre ? can("centres.edit") : can("centres.create")) &&
                 data.access.scope_type !== "groups" && (
                   <DraftForm title="Centre details" draftKey={`centre:${centre?.id||"new"}`}
                     id="centre-editor"
@@ -573,6 +607,7 @@ export function OrganisationWorkspace({
                           },
                         );
                         setCentre(null);
+                        setShowCentreEditor(false);
                       }, "Centre saved. Changed coordinates need approval.");
                     }}
                   >
@@ -639,7 +674,7 @@ export function OrganisationWorkspace({
                           <button
                             type="button"
                             className="secondary"
-                            onClick={() => setCentre(null)}
+                            onClick={() => { setCentre(null); setShowCentreEditor(false); }}
                           >
                             Cancel edit
                           </button>
