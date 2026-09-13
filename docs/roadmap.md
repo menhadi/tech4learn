@@ -18,6 +18,8 @@ Approved coordinates, staff assignment, capture, upload, configurable geofence d
 
 Read-only contract inspection; one end-to-end exam path with identity/result mapping, then complete agreed functionality. No duplicate exam engine.
 
+Local student-API inspection has started; see [ExamElite integration discovery](examelite-integration.md). Student APIs exist, but an organisation-level connector and stable learner/result synchronisation contract are not yet verified. No live integration is enabled.
+
 ## M4 — FLN
 
 Select language/resources, review items/rubrics, build digital activities, evidence capture, follow-up, teacher review and progress. Include paper/observation mode. Calibrate before claiming validity.
