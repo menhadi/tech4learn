@@ -1,5 +1,7 @@
 import { FaceControlController } from "./face-control.controller.js";
 import { ExamEliteController } from "./examelite.controller.js";
+import { ExamContentController } from "./exam-content.controller.js";
+import { ExamContentService } from "./exam-content.service.js";
 import { ExamElitePlatformController } from "./examelite-platform.controller.js";
 import { ExamEliteService } from "./examelite.service.js";
 import { ExamWorkspaceService } from "./exam-workspace.service.js";
@@ -35,6 +37,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        ExamContentController,
         ExamEliteController,
         ExamElitePlatformController,
         ExamWorkspaceController,
@@ -49,6 +52,7 @@ export class AppModule {
         LearnersController,
       ],
       providers: [
+        ExamContentService,
         ExamEliteService,
         ExamWorkspaceService,
         FaceControlService,

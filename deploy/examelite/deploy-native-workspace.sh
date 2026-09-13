@@ -17,6 +17,7 @@ php "$source/test-workspace-policy.php"
 php "$source/test-workspace-provision.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-workspace-views.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-content-copies.php" /home/examelite/public_html/vendor/autoload.php
+php "$source/test-content-api.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-launch-tickets.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-workspace-gate.php" /home/examelite/public_html/vendor/autoload.php
 python3 -B "$source/install-read-connector.py"
@@ -35,4 +36,4 @@ test "$http_code" = 404 || {
 }
 bash "$repo/deploy/virtualmin/update-ui-template.sh"
 printf '\nNative ExamElite workspace installed. Refresh Tech4Learn and open Exams & results → ExamElite workspace.\n'
-printf 'First live check: open exam management, copy one shared exam, edit its organisation version, then create a student exam link.\n'
+printf 'Superadmin: enable Exams for the pilot organisation and test question sharing and pulling. In-page authoring and exam taking are still under development.\n'

@@ -19,6 +19,7 @@ test('native exam entry enforces dedicated permission, tenant scope, restriction
  const org=randomUUID(),other=randomUUID(),admin=randomUUID(),member=randomUUID(),branding=randomUUID(),role=randomUUID(),brandRole=randomUUID(),learner=randomUUID(),foreign=randomUUID();
  const centre=randomUUID(),group=randomUUID();
  await pg.query("INSERT INTO organisations(id,name,slug) VALUES($1,'Owned','owned'),($2,'Other','other')",[org,other]);
+ await pg.query('INSERT INTO organisation_settings(organisation_id,enabled_modules) VALUES($1,$2)',[org,JSON.stringify({exams:true})]);
  await pg.query("INSERT INTO users(id,email,name,password_hash,is_superadmin) VALUES($1,'admin@example.test','Admin','unused',true),($2,'member@example.test','Member','unused',false),($3,'branding@example.test','Branding','unused',false)",[admin,member,branding]);
  await pg.query("INSERT INTO access_roles(id,organisation_id,name,permissions,protected) VALUES($1,$2,'Exam admin',$3,true),($4,$2,'Branding',ARRAY['organisation.view','configuration.view','configuration.manage'],false)",[role,org,allPermissions,brandRole]);
  await pg.query("INSERT INTO memberships(user_id,organisation_id,role,role_id) VALUES($1,$2,'admin',$3),($4,$2,'admin',$5)",[member,org,role,branding,brandRole]);

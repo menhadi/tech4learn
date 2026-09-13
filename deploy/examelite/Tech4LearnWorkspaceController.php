@@ -79,8 +79,8 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
                 $student=Student::where('organization_id',$w->organization_id)->findOrFail($external);
                 $student->groups()->syncWithoutDetaching(Group::where('organization_id',$w->organization_id)->pluck('id')->all());
             }
-            DB::table('tech4learn_workspace_tickets')->insert(['hash'=>hash('sha256',$token),'workspace_id'=>$org,'kind'=>$kind,'external_id'=>$external,'name'=>$kind==='student'?$learner['name']:$actorName,'entry'=>$entry,'expires_at'=>gmdate('Y-m-d H:i:s',time()+120)]);
+            if($r->input('provision_only')!==true)DB::table('tech4learn_workspace_tickets')->insert(['hash'=>hash('sha256',$token),'workspace_id'=>$org,'kind'=>$kind,'external_id'=>$external,'name'=>$kind==='student'?$learner['name']:$actorName,'entry'=>$entry,'expires_at'=>gmdate('Y-m-d H:i:s',time()+120)]);
             DB::table('tech4learn_workspace_tickets')->where('expires_at','<',gmdate('Y-m-d H:i:s',time()-86400))->delete();
-        });return $this->reply($tenant,['host'=>$host,'ticket'=>$token]);
+        });return $this->reply($tenant,$r->input('provision_only')===true?['ready'=>true]:['host'=>$host,'ticket'=>$token]);
     }
 }

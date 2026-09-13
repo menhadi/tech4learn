@@ -4,8 +4,12 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Tech4LearnReadController;
 use App\Http\Controllers\Tech4LearnPlatformController;
 use App\Http\Controllers\Tech4LearnWorkspaceController;
+use App\Http\Controllers\Tech4LearnContentController;
 
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
+    Route::get('/content/{org}/questions', [Tech4LearnContentController::class, 'questions']);
+    Route::get('/content/{org}/transfers', [Tech4LearnContentController::class, 'history']);
+    Route::post('/content/{org}/transfer', [Tech4LearnContentController::class, 'transfer']);
     Route::get('/workspace/status', [Tech4LearnWorkspaceController::class, 'health']);
     Route::post('/workspace/{org}/restrictions', [Tech4LearnWorkspaceController::class, 'restrict']);
     Route::post('/workspace/{org}/launch', [Tech4LearnWorkspaceController::class, 'launch']);

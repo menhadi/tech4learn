@@ -46,6 +46,9 @@ check(!(bool)$user->is_platform_admin && DB::table('organization_users')->value(
 check(DB::table('configurations')->where('organization_id',$workspace->organization_id)->value('email')===null,'Private source configuration excluded');
 $controller->launch($request($payload),$org);
 check(DB::table('users')->count()===1 && DB::table('organizations')->count()===2,'Retry reuses identity and organisation');
+$tickets=DB::table('tech4learn_workspace_tickets')->count();
+$provisioned=$controller->launch($request(array_replace($payload,['provision_only'=>true])),$org);
+check($provisioned===['ready'=>true] && DB::table('tech4learn_workspace_tickets')->count()===$tickets,'Content provisioning never issues a browser launch ticket');
 DB::table('groups')->insert([['organization_id'=>$workspace->organization_id,'group_name'=>'Own'],['organization_id'=>10,'group_name'=>'Master']]);
 $studentPayload=array_replace($payload,['feature'=>'taking','learner'=>['id'=>$learner,'name'=>'Sample learner']]);
 $controller->launch($request($studentPayload),$org);

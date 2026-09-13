@@ -18,22 +18,25 @@ final class Tech4LearnContentCopies
     private object $workspace;
     private array $visiting=[];
     private array $createdFiles=[];
+    private bool $pull=false;
 
-    public function copy(string $workspace, int $destination, string $kind, int $id): int
+    public function copy(string $workspace, int $destination, string $kind, int $id, bool $pull=false): int
     {
         if (!in_array($kind,['exam','question','subject','topic','subtopic','section'],true) || $id<1) {
             throw new \InvalidArgumentException('Invalid shared content.');
         }
         $this->createdFiles=[];
-        try {return DB::transaction(function()use($workspace,$destination,$kind,$id){
+        try {return DB::transaction(function()use($workspace,$destination,$kind,$id,$pull){
             $row=DB::table('tech4learn_workspaces')->where('id',$workspace)->lockForUpdate()->first();
-            if (!$row || (int)$row->organization_id!==$destination || $destination===(int)$row->source_organization_id) {
+            if (!$row || !$row->organization_id || (int)($pull?$row->source_organization_id:$row->organization_id)!==$destination || (int)$row->organization_id===(int)$row->source_organization_id || ($pull && $kind!=='question')) {
                 throw new \DomainException('Workspace does not own the destination.');
             }
             $feature=['exam'=>'exams','question'=>'questions','subject'=>'subjects','topic'=>'subjects','subtopic'=>'subjects','section'=>'subjects'][$kind];
-            if (!Tech4LearnWorkspacePolicy::mayUse($feature,json_decode($row->restrictions,true,512,JSON_THROW_ON_ERROR))) {
+            if (!$pull && !Tech4LearnWorkspacePolicy::mayUse($feature,json_decode($row->restrictions,true,512,JSON_THROW_ON_ERROR))) {
                 throw new \DomainException('Feature restricted.');
             }
+            $this->pull=$pull;
+            if($pull) { $source=$row->organization_id; $row->organization_id=$row->source_organization_id; $row->source_organization_id=$source; }
             $this->workspace=$row;
             $this->visiting=[];
             return $this->record($kind,$id);
@@ -51,7 +54,7 @@ final class Tech4LearnContentCopies
         if($kind==='exam' && ($source->created_by_student_id || $source->is_student_practice)) throw new \DomainException('Personal student practice is outside the shared library.');
         $sourceOrg=in_array($kind,['topic','subtopic'],true)?$source->subject?->organization_id:$source->organization_id;
         if ((int)$sourceOrg!==(int)$this->workspace->source_organization_id) throw new \DomainException('Content is outside the shared library.');
-        $key=['workspace_id'=>$this->workspace->id,'kind'=>$kind,'source_id'=>$id];
+        $key=['workspace_id'=>$this->workspace->id,'kind'=>($this->pull?'pull:':'').$kind,'source_id'=>$id];
         $mapped=DB::table('tech4learn_workspace_copies')->where($key)->value('target_id');
         if ($mapped) {
             $owned=$model::findOrFail($mapped);
@@ -63,6 +66,16 @@ final class Tech4LearnContentCopies
         $visit=$kind.':'.$id;
         if(isset($this->visiting[$visit])) throw new \DomainException('Shared content contains a circular relationship. Correct it in ExamElite first.');
         $this->visiting[$visit]=true;
+        // Native languages have tenant/code uniqueness. Reuse the destination's language
+        // identity without changing its content or preferences during a central pull.
+        if($this->pull && $kind==='language') {
+            $language=Language::where('organization_id',$this->workspace->organization_id)->where('code',$source->code)->first();
+            if($language) {
+                DB::table('tech4learn_workspace_copies')->insert($key+['target_id'=>$language->id]);
+                unset($this->visiting[$visit]);
+                return (int)$language->id;
+            }
+        }
         $target=$source->replicate();
         $target->unsetRelations();
         if (array_key_exists('organization_id',$source->getAttributes())) $target->organization_id=$this->workspace->organization_id;
@@ -79,9 +92,9 @@ final class Tech4LearnContentCopies
             $target->slug='t4l-'.str_replace('-','',$this->workspace->id).'-'.$id;
             $target->created_by_student_id=null;$target->is_student_practice=false;
         }
-        if ($kind==='language') $target->source_language_id=$id;
+        if ($kind==='language') $target->source_language_id=$this->pull?null:$id;
         if (in_array($kind,['group','tag','category'],true) && array_key_exists('slug',$source->getAttributes())) {
-            $target->slug='t4l-'.str_replace('-','',$this->workspace->id).'-'.$kind.'-'.$id;
+            $target->slug='t4l-'.($this->pull?'pull-':'').str_replace('-','',$this->workspace->id).'-'.$kind.'-'.$id;
         }
         $target->save();
         DB::table('tech4learn_workspace_copies')->insert($key+['target_id'=>$target->id]);

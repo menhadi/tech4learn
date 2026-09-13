@@ -44,6 +44,8 @@ Migration 5 introduces scoped attendance intents, immutable capture snapshots/ev
 
 ## ExamElite integration
 
+The revised delivery target is same-domain Tech4Learn screens backed by ExamElite APIs, with central module controls and organisation-owned copies in both sharing directions. [Central content](examelite-central-content.md) documents the first implemented portion, its additive remote transfer ledger, permission checks and remaining authoring/attempt adapters. The external native workspace described below is legacy infrastructure, not the accepted final interface.
+
 Connect through authenticated, versioned APIs. Its Laravel application owns its database and engine. No direct database writes from Tech4Learn. The [read connector](examelite-read-release.md) adds private credentials, explicit organisation/exam/student grants, exam catalogue reads and summary-result reads. User screenshots confirm live catalogue and completed-result retrieval for the pilot. Exam launch, student provisioning, result revisions and durable reconciliation are not implemented by this slice.
 
 Tech4Learn is the source of truth for its own students and organisation/enrolment/attendance records. Future provisioning sends only required exam identity data to an ExamElite-owned API; exam attempts and marking remain authoritative in ExamElite. Use stable organisation and learner IDs with idempotent provisioning and an explicit external identity mapping. Email alone must not automatically merge accounts or grant access; existing-account linking requires verified ownership or an authorised reviewed mapping. Retry must not create duplicate students.

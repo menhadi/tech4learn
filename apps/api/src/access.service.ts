@@ -87,7 +87,7 @@ export class AccessService {
       );
     if (
       permission.startsWith("learners.") ||
-      permission.startsWith("attendance.")
+      permission.startsWith("attendance.") || permission.startsWith("exams.")
     ) {
       const settings = (
         await sql.query<{ enabled_modules: Record<string, boolean> }>(
@@ -95,6 +95,8 @@ export class AccessService {
           [org],
         )
       ).rows[0];
+      if(permission.startsWith("exams.") && settings?.enabled_modules.exams!==true)
+        throw new ForbiddenException("Exams module is disabled for this organisation.");
       if (
         permission.startsWith("attendance.") &&
         settings?.enabled_modules.attendance !== true

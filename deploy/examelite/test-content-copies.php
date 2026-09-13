@@ -103,4 +103,14 @@ $circular=App\Models\Exam::create(['organization_id'=>10,'name'=>'Circular','cat
 denied(fn()=>$service->copy('1',20,'exam',$circular->id));
 DB::table('tech4learn_workspaces')->where('id',1)->update(['restrictions'=>'["exams"]']);
 denied(fn()=>$service->copy('1',20,'exam',1));
-echo "Content copies: ownership, original preservation, retry, taxonomy, translations, sections, timers and restrictions passed.\n";
+$pulled=$service->copy('1',10,'question',$question->id,true);
+check($pulled!==1 && App\Models\Question::find($pulled)->question==='Organisation edit','Pull creates a central owned copy');
+check(App\Models\Question::find(1)->question==='Original' && App\Models\Question::find($question->id)->question==='Organisation edit','Pull preserves both existing originals');
+check(App\Models\Question::find($pulled)->nat_config===['precision'=>2],'Pull preserves numerical answer settings');
+check((int)App\Models\Question::find($pulled)->language_id===1,'Pull reuses central language identity');
+check((int)App\Models\Question::find($pulled)->subject->organization_id===10,'Pull owns central taxonomy');
+App\Models\Question::where('id',$pulled)->update(['question'=>'Central edited copy']);
+check($service->copy('1',10,'question',$question->id,true)===$pulled && App\Models\Question::find($pulled)->question==='Central edited copy','Pull retry preserves central edits');
+denied(fn()=>$service->copy('1',30,'question',$question->id,true));
+denied(fn()=>$service->copy('1',10,'question',1,true));
+echo "Content copies: ownership, original preservation, retry, taxonomy, translations, sections, timers, pull and restrictions passed.\n";

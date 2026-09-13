@@ -1,0 +1,34 @@
+# Central exam controls and question transfers
+
+This is the first part of the revised integration. It is implemented locally and requires explicit user deployment. It does **not** complete the full in-page ExamElite authoring and exam-taking requirement.
+
+## Confirmed product direction
+
+Exam tools belong inside Tech4Learn's organisation navigation and domain. ExamElite remains the engine and data authority for questions, exams, attempts and marking. Neither external workspace launch links nor an iframe constitute the desired final interface. Reuse its terminology and workflow alongside the existing shared Tech4Learn form/table template.
+
+Superadmin controls platform availability, organisation/plan entitlements, staff permissions and central content distribution. Platform availability and commercial plan configuration are separate from an organisation's enabled modules; a provider capability must not be labelled working before its adapter and interface are complete.
+
+Central questions can be shared into selected organisations. Superadmin can also pull organisation questions into the central bank. Each operation creates an independently owned copy with provenance; it never transfers ownership or overwrites an original. Only superadmin changes central content. Student identity and programme records remain in Tech4Learn; no reverse import of ExamElite students is implied.
+
+## Working in this change
+
+- Superadmin can enable the organisation's Exams module using the existing versioned module settings. The toggle preserves other modules and branding. Exam permissions now enforce this module flag at the API boundary.
+- Superadmin can search the central or selected organisation question bank, select up to 50 questions and share or pull them. Organisation users can view only their own question bank, with module, permission, organisation scope and question-feature checks.
+- Questions are paged by stable ID, 50 at a time; search executes in ExamElite. Table filters apply to the explicitly labelled loaded collection. List snippets are escaped text, not executable provider HTML.
+- Transfers validate the complete selection against the source tenant before copying. The existing additive ExamElite copy service preserves question configuration, translations and taxonomy, including numeric answer settings. Central pulls reuse existing central language identities without overwriting them.
+- A per-workspace request ID makes a lost-response retry safe. A separate copy map preserves subsequent destination edits even when a new transfer request selects the same source again. Reusing a request ID with changed input is rejected.
+- The ExamElite transfer table records direction, actor UUID, source/copy IDs and time. The superadmin screen exposes the latest 50 transfers. Tech4Learn also writes an audit event; remote success followed by a local audit failure can be retried safely.
+- Sharing can provision an isolated exam organisation through the existing private identity bridge without issuing a launch ticket. Credentials and native session details never reach these screens.
+- The organisation UI no longer displays external authoring/student launch buttons. Existing linked result reads remain available.
+
+## Still required before the full release
+
+The internal question editor, taxonomy editors, exam builder, publication, student sign-in/attempt/resume/submission, marking, native result screens, plan catalogue and per-provider module availability have not been implemented by this change. The organisation question bank is presently a read screen. Feature restrictions for the existing native backend are retained, but are not evidence that each replacement internal screen is ready.
+
+The old native workspace backend and its expiring sessions are retained for compatibility. Disabling the Tech4Learn module prevents new exam API use in Tech4Learn; it does not immediately revoke a previously issued native session. Existing native session expiry and feature restrictions still apply. Full same-domain delivery must replace that session path before broad use.
+
+## Deployment and verification
+
+Development and tests run locally. Live access by the assistant is read-only. The user runs `deploy/examelite/deploy-central-content.sh` from a checked Git revision. The script requires the earlier native provider setup, preserves private credentials, installs additive sources, adds `tech4learn_content_transfers`, verifies routes/schema and updates Tech4Learn. It does not install certificates or create DNS records.
+
+`npm run check` covers the scaffold. `test-content-api.php` runs against an isolated SQLite database using ExamElite model definitions and tests complete-selection tenant checks, no partial copy on a foreign selection, request replay and pull provenance. `test-content-copies.php` additionally tests destination ownership, original preservation, native settings/translations and retry preservation. The local browser preview uses synthetic questions and checks enable/share/pull controls; it is not a live data or full exam workflow test.

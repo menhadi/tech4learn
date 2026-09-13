@@ -16,4 +16,7 @@ if(!Schema::hasTable('tech4learn_workspace_tickets'))Schema::create('tech4learn_
 if(!Schema::hasTable('tech4learn_workspace_copies'))Schema::create('tech4learn_workspace_copies',function(Blueprint $t){
  $t->uuid('workspace_id');$t->string('kind',15);$t->unsignedBigInteger('source_id');$t->unsignedBigInteger('target_id');$t->primary(['workspace_id','kind','source_id'],'t4l_ws_copy_pk');
 });
+if(!Schema::hasTable('tech4learn_content_transfers'))Schema::create('tech4learn_content_transfers',function(Blueprint $t){
+ $t->uuid('workspace_id');$t->uuid('request_id');$t->uuid('actor_id');$t->string('direction',5);$t->string('fingerprint',64);$t->text('result');$t->timestamp('created_at');$t->primary(['workspace_id','request_id'],'t4l_transfer_pk');
+});
 echo "Native exam workspace tables ready.\n";

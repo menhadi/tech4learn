@@ -51,6 +51,8 @@ Connect findings to activities, intervention, reassessment and progress. Start w
 
 ## ExamElite
 
+Revised requirement: all exam work stays inside the organisation's Tech4Learn domain and interface. Superadmin controls module availability and organisation/plan enablement, and can share central questions or pull organisation questions into central ownership as independent copies. See [central content implementation and remaining work](examelite-central-content.md). The previous external native-workspace launch is superseded as a user interface; it does not satisfy this requirement.
+
 The user confirms ExamElite provides complete exam capabilities and millions of questions. Integrate question selection, exam creation/delivery, online/paper/OMR workflows, subjective exams, evaluation and results. Do not rebuild its engine or question bank.
 
 Verify actual APIs, permissions, stable learner identity mapping, question/version references and result synchronisation. An existing web interface does not establish external API availability. Present integrated workflows within Tech4Learn with appropriate branding.

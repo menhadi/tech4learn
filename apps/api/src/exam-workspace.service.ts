@@ -74,7 +74,8 @@ export class ExamWorkspaceService {
     );
   }
   async status(user: Account, org: string) {
-    await this.access.require(user, org, "exams.manage");
+    if (user.is_superadmin) await this.organisation(org);
+    else await this.access.require(user, org, "exams.manage");
     const rules = await this.rules(org);
     return { ...rules, features: workspaceFeatures, defaults: "all" };
   }
@@ -133,7 +134,12 @@ export class ExamWorkspaceService {
     });
     return this.status(user, org);
   }
-  async launch(user: Account, org: string, b: Record<string, unknown>) {
+  async launch(
+    user: Account,
+    org: string,
+    b: Record<string, unknown>,
+    provisionOnly = false,
+  ) {
     await this.access.require(user, org, "exams.manage");
     const organisation = await this.organisation(org),
       rules = await this.rules(org);
@@ -172,8 +178,16 @@ export class ExamWorkspaceService {
         restrictions: rules.restrictions,
         revision: rules.revision,
         learner,
+        provision_only: provisionOnly,
       },
     );
+    if (provisionOnly) {
+      if (response.ready !== true)
+        throw new ServiceUnavailableException(
+          "Exam workspace provisioning failed.",
+        );
+      return { ready: true };
+    }
     const host = `t4l-${org.replaceAll("-", "")}.examelite.com`;
     if (
       response.host !== host ||

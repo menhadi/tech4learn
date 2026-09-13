@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import { SmartTable } from "./DirectoryTable";
 import { ExamWorkspace } from "./ExamWorkspace";
+import { ExamModuleControl, ExamQuestions } from "./ExamContent";
 
 type Organisation = { id: string; name: string; enabled: boolean };
 type Exam = { id: number; name: string };
@@ -40,7 +41,17 @@ export function ExamElitePlatform() {
               ))}
             </select>
           </label>
-          {org && <><ExamWorkspace key={org} org={org} controls /><details><summary>Legacy catalogue and pilot student links</summary><OrganisationSharing key={org} org={org} /></details></>}
+          {org && (
+            <div key={org}>
+              <ExamModuleControl org={org} />
+              <ExamWorkspace org={org} controls />
+              <ExamQuestions org={org} central />
+              <details>
+                <summary>Catalogue and pilot student links</summary>
+                <OrganisationSharing org={org} />
+              </details>
+            </div>
+          )}
         </>
       )}
     </section>
