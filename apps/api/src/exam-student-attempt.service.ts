@@ -99,6 +99,7 @@ export class ExamStudentAttemptService {
       answer: ["request_id", "attempt_id", "question_id", "fields", "revision"],
       submit: ["request_id", "attempt_id"],
       visibility: ["request_id", "attempt_id", "event"],
+      proctor: ["request_id", "attempt_id", "image"],
     };
     if (
       !Object.hasOwn(allowed, action) ||
@@ -129,6 +130,14 @@ export class ExamStudentAttemptService {
         JSON.stringify(body.fields).length > 25000)
     )
       throw new BadRequestException("Invalid answer request.");
+    if (
+      action === "proctor" &&
+      (typeof body.image !== "string" ||
+        !body.image.length ||
+        body.image.length > 349528 ||
+        !/^[a-zA-Z0-9+/]*={0,2}$/.test(body.image))
+    )
+      throw new BadRequestException("Invalid camera capture.");
     await this.identity.limit(`exam-attempt:${context.grant_id}`, 120, 60);
     const config = await this.remote.configuration("_platform");
     if (!config?.central)
@@ -159,6 +168,9 @@ export class ExamStudentAttemptService {
           "This paper requires exam controls that are still being integrated. Ask exam staff for a supported paper.",
         duration_changed:
           "The paper duration changed after you started. Ask exam staff to restore it before resuming.",
+        capture_interval: "Please wait before sending the next camera capture.",
+        capture_limit:
+          "The capture limit for this attempt has been reached. Contact exam staff.",
         attempts_exhausted: "You have used all allowed attempts for this exam.",
         section_ended:
           "This question is outside the current section time. Resume saved answers to continue.",
@@ -172,6 +184,7 @@ export class ExamStudentAttemptService {
         404: "This assigned exam or attempt is unavailable.",
         409: "This attempt changed or cannot continue. Resume to refresh it; contact exam staff if this persists.",
         422: "This exam request or delivery mode is not supported yet.",
+        429: "Please wait before retrying this exam request.",
       };
       if (messages[status])
         throw new HttpException(
@@ -186,7 +199,9 @@ export class ExamStudentAttemptService {
     }
     const data = response.data;
     if (
-      (action === "submit" || action === "visibility") &&
+      (action === "submit" ||
+        action === "visibility" ||
+        action === "proctor") &&
       data?.attempt_id !== body.attempt_id
     )
       throw new ServiceUnavailableException(
@@ -218,6 +233,26 @@ export class ExamStudentAttemptService {
         question_id: data.question_id,
         revision: data.revision,
         answer_locked: data.answer_locked,
+      };
+    }
+    if (action === "proctor") {
+      if (
+        data.saved !== true ||
+        data.capture_id !== body.request_id ||
+        typeof data.received_at !== "string" ||
+        !Number.isFinite(Date.parse(data.received_at)) ||
+        typeof data.expires_at !== "string" ||
+        !Number.isFinite(Date.parse(data.expires_at))
+      )
+        throw new ServiceUnavailableException(
+          "Invalid camera capture receipt.",
+        );
+      return {
+        saved: true,
+        capture_id: data.capture_id,
+        attempt_id: data.attempt_id,
+        received_at: data.received_at,
+        expires_at: data.expires_at,
       };
     }
     const rules = (

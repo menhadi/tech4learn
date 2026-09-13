@@ -9,10 +9,10 @@ use Illuminate\Contracts\View\View;
 final class Tech4LearnStudentAttempts
 {
  public function run(string $workspace,int $source,string $learner,string $name,int $examId,string $action,array $fields):array {
-  abort_unless(in_array($action,['start','answer','submit','media','visibility'],true)&&$examId>0,422);
+  abort_unless(in_array($action,['start','answer','submit','media','visibility','proctor'],true)&&$examId>0,422);
   foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   $requestId=$fields['request_id']??'';abort_unless(is_string($requestId)&&preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$requestId),422);
-  $allowed=match($action){'start'=>['request_id','language_id'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'submit'=>['request_id','attempt_id'],'visibility'=>['request_id','attempt_id','event'],'media'=>['request_id','attempt_id','question_id','asset']};
+  $allowed=match($action){'start'=>['request_id','language_id'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'submit'=>['request_id','attempt_id'],'visibility'=>['request_id','attempt_id','event'],'proctor'=>['request_id','attempt_id','image'],'media'=>['request_id','attempt_id','question_id','asset']};
   abort_unless(array_diff(array_keys($fields),$allowed)===[],422);
   if(isset($fields['language_id']))abort_unless(is_int($fields['language_id'])&&$fields['language_id']>0,422);
   if($action==='answer')abort_unless(is_int($fields['question_id']??null)&&is_array($fields['fields']??null)&&is_string($fields['revision']??null),422);
@@ -31,6 +31,11 @@ final class Tech4LearnStudentAttempts
     $student=Student::create(['organization_id'=>$tenant,'name'=>$name,'email'=>null,'phone'=>null,'password'=>Hash::make(bin2hex(random_bytes(32))),'status'=>'Active']);
     DB::table('tech4learn_workspace_users')->insert(['workspace_id'=>$workspace,'local_id'=>$learner,'kind'=>'student','external_id'=>$student->id]);
    }else $student=Student::where('organization_id',$tenant)->where('status','Active')->lockForUpdate()->findOrFail($nativeId);
+   if($action==='proctor'){
+    $attempt=$this->attempt($tenant,$student->id,$examId,$fields['attempt_id']??null);
+    abort_unless(is_string($fields['image']??null),422);
+    return app(Tech4LearnProctorEvidence::class)->capture($workspace,$source,$learner,$attempt->id,$requestId,$fields['image'])+['exam_id'=>$examId];
+   }
    if($action==='answer'){
     $attempt=$this->attempt($tenant,$student->id,$examId,$fields['attempt_id']??null);
     return app(Tech4LearnAttemptAnswers::class)->save($workspace,$source,$learner,$attempt->id,(int)($fields['question_id']??0),$fields['fields']??[],(string)($fields['revision']??''),$requestId);

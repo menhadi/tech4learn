@@ -340,6 +340,78 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
       (await call(visibilityPath, visibilityBody, studentCookie)).status,
       503,
     );
+    const capturePath = root + "/student-exam/attempt/proctor";
+    const captureBody = {
+      request_id: randomUUID(),
+      attempt_id: 11,
+      image: "A".repeat(40000),
+    };
+    assert.equal((await call(capturePath, captureBody, staff)).status, 401);
+    assert.equal(
+      (
+        await call(
+          capturePath,
+          { ...captureBody, learner_id: foreign },
+          studentCookie,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          capturePath,
+          { ...captureBody, image: "A".repeat(349529) },
+          studentCookie,
+        )
+      ).status,
+      400,
+    );
+    engine.request = async (config, owner, path, payload) => {
+      assert.equal(owner, org);
+      assert.equal(path, `student/${org}/proctor`);
+      assert.equal(payload.learner_id, learner);
+      assert.equal(payload.exam_id, 7);
+      assert.deepEqual(payload.fields, captureBody);
+      return {
+        data: {
+          saved: true,
+          capture_id: captureBody.request_id,
+          attempt_id: 11,
+          exam_id: 7,
+          received_at: "2026-09-13 13:00:00",
+          expires_at: "2026-10-13 13:00:00",
+          image_base64: "PRIVATE",
+          path: "PRIVATE",
+        },
+      };
+    };
+    const captureReply = await call(capturePath, captureBody, studentCookie);
+    assert.equal(captureReply.status, 200);
+    const receiptText = await captureReply.text();
+    assert.ok(!receiptText.includes("PRIVATE"));
+    assert.equal(JSON.parse(receiptText).saved, true);
+    engine.request = async () => ({
+      data: {
+        saved: true,
+        capture_id: randomUUID(),
+        attempt_id: 11,
+        exam_id: 7,
+        received_at: "2026-09-13 13:00:00",
+        expires_at: "2026-10-13 13:00:00",
+      },
+    });
+    assert.equal(
+      (await call(capturePath, captureBody, studentCookie)).status,
+      503,
+    );
+    engine.request = async () => ({
+      error: { status: 429, code: "capture_interval" },
+    });
+    assert.equal(
+      (await call(capturePath, captureBody, studentCookie)).status,
+      429,
+    );
     const answerBody = {
       request_id: randomUUID(),
       attempt_id: 11,

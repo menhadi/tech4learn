@@ -29,7 +29,17 @@ DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restriction
 rejectAnswer(fn()=>$evidence->capture($workspace,10,$cameraLearner,$cameraId,$captureId,$jpeg),'revocation also rejects receipt retries');
 DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'[]']);
 Carbon::setTestNow(Carbon::parse('2026-09-13 13:00:25','UTC'));
-$evidence->capture($workspace,10,$cameraLearner,$cameraId,$next(),$jpeg);
+$configFile=tempnam(sys_get_temp_dir(),'t4l-camera-');$cameraToken=bin2hex(random_bytes(32));
+file_put_contents($configFile,json_encode(['_platform'=>['enabled'=>true,'organization_id'=>10,'token_hash'=>hash('sha256',$cameraToken)]]));
+$cameraController=new class($configFile) extends App\Http\Controllers\Tech4LearnStudentController {public function __construct(private string $file){}protected function configPath():string{return $this->file;}};
+try {
+ $captureBody=['learner_id'=>$cameraLearner,'name'=>'Synthetic camera candidate','exam_id'=>$cameraPaper->id,'fields'=>['request_id'=>$next(),'attempt_id'=>$cameraId,'image'=>base64_encode(base64_decode($jpeg).str_repeat('x',40000))]];
+ $request=Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/student/'.$workspace.'/proctor','POST',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$cameraToken,'CONTENT_TYPE'=>'application/json'],json_encode($captureBody));
+ $reply=$cameraController->attempt($request,$workspace,'proctor')->getData(true);
+ check($reply['data']['saved']&&$reply['data']['exam_id']===$cameraPaper->id&&!isset($reply['data']['image_base64']),'Credential capture route supports bounded images over the ordinary request limit');
+ $wrong=$captureBody['fields'];$wrong['request_id']=$next();
+ rejectAnswer(fn()=>$lifecycle->run($workspace,10,$cameraLearner,'Synthetic camera candidate',$browserPaper->id,'proctor',$wrong),'Capture cannot escape the granted exam');
+}finally{unlink($configFile);}
 check(DB::table('tech4learn_proctor_evidence')->count()===2,'Next capture allowed at the boundary');
 App\Models\ExamResult::where('id',$cameraId)->update(['end_time'=>now()]);
 Carbon::setTestNow(Carbon::parse('2026-09-13 13:01:00','UTC'));
