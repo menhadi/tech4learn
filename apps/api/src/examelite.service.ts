@@ -313,7 +313,14 @@ export class ExamEliteService {
     }
   }
 
-  async request(c: Connection, org: string, path: string, payload?: unknown) {
+  async request(
+    c: Connection,
+    org: string,
+    path: string,
+    payload?: unknown,
+    maxResponseBytes = 512000,
+    timeoutMs = 10000,
+  ) {
     try {
       const response = await fetch(
         "https://examelite.com/api/tech4learn/v1/" + path,
@@ -329,7 +336,7 @@ export class ExamEliteService {
               : { "Content-Type": "application/json" }),
           },
           redirect: "error",
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(timeoutMs),
         },
       );
       if (!response.ok || !response.body) throw unavailable();
@@ -341,7 +348,7 @@ export class ExamEliteService {
           const part = await reader.read();
           if (part.done) break;
           size += part.value.length;
-          if (size > 512000) throw unavailable();
+          if (size > maxResponseBytes) throw unavailable();
           chunks.push(part.value);
         }
       } finally {

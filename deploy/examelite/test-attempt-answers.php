@@ -70,6 +70,7 @@ foreach([
 Carbon::setTestNow();
 if(isset($argv[3])){$file=dirname($argv[3]).'/MathContentNormalizer.php';if(is_file($file))require_once $file;}
 require __DIR__.'/Tech4LearnAttemptPayload.php';
+require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 $display=$q->fresh();$display->question_type='nat';$display->prefilled_answer='8';$display->answer_locked=false;
 $display->explanation='PRIVATE EXPLANATION';$display->nat_config=['value'=>'PRIVATE CORRECT VALUE'];
 $display->setRelation('passage',null);

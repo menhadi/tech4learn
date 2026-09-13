@@ -36,9 +36,9 @@ Workspace and attempt locks serialise lifecycle mutations. Submission retries re
 
 ## Remaining integration
 
-- Finish media/formula rendering and the advanced exam controls before enabling staff link issuance. The current native transaction rejects unsupported media/formulas, proctoring, group timers, shuffled options and calculator modes, rolling back a newly created attempt rather than showing an incomplete paper.
+- Finish the advanced exam controls before enabling staff link issuance. The current native transaction rejects SVG, interactive media, proctoring, group timers, shuffled options and calculator modes, rolling back a newly created attempt rather than showing an incomplete paper.
 - Replace the older launch path's automatic membership in every native exam group with explicit exam access. Existing external launch/session behaviour is not changed by these private components.
-- Route authorised question media through the same domain and add formula display. The basic screen sanitises supported HTML; the payload itself is not a media authorisation mechanism.
+- Verify the supported raster/formula formats against representative native papers before deployment; SVG and interactive media remain unsupported.
 - Integrate section timers, browser/proctor requirements, result release and manual marking before claiming those modes work in Tech4Learn.
 
 ## Local verification
@@ -50,3 +50,11 @@ Workspace and attempt locks serialise lifecycle mutations. Submission retries re
 The native endpoint uses the existing central credential and a separate prefixed 6,000/minute limiter, excluding the inherited shared-IP 60/minute API bucket for this route only. Tech4Learn also limits each authenticated grant to 120/minute. Limits need production load verification. Raw JSON preserves blank answers across Laravel request normalisation. Native errors return only allowlisted status codes; backend exception details are not forwarded.
 
 HTTP tests verify trusted grant-derived learner/paper values, hostile-origin and identity-override denial, private error suppression, mismatched-paper responses and access revocation during the engine call. The synthetic browser test verifies HTML sanitisation, saving after a lost response with unchanged request identity, unsaved navigation blocking and explicit submission. This is local integration verification, not a deployed student attempt.
+
+## Question images and formulas
+
+Implemented locally: native question/option/passage images become opaque references. The student image route checks the current grant before and after the engine request; ExamElite checks the assigned question, learner, paper and unsubmitted attempt. Only sources referenced by the current question translation or passage are eligible; explanation images are excluded. Images are served from the organisation domain with no-store and nosniff headers. The engine accepts bounded raster data images and files under its question-image/upload roots, plus its existing bounded non-redirecting ExamElite CDN cache. It checks actual image MIME, a 10 MiB file limit and a 40-million-pixel limit. SVG, arbitrary remote hosts, traversal and unrelated storage roots are rejected.
+
+The browser sanitises text/MathML and renders TeX using the locally bundled MathJax 4 input parser, including fractions, matrices and chemistry. This follows the [MathJax direct input interface](https://docs.mathjax.org/en/stable/server/direct.html). Each expression receives a fresh bounded parser without external loaders or URL commands; no CDN scripts or font requests are required. Answer controls wait for formulas and images to finish loading. A failed image or formula shows a retry action without discarding unsaved answers silently.
+
+Native synthetic tests cover image projection, authorised bytes, cross-student denial and excluded explanation/protocol/path sources. HTTP tests cover scoped image bytes, private response headers, mismatched references and revocation in flight. A local browser fixture verifies actual MathML fractions/chemistry, loaded raster content and unsafe markup rejection. Production paper compatibility remains unverified.

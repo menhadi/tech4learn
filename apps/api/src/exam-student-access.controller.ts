@@ -98,6 +98,26 @@ export class ExamStudentAccessController {
       expires_at: context.expires_at,
     };
   }
+  @Get("student-exam/media/:attempt/:question/:asset") async media(
+    @Param("org") org: string,
+    @Param("attempt") attempt: string,
+    @Param("question") question: string,
+    @Param("asset") asset: string,
+    @Headers("cookie") cookies: string | undefined,
+    @Res() response: Response,
+  ) {
+    const image = await this.attempts.media(
+      org,
+      examSession(cookies),
+      attempt,
+      question,
+      asset,
+    );
+    response.setHeader("Content-Type", image.mime);
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(image.buffer);
+  }
   @Post("student-exam/attempt/:action") @HttpCode(200) async attempt(
     @Param("org") org: string,
     @Param("action") action: string,

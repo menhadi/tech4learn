@@ -14,6 +14,7 @@ require __DIR__.'/test-attempt-answers.php';
 if(isset($argv[3]))foreach(['ExamGroupingService','StudentExamsController'] as $class)require dirname($argv[3]).'/'.$class.'.php';
 require __DIR__.'/Tech4LearnStudentContext.php';
 require __DIR__.'/Tech4LearnStudentAttempts.php';
+require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 if(!class_exists('DB'))class_alias(DB::class,'DB');
@@ -76,11 +77,27 @@ check($expired['completed']&&$expired['attempt_id']===$timed['attempt_id'],'Clos
 Carbon::setTestNow(Carbon::parse('2026-09-13 12:05:00','UTC'));
 $beforeCount=App\Models\ExamResult::count();$beforeStudents=App\Models\Student::count();
 $originalText=$q->fresh()->question;
-foreach(['<img src="/question.png">','Formula \\(x+1\\)'] as $unsupported){
+foreach(['<svg><path/></svg>','<iframe src="/not-an-image"></iframe>'] as $unsupported){
  $q->question=$unsupported;$q->save();
  rejectAnswer(fn()=>$lifecycle->run($workspace,10,'77777777-7777-7777-7777-777777777777','Synthetic media candidate',$paper->id,'start',['request_id'=>$next()]),'unsupported display rejected');
  check(App\Models\ExamResult::count()===$beforeCount&&App\Models\Student::count()===$beforeStudents,'Unsupported display rolls back attempt and student provisioning');
 }
+$q->question=$originalText;$q->save();
+$png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=';
+$imageSource='data:image/png;base64,'.$png;$asset=hash('sha256',$imageSource);
+$q->question='<p>Diagram <img src="'.$imageSource.'" srcset="https://evil.test/leak" onerror="alert(1)"></p>';$q->explanation='<img src="/storage/question-images/private-answer.png">';$q->save();
+$imageLearner='99999999-9999-9999-9999-999999999999';
+$imageAttempt=$lifecycle->run($workspace,10,$imageLearner,'Synthetic image candidate',$paper->id,'start',['request_id'=>$next()]);
+$imageHtml=$imageAttempt['questions'][0]['content']['question'];
+check(str_contains($imageHtml,'t4l-media:'.$asset)&&!str_contains($imageHtml,'evil.test')&&!str_contains($imageHtml,'onerror')&&!str_contains($imageHtml,$png),'Image projection exposes only a scoped hash, never raw source or handlers');
+$imageFields=['request_id'=>$next(),'attempt_id'=>$imageAttempt['attempt_id'],'question_id'=>$q->id,'asset'=>$asset];
+$image=$lifecycle->run($workspace,10,$imageLearner,'Synthetic image candidate',$paper->id,'media',$imageFields);
+check($image['mime']==='image/png'&&$image['base64']===$png,'Only referenced validated raster bytes are returned');
+rejectAnswer(fn()=>$lifecycle->run($workspace,10,$learner,'Other learner',$paper->id,'media',$imageFields),'another student cannot read this attempt image');
+$privateImage=$imageFields;$privateImage['asset']=hash('sha256','/storage/question-images/private-answer.png');
+rejectAnswer(fn()=>$lifecycle->run($workspace,10,$imageLearner,'Synthetic image candidate',$paper->id,'media',$privateImage),'explanation images are never student question images');
+$reader=new class extends App\Services\Tech4LearnQuestionMedia {public function testSource($source){return $this->bytes($source);}};
+foreach(['file:///etc/passwd','https://evil.test/storage/question-images/a.png','/storage/question-images/%2e%2e/%2e%2e/private.png','/storage/learner-photos/private.png','javascript:alert(1)'] as $bad)rejectAnswer(fn()=>$reader->testSource($bad),'unsafe image source');
 $q->question=$originalText;$q->save();
 Carbon::setTestNow();
 require_once __DIR__.'/Tech4LearnPlatformController.php';

@@ -17,15 +17,22 @@ final class Tech4LearnAttemptPayload
             $translated=$question->langs->firstWhere('language_id',$language);
             $content=[];
             foreach(['question','option1','option2','option3','option4','option5','option6','hint'] as $key)$content[$key]=(string)($translated?->$key??$question->$key??'');
+            foreach($content as $text)abort_unless(!preg_match('/<(?:svg|math-field|iframe|video|audio|object|embed)\b/i',$text),422,'This paper needs media or formula display that is not available yet.');
             // Native templates use the same normaliser for legacy formulas/options.
             $normaliser=app(MathContentNormalizer::class);
-            foreach($content as $key=>$text){$text=$normaliser->normalize($text)['content'];$content[$key]=str_starts_with($key,'option')?$normaliser->repairOptionForDisplay($text):$normaliser->repairForDisplay($text);}
+            $media=app(Tech4LearnQuestionMedia::class);
+            foreach($content as $key=>$text){
+                $text=$normaliser->normalize($media->rewrite($text,true))['content'];
+                $content[$key]=$media->restore(str_starts_with($key,'option')?$normaliser->repairOptionForDisplay($text):$normaliser->repairForDisplay($text));
+            }
             $passage=$question->passage;
             $passageContent=null;
             if($passage){
                 abort_unless((int)$passage->organization_id===$tenant,403);
                 $passageLang=$passage->langs()->where('language_id',(int)$question->language_id)->first()??$passage->langs()->first();
                 $passageContent=['name'=>(string)$passage->name,'content'=>(string)($passageLang?->passage??'')];
+                abort_unless(!preg_match('/<(?:svg|math-field|iframe|video|audio|object|embed)\b/i',$passageContent['content']),422,'This paper needs media or formula display that is not available yet.');
+                $passageContent['content']=$media->rewrite($passageContent['content']);
             }
             $questions[]=[
                 'id'=>(int)$question->id,'number'=>(int)$stat->ques_no,'type'=>$type,

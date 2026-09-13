@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import DOMPurify from "dompurify";
-import { api } from "./api";
+import { ExamRichContent } from "./ExamRichContent";
+import { api, apiBase } from "./api";
 
 type Question = {
   id: number;
@@ -25,40 +25,6 @@ type Attempt = {
   completed?: boolean;
   result?: { status: string; score_percent: number } | null;
 };
-function Content({ value }: { value: string }) {
-  return (
-    <div
-      dangerouslySetInnerHTML={{
-        __html: DOMPurify.sanitize(value, {
-          ALLOWED_TAGS: [
-            "p",
-            "div",
-            "br",
-            "b",
-            "strong",
-            "i",
-            "em",
-            "u",
-            "s",
-            "sub",
-            "sup",
-            "ul",
-            "ol",
-            "li",
-            "span",
-            "table",
-            "thead",
-            "tbody",
-            "tr",
-            "td",
-            "th",
-          ],
-          ALLOWED_ATTR: ["colspan", "rowspan"],
-        }),
-      }}
-    />
-  );
-}
 export function StudentExamAttempt({ base }: { base: string }) {
   const [attempt, setAttempt] = useState<Attempt | null>(null),
     [index, setIndex] = useState(0),
@@ -67,14 +33,22 @@ export function StudentExamAttempt({ base }: { base: string }) {
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
+    [displayError, setDisplayError] = useState(""),
+    [displayGeneration, setDisplayGeneration] = useState(0),
+    [displayReady, setDisplayReady] = useState<Record<string, boolean>>({}),
     [remaining, setRemaining] = useState<number | null>(null),
     [confirm, setConfirm] = useState(false);
   const pending = useRef<{ action: string; body: any } | null>(null),
     running = useRef(false),
     deadline = useRef(0);
   const q = attempt?.questions?.[index];
-  function select(next: Attempt, i: number) {
+  function select(next: Attempt, i: number, refresh = true) {
     setIndex(i);
+    if (refresh) {
+      setDisplayError("");
+      setDisplayReady({});
+      setDisplayGeneration((generation) => generation + 1);
+    }
     const question = next.questions?.[i];
     setAnswer(
       question?.type === "fill_blank"
@@ -119,7 +93,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
           ),
         };
         setAttempt(updated);
-        select(updated, index);
+        select(updated, index, false);
       } else {
         setAttempt(result);
         select(result, 0);
@@ -160,14 +134,55 @@ export function StudentExamAttempt({ base }: { base: string }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  const mediaBase =
+    attempt && q
+      ? `${apiBase}${base}/media/${attempt.attempt_id}/${q.id}`
+      : undefined;
+  const required = q
+    ? [
+        "question",
+        ...(q.passage ? ["passage"] : []),
+        ...(q.type.startsWith("multiple_choice")
+          ? [1, 2, 3, 4, 5, 6]
+              .filter((n) => q.content[`option${n}`])
+              .map((n) => `option${n}`)
+          : []),
+      ]
+    : [];
+  const ready = (key: string) => (value: boolean) =>
+    setDisplayReady((previous) =>
+      previous[key] === value ? previous : { ...previous, [key]: value },
+    );
   const frozen =
-    busy || !!pending.current || !!q?.answer_locked || remaining === 0;
+    busy ||
+    !!pending.current ||
+    !!q?.answer_locked ||
+    remaining === 0 ||
+    !!displayError ||
+    required.some((key) => !displayReady[key]);
   const edit = (value: any) => {
     setAnswer(value);
     setDirty(true);
   };
   return (
     <section aria-label="Exam attempt">
+      {displayError && !pending.current && (
+        <button
+          className="secondary"
+          disabled={busy}
+          onClick={() => {
+            if (
+              !dirty ||
+              window.confirm(
+                "Reload saved answers and discard unsaved changes?",
+              )
+            )
+              void send("start", {});
+          }}
+        >
+          Reload saved answers
+        </button>
+      )}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -247,10 +262,22 @@ export function StudentExamAttempt({ base }: { base: string }) {
                 {q.passage && (
                   <>
                     <h4>{q.passage.name}</h4>
-                    <Content value={q.passage.content} />
+                    <ExamRichContent
+                      key={`${q.id}:${displayGeneration}:passage`}
+                      mediaBase={mediaBase}
+                      onReady={ready("passage")}
+                      onError={setDisplayError}
+                      value={q.passage.content}
+                    />
                   </>
                 )}
-                <Content value={q.content.question} />
+                <ExamRichContent
+                  key={`${q.id}:${displayGeneration}:question`}
+                  mediaBase={mediaBase}
+                  onReady={ready("question")}
+                  onError={setDisplayError}
+                  value={q.content.question}
+                />
                 <fieldset disabled={frozen}>
                   <legend>Your answer</legend>
                   {q.type.startsWith("multiple_choice") &&
@@ -292,7 +319,13 @@ export function StudentExamAttempt({ base }: { base: string }) {
                               )
                             }
                           />
-                          <Content value={q.content[`option${n}`]} />
+                          <ExamRichContent
+                            key={`${q.id}:${displayGeneration}:option${n}`}
+                            mediaBase={mediaBase}
+                            onReady={ready(`option${n}`)}
+                            onError={setDisplayError}
+                            value={q.content[`option${n}`]}
+                          />
                         </label>
                       ))}
                   {q.type === "true_false" &&

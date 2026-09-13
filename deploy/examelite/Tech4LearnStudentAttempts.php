@@ -9,13 +9,14 @@ use Illuminate\Contracts\View\View;
 final class Tech4LearnStudentAttempts
 {
  public function run(string $workspace,int $source,string $learner,string $name,int $examId,string $action,array $fields):array {
-  abort_unless(in_array($action,['start','answer','submit'],true)&&$examId>0,422);
+  abort_unless(in_array($action,['start','answer','submit','media'],true)&&$examId>0,422);
   foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   $requestId=$fields['request_id']??'';abort_unless(is_string($requestId)&&preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$requestId),422);
-  $allowed=match($action){'start'=>['request_id','language_id'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'submit'=>['request_id','attempt_id']};
+  $allowed=match($action){'start'=>['request_id','language_id'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'submit'=>['request_id','attempt_id'],'media'=>['request_id','attempt_id','question_id','asset']};
   abort_unless(array_diff(array_keys($fields),$allowed)===[],422);
   if(isset($fields['language_id']))abort_unless(is_int($fields['language_id'])&&$fields['language_id']>0,422);
   if($action==='answer')abort_unless(is_int($fields['question_id']??null)&&is_array($fields['fields']??null)&&is_string($fields['revision']??null),422);
+  if($action==='media')return $this->media($workspace,$source,$learner,$examId,$fields);
   return DB::transaction(function()use($workspace,$source,$learner,$name,$examId,$action,$fields,$requestId){
    $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$source)->lockForUpdate()->first();
    abort_unless($w&&$w->organization_id,404);$tenant=(int)$w->organization_id;
@@ -68,10 +69,11 @@ final class Tech4LearnStudentAttempts
      // first answer uses the same revision as a subsequent read or resume.
      $view['examStats']=\App\Models\ExamStat::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_result_id',$view['examResult']->id)->get()->keyBy('question_id');
      $payload=app(Tech4LearnAttemptPayload::class)->fromNativeView($view,$tenant,$student->id);
-     foreach($payload['questions'] as $question){
+     foreach($payload['questions'] as &$question){
       $texts=array_values($question['content']);$texts[]=$question['passage']['content']??'';
-      foreach($texts as $text)abort_unless(!preg_match('/<(?:img|svg|math|math-field|iframe|video|audio|object|embed)\b|\\\\(?:\(|\[)|\$\$/i',$text),422,'This paper needs media or formula display that is not available yet.');
+      foreach($texts as $text)abort_unless(!preg_match('/<(?:svg|math-field|iframe|video|audio|object|embed)\b/i',$text),422,'This paper needs media or formula display that is not available yet.');
      }
+     unset($question);
      return $payload;
     }
     $ended=$attempt?->fresh()??ExamResult::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_id',$examId)->latest('id')->first();
@@ -85,6 +87,18 @@ final class Tech4LearnStudentAttempts
  private function attempt(int $tenant,int $student,int $exam,mixed $id):ExamResult {
   abort_unless(is_int($id)&&$id>0,422);
   return ExamResult::where('organization_id',$tenant)->where('student_id',$student)->where('exam_id',$exam)->lockForUpdate()->findOrFail($id);
+ }
+ private function media(string $workspace,int $source,string $learner,int $exam,array $fields):array {
+  abort_unless(is_int($fields['attempt_id']??null)&&is_int($fields['question_id']??null)&&is_string($fields['asset']??null),422);
+  $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$source)->first();abort_unless($w,404);
+  abort_unless(!in_array('taking',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
+  abort_unless(\App\Models\Organization::where('id',$w->organization_id)->where('status','active')->exists(),403);
+  $id=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$learner)->where('kind','student')->value('external_id');
+  $student=Student::where('organization_id',$w->organization_id)->where('status','Active')->findOrFail($id);
+  $paper=Exam::where('organization_id',$w->organization_id)->where('status','Active')->findOrFail($exam);abort_unless($paper->allowsOnlineAttempt()&&$paper->isFrontendVisible(),403);
+  $attempt=ExamResult::where('organization_id',$w->organization_id)->where('student_id',$student->id)->where('exam_id',$exam)->whereNull('end_time')->findOrFail($fields['attempt_id']);
+  $stat=\App\Models\ExamStat::where('organization_id',$w->organization_id)->where('student_id',$student->id)->where('exam_id',$exam)->where('exam_result_id',$attempt->id)->where('question_id',$fields['question_id'])->firstOrFail();
+  return app(Tech4LearnQuestionMedia::class)->read($stat->question,$attempt,$fields['asset']);
  }
  private function completed(Exam $exam,ExamResult $result,bool $showResults):array {
   return ['attempt_id'=>(int)$result->id,'exam_id'=>(int)$exam->id,'completed'=>true,'result'=>$showResults&&$exam->result_after_finish?['status'=>$result->result,'score_percent'=>(float)$result->percent,'obtained_marks'=>(float)$result->obtained_marks,'total_marks'=>(float)$result->total_marks]:null];

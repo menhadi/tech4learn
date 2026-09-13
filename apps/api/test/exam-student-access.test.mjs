@@ -232,6 +232,58 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
       result: null,
     });
     assert.equal(calls, 1);
+    const asset = "a".repeat(64);
+    const mediaPath = root + `/student-exam/media/11/4/${asset}`;
+    const png =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=";
+    const media = {
+      asset,
+      attempt_id: 11,
+      question_id: 4,
+      mime: "image/png",
+      base64: png,
+    };
+    engine.request = async (config, owner, path, payload, limit, timeout) => {
+      assert.equal(owner, org);
+      assert.equal(path, `student/${org}/media`);
+      assert.equal(payload.learner_id, learner);
+      assert.equal(payload.exam_id, 7);
+      assert.equal(payload.fields.asset, asset);
+      assert.equal(payload.fields.question_id, 4);
+      assert.equal(limit, 14000000);
+      assert.equal(timeout, 30000);
+      return { data: media };
+    };
+    assert.equal((await call(mediaPath, undefined, staff)).status, 401);
+    const image = await call(mediaPath, undefined, studentCookie);
+    assert.equal(image.status, 200);
+    assert.equal(image.headers.get("content-type"), "image/png");
+    assert.equal(image.headers.get("cache-control"), "no-store");
+    assert.equal(image.headers.get("x-content-type-options"), "nosniff");
+    assert.deepEqual(
+      Buffer.from(await image.arrayBuffer()),
+      Buffer.from(png, "base64"),
+    );
+    for (const invalid of [
+      { asset: "b".repeat(64) },
+      { question_id: 99 },
+      { mime: "image/svg+xml" },
+      { base64: "not-base64!" },
+    ]) {
+      engine.request = async () => ({ data: { ...media, ...invalid } });
+      assert.equal(
+        (await call(mediaPath, undefined, studentCookie)).status,
+        503,
+      );
+    }
+    engine.request = async () => {
+      await pg.query("UPDATE learners SET archived=true WHERE id=$1", [
+        learner,
+      ]);
+      return { data: media };
+    };
+    assert.equal((await call(mediaPath, undefined, studentCookie)).status, 401);
+    await pg.query("UPDATE learners SET archived=false WHERE id=$1", [learner]);
     const answerBody = {
       request_id: randomUUID(),
       attempt_id: 11,

@@ -9,9 +9,78 @@ import { ExamEliteService } from "./examelite.service.js";
 import { IdentityService } from "./identity.service.js";
 import { Database } from "./database.js";
 import { uuid } from "./security.js";
+import { randomUUID } from "node:crypto";
 
 @Injectable()
 export class ExamStudentAttemptService {
+  async media(
+    org: string,
+    cookie: string | undefined,
+    attempt: string,
+    question: string,
+    asset: string,
+  ) {
+    const context = await this.access.context(org, cookie);
+    if (
+      !/^[1-9][0-9]{0,14}$/.test(attempt) ||
+      !/^[1-9][0-9]{0,14}$/.test(question) ||
+      !/^[a-f0-9]{64}$/.test(asset)
+    )
+      throw new BadRequestException("Invalid question image.");
+    await this.identity.limit(`exam-media:${context.grant_id}`, 180, 60);
+    const config = await this.remote.configuration("_platform");
+    if (!config?.central)
+      throw new ServiceUnavailableException("Question images are unavailable.");
+    const response = await this.remote.request(
+      config,
+      org,
+      `student/${org}/media`,
+      {
+        learner_id: context.learner_id,
+        name: context.student_name,
+        exam_id: Number(context.external_exam_id),
+        fields: {
+          request_id: randomUUID(),
+          attempt_id: Number(attempt),
+          question_id: Number(question),
+          asset,
+        },
+      },
+      14000000,
+      30000,
+    );
+    const current = await this.access.context(org, cookie);
+    if (current.grant_id !== context.grant_id)
+      throw new HttpException("Exam access changed.", 403);
+    const data = response.data;
+    if (
+      !data ||
+      data.asset !== asset ||
+      data.question_id !== Number(question) ||
+      data.attempt_id !== Number(attempt) ||
+      ![
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/avif",
+      ].includes(data.mime) ||
+      typeof data.base64 !== "string" ||
+      data.base64.length > 13981016 ||
+      !/^[a-zA-Z0-9+/]*={0,2}$/.test(data.base64)
+    )
+      throw new ServiceUnavailableException(
+        "This question image could not be loaded.",
+      );
+    const buffer = Buffer.from(data.base64, "base64");
+    if (
+      !buffer.length ||
+      buffer.length > 10485760 ||
+      buffer.toString("base64") !== data.base64
+    )
+      throw new ServiceUnavailableException("Invalid question image.");
+    return { buffer, mime: data.mime };
+  }
   constructor(
     private readonly access: ExamStudentAccessService,
     private readonly remote: ExamEliteService,
@@ -82,7 +151,7 @@ export class ExamStudentAttemptService {
       const status = response.error.status;
       const known: Record<string, string> = {
         display_unavailable:
-          "This paper needs image or formula display, which is still being integrated. No new attempt was started.",
+          "This paper contains a media format that is not supported yet. No new attempt was started.",
         controls_unavailable:
           "This paper requires exam controls that are still being integrated. Ask exam staff for a supported paper.",
         duration_changed:
