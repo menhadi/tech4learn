@@ -3,6 +3,8 @@ require '/home/examelite/public_html/vendor/autoload.php';
 $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
+foreach([\App\Services\Tech4LearnExamDocuments::class,\App\Services\ExamDocumentLifecycleService::class,\App\Http\Controllers\Tech4LearnDocumentController::class] as $service)if(!class_exists($service))throw new RuntimeException('Native approved document adapter is missing.');
+if(!\Illuminate\Support\Facades\Schema::hasColumns('exam_pdf_builds',['organization_id','exam_id','package_id','language_id','document_type','status','current_path','updated_at']))throw new RuntimeException('Native PDF publication schema is incomplete.');
 if(!class_exists(\App\Http\Controllers\LanguageController::class)||!\Illuminate\Support\Facades\Schema::hasColumns('languages',['organization_id','source_language_id','name','code','value1','value2','is_enabled']))throw new RuntimeException('Native language management requires the current ExamElite language controller and schema.');
 if(!class_exists(\App\Http\Controllers\PackageController::class)||!\Illuminate\Support\Facades\Schema::hasColumns('packages',['organization_id','name','slug','package_type','status','display_order','expiry_days','auto_enroll_on_registration','show_pdf_download','show_solution_pdf_download','flashcards_enabled','guest_flashcards_enabled','ai_flashcard_generation_enabled']))throw new RuntimeException('Native package management requires the current ExamElite package controller and schema.');
 foreach(['package_groups','package_tags','package_tag_package','exam_packages'] as $table)if(!\Illuminate\Support\Facades\Schema::hasTable($table))throw new RuntimeException('Native package relationships are incomplete.');
@@ -12,6 +14,7 @@ foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_worksp
 }
 foreach([\App\Http\Controllers\Tech4LearnProctorController::class,\App\Services\Tech4LearnProctorEvidence::class,\App\Services\Tech4LearnAttemptClock::class,\App\Services\Tech4LearnQuestionMedia::class,\App\Services\Tech4LearnAttemptAnswers::class,\App\Services\Tech4LearnAttemptPayload::class,\App\Services\Tech4LearnStudentContext::class,\App\Services\Tech4LearnStudentAttempts::class] as $service)if(!class_exists($service))throw new RuntimeException('Student attempt adapter is missing.');
 foreach([
+ ['GET','api/tech4learn/v1/documents/11111111-1111-1111-1111-111111111111/exams/1/questions','Tech4LearnDocumentController@read'],
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/history','Tech4LearnStudentController@attempt'],
  ['GET','api/tech4learn/v1/results/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts/1/media/1/'.str_repeat('a',64),'Tech4LearnResultController@media'],
  ['GET','api/tech4learn/v1/results/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts','Tech4LearnResultController@attempts'],
