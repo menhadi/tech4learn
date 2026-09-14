@@ -55,6 +55,15 @@ $service=new App\Services\Tech4LearnQuestionAuthoring();$before=$service->snapsh
 $saved=$service->save($workspace,20,$actor,$q->id,['question'=>'Edited numerical question'],$before['revision'],'first');
 check($saved['fields']['question']==='Edited numerical question' && $saved['fields']['nat_value']===7,'Native update preserves numerical answer configuration');
 check($service->save($workspace,20,$actor,$q->id,['question'=>'Edited numerical question'],$before['revision'],'first')===$saved,'Successful update replay is stable');
+$retryLedgerCount=DB::table('tech4learn_authoring_requests')->count();
+DB::table('organization_users')->where('organization_id',20)->where('user_id',1)->update(['status'=>0]);
+try{$service->save($workspace,20,$actor,$q->id,['question'=>'Edited numerical question'],$before['revision'],'first');throw new RuntimeException('Expected revoked replay denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===403,'Revoked staff cannot replay a saved response');}
+DB::table('organization_users')->where('organization_id',20)->where('user_id',1)->update(['status'=>1]);
+DB::table('organizations')->where('id',20)->update(['status'=>'inactive']);
+try{$service->save($workspace,20,$actor,$q->id,['question'=>'Edited numerical question'],$before['revision'],'first');throw new RuntimeException('Expected inactive replay denial');}catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
+DB::table('organizations')->where('id',20)->update(['status'=>'active']);
+check(DB::table('tech4learn_authoring_requests')->count()===$retryLedgerCount&&$service->snapshot($q->fresh())===$saved,'Denied replay does not change content or ledger');
+check($service->save($workspace,20,$actor,$q->id,['question'=>'Edited numerical question'],$before['revision'],'first')===$saved,'Restored authorised replay retains original outcome');
 check(app('request')===$oldRequest && app('redirect')===$oldRedirect && $guard->user()===null,'Private request and identity restored');
 try{$service->save($workspace,20,$actor,$q->id,['question'=>'Stale edit'],$before['revision'],'stale');throw new RuntimeException('Expected stale edit denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===409,'Stale editor conflict');}
 try{$service->save($workspace,20,$actor,$q->id,['nat_value'=>null],$saved['revision'],'invalid');throw new RuntimeException('Expected validation');}catch(Illuminate\Validation\ValidationException $e){check(isset($e->errors()['nat_value']),'Native numerical answer validation returned');}

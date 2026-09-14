@@ -96,11 +96,12 @@ final class Tech4LearnQuestionAuthoring
             $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->lockForUpdate()->first();
             abort_unless($w && (int)$w->organization_id===$tenant,403);
             abort_unless(!in_array($this->feature($kind),json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
-            $prior=DB::table('tech4learn_authoring_requests')->where('workspace_id',$workspace)->where('request_id',$requestId)->first();
-            if($prior){abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);}
+            Organization::where('status','active')->findOrFail($tenant);
             $nativeId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$actor)->where('kind','staff')->value('external_id');
             $user=User::findOrFail($nativeId);
             abort_unless(DB::table('organization_users')->where('organization_id',$tenant)->where('user_id',$user->id)->where('status',1)->exists(),403);
+            $prior=DB::table('tech4learn_authoring_requests')->where('workspace_id',$workspace)->where('request_id',$requestId)->first();
+            if($prior){abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);}
             $question=$id?$this->owned($kind,$tenant)->lockForUpdate()->findOrFail($id):null;
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Question changed. Reload before saving.');
             else abort_unless($revision==='new',422);
