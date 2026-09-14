@@ -163,6 +163,9 @@ $categoryChoices=$controller->choices(Request::create('/','GET'),$workspace,'cat
 check(in_array($category['id'],array_column($categoryChoices['items'],'id'),true)&&!in_array($foreignCategory->id,array_column($categoryChoices['items'],'id'),true)&&!in_array($childCategory->id,array_column($categoryChoices['items'],'id'),true),'Category choices exclude foreign and child records');
 $subChoices=$controller->choices(Request::create('/','GET'),$workspace,'subcategories');
 check(in_array($subcategory['id'],array_column($subChoices['items'],'id'),true)&&!in_array($category['id'],array_column($subChoices['items'],'id'),true)&&!in_array($corruptChild->id,array_column($subChoices['items'],'id'),true),'Subcategory choices exclude parents and foreign parent references');
+$filteredChoices=$controller->choices(Request::create('/','GET',['parent_id'=>(string)$category['id']]),$workspace,'subcategories');
+foreach($filteredChoices['items'] as $item)check((int)App\Models\Category::find($item['id'])->parent_id===$category['id'],'Subcategory parent filter enforced');
+try{$controller->choices(Request::create('/','GET',['parent_id'=>(string)$foreignCategory->id]),$workspace,'subcategories');throw new RuntimeException('Expected foreign parent filter denial');}catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
 $imageKey=hash('sha256',$imageSource);
 $imageQuestion=App\Models\Question::findOrFail($created['id']);
 $imageQuestion->explanation='<p>Reference</p><img src="'.$imageSource.'">';$imageQuestion->save();

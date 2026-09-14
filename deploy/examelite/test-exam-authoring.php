@@ -11,7 +11,7 @@ namespace {
 function user_can_route_action($route,$action='view'){return true;}
 require __DIR__.'/test-question-authoring.php';
 if(isset($argv[4]))require $argv[4];
-if(isset($argv[3]))foreach(['ExamScopeService','ExamLanguageService','ExamQualitySourceStorage'] as $name){$file=dirname($argv[3]).'/'.$name.'.php';if(is_file($file))require $file;}
+if(isset($argv[3]))foreach(['ExamScopeService','ExamLanguageService','ExamQualitySourceStorage','CategoryHierarchy'] as $name){$file=dirname($argv[3]).'/'.$name.'.php';if(is_file($file))require $file;}
 use Illuminate\Support\Facades\DB;
 if(!function_exists('subcategories_enabled')){function subcategories_enabled(){return true;}}
 DB::statement('CREATE TABLE packages(id INTEGER PRIMARY KEY,organization_id INTEGER,name TEXT,category_level_1 INTEGER,category_level_2 INTEGER)');
@@ -25,7 +25,9 @@ foreach(array_unique(array_merge(App\Services\Tech4LearnQuestionAuthoring::EXAM_
 }
 $routes->add((new Illuminate\Routing\Route(['GET'],'exams',fn()=>null))->name('exams.index'));
 $payload=$service->newExam()['fields'];$payload['name']='Synthetic full exam';$payload['groups']=[$group->id];$payload['language_ids']=[$language->id];$payload['passing_percentage']=37.5;
+$payload['category_level_1']=$category['id'];$payload['category_level_2']=$subcategory['id'];
 $exam=$service->save($workspace,20,$actor,0,$payload,'new','exam-create','exams');
+check((int)$exam['fields']['category_level_1']===$category['id']&&(int)$exam['fields']['category_level_2']===$subcategory['id'],'Native exam creation retains category assignment');
 check((float)$exam['fields']['passing_percentage']===37.5,'Native create retains the exact pass threshold');
 check($exam['fields']['groups']===[$group->id] && in_array($language->id,$exam['fields']['language_ids']),'Native exam scope and language saved');
 $count=App\Models\Exam::count();$jobs=App\Jobs\ReconcileExamDocumentsForExamJob::$scheduled;
@@ -33,6 +35,12 @@ check($service->save($workspace,20,$actor,0,$payload,'new','exam-create','exams'
 check(App\Jobs\ReconcileExamDocumentsForExamJob::$scheduled===$jobs,'Create retry does not schedule extra jobs');
 $updated=$service->save($workspace,20,$actor,$exam['id'],['duration'=>75,'passing_percentage'=>42.25],$exam['revision'],'exam-update','exams');
 check((int)$updated['fields']['duration']===75 && (float)$updated['fields']['passing_percentage']===42.25,'Native settings update retains duration and pass threshold');
+$updated=$service->save($workspace,20,$actor,$exam['id'],['category_level_1'=>$category['id'],'category_level_2'=>$subcategory['id']],$updated['revision'],'exam-classification','exams');
+check((int)$updated['fields']['category_level_1']===$category['id']&&(int)$updated['fields']['category_level_2']===$subcategory['id'],'Native exam category and subcategory assignment');
+foreach([['category_level_1'=>$foreignCategory->id],['category_level_1'=>null,'category_level_2'=>$subcategory['id']],['category_level_2'=>$category['id']]] as $invalidCategory){
+ try{$service->save($workspace,20,$actor,$exam['id'],$invalidCategory,$updated['revision'],'exam-bad-category-'.md5(json_encode($invalidCategory)),'exams');throw new RuntimeException('Expected category validation');}catch(Illuminate\Validation\ValidationException $e){}
+ check($service->record('exams',App\Models\Exam::find($exam['id']))===$updated,'Invalid exam category does not change the paper');
+}
 try{$service->save($workspace,20,$actor,$exam['id'],['groups'=>[1]],$updated['revision'],'exam-foreign','exams');throw new RuntimeException('Expected foreign exam scope rejection');}catch(Illuminate\Validation\ValidationException|Illuminate\Database\Eloquent\ModelNotFoundException|Symfony\Component\HttpKernel\Exception\HttpException $e){}
 check($service->record('exams',App\Models\Exam::find($exam['id']))===$updated,'Rejected exam scope leaves settings unchanged');
 $app->instance('view',new Illuminate\View\Factory(new Illuminate\View\Engines\EngineResolver(),new Illuminate\View\FileViewFinder(new Illuminate\Filesystem\Filesystem(),[__DIR__]),new Illuminate\Events\Dispatcher($app)));

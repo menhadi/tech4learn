@@ -363,6 +363,37 @@ test("central question sharing requires superadmin; organisation reads respect m
     const categories = `/organisations/${org}/exam-content/taxonomy/categories`;
     const subcategories = `/organisations/${org}/exam-content/taxonomy/subcategories`;
     assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/choices/subcategories?parent_id=3`,
+          undefined,
+          member,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      requests.at(-1).path,
+      `authoring/${org}/choices/subcategories?search=&after=0&parent_id=3`,
+    );
+    for (const query of [
+      "subcategories?parent_id=0",
+      "subcategories?parent_id=-1",
+      "categories?parent_id=3",
+      "subcategories?parent_id=3&parent_id=4",
+    ]) {
+      assert.equal(
+        (
+          await call(
+            `/organisations/${org}/exam-content/choices/${query}`,
+            undefined,
+            member,
+          )
+        ).status,
+        400,
+      );
+    }
+    assert.equal(
       (await call(subcategories + "/new", undefined, member)).status,
       200,
     );

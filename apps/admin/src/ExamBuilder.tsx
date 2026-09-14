@@ -489,6 +489,37 @@ function ExamEditor({
             />
             <QuestionChoiceField
               org={org}
+              kind="categories"
+              label="Category"
+              value={values.category_level_1 ?? null}
+              disabled={busy || Boolean(values.packages?.length)}
+              onChange={(v) => {
+                set("category_level_1", v);
+                set("category_level_2", null);
+              }}
+            />
+            <QuestionChoiceField
+              org={org}
+              kind="subcategories"
+              label="Subcategory"
+              value={values.category_level_2 ?? null}
+              parentId={
+                values.category_level_1 ? Number(values.category_level_1) : null
+              }
+              disabled={
+                busy ||
+                Boolean(values.packages?.length) ||
+                !values.category_level_1
+              }
+              onChange={(v) => set("category_level_2", v)}
+            />
+            <p>
+              For a standalone exam, categories must allow its selected groups.
+              When packages are selected, groups and classification come from
+              those packages.
+            </p>
+            <QuestionChoiceField
+              org={org}
               kind="languages"
               label="Exam languages"
               multiple

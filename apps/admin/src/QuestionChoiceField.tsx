@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 export type QuestionChoice = {
   id: number;
@@ -17,6 +17,7 @@ export function QuestionChoiceField({
   required = false,
   disabled,
   onChange,
+  parentId,
 }: {
   org: string;
   kind: string;
@@ -26,6 +27,7 @@ export function QuestionChoiceField({
   required?: boolean;
   disabled: boolean;
   onChange: (value: any, option?: QuestionChoice) => void;
+  parentId?: number | null;
 }) {
   const [items, setItems] = useState<QuestionChoice[]>([]),
     [search, setSearch] = useState(""),
@@ -33,26 +35,42 @@ export function QuestionChoiceField({
     [next, setNext] = useState<number | null>(null),
     [loading, setLoading] = useState(false),
     [error, setError] = useState("");
+  const generation = useRef(0);
   async function load(after = 0) {
+    const request = ++generation.current;
+    if (parentId === null) {
+      setItems([]);
+      setNext(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     const term = after ? loaded : search;
     try {
       const r = await api<{ items: QuestionChoice[]; next: number | null }>(
-        `/organisations/${org}/exam-content/choices/${kind}?search=${encodeURIComponent(term)}&after=${after}`,
+        `/organisations/${org}/exam-content/choices/${kind}?search=${encodeURIComponent(term)}&after=${after}${parentId === undefined ? "" : `&parent_id=${parentId}`}`,
       );
+      if (request !== generation.current) return;
       setItems((old) => (after ? [...old, ...r.items] : r.items));
       setNext(r.next);
       setLoaded(term);
     } catch (e) {
+      if (request !== generation.current) return;
       setError(e instanceof Error ? e.message : "Unable to load choices.");
     } finally {
-      setLoading(false);
+      if (request === generation.current) setLoading(false);
     }
   }
   useEffect(() => {
+    setItems([]);
+    setNext(null);
+    setError("");
     void load();
-  }, [org, kind]);
+    return () => {
+      generation.current++;
+    };
+  }, [org, kind, parentId]);
   const selected = Array.isArray(value) ? value : value ? [value] : [];
   return (
     <fieldset>

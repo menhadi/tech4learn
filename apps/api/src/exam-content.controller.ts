@@ -233,6 +233,7 @@ export class ExamContentController {
     @Param("kind") kind: string,
     @Query("search") search = "",
     @Query("after") after = "0",
+    @Query("parent_id") parent = "",
     @Headers("cookie") cookie?: string,
   ) {
     return this.content.questionChoices(
@@ -241,6 +242,7 @@ export class ExamContentController {
       kind,
       search,
       after,
+      parent,
     );
   }
   @Post("organisations/:org/exam-content/questions/:id/image")

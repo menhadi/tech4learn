@@ -434,6 +434,7 @@ export class ExamContentService {
     kind: string,
     search: string,
     after: string,
+    parent = "",
   ) {
     await this.access.require(user, org, "exams.manage");
     const rules = await this.workspace.status(user, org);
@@ -460,7 +461,10 @@ export class ExamContentService {
       ].includes(kind) ||
       typeof search !== "string" ||
       search.length > 120 ||
-      !/^[0-9]{1,15}$/.test(after)
+      !/^[0-9]{1,15}$/.test(after) ||
+      typeof parent !== "string" ||
+      (parent !== "" &&
+        (kind !== "subcategories" || !/^[1-9][0-9]{0,14}$/.test(parent)))
     )
       throw new BadRequestException("Invalid question lookup.");
     if (kind === "exams" && rules.restrictions.includes("exams"))
@@ -468,7 +472,7 @@ export class ExamContentService {
     return this.remote.request(
       await this.config(),
       org,
-      `authoring/${org}/choices/${kind}?search=${encodeURIComponent(search)}&after=${after}`,
+      `authoring/${org}/choices/${kind}?search=${encodeURIComponent(search)}&after=${after}${parent ? `&parent_id=${parent}` : ""}`,
     );
   }
   async question(user: Account, org: string, id: string) {
