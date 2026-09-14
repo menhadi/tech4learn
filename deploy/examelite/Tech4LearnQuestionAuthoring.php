@@ -83,16 +83,19 @@ final class Tech4LearnQuestionAuthoring
     public function save(string $workspace,int $tenant,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind='questions',?string $action=null):array {
         [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
         abort_unless($id>=0,422);
-        if($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
+        $imageAction=$kind==='questions'&&$action==='set-image'&&$id>0;
+        if($imageAction)$allowedFields=['field','image','asset'];
+        elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
-        if(strlen(json_encode($fields,JSON_THROW_ON_ERROR))>250000)throw ValidationException::withMessages(['fields'=>'Question is too large.']);
+        if(strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?750000:250000))throw ValidationException::withMessages(['fields'=>'Question is too large.']);
         if($kind==='questions')foreach(['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'] as $key){
             if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         }
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         $fingerprint=hash('sha256',json_encode([$kind,$action,$tenant,$actor,$id,$fields,$revision],JSON_THROW_ON_ERROR));
-        return DB::transaction(function()use($workspace,$tenant,$actor,$id,$fields,$revision,$requestId,$fingerprint,$kind,$action){
+        $storedImage=null;
+        try{return DB::transaction(function()use($workspace,$tenant,$actor,$id,$fields,$revision,$requestId,$fingerprint,$kind,$action,$imageAction,&$storedImage){
             $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->lockForUpdate()->first();
             abort_unless($w && (int)$w->organization_id===$tenant,403);
             abort_unless(!in_array($this->feature($kind),json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
@@ -105,6 +108,7 @@ final class Tech4LearnQuestionAuthoring
             $question=$id?$this->owned($kind,$tenant)->lockForUpdate()->findOrFail($id):null;
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Question changed. Reload before saving.');
             else abort_unless($revision==='new',422);
+            if($imageAction)$fields=app(Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             if(in_array($action,['add-questions','remove-questions','assign-section'],true)){
                 $ids=$fields['question_ids']??null;
                 if(!is_array($ids)||count($ids)<1||count($ids)>100||count(array_filter($ids,fn($v)=>is_int($v)&&$v>0))!==count($ids))throw ValidationException::withMessages(['question_ids'=>'Select between 1 and 100 questions.']);
@@ -130,10 +134,10 @@ final class Tech4LearnQuestionAuthoring
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             // The native controller accepts its web form. Give it a private request/session,
             // and translate its redirect feedback into an atomic API outcome.
-            $result=$this->invoke($tenant,$user,$action!==null?$fields:$values,$question,$kind,$action);
+            $result=$this->invoke($tenant,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?null:$action);
             DB::table('tech4learn_authoring_requests')->insert(['workspace_id'=>$workspace,'request_id'=>$requestId,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
-        });
+        });}catch(\Throwable $error){if($storedImage!==null)app(Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
     }
     private function formattedText(string $html,string $key):string {
         // Only the basic editor's formatting is accepted here. Existing media and

@@ -15,6 +15,7 @@ targets={
  'Tech4LearnStudentContext.php':'app/Services/Tech4LearnStudentContext.php',
  'Tech4LearnStudentAttempts.php':'app/Services/Tech4LearnStudentAttempts.php',
  'Tech4LearnQuestionMedia.php':'app/Services/Tech4LearnQuestionMedia.php',
+ 'Tech4LearnQuestionImageUpload.php':'app/Services/Tech4LearnQuestionImageUpload.php',
  'Tech4LearnProctorEvidence.php':'app/Services/Tech4LearnProctorEvidence.php',
  'Tech4LearnAttemptClock.php':'app/Services/Tech4LearnAttemptClock.php',
  'Tech4LearnProctorController.php':'app/Http/Controllers/Tech4LearnProctorController.php',

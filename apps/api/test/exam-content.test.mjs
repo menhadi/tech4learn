@@ -183,7 +183,10 @@ test("central question sharing requires superadmin; organisation reads respect m
     const authoringImage = await call(mediaPath, undefined, member);
     assert.equal(authoringImage.status, 200);
     assert.equal(authoringImage.headers.get("cache-control"), "no-store");
-    assert.equal(authoringImage.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(
+      authoringImage.headers.get("x-content-type-options"),
+      "nosniff",
+    );
     assert.equal(authoringImage.headers.get("content-type"), "image/png");
     assert.equal(await authoringImage.text(), "synthetic image bytes");
     assert.equal(
@@ -206,6 +209,60 @@ test("central question sharing requires superadmin; organisation reads respect m
       [member, org],
     );
     mediaMode = "ok";
+    const imageWrite = {
+      revision: "a".repeat(64),
+      request_id: randomUUID(),
+      fields: {
+        field: "question",
+        image: Buffer.from("synthetic upload").toString("base64"),
+      },
+    };
+    assert.equal(
+      (await call(own + "/9/image", imageWrite, member)).status,
+      201,
+    );
+    assert.match(requests.at(-1).path, /questions\/9\/image$/);
+    assert.equal(requests.at(-1).body.actor_id, member);
+    assert.equal(
+      (await call(own + "/9/image", { ...imageWrite, actor_id: admin }, member))
+        .status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          own + "/9/image",
+          {
+            ...imageWrite,
+            fields: { ...imageWrite.fields, field: "organization_id" },
+          },
+          member,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          own + "/9/image",
+          {
+            ...imageWrite,
+            fields: { ...imageWrite.fields, image: "A".repeat(699056) },
+          },
+          member,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await call(own + "/new/image", imageWrite, member)).status,
+      400,
+    );
+    assert.equal(
+      (await call((own + "/9/image").replace(org, other), imageWrite, member))
+        .status,
+      404,
+    );
     const edit = {
       revision: "a".repeat(64),
       request_id: randomUUID(),

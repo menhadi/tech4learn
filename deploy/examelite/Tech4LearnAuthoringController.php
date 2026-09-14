@@ -75,6 +75,7 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         return $this->reply($central,app(\App\Services\Tech4LearnQuestionMedia::class)->readAuthoring($question,$owner,$asset));
     }
     public function examAction(Request $r,string $org,string $id,string $action){return $this->save($r,$org,$id,'exams',$action);}
+    public function questionImageWrite(Request $r,string $org,string $id){return $this->save($r,$org,$id,'questions','set-image');}
     public function examQuestions(Request $r,string $org,string $id){
         [$central,$owner]=$this->workspace($r,$org,'exams');abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
         $exam=app(Tech4LearnQuestionAuthoring::class)->owned('exams',$owner)->findOrFail($id);

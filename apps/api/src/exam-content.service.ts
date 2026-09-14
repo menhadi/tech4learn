@@ -547,8 +547,11 @@ export class ExamContentService {
     kind = "questions",
     action?: string,
   ) {
+    const imageAction =
+      kind === "questions" && action === "set-image" && id !== "new";
     if (
       action &&
+      !imageAction &&
       (kind !== "exams" ||
         id === "new" ||
         ![
@@ -576,7 +579,7 @@ export class ExamContentService {
       !b.fields ||
       typeof b.fields !== "object" ||
       Array.isArray(b.fields) ||
-      JSON.stringify(b.fields).length > 250000 ||
+      JSON.stringify(b.fields).length > (imageAction ? 750000 : 250000) ||
       typeof b.revision !== "string" ||
       (id === "new"
         ? b.revision !== "new"
@@ -587,15 +590,50 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid question changes.");
+    if (imageAction) {
+      const fields = b.fields as Record<string, unknown>;
+      if (
+        Object.keys(b).some(
+          (key) => !["fields", "revision", "request_id"].includes(key),
+        ) ||
+        Object.keys(fields).some(
+          (key) => !["field", "image", "asset"].includes(key),
+        ) ||
+        typeof fields.field !== "string" ||
+        ![
+          "question",
+          "option1",
+          "option2",
+          "option3",
+          "option4",
+          "option5",
+          "option6",
+          "hint",
+          "explanation",
+          "si_answer1",
+        ].includes(fields.field) ||
+        typeof fields.image !== "string" ||
+        !fields.image.length ||
+        fields.image.length > 699052 ||
+        (fields.asset !== undefined &&
+          (typeof fields.asset !== "string" ||
+            !/^[a-f0-9]{64}$/.test(fields.asset)))
+      )
+        throw new BadRequestException(
+          "Invalid question image. Use PNG, JPEG or WebP up to 512 KB.",
+        );
+    }
     await this.workspace.launch(user, org, { feature }, true);
     const response = await this.remote.request(
       await this.config(),
       org,
-      action
-        ? `authoring/${org}/exams/${id}/actions/${action}`
-        : kind === "questions"
-          ? `authoring/${org}/questions${id === "new" ? "" : "/" + id}`
-          : `authoring/${org}/taxonomy/${kind}/${id}`,
+      imageAction
+        ? `authoring/${org}/questions/${id}/image`
+        : action
+          ? `authoring/${org}/exams/${id}/actions/${action}`
+          : kind === "questions"
+            ? `authoring/${org}/questions${id === "new" ? "" : "/" + id}`
+            : `authoring/${org}/taxonomy/${kind}/${id}`,
       {
         fields: b.fields,
         revision: b.revision,
@@ -603,6 +641,7 @@ export class ExamContentService {
         actor_id: user.id,
       },
     );
+    if (imageAction) await this.questionAccess(user, org, id, feature);
     if (response.conflict === true)
       throw new ConflictException(
         "Question changed. Reload it before saving again.",

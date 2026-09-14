@@ -29,6 +29,7 @@ foreach([
  ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/choices/groups','Tech4LearnAuthoringController@choices'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/exams/1/actions/add-questions','Tech4LearnAuthoringController@examAction'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions','Tech4LearnAuthoringController@create'],
+ ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1/image','Tech4LearnAuthoringController@questionImageWrite'],
  ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1/media/'.str_repeat('a',64),'Tech4LearnAuthoringController@questionMedia'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/taxonomy/subjects/new','Tech4LearnAuthoringController@saveTaxonomy'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1','Tech4LearnAuthoringController@save'],

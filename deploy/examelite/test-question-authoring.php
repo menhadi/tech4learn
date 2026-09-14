@@ -16,6 +16,7 @@ require __DIR__.'/test-content-copies.php';
 if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController'] as $controller){$path=dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
 require __DIR__.'/Tech4LearnQuestionAuthoring.php';
 require_once __DIR__.'/Tech4LearnQuestionMedia.php';
+require_once __DIR__.'/Tech4LearnQuestionImageUpload.php';
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 $app=new Illuminate\Foundation\Application(__DIR__);
@@ -150,6 +151,26 @@ $imageQuestion->explanation='<img src="'.$invalidSource.'">';$imageQuestion->sav
 try{$controller->questionMedia($mediaRequest,$workspace,(string)$imageQuestion->id,hash('sha256',$invalidSource));throw new RuntimeException('Expected invalid raster denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===422,'Invalid raster rejected');}
 $imageQuestion->explanation='Image removed';$imageQuestion->save();
 try{$controller->questionMedia($mediaRequest,$workspace,(string)$imageQuestion->id,$imageKey);throw new RuntimeException('Expected removed image denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===404,'Removed authoring image loses access');}
+$imageDisk=new class {public array $files=[];public int $writes=0;function disk($name){check($name==='public','Native public image disk');return $this;}function put($path,$bytes){$this->writes++;$this->files[$path]=$bytes;return true;}function delete($path){unset($this->files[$path]);return true;}};
+$app->instance('filesystem',$imageDisk);Illuminate\Support\Facades\Storage::clearResolvedInstance('filesystem');
+$imageBefore=$service->snapshot($imageQuestion->fresh());
+$uploadFields=['field'=>'explanation','image'=>substr($imageSource,strpos($imageSource,',')+1)];
+$uploaded=$service->save($workspace,20,$actor,$imageQuestion->id,$uploadFields,$imageBefore['revision'],'image-upload','questions','set-image');
+check(count($imageDisk->files)===1&&str_contains($uploaded['fields']['explanation'],'/storage/images/upload/t4l/20/'),'Image attached through native question save');
+check($uploaded['fields']['nat_value']===$imageBefore['fields']['nat_value'],'Image save preserves native answer');
+check($service->save($workspace,20,$actor,$imageQuestion->id,$uploadFields,$imageBefore['revision'],'image-upload','questions','set-image')===$uploaded&&$imageDisk->writes===1,'Image retry writes once');
+$storedAsset=array_key_first(app(App\Services\Tech4LearnQuestionMedia::class)->sources($uploaded['fields']['explanation']));
+$replaced=$service->save($workspace,20,$actor,$imageQuestion->id,$uploadFields+['asset'=>$storedAsset],$uploaded['revision'],'image-replace','questions','set-image');
+check(count($imageDisk->files)===2&&substr_count($replaced['fields']['explanation'],'<img')===1,'Replacement preserves old shared file and replaces one reference');
+$writesBefore=$imageDisk->writes;
+foreach([['field'=>'organization_id'],['image'=>base64_encode('invalid')],['asset'=>str_repeat('b',64)]] as $invalid){
+ try{$service->save($workspace,20,$actor,$imageQuestion->id,array_replace($uploadFields,$invalid),$replaced['revision'],'image-invalid-'.count($invalid).hash('sha256',json_encode($invalid)),'questions','set-image');throw new RuntimeException('Expected invalid image rejection');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===422,'Invalid image rejected');}
+}
+check($imageDisk->writes===$writesBefore,'Invalid image requests never store files');
+$app->instance(App\Http\Controllers\QuestionController::class,new class extends App\Http\Controllers\QuestionController {public function update(Request $request,App\Models\Question $question){throw new RuntimeException('synthetic image save failure');}});
+try{$service->save($workspace,20,$actor,$imageQuestion->id,$uploadFields,$replaced['revision'],'image-failed','questions','set-image');throw new RuntimeException('Expected native failure');}catch(RuntimeException $e){check($e->getMessage()==='synthetic image save failure','Native image failure propagated');}
+$app->forgetInstance(App\Http\Controllers\QuestionController::class);
+check(count($imageDisk->files)===2&&$service->snapshot($imageQuestion->fresh())===$replaced,'Native failure rolls back question and removes uploaded file');
 foreach(['groups','subjects','topics','subtopics','sections','languages','types','difficulties'] as $kind){
  $choices=$controller->choices(Request::create('/','GET',['after'=>'0']),$workspace,$kind);
  foreach($choices['items'] as $item){
