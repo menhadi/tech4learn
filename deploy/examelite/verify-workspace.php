@@ -8,6 +8,9 @@ foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_worksp
 }
 foreach([\App\Http\Controllers\Tech4LearnProctorController::class,\App\Services\Tech4LearnProctorEvidence::class,\App\Services\Tech4LearnAttemptClock::class,\App\Services\Tech4LearnQuestionMedia::class,\App\Services\Tech4LearnAttemptAnswers::class,\App\Services\Tech4LearnAttemptPayload::class,\App\Services\Tech4LearnStudentContext::class,\App\Services\Tech4LearnStudentAttempts::class] as $service)if(!class_exists($service))throw new RuntimeException('Student attempt adapter is missing.');
 foreach([
+ ['GET','api/tech4learn/v1/results/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts','Tech4LearnResultController@attempts'],
+ ['GET','api/tech4learn/v1/results/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts/1','Tech4LearnResultController@review'],
+ ['POST','api/tech4learn/v1/results/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts/1','Tech4LearnResultController@save'],
  ['GET','api/tech4learn/v1/review/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts','Tech4LearnProctorController@attempts'],
  ['GET','api/tech4learn/v1/review/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts/1/captures/33333333-3333-3333-3333-333333333333','Tech4LearnProctorController@captures'],
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/media','Tech4LearnStudentController@attempt'],

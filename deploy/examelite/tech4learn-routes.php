@@ -8,6 +8,7 @@ use App\Http\Controllers\Tech4LearnContentController;
 use App\Http\Controllers\Tech4LearnAuthoringController;
 use App\Http\Controllers\Tech4LearnStudentController;
 use App\Http\Controllers\Tech4LearnProctorController;
+use App\Http\Controllers\Tech4LearnResultController;
 
 // Separate from authoring's shared-IP 30/minute allowance. The T4L server
 // also limits each authenticated grant; every call requires the central credential.
@@ -16,6 +17,9 @@ Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('t
 });
 
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
+    Route::get('/results/{org}/learners/{learner}/attempts', [Tech4LearnResultController::class, 'attempts']);
+    Route::get('/results/{org}/learners/{learner}/attempts/{attempt}', [Tech4LearnResultController::class, 'review']);
+    Route::post('/results/{org}/learners/{learner}/attempts/{attempt}', [Tech4LearnResultController::class, 'save']);
     Route::get('/review/{org}/learners/{learner}/attempts', [Tech4LearnProctorController::class, 'attempts']);
     Route::get('/review/{org}/learners/{learner}/attempts/{attempt}/captures/{capture?}', [Tech4LearnProctorController::class, 'captures']);
     Route::get('/authoring/{org}/exams/{id}/questions', [Tech4LearnAuthoringController::class, 'examQuestions']);

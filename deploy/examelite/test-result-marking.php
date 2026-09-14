@@ -3,6 +3,7 @@
 require __DIR__.'/test-student-attempts.php';
 if(isset($argv[3]))require dirname($argv[3]).'/ResultController.php';
 require __DIR__.'/Tech4LearnResultMarking.php';
+require __DIR__.'/Tech4LearnResultController.php';
 use Illuminate\Support\Facades\DB;
 use App\Models\{ExamResult,ExamStat};
 $app->instance('auth',new class($guard){function __construct(private $guard){}function guard($name){return $this->guard;}function user(){return $this->guard->user();}});
@@ -53,4 +54,24 @@ rejectAnswer(fn()=>$marking->save($workspace,10,$actor,$newLearner,$manual->id,$
 DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'[]']);
 check(app('request')===$oldRequest&&app('redirect')===$oldRedirect&&$guard->user()===null,'Native marking context restored');
 check($marking->review($workspace,10,$actor,$newLearner,$manual->id)['questions']===[],'Graded answers leave pending queue');
+$history=$marking->attempts($workspace,10,$actor,$newLearner);
+check(count(array_filter($history['items'],fn($row)=>$row['attempt_id']===$manual->id&&$row['pending_count']===0))===1,'History contains scoped completed result');
+check($marking->attempts($workspace,10,$actor,$next())===['items'=>[],'next'=>null],'Unmapped learner has empty results without provisioning');
+$configFile=tempnam(sys_get_temp_dir(),'t4l-marking-');$token=bin2hex(random_bytes(32));
+file_put_contents($configFile,json_encode(['_platform'=>['enabled'=>true,'organization_id'=>10,'token_hash'=>hash('sha256',$token)]]));
+$controller=new class($configFile) extends App\Http\Controllers\Tech4LearnResultController {public function __construct(private string $file){}protected function configPath():string{return $this->file;}};
+$gradingRequestId=$request;
+try {
+ $url='https://central.example.test/api/tech4learn/v1/results/'.$workspace.'/learners/'.$newLearner.'/attempts';
+ $request=Illuminate\Http\Request::create($url.'?actor_id='.$actor,'GET',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$token]);
+ $reply=$controller->attempts($request,$workspace,$newLearner);
+ check(str_contains($reply->headers->get('Cache-Control'),'no-store')&&count($reply->getData(true)['items'])===count($history['items']),'Credential result history is private');
+ $missing=Illuminate\Http\Request::create($url.'?actor_id='.$actor,'GET');
+ rejectAnswer(fn()=>$controller->attempts($missing,$workspace,$newLearner),'Missing result credential');
+ $body=['actor_id'=>$actor,'marks'=>$marks,'revision'=>$review['revision'],'request_id'=>$gradingRequestId];
+ $write=Illuminate\Http\Request::create($url.'/'.$manual->id,'POST',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$token,'CONTENT_TYPE'=>'application/json'],json_encode($body));
+ check($controller->save($write,$workspace,$newLearner,(string)$manual->id)->getData(true)['saved']===true,'Credential marking route replays successful native result');
+ $bad=Illuminate\Http\Request::create($url.'/'.$manual->id,'POST',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$token,'CONTENT_TYPE'=>'application/json'],json_encode($body+['organization_id'=>99]));
+ rejectAnswer(fn()=>$controller->save($bad,$workspace,$newLearner,(string)$manual->id),'Unknown write fields rejected');
+}finally{unlink($configFile);}
 echo "Scoped native result marking, validation and retries passed.\n";

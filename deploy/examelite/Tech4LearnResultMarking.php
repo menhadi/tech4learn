@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\{Auth,DB};
 /** Staff-only adapter. ExamElite remains responsible for calculating the result. */
 final class Tech4LearnResultMarking
 {
- private function scope(string $workspace,int $source,string $actor,string $learner):array {
+ private function scope(string $workspace,int $source,string $actor,string $learner,bool $allowUnmapped=false):array {
   foreach([$workspace,$actor,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$source)->lockForUpdate()->first();abort_unless($w&&$w->organization_id,404);
   $owner=(int)$w->organization_id;
@@ -20,7 +20,9 @@ final class Tech4LearnResultMarking
   $mapping=fn($id,$kind)=>DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$id)->where('kind',$kind)->value('external_id');
   $user=User::findOrFail($mapping($actor,'staff'));
   abort_unless(DB::table('organization_users')->where('organization_id',$owner)->where('user_id',$user->id)->where('status',1)->exists(),403);
-  $student=Student::where('organization_id',$owner)->findOrFail($mapping($learner,'student'));
+  $studentId=$mapping($learner,'student');
+  if($studentId===null&&$allowUnmapped)return [$owner,$user,0];
+  $student=Student::where('organization_id',$owner)->findOrFail($studentId);
   return [$owner,$user,(int)$student->id];
  }
  private function attempt(int $owner,int $student,int $id):ExamResult {
@@ -42,6 +44,19 @@ final class Tech4LearnResultMarking
  }
  private function summary(ExamResult $attempt):array {
   return ['attempt_id'=>(int)$attempt->id,'result'=>(string)$attempt->result,'score_percent'=>(float)$attempt->percent,'obtained_marks'=>(float)$attempt->obtained_marks,'total_marks'=>(float)$attempt->total_marks];
+ }
+ public function attempts(string $workspace,int $source,string $actor,string $learner,int $after=0):array {
+  abort_unless($after>=0,422);
+  return DB::transaction(function()use($workspace,$source,$actor,$learner,$after){
+   [$owner,,$student]=$this->scope($workspace,$source,$actor,$learner,true);
+   if(!$student)return ['items'=>[],'next'=>null];
+   $rows=ExamResult::where('organization_id',$owner)->where('student_id',$student)->whereNotNull('end_time')->where('id','>',$after)->orderBy('id')->limit(51)->get();
+   $more=$rows->count()>50;$rows=$rows->take(50);
+   return ['items'=>$rows->map(function($row)use($owner){
+    $exam=Exam::where('organization_id',$owner)->findOrFail($row->exam_id);
+    return $this->summary($row)+['exam_id'=>(int)$exam->id,'exam_name'=>mb_substr(strip_tags((string)$exam->name),0,250),'finished_at'=>\Carbon\Carbon::parse($row->end_time)->toIso8601String(),'pending_count'=>ExamStat::where('organization_id',$owner)->where('exam_result_id',$row->id)->where('student_id',$row->student_id)->where('ques_status','P')->count()];
+   })->all(),'next'=>$more?(int)$rows->last()->id:null];
+  });
  }
  public function review(string $workspace,int $source,string $actor,string $learner,int $id):array {
   return DB::transaction(function()use($workspace,$source,$actor,$learner,$id){

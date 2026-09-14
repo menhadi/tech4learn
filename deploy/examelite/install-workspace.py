@@ -8,6 +8,8 @@ root=pathlib.Path('/home/examelite/public_html')
 source=pathlib.Path(__file__).resolve().parent
 owner=pwd.getpwnam('examelite')
 targets={
+ 'Tech4LearnResultMarking.php':'app/Services/Tech4LearnResultMarking.php',
+ 'Tech4LearnResultController.php':'app/Http/Controllers/Tech4LearnResultController.php',
  'Tech4LearnAttemptAnswers.php':'app/Services/Tech4LearnAttemptAnswers.php',
  'Tech4LearnAttemptPayload.php':'app/Services/Tech4LearnAttemptPayload.php',
  'Tech4LearnStudentContext.php':'app/Services/Tech4LearnStudentContext.php',
