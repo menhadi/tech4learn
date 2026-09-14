@@ -69,9 +69,19 @@ test("central question sharing requires superadmin; organisation reads respect m
     token: "private",
   });
   let saveOutcome = "success";
+  let disableOutcome = "success";
   let mediaMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    if (path.endsWith("/disable"))
+      return {
+        saved: true,
+        question: {
+          id: disableOutcome === "wrong" ? 10 : 9,
+          revision: "b".repeat(64),
+          fields: { is_enabled: disableOutcome === "enabled" },
+        },
+      };
     if (path.includes("/media/")) {
       if (mediaMode === "revoked")
         await pg.query(
@@ -361,6 +371,52 @@ test("central question sharing requires superadmin; organisation reads respect m
     );
     const taxonomy = `/organisations/${org}/exam-content/taxonomy/subjects`;
     const languages = `/organisations/${org}/exam-content/taxonomy/languages`;
+    const disableLanguage = {
+      fields: {},
+      revision: "a".repeat(64),
+      request_id: randomUUID(),
+    };
+    assert.equal(
+      (await call(languages + "/9/disable", disableLanguage, member)).status,
+      201,
+    );
+    assert.equal(
+      requests.at(-1).path,
+      `authoring/${org}/taxonomy/languages/9/disable`,
+    );
+    assert.equal(requests.at(-1).body.actor_id, member);
+    for (const outcome of ["wrong", "enabled"]) {
+      disableOutcome = outcome;
+      assert.equal(
+        (await call(languages + "/9/disable", disableLanguage, member)).status,
+        503,
+      );
+    }
+    disableOutcome = "success";
+    assert.equal(
+      (
+        await call(
+          languages + "/9/disable",
+          { ...disableLanguage, fields: { value1: "unexpected" } },
+          member,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await call(languages + "/new/disable", disableLanguage, member)).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${other}/exam-content/taxonomy/languages/9/disable`,
+          disableLanguage,
+          member,
+        )
+      ).status,
+      404,
+    );
     assert.equal(
       (await call(languages + "/new", undefined, member)).status,
       200,
@@ -978,6 +1034,10 @@ test("central question sharing requires superadmin; organisation reads respect m
     );
     assert.equal((await call(taxonomy + "/new", create, member)).status, 403);
     assert.equal((await call(languages + "/new", create, member)).status, 403);
+    assert.equal(
+      (await call(languages + "/9/disable", disableLanguage, member)).status,
+      403,
+    );
     assert.equal((await call(categories + "/new", create, member)).status, 403);
     assert.equal(
       (await call(subcategories + "/new", create, member)).status,

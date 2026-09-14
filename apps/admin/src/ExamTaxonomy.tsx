@@ -34,6 +34,11 @@ function TaxonomyEditor({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [request, setRequest] = useState<string | null>(null),
+    [pendingDisable, setPendingDisable] = useState<{
+      fields: Record<string, never>;
+      revision: string;
+      request_id: string;
+    } | null>(null),
     [notice, setNotice] = useState("");
   const base = `/organisations/${org}/exam-content/taxonomy/${kind}`;
   async function load() {
@@ -43,6 +48,7 @@ function TaxonomyEditor({
       setRecord(await api<RecordData>(`${base}/${record?.id || id}`));
       setChanges({});
       setRequest(null);
+      setPendingDisable(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load record.");
     } finally {
@@ -53,6 +59,7 @@ function TaxonomyEditor({
     void load();
   }, [org, kind, id]);
   const set = (key: string, value: any) => {
+    if (pendingDisable) return;
     setChanges((old) => ({ ...old, [key]: value }));
     setRequest(null);
     setNotice("");
@@ -75,7 +82,11 @@ function TaxonomyEditor({
             : "Enable language"
           : `${record?.id ? "Edit" : "Create"} ${labels[kind].toLowerCase()}`}
       </h3>
-      <button className="secondary" disabled={busy} onClick={onClose}>
+      <button
+        className="secondary"
+        disabled={busy || Boolean(pendingDisable)}
+        onClick={onClose}
+      >
         Back to classification
       </button>
       {error && (
@@ -91,6 +102,7 @@ function TaxonomyEditor({
           title="Details"
           draftState={{ revision: record.revision, changes, request }}
           restoreState={(s) => {
+            if (pendingDisable) return;
             if (
               s?.revision === record.revision &&
               s.changes &&
@@ -106,6 +118,10 @@ function TaxonomyEditor({
           }}
           onSubmit={async (e) => {
             e.preventDefault();
+            if (pendingDisable)
+              throw new Error(
+                "Resolve the language disable request before editing.",
+              );
             setBusy(true);
             setError("");
             const requestId = request ?? crypto.randomUUID();
@@ -132,7 +148,11 @@ function TaxonomyEditor({
             }
           }}
         >
-          <div data-no-draft="true">
+          <fieldset
+            data-no-draft="true"
+            disabled={busy || Boolean(pendingDisable)}
+            aria-label="Classification fields"
+          >
             {kind !== "languages" && (
               <label>
                 Name
@@ -305,16 +325,66 @@ function TaxonomyEditor({
                   : "Enable language"
                 : "Save classification"}
             </button>
-            <button
-              className="secondary"
-              type="button"
-              disabled={busy}
-              onClick={() => void load()}
-            >
-              Reload saved classification
-            </button>
-          </div>
+          </fieldset>
+          <button
+            className="secondary"
+            type="button"
+            disabled={busy}
+            onClick={() => void load()}
+          >
+            Reload saved classification
+          </button>
         </DraftForm>
+      )}
+      {kind === "languages" && Boolean(record?.id) && (
+        <div>
+          <p>
+            {record?.fields.is_enabled
+              ? "Disabling removes this language from new selection lists. Existing language records, questions and translations are retained."
+              : "This language is disabled. Use Enable language from the classification list to enable it again."}
+          </p>
+          {record?.fields.is_enabled && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={
+                busy || Boolean(request) || Object.keys(changes).length > 0
+              }
+              onClick={async () => {
+                if (!record) return;
+                const body = pendingDisable ?? {
+                  fields: {},
+                  revision: record.revision,
+                  request_id: crypto.randomUUID(),
+                };
+                setPendingDisable(body);
+                setBusy(true);
+                setError("");
+                setNotice("");
+                try {
+                  const saved = await api<RecordData>(
+                    `${base}/${record.id}/disable`,
+                    "POST",
+                    body,
+                  );
+                  setRecord(saved);
+                  setPendingDisable(null);
+                  setNotice("Language disabled. Existing content is retained.");
+                } catch (e) {
+                  setError(
+                    e instanceof Error
+                      ? e.message
+                      : "Unable to disable language. Retry or reload its saved state.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {pendingDisable ? "Retry disabling language" : "Disable language"}
+            </button>
+          )}
+        </div>
       )}
     </section>
   );

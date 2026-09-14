@@ -3,6 +3,7 @@ require '/home/examelite/public_html/vendor/autoload.php';
 $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
+if(!class_exists(\App\Http\Controllers\LanguageController::class)||!\Illuminate\Support\Facades\Schema::hasColumns('languages',['organization_id','source_language_id','name','code','value1','value2','is_enabled']))throw new RuntimeException('Native language management requires the current ExamElite language controller and schema.');
 foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_workspace_tickets','tech4learn_workspace_copies','tech4learn_content_transfers','tech4learn_authoring_requests','tech4learn_attempt_requests','tech4learn_attempt_clocks','tech4learn_proctor_evidence'] as $table) {
     if(!\Illuminate\Support\Facades\Schema::hasTable($table))throw new RuntimeException('Workspace migration is incomplete.');
 }
@@ -32,6 +33,7 @@ foreach([
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1/image','Tech4LearnAuthoringController@questionImageWrite'],
  ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1/media/'.str_repeat('a',64),'Tech4LearnAuthoringController@questionMedia'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/taxonomy/subjects/new','Tech4LearnAuthoringController@saveTaxonomy'],
+ ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/taxonomy/languages/1/disable','Tech4LearnAuthoringController@disableLanguage'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1','Tech4LearnAuthoringController@save'],
 ] as [$method,$path,$expected]) {
     $request=\Illuminate\Http\Request::create('https://examelite.com/'.$path,$method);

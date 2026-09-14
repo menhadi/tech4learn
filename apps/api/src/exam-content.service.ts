@@ -559,9 +559,12 @@ export class ExamContentService {
   ) {
     const imageAction =
       kind === "questions" && action === "set-image" && id !== "new";
+    const languageDisable =
+      kind === "languages" && action === "disable-language" && id !== "new";
     if (
       action &&
       !imageAction &&
+      !languageDisable &&
       (kind !== "exams" ||
         id === "new" ||
         ![
@@ -600,6 +603,14 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid question changes.");
+    if (
+      languageDisable &&
+      (Object.keys(b.fields as object).length ||
+        Object.keys(b).some(
+          (key) => !["fields", "revision", "request_id"].includes(key),
+        ))
+    )
+      throw new BadRequestException("Invalid language disable request.");
     if (imageAction) {
       const fields = b.fields as Record<string, unknown>;
       if (
@@ -642,11 +653,13 @@ export class ExamContentService {
       org,
       imageAction
         ? `authoring/${org}/questions/${id}/image`
-        : action
-          ? `authoring/${org}/exams/${id}/actions/${action}`
-          : kind === "questions"
-            ? `authoring/${org}/questions${id === "new" ? "" : "/" + id}`
-            : `authoring/${org}/taxonomy/${kind}/${id}`,
+        : languageDisable
+          ? `authoring/${org}/taxonomy/languages/${id}/disable`
+          : action
+            ? `authoring/${org}/exams/${id}/actions/${action}`
+            : kind === "questions"
+              ? `authoring/${org}/questions${id === "new" ? "" : "/" + id}`
+              : `authoring/${org}/taxonomy/${kind}/${id}`,
       {
         fields: b.fields,
         revision: b.revision,
@@ -654,7 +667,8 @@ export class ExamContentService {
         actor_id: user.id,
       },
     );
-    if (imageAction) await this.questionAccess(user, org, id, feature);
+    if (imageAction || languageDisable)
+      await this.questionAccess(user, org, id, feature);
     if (response.conflict === true)
       throw new ConflictException(
         "Question changed. Reload it before saving again.",
@@ -669,6 +683,16 @@ export class ExamContentService {
         messages.join(" ") || "ExamElite could not save this question.",
       );
     }
+    if (
+      languageDisable &&
+      (response.question?.id !== Number(id) ||
+        response.question?.fields?.is_enabled !== false ||
+        typeof response.question?.revision !== "string" ||
+        !/^[a-f0-9]{64}$/.test(response.question.revision))
+    )
+      throw new ServiceUnavailableException(
+        "Unable to verify the language state. Reload before continuing.",
+      );
     await this.access.audit(
       this.db,
       user,

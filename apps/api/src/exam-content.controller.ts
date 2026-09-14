@@ -226,6 +226,22 @@ export class ExamContentController {
       kind,
     );
   }
+  @Post("organisations/:org/exam-content/taxonomy/languages/:id/disable")
+  async disableLanguage(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.saveQuestion(
+      await this.identity.account(session(cookie)),
+      org,
+      id,
+      body ?? {},
+      "languages",
+      "disable-language",
+    );
+  }
 
   @Get("organisations/:org/exam-content/choices/:kind")
   async questionChoices(

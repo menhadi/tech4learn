@@ -99,7 +99,9 @@ final class Tech4LearnQuestionAuthoring
         [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
         abort_unless($id>=0,422);
         $imageAction=$kind==='questions'&&$action==='set-image'&&$id>0;
-        if($imageAction)$allowedFields=['field','image','asset','remove'];
+        $languageDisable=$kind==='languages'&&$action==='disable-language'&&$id>0;
+        if($languageDisable)$allowedFields=[];
+        elseif($imageAction)$allowedFields=['field','image','asset','remove'];
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
@@ -206,6 +208,10 @@ final class Tech4LearnQuestionAuthoring
                 unset($arguments[$parameter]);$arguments['id']=$question->id;
             }
             if($action==='set-status'&&$question->status===$fields['status'])return $this->record($kind,$question);
+            if($action==='disable-language'){
+                if(!(bool)$question->is_enabled)return $this->record($kind,$question);
+                $methods[$action]='destroy';unset($arguments[$parameter]);$arguments['id']=$question->id;
+            }
             $method=$action!==null?$methods[$action]:($question?'update':($kind==='subcategories'?'storeSubcategory':'store'));
             $response=$app->call([$controller,$method],$arguments);
             if($session->has('errors'))throw ValidationException::withMessages($session->get('errors')->getBag('default')->messages());

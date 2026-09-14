@@ -170,7 +170,12 @@ try{$service->save($workspace,20,$actor,0,['master_language_id'=>$foreignLanguag
 $GLOBALS['t4lTestPlatformAdmin']=true;
 try{$service->save($workspace,20,$actor,$enabled['id'],['value1'=>'Wrong context'],$languageLabels['revision'],'language-platform-context','languages');throw new RuntimeException('Expected platform context rejection');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===403,'Native platform context cannot edit through organisation adapter');}
 $GLOBALS['t4lTestPlatformAdmin']=false;
-DB::table('languages')->where('id',$enabled['id'])->update(['is_enabled'=>false]);
+$disabled=$service->save($workspace,20,$actor,$enabled['id'],[],$languageLabels['revision'],'language-disable','languages','disable-language');
+check($disabled['fields']['is_enabled']===false&&App\Models\Language::find($enabled['id'])&&$master->fresh()->is_enabled,'Native language disable retains local and central records');
+check($service->save($workspace,20,$actor,$enabled['id'],[],$languageLabels['revision'],'language-disable','languages','disable-language')===$disabled,'Disable retry preserves its original outcome');
+check($service->save($workspace,20,$actor,$enabled['id'],[],$disabled['revision'],'language-already-disabled','languages','disable-language')===$disabled,'Already disabled state is idempotent');
+try{$service->save($workspace,20,$actor,$master->id,[],$disabled['revision'],'language-disable-master','languages','disable-language');throw new RuntimeException('Expected central language disable denial');}catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
+try{$service->save($workspace,20,$actor,$enabled['id'],['value1'=>'Unrelated'],$disabled['revision'],'language-disable-fields','languages','disable-language');throw new RuntimeException('Expected empty disable payload');}catch(Illuminate\Validation\ValidationException $e){}
 $reenabled=$service->save($workspace,20,$actor,0,['master_language_id'=>$master->id],'new','language-reenable','languages');
 check($reenabled['id']===$enabled['id']&&App\Models\Language::count()===$languageCount+1&&$reenabled['fields']['is_enabled']===true,'Native reenable preserves language identity');
 require __DIR__.'/Tech4LearnPlatformController.php';require __DIR__.'/Tech4LearnAuthoringController.php';
