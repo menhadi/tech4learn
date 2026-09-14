@@ -127,4 +127,12 @@ An owned exam's paper controls expose Publish student results and Hide student r
 
 The submitted student screen has a read-only Refresh result action bound to the grant and submitted attempt. It returns the current native publication state without creating an attempt or invoking grading. Active attempts reject this read, and cross-paper or cross-student IDs remain inaccessible. A published result can therefore appear after staff release it while the completed screen is open. Persistent student history/navigation after a full page restart remains unfinished.
 
-Native tests cover hiding, publishing, repeated requested state, request replay and a read that cannot submit or grade. HTTP tests cover the publication route, actor scope and wrong/incomplete result responses. Synthetic browser checks cover lost-response publication retry and a student refresh that makes no start request. Manual marking remains outstanding.
+Native tests cover hiding, publishing, repeated requested state, request replay and a read that cannot submit or grade. HTTP tests cover the publication route, actor scope and wrong/incomplete result responses. Synthetic browser checks cover lost-response publication retry and a student refresh that makes no start request. The manual-marking interface remains outstanding.
+
+## Manual-marking adapter foundation (not exposed yet)
+
+`Tech4LearnResultMarking` calls ExamElite's existing `ResultController::saveEvaluation`; it does not implement a second grading calculation. It requires the organisation's active mapped staff membership, a mapped learner, an owned paper and a submitted attempt. Results restrictions apply before reading or replaying a save. Every pending answer must be marked together, with finite numeric marks from zero through the native stored maximum. A revision covers the attempt, pending answers and pass threshold. The existing authoring request ledger handles lost-response retries without applying marks twice.
+
+Isolated native-controller tests cover invalid/partial marks, foreign scope, inactive staff, active attempts, stale revisions, scoped report-cache invalidation and exact retry. An injected native failure verifies rollback and restoration of the request/authentication context. Run `test-result-marking.php` with the same vendor/model/controller fixture arguments as the native student tests; the fixture directory additionally needs the read-only native `ResultController.php`.
+
+This service is not yet installed or routed. Staff result listing, HTTP permission/response checks, audited saves, the shared marking form and rich question/answer media presentation must be completed before claiming manual marking is available to an organisation.
