@@ -7,6 +7,7 @@ import {
   type QuestionChoice,
 } from "./QuestionChoiceField";
 const labels = {
+  languages: "Languages",
   categories: "Categories",
   subcategories: "Subcategories",
   groups: "Exam groups",
@@ -68,7 +69,11 @@ function TaxonomyEditor({
   return (
     <section className="panel">
       <h3>
-        {record?.id ? "Edit" : "Create"} {labels[kind].toLowerCase()}
+        {kind === "languages"
+          ? record?.id
+            ? "Edit language labels"
+            : "Enable language"
+          : `${record?.id ? "Edit" : "Create"} ${labels[kind].toLowerCase()}`}
       </h3>
       <button className="secondary" disabled={busy} onClick={onClose}>
         Back to classification
@@ -128,39 +133,82 @@ function TaxonomyEditor({
           }}
         >
           <div data-no-draft="true">
-            <label>
-              Name
-              <input
-                required
-                maxLength={kind === "sections" ? 191 : 255}
-                value={values[name] ?? ""}
-                disabled={busy}
-                onChange={(e) => set(name, e.target.value)}
-              />
-            </label>
-            {kind !== "groups" && kind !== "subcategories" && (
+            {kind !== "languages" && (
+              <label>
+                Name
+                <input
+                  required
+                  maxLength={kind === "sections" ? 191 : 255}
+                  value={values[name] ?? ""}
+                  disabled={busy}
+                  onChange={(e) => set(name, e.target.value)}
+                />
+              </label>
+            )}
+            {kind === "languages" && !record.id && (
               <QuestionChoiceField
                 org={org}
-                kind="groups"
-                label="Exam group"
-                required={kind !== "categories"}
-                multiple={["subjects", "sections", "categories"].includes(kind)}
-                value={
-                  ["subjects", "sections", "categories"].includes(kind)
-                    ? (values.group_ids ?? [])
-                    : (values.group_id ?? null)
-                }
+                kind="platform-languages"
+                label="Central language to enable"
+                required
+                value={values.master_language_id ?? null}
                 disabled={busy}
-                onChange={(v) =>
-                  set(
-                    ["subjects", "sections", "categories"].includes(kind)
-                      ? "group_ids"
-                      : "group_id",
-                    v,
-                  )
-                }
+                onChange={(v) => set("master_language_id", v)}
               />
             )}
+            {kind === "languages" && Boolean(record.id) && (
+              <>
+                <p>
+                  {values.name} ({values.code})
+                </p>
+                {[
+                  ["value1", "True label"],
+                  ["value2", "False label"],
+                ].map(([key, label]) => (
+                  <label key={key}>
+                    {label}
+                    <input
+                      value={values[key] ?? ""}
+                      disabled={busy}
+                      onChange={(e) => set(key, e.target.value)}
+                    />
+                  </label>
+                ))}
+              </>
+            )}
+            {kind === "languages" && (
+              <p>
+                Language names and codes are managed centrally. Enabling a
+                language preserves its existing questions and translations.
+              </p>
+            )}
+            {kind !== "groups" &&
+              kind !== "subcategories" &&
+              kind !== "languages" && (
+                <QuestionChoiceField
+                  org={org}
+                  kind="groups"
+                  label="Exam group"
+                  required={kind !== "categories"}
+                  multiple={["subjects", "sections", "categories"].includes(
+                    kind,
+                  )}
+                  value={
+                    ["subjects", "sections", "categories"].includes(kind)
+                      ? (values.group_ids ?? [])
+                      : (values.group_id ?? null)
+                  }
+                  disabled={busy}
+                  onChange={(v) =>
+                    set(
+                      ["subjects", "sections", "categories"].includes(kind)
+                        ? "group_ids"
+                        : "group_id",
+                      v,
+                    )
+                  }
+                />
+              )}
             {["topics", "subtopics"].includes(kind) && (
               <QuestionChoiceField
                 org={org}
@@ -183,7 +231,7 @@ function TaxonomyEditor({
                 onChange={(v) => set("topic_id", v)}
               />
             )}
-            {kind !== "subjects" && (
+            {kind !== "subjects" && kind !== "languages" && (
               <label>
                 Display order
                 <input
@@ -251,7 +299,11 @@ function TaxonomyEditor({
             <button
               disabled={busy || (record.id > 0 && !Object.keys(changes).length)}
             >
-              Save classification
+              {kind === "languages"
+                ? record.id
+                  ? "Save language labels"
+                  : "Enable language"
+                : "Save classification"}
             </button>
             <button
               className="secondary"
@@ -334,7 +386,9 @@ export function ExamTaxonomy({ org }: { org: string }) {
         </select>
       </label>
       <button disabled={busy} onClick={() => setEditing("new")}>
-        Create {labels[kind].toLowerCase()}
+        {kind === "languages"
+          ? "Enable language"
+          : `Create ${labels[kind].toLowerCase()}`}
       </button>
       <form
         onSubmit={(e) => {

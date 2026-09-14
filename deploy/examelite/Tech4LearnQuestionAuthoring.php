@@ -41,6 +41,7 @@ final class Tech4LearnQuestionAuthoring
             $definition[2][]='parent_id';return $definition;
         }
         $definitions=[
+          'languages'=>[\App\Models\Language::class,\App\Http\Controllers\LanguageController::class,['master_language_id','value1','value2'],'language'],
           'categories'=>[\App\Models\Category::class,\App\Http\Controllers\CategoryController::class,['title','description','status','display_order','group_ids','group_orders','show_in_header','header_display_order','meta_title','meta_description','meta_keywords','canonical_url','og_title','og_description','og_image','robots_meta','seo_schema'],'category'],
           'exams'=>[\App\Models\Exam::class,\App\Http\Controllers\ExamController::class,self::EXAM_FIELDS,'exam'],
           'questions'=>[Question::class,QuestionController::class,self::FIELDS,'question'],
@@ -62,6 +63,7 @@ final class Tech4LearnQuestionAuthoring
     public function record(string $kind,\Illuminate\Database\Eloquent\Model $model):array {
         if($kind==='questions')return $this->snapshot($model);
         $fields=$model->only(array_values(array_intersect($this->definition($kind)[2],array_keys($model->getAttributes()))));
+        if($kind==='languages')$fields=array_merge($fields,['name'=>$model->name,'code'=>$model->code,'is_enabled'=>(bool)$model->is_enabled]);
         if($kind==='categories'){
             $groups=$model->groups()->orderBy('groups.id')->get();
             $fields['group_ids']=$groups->map(fn($g)=>(int)$g->id)->all();
@@ -101,6 +103,10 @@ final class Tech4LearnQuestionAuthoring
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
+        if($kind==='languages'){
+            if(!$id)abort_unless(array_keys($fields)===['master_language_id']&&is_int($fields['master_language_id'])&&$fields['master_language_id']>0,422);
+            else abort_unless(!array_key_exists('master_language_id',$fields),422);
+        }
         if(strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?750000:250000))throw ValidationException::withMessages(['fields'=>'Question is too large.']);
         if($kind==='questions')foreach(['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'] as $key){
             if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
@@ -111,6 +117,7 @@ final class Tech4LearnQuestionAuthoring
         try{return DB::transaction(function()use($workspace,$tenant,$actor,$id,$fields,$revision,$requestId,$fingerprint,$kind,$action,$imageAction,&$storedImage){
             $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->lockForUpdate()->first();
             abort_unless($w && (int)$w->organization_id===$tenant,403);
+            if($kind==='languages'&&!$id)\App\Models\Language::where('organization_id',$w->source_organization_id)->findOrFail($fields['master_language_id']);
             abort_unless(!in_array($this->feature($kind),json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
             Organization::where('status','active')->findOrFail($tenant);
             $nativeId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$actor)->where('kind','staff')->value('external_id');
@@ -189,6 +196,7 @@ final class Tech4LearnQuestionAuthoring
         }
         try {
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
+            if($kind==='languages')abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
             $controller=app($controllerClass);
             $arguments=['request'=>$request];if($question)$arguments[$parameter]=$question;
             $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','set-status'=>'toggleStatus','set-result-status'=>'toggleResultStatus'];
@@ -203,7 +211,10 @@ final class Tech4LearnQuestionAuthoring
             if($session->has('errors'))throw ValidationException::withMessages($session->get('errors')->getBag('default')->messages());
             $jsonSuccess=$action!==null&&$response instanceof \Illuminate\Http\JsonResponse&&$response->getStatusCode()<300&&($response->getData(true)['success']??false)===true;
             if((!$session->has('success')&&!$jsonSuccess) || $session->has('error'))throw ValidationException::withMessages(['question'=>'ExamElite could not save this question. Check its fields and related records.']);
-            if(!$question){abort_unless(count($created)===1,500,'Native create did not return one question.');$question=$created[0];}
+            if(!$question){
+                if($kind==='languages')$question=$this->owned($kind,$tenant)->where('source_language_id',$fields['master_language_id'])->sole();
+                else {abort_unless(count($created)===1,500,'Native create did not return one question.');$question=$created[0];}
+            }
             return $this->record($kind,$this->owned($kind,$tenant)->findOrFail($question->id));
         }finally{
             if(!$originalDispatcher)Question::unsetEventDispatcher();else Question::setEventDispatcher($originalDispatcher);

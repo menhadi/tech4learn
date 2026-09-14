@@ -17,7 +17,7 @@ if(!function_exists('subcategories_enabled')){function subcategories_enabled(){r
 DB::statement('CREATE TABLE packages(id INTEGER PRIMARY KEY,organization_id INTEGER,name TEXT,category_level_1 INTEGER,category_level_2 INTEGER)');
 DB::statement('CREATE TABLE exam_packages(id INTEGER PRIMARY KEY,exam_id INTEGER,package_id INTEGER,display_order INTEGER,created_at TEXT,updated_at TEXT)');
 DB::statement('CREATE TABLE package_groups(id INTEGER PRIMARY KEY,package_id INTEGER,group_id INTEGER,created_at TEXT,updated_at TEXT)');
-DB::statement('ALTER TABLE languages ADD COLUMN is_enabled INTEGER DEFAULT 1');
+if(!DB::getSchemaBuilder()->hasColumn('languages','is_enabled'))DB::statement('ALTER TABLE languages ADD COLUMN is_enabled INTEGER DEFAULT 1');
 $columns=DB::getSchemaBuilder()->getColumnListing('exams');
 foreach(array_unique(array_merge(App\Services\Tech4LearnQuestionAuthoring::EXAM_FIELDS,['multi_language','status','slug'])) as $field){
  if(in_array($field,['groups','packages','language_ids','use_group_timer'],true)||in_array($field,$columns,true))continue;

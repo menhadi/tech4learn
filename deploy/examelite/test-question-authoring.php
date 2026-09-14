@@ -8,14 +8,14 @@ namespace App\Support {
   public static function id(){return self::$tenant??self::resolve()->id;}
   public static function hostId($host){return self::resolve($host)->id;}
  }
- class SaasAccess {public static function abortIfLimitReached($feature):void{}}
+ class SaasAccess {public static function abortIfLimitReached($feature):void{} public static function organization(){return \App\Models\Organization::find(Tenant::id());} public static function isPlatformAdmin():bool{return $GLOBALS['t4lTestPlatformAdmin']??false;}}
 }
 namespace {
 // The native controller consults this organisation configuration helper.
 if(!function_exists('subcategories_enabled')){function subcategories_enabled():bool{return $GLOBALS['t4lTestSubcategoriesEnabled']??true;}}
 if(isset($argv[3])){ $taxonomy=dirname($argv[3]).'/CurriculumTaxonomyService.php'; if(is_file($taxonomy))require $taxonomy; }
 require __DIR__.'/test-content-copies.php';
-if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController','CategoryController'] as $controller){$path=dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
+if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController','CategoryController','LanguageController'] as $controller){$path=dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
 require __DIR__.'/Tech4LearnQuestionAuthoring.php';
 require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 require_once __DIR__.'/Tech4LearnQuestionImageUpload.php';
@@ -152,6 +152,27 @@ try{$service->save($workspace,20,$actor,0,$subFields,'new','subcategory-disabled
 check(DB::table('tech4learn_authoring_requests')->count()===$beforeSubRequests,'Disabled subcategory leaves no request entry');$GLOBALS['t4lTestSubcategoriesEnabled']=true;
 $corruptChild=App\Models\Category::create(['organization_id'=>20,'title'=>'Foreign parent child','parent_id'=>$foreignCategory->id]);
 check(!$service->owned('subcategories',20)->whereKey($corruptChild->id)->exists(),'Subcategory with foreign parent cannot be edited');
+DB::statement('ALTER TABLE organizations ADD COLUMN slug TEXT');
+DB::table('organizations')->insert(['id'=>10,'domain'=>'central.example.test','slug'=>'examelite','status'=>'active']);
+DB::statement('ALTER TABLE languages ADD COLUMN is_enabled INTEGER DEFAULT 1');
+foreach(['value1','value2'] as $field)DB::statement('ALTER TABLE languages ADD COLUMN '.$field.' TEXT');
+$routes->add((new Illuminate\Routing\Route(['GET'],'languages',fn()=>null))->name('languages.index'));
+$master=App\Models\Language::create(['organization_id'=>10,'name'=>'Synthetic language','code'=>'synthetic','value1'=>'True','value2'=>'False','is_enabled'=>true]);
+$enabled=$service->save($workspace,20,$actor,0,['master_language_id'=>$master->id],'new','language-enable','languages');
+check($enabled['fields']['code']==='synthetic'&&$enabled['fields']['is_enabled']===true,'Native central language enabled in organisation');
+$languageCount=App\Models\Language::count();
+check($service->save($workspace,20,$actor,0,['master_language_id'=>$master->id],'new','language-enable','languages')===$enabled&&App\Models\Language::count()===$languageCount,'Language enable replay does not duplicate');
+$languageLabels=$service->save($workspace,20,$actor,$enabled['id'],['value1'=>'Correct','value2'=>'Incorrect'],$enabled['revision'],'language-labels','languages');
+check($languageLabels['fields']['value1']==='Correct'&&$master->fresh()->value1==='True','Native language labels remain organisation-owned');
+try{$service->save($workspace,20,$actor,$enabled['id'],['code'=>'changed'],$languageLabels['revision'],'language-code','languages');throw new RuntimeException('Expected central code protection');}catch(Illuminate\Validation\ValidationException $e){}
+$foreignLanguage=App\Models\Language::create(['organization_id'=>30,'name'=>'Foreign language','code'=>'foreign']);
+try{$service->save($workspace,20,$actor,0,['master_language_id'=>$foreignLanguage->id],'new','language-foreign','languages');throw new RuntimeException('Expected foreign language protection');}catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
+$GLOBALS['t4lTestPlatformAdmin']=true;
+try{$service->save($workspace,20,$actor,$enabled['id'],['value1'=>'Wrong context'],$languageLabels['revision'],'language-platform-context','languages');throw new RuntimeException('Expected platform context rejection');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===403,'Native platform context cannot edit through organisation adapter');}
+$GLOBALS['t4lTestPlatformAdmin']=false;
+DB::table('languages')->where('id',$enabled['id'])->update(['is_enabled'=>false]);
+$reenabled=$service->save($workspace,20,$actor,0,['master_language_id'=>$master->id],'new','language-reenable','languages');
+check($reenabled['id']===$enabled['id']&&App\Models\Language::count()===$languageCount+1&&$reenabled['fields']['is_enabled']===true,'Native reenable preserves language identity');
 require __DIR__.'/Tech4LearnPlatformController.php';require __DIR__.'/Tech4LearnAuthoringController.php';
 $controller=new class extends App\Http\Controllers\Tech4LearnAuthoringController {
  protected function configuration(Request $r):array{return ['_platform'=>['organization_id'=>10]];}
@@ -160,6 +181,8 @@ $controller=new class extends App\Http\Controllers\Tech4LearnAuthoringController
 require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 $imageSource='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
 $categoryChoices=$controller->choices(Request::create('/','GET'),$workspace,'categories');
+$platformLanguages=$controller->choices(Request::create('/','GET'),$workspace,'platform-languages');
+check(!in_array($master->id,array_column($platformLanguages['items'],'id'),true)&&!in_array($foreignLanguage->id,array_column($platformLanguages['items'],'id'),true),'Language enable choices exclude enabled and foreign languages');
 check(in_array($category['id'],array_column($categoryChoices['items'],'id'),true)&&!in_array($foreignCategory->id,array_column($categoryChoices['items'],'id'),true)&&!in_array($childCategory->id,array_column($categoryChoices['items'],'id'),true),'Category choices exclude foreign and child records');
 $subChoices=$controller->choices(Request::create('/','GET'),$workspace,'subcategories');
 check(in_array($subcategory['id'],array_column($subChoices['items'],'id'),true)&&!in_array($category['id'],array_column($subChoices['items'],'id'),true)&&!in_array($corruptChild->id,array_column($subChoices['items'],'id'),true),'Subcategory choices exclude parents and foreign parent references');

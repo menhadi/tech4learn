@@ -27,13 +27,15 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         $definitions=[
             'categories'=>['category','title'],
             'subcategories'=>['category','title'],
+            'platform-languages'=>['languages','name'],
             'exams'=>['exams','name'], 'packages'=>['packages','name'], 'groups'=>['groups','group_name'], 'subjects'=>['subjects','subject_name'],
             'sections'=>['question_sections','name'], 'topics'=>['topics','name'],
             'subtopics'=>['stopics','name'], 'languages'=>['languages','name'],
             'types'=>['qtypes','question_type'], 'difficulties'=>['diffs','diff_level'],
         ];
         abort_unless(isset($definitions[$kind]),404);[$table,$label]=$definitions[$kind];
-        if($kind==='languages')$query=\App\Models\Language::enabledForOrganization($owner)->toBase();
+        if($kind==='platform-languages')$query=DB::table('languages')->where('organization_id',$central)->whereNotExists(fn($q)=>$q->selectRaw('1')->from('languages as enabled')->whereColumn('enabled.code','languages.code')->where('enabled.organization_id',$owner)->where('enabled.is_enabled',true));
+        elseif($kind==='languages')$query=\App\Models\Language::enabledForOrganization($owner)->toBase();
         else {
             $query=DB::table($table);
             if($kind==='categories')$query->whereNull('parent_id');

@@ -456,6 +456,7 @@ export class ExamContentService {
         "topics",
         "subtopics",
         "languages",
+        "platform-languages",
         "types",
         "difficulties",
       ].includes(kind) ||
@@ -515,6 +516,7 @@ export class ExamContentService {
     if (
       ![
         "exams",
+        "languages",
         "categories",
         "subcategories",
         "groups",

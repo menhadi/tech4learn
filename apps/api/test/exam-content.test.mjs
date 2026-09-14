@@ -360,6 +360,45 @@ test("central question sharing requires superadmin; organisation reads respect m
       400,
     );
     const taxonomy = `/organisations/${org}/exam-content/taxonomy/subjects`;
+    const languages = `/organisations/${org}/exam-content/taxonomy/languages`;
+    assert.equal(
+      (await call(languages + "/new", undefined, member)).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call(
+          languages + "/new",
+          { ...create, fields: { master_language_id: 3 } },
+          member,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      requests.at(-1).path,
+      `authoring/${org}/taxonomy/languages/new`,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${other}/exam-content/taxonomy/languages/new`,
+          create,
+          member,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/choices/platform-languages`,
+          undefined,
+          member,
+        )
+      ).status,
+      200,
+    );
     const categories = `/organisations/${org}/exam-content/taxonomy/categories`;
     const subcategories = `/organisations/${org}/exam-content/taxonomy/subcategories`;
     assert.equal(
@@ -938,6 +977,7 @@ test("central question sharing requires superadmin; organisation reads respect m
       403,
     );
     assert.equal((await call(taxonomy + "/new", create, member)).status, 403);
+    assert.equal((await call(languages + "/new", create, member)).status, 403);
     assert.equal((await call(categories + "/new", create, member)).status, 403);
     assert.equal(
       (await call(subcategories + "/new", create, member)).status,

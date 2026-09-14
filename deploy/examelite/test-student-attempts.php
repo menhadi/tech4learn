@@ -187,7 +187,7 @@ check((int)App\Models\ExamResult::find($legacyBrowser['attempt_id'])->tolerance_
 
 Carbon::setTestNow();
 require_once __DIR__.'/Tech4LearnPlatformController.php';
-DB::table('organizations')->insert(['id'=>10,'domain'=>'central.example.test','status'=>'active']);
+DB::table('organizations')->updateOrInsert(['id'=>10],['domain'=>'central.example.test','status'=>'active']);
 require __DIR__.'/Tech4LearnStudentController.php';
 $credential=bin2hex(random_bytes(32));$configurationFile=tempnam(sys_get_temp_dir(),'t4l-student-test-');
 file_put_contents($configurationFile,json_encode(['_platform'=>['enabled'=>true,'organization_id'=>10,'token_hash'=>hash('sha256',$credential)]]));
