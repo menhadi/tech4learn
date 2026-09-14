@@ -4,8 +4,9 @@ import { api, apiBase } from "./api";
 import { DraftForm } from "./DraftForm";
 import { QuestionChoiceField } from "./QuestionChoiceField";
 import { ExamRichContent } from "./ExamRichContent";
+import { QuestionImageUpload } from "./QuestionImageUpload";
 
-type Snapshot = {
+export type Snapshot = {
   id: number;
   revision: string;
   fields: Record<string, any>;
@@ -167,6 +168,7 @@ export function ExamQuestionEditor({
     [reload, setReload] = useState(0);
   const [activeId, setActiveId] = useState<number | "new">(id);
   const [selectedType, setSelectedType] = useState("");
+  const [imagePending, setImagePending] = useState(false);
   const base = `/organisations/${org}/exam-content/questions/${activeId}`;
   useEffect(() => {
     let active = true;
@@ -192,6 +194,7 @@ export function ExamQuestionEditor({
     };
   }, [base, reload]);
   const set = (key: string, value: any) => {
+    if (imagePending) return;
     setChanges((old) => ({ ...old, [key]: value }));
     setRequest(null);
     setNotice("");
@@ -202,7 +205,11 @@ export function ExamQuestionEditor({
       <h3>
         {activeId === "new" ? "Create question" : `Question #${activeId}`}
       </h3>
-      <button className="secondary" onClick={onClose} disabled={busy}>
+      <button
+        className="secondary"
+        onClick={onClose}
+        disabled={busy || imagePending}
+      >
         Back to question bank
       </button>
       {error && (
@@ -223,6 +230,7 @@ export function ExamQuestionEditor({
             request,
           }}
           restoreState={(s) => {
+            if (imagePending) return;
             if (
               s?.revision === record.revision &&
               s.changes &&
@@ -243,6 +251,7 @@ export function ExamQuestionEditor({
           }}
           onSubmit={async (e) => {
             e.preventDefault();
+            if (imagePending) return;
             const requestId = request ?? crypto.randomUUID();
             setRequest(requestId);
             setBusy(true);
@@ -280,7 +289,7 @@ export function ExamQuestionEditor({
               label="Question type"
               value={values.qtype_id ?? null}
               required
-              disabled={busy}
+              disabled={busy || imagePending}
               onChange={(v, option) => {
                 set("qtype_id", v);
                 setSelectedType(option?.type ?? "");
@@ -296,7 +305,7 @@ export function ExamQuestionEditor({
               multiple
               required
               value={values.group_ids ?? []}
-              disabled={busy}
+              disabled={busy || imagePending}
               onChange={(v) => set("group_ids", v)}
             />
             <QuestionChoiceField
@@ -305,7 +314,7 @@ export function ExamQuestionEditor({
               label="Language"
               required
               value={values.language_id ?? null}
-              disabled={busy}
+              disabled={busy || imagePending}
               onChange={(v) => set("language_id", v)}
             />
             {(
@@ -323,7 +332,7 @@ export function ExamQuestionEditor({
                 kind={kind}
                 label={label}
                 value={values[key] ?? null}
-                disabled={busy}
+                disabled={busy || imagePending}
                 onChange={(v) => set(key, v)}
               />
             ))}
@@ -337,7 +346,7 @@ export function ExamQuestionEditor({
             previewValue={record?.preview_fields?.question}
             mediaBase={`${apiBase}${base}/media`}
             value={String(values.question ?? "")}
-            disabled={busy}
+            disabled={busy || imagePending}
             onChange={(v) => set("question", v)}
           />
           {selectedType === "M" && (
@@ -350,14 +359,14 @@ export function ExamQuestionEditor({
                     previewValue={record?.preview_fields?.["option" + n]}
                     mediaBase={`${apiBase}${base}/media`}
                     value={String(values["option" + n] ?? "")}
-                    disabled={busy}
+                    disabled={busy || imagePending}
                     onChange={(v) => set("option" + n, v)}
                   />
                   <label>
                     <input
                       type="checkbox"
                       checked={(values.correct_answers ?? []).includes(n)}
-                      disabled={busy}
+                      disabled={busy || imagePending}
                       onChange={(e) =>
                         set(
                           "correct_answers",
@@ -380,7 +389,7 @@ export function ExamQuestionEditor({
               Correct answer
               <select
                 value={values.true_false ?? ""}
-                disabled={busy}
+                disabled={busy || imagePending}
                 onChange={(e) => set("true_false", e.target.value)}
               >
                 <option value="">Choose answer</option>
@@ -396,7 +405,7 @@ export function ExamQuestionEditor({
                 Answer rule
                 <select
                   value={values.nat_mode ?? "exact"}
-                  disabled={busy}
+                  disabled={busy || imagePending}
                   onChange={(e) => set("nat_mode", e.target.value)}
                 >
                   <option value="exact">Exact value</option>
@@ -423,7 +432,7 @@ export function ExamQuestionEditor({
                     type="number"
                     step="any"
                     value={values[key] ?? ""}
-                    disabled={busy}
+                    disabled={busy || imagePending}
                     onChange={(e) =>
                       set(
                         key,
@@ -444,7 +453,7 @@ export function ExamQuestionEditor({
                     Blank {i + 1} — separate alternatives with |
                     <input
                       value={blank.accepted_answers ?? ""}
-                      disabled={busy}
+                      disabled={busy || imagePending}
                       onChange={(e) =>
                         set(
                           "fill_blank_answers",
@@ -480,7 +489,7 @@ export function ExamQuestionEditor({
               previewValue={record?.preview_fields?.si_answer1}
               mediaBase={`${apiBase}${base}/media`}
               value={String(values.si_answer1 ?? "")}
-              disabled={busy}
+              disabled={busy || imagePending}
               onChange={(v) => set("si_answer1", v)}
             />
           )}
@@ -496,7 +505,7 @@ export function ExamQuestionEditor({
                   type="number"
                   step="any"
                   value={values[key] ?? ""}
-                  disabled={busy}
+                  disabled={busy || imagePending}
                   onChange={(e) =>
                     set(
                       key,
@@ -512,7 +521,7 @@ export function ExamQuestionEditor({
             previewValue={record?.preview_fields?.hint}
             mediaBase={`${apiBase}${base}/media`}
             value={String(values.hint ?? "")}
-            disabled={busy}
+            disabled={busy || imagePending}
             onChange={(v) => set("hint", v)}
           />
           <FormattedField
@@ -520,21 +529,41 @@ export function ExamQuestionEditor({
             previewValue={record?.preview_fields?.explanation}
             mediaBase={`${apiBase}${base}/media`}
             value={String(values.explanation ?? "")}
-            disabled={busy}
+            disabled={busy || imagePending}
             onChange={(v) => set("explanation", v)}
           />
-          <button disabled={busy || Object.keys(changes).length === 0}>
+          <button
+            disabled={busy || imagePending || Object.keys(changes).length === 0}
+          >
             Save question
           </button>
           <button
             className="secondary"
             type="button"
-            disabled={busy}
+            disabled={busy || imagePending}
             onClick={() => setReload((v) => v + 1)}
           >
             Reload saved question
           </button>
         </DraftForm>
+      )}
+      {record && activeId !== "new" && (
+        <QuestionImageUpload
+          key={`${base}-${record.revision}-${reload}`}
+          base={base}
+          record={record}
+          disabled={busy || Object.keys(changes).length > 0}
+          onPending={setImagePending}
+          onSaved={(saved) => {
+            setRecord(saved);
+            setImagePending(false);
+            setNotice("Question image saved.");
+          }}
+          onReload={() => {
+            setImagePending(false);
+            setReload((value) => value + 1);
+          }}
+        />
       )}
     </section>
   );
