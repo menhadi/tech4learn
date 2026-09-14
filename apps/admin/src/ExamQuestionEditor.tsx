@@ -3,6 +3,7 @@ import DOMPurify from "dompurify";
 import { api } from "./api";
 import { DraftForm } from "./DraftForm";
 import { QuestionChoiceField } from "./QuestionChoiceField";
+import { ExamRichContent } from "./ExamRichContent";
 
 type Snapshot = {
   id: number;
@@ -23,6 +24,7 @@ export function FormattedField({
   disabled: boolean;
 }) {
   const editor = useRef<HTMLDivElement>(null);
+  const [preview, setPreview] = useState(false);
   const media = /<(?:img|svg|math|math-field)\b/i.test(value);
   const clean = DOMPurify.sanitize(value, {
     ALLOWED_TAGS: [
@@ -119,6 +121,22 @@ export function FormattedField({
         }}
         onDrop={(e) => e.preventDefault()}
       />
+      {!media && (
+        <>
+          <p>
+            Write formulas using {"\\(x^2\\)"} within text or {"\\[x^2\\]"} on a
+            separate line. Preview checks how the content will look to students.
+          </p>
+          <button type="button" onClick={() => setPreview(!preview)}>
+            {preview ? "Hide preview" : "Preview formatting"}
+          </button>
+          {preview && (
+            <section aria-label={`${label} preview`}>
+              <ExamRichContent value={clean} />
+            </section>
+          )}
+        </>
+      )}
     </fieldset>
   );
 }
