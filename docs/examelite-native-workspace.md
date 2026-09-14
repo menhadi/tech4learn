@@ -1,8 +1,8 @@
 # Native ExamElite workspace
 
-Implemented locally. Production installation and an end-to-end live exam attempt still need verification after user deployment. Assistant production access is read-only.
+Historical implementation record. The external browser workspace described below is superseded by the [same-domain integration](examelite-central-content.md). Current local code rejects its launch endpoint and old workspace-host requests, including existing sessions. Private organisation/staff provisioning remains in use, without launch tickets or automatic all-group student access. These changes still require user deployment; assistant production access is read-only.
 
-## Behaviour
+## Original behaviour (retired browser interface)
 
 Tech4Learn opens ExamElite's existing subject, topic, subtopic, section, question, exam, student and result interfaces. It does not duplicate the engine. Five capability groups (curriculum, questions, exams, taking and results) are enabled by default. Superadmin can restrict them per organisation with revision checks. Staff need organisation-wide `exams.manage`; branding access alone is insufficient.
 

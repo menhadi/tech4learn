@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ConflictException,
   ServiceUnavailableException,
+  GoneException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { Database } from "./database.js";
@@ -161,6 +162,10 @@ export class ExamWorkspaceService {
       ).rows[0];
       if (!learner) throw new NotFoundException("Student not found.");
     }
+    if (!provisionOnly)
+      throw new GoneException(
+        "External exam workspaces have been retired. Open Exams & results inside your organisation.",
+      );
     const c = await this.config();
     const response = await this.remote.request(
       c,
@@ -181,32 +186,10 @@ export class ExamWorkspaceService {
         provision_only: provisionOnly,
       },
     );
-    if (provisionOnly) {
-      if (response.ready !== true)
-        throw new ServiceUnavailableException(
-          "Exam workspace provisioning failed.",
-        );
-      return { ready: true };
-    }
-    const host = `t4l-${org.replaceAll("-", "")}.examelite.com`;
-    if (
-      response.host !== host ||
-      typeof response.ticket !== "string" ||
-      !/^[a-f0-9]{64}$/.test(response.ticket)
-    )
-      throw new ServiceUnavailableException("Invalid exam workspace response.");
-    await this.access.audit(
-      this.db,
-      user,
-      org,
-      feature === "taking"
-        ? "examelite.student.launch.issued"
-        : "examelite.staff.launch.issued",
-      { feature, learnerId: learner?.id },
-    );
-    return {
-      url: `https://${host}/tech4learn/launch#${response.ticket}`,
-      expiresIn: 120,
-    };
+    if (response.ready !== true)
+      throw new ServiceUnavailableException(
+        "Exam workspace provisioning failed.",
+      );
+    return { ready: true };
   }
 }

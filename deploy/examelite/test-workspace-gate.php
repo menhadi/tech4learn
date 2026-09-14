@@ -20,12 +20,12 @@ $db->getConnection()->getPdo()->exec("CREATE TABLE tech4learn_workspaces(id TEXT
  INSERT INTO tech4learn_workspace_users VALUES('$org','staff',11),('$org','student',12);
  INSERT INTO organization_users VALUES(1,11,1);");
 $context=new App\Http\Middleware\Tech4LearnWorkspaceContext();$gate=new App\Http\Middleware\Tech4LearnWorkspaceGate();
-$request=function($path,$session=null)use($org,$context){$r=Illuminate\Http\Request::create('https://t4l-'.str_replace('-','',$org).'.examelite.com/'.$path);$s=new Illuminate\Session\Store('test',new Illuminate\Session\ArraySessionHandler(120));if($session)$s->put('tech4learn_workspace',$session);$r->setLaravelSession($s);$context->handle($r,fn()=>null);return $r;};
+$request=function($path,$session=null)use($org){$r=Illuminate\Http\Request::create('https://t4l-'.str_replace('-','',$org).'.examelite.com/'.$path);$s=new Illuminate\Session\Store('test',new Illuminate\Session\ArraySessionHandler(120));if($session)$s->put('tech4learn_workspace',$session);$r->setLaravelSession($s);$r->attributes->set('tech4learn_workspace_id',$org);return $r;};
 $staff=['id'=>$org,'kind'=>'staff','user'=>11,'expires'=>time()+60];
 function check($value,$message){if(!$value)throw new RuntimeException($message);}
 function denied($code,$fn){try{$fn();}catch(RuntimeException $e){if($e->getCode()===$code)return;throw $e;}throw new RuntimeException('Expected denial');}
 $r=$request('questions',$staff);
-check($GLOBALS['workspace_config']['session.domain']===null&&$GLOBALS['workspace_config']['session.cookie']==='__Host-t4l_workspace'&&$GLOBALS['workspace_config']['session.secure']===true,'Host-only secure session');
+foreach(['questions','tech4learn/launch','student/dashboard','exam/1'] as $path)denied(410,fn()=>$context->handle($request($path,$staff),fn()=>throw new RuntimeException('Retired host reached downstream')));
 check($gate->handle($r,fn()=>true)===true,'Staff owned workspace');
 denied(401,fn()=>$gate->handle($request('questions'),fn()=>true));
 denied(401,fn()=>$gate->handle($request('questions',array_replace($staff,['id'=>'other'])),fn()=>true));
@@ -41,5 +41,5 @@ denied(403,fn()=>$gate->handle($request('questions/create',$student),fn()=>true)
 unset($GLOBALS['workspace_config']);$context->handle(Illuminate\Http\Request::create('https://examelite.com/'),fn()=>true);
 check(!isset($GLOBALS['workspace_config']),'Existing ExamElite session configuration unchanged');
 denied(404,fn()=>$context->handle(Illuminate\Http\Request::create('https://t4l-invalid.examelite.com/'),fn()=>true));
-echo "Workspace gate: host cookies, tenant/identity binding, expiry, restrictions and student/staff separation passed.\n";
+echo "Workspace retirement and legacy gate defence checks passed.\n";
 }

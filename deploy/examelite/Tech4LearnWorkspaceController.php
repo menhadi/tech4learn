@@ -1,6 +1,6 @@
 <?php
 namespace App\Http\Controllers;
-use App\Models\{Organization,Configuration,SaasPlan,User,Student,Group};
+use App\Models\{Organization,Configuration,SaasPlan,User,Student};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB,Hash};
 use App\Support\Tech4LearnWorkspacePolicy;
@@ -33,16 +33,16 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
     }
     public function launch(Request $r,string $org) {
         $tenant=$this->configuration($r)['_platform']['organization_id'];$this->uuid($org);
+        abort_unless($r->input('provision_only')===true,410,'External workspaces have been retired.');
         $actor=$r->input('actor_id');$this->uuid((string)$actor);
         $name=$r->input('organisation_name');$actorName=$r->input('actor_name');
         abort_unless(is_string($name)&&mb_strlen($name)<=160&&is_string($actorName)&&mb_strlen($actorName)<=160,422);
         $feature=$r->input('feature');abort_unless(in_array($feature,self::FEATURES,true),422);
         abort_unless(is_int($r->input('revision'))&&$r->input('revision')>=0,422);
-        $entry=['subjects'=>'subjects','questions'=>'questions','exams'=>'exams','results'=>'results','taking'=>'student/dashboard'][$feature];
         $learner=$r->input('learner');
         if($feature==='taking'){abort_unless(is_array($learner)&&is_string($learner['name']??null)&&mb_strlen($learner['name'])<=255,422);$this->uuid((string)($learner['id']??''));}
-        $token=bin2hex(random_bytes(32));$host='t4l-'.str_replace('-','',$org).'.examelite.com';
-        DB::transaction(function()use($r,$tenant,$org,$actor,$name,$actorName,$feature,$entry,$learner,$token,$host){
+        $host='t4l-'.str_replace('-','',$org).'.examelite.com';
+        DB::transaction(function()use($r,$tenant,$org,$actor,$name,$actorName,$feature,$learner,$host){
             DB::table('tech4learn_workspaces')->insertOrIgnore(['id'=>$org,'source_organization_id'=>$tenant,'revision'=>0,'restrictions'=>'[]']);
             $w=DB::table('tech4learn_workspaces')->where('id',$org)->lockForUpdate()->first();
             abort_unless((int)$w->source_organization_id===$tenant,409);
@@ -74,13 +74,7 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
                 DB::table('tech4learn_workspace_users')->insert(['workspace_id'=>$org,'local_id'=>$local,'kind'=>$kind,'external_id'=>$user->id]);
                 $external=$user->id;
             }else $external=$mapping->external_id;
-            if($kind==='student'){
-                // Make this organisation's published group exams visible in the existing student dashboard.
-                $student=Student::where('organization_id',$w->organization_id)->findOrFail($external);
-                $student->groups()->syncWithoutDetaching(Group::where('organization_id',$w->organization_id)->pluck('id')->all());
-            }
-            if($r->input('provision_only')!==true)DB::table('tech4learn_workspace_tickets')->insert(['hash'=>hash('sha256',$token),'workspace_id'=>$org,'kind'=>$kind,'external_id'=>$external,'name'=>$kind==='student'?$learner['name']:$actorName,'entry'=>$entry,'expires_at'=>gmdate('Y-m-d H:i:s',time()+120)]);
             DB::table('tech4learn_workspace_tickets')->where('expires_at','<',gmdate('Y-m-d H:i:s',time()-86400))->delete();
-        });return $this->reply($tenant,$r->input('provision_only')===true?['ready'=>true]:['host'=>$host,'ticket'=>$token]);
+        });return $this->reply($tenant,['ready'=>true]);
     }
 }

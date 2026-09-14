@@ -35,12 +35,14 @@ DB::table('organizations')->insert(['id'=>10,'name'=>'Master']);
 DB::table('configurations')->insert(['organization_id'=>10,'name'=>'Master','email'=>'private@example.invalid','timezone'=>'UTC']);
 $controller=new App\Http\Controllers\Tech4LearnWorkspaceController();
 $org='11111111-1111-4111-8111-111111111111';$actor='22222222-2222-4222-8222-222222222222';$learner='33333333-3333-4333-8333-333333333333';
-$payload=['actor_id'=>$actor,'actor_name'=>'Test admin','organisation_name'=>'Test organisation','feature'=>'exams','restrictions'=>[],'revision'=>0];
+$payload=['actor_id'=>$actor,'actor_name'=>'Test admin','organisation_name'=>'Test organisation','feature'=>'exams','restrictions'=>[],'revision'=>0,'provision_only'=>true];
 $request=fn($values)=>Illuminate\Http\Request::create('/','POST',$values);
 function check($ok,$message){if(!$ok)throw new RuntimeException($message);}
+try{$controller->launch($request(array_replace($payload,['provision_only'=>false])),$org);throw new RuntimeException('Expected retired launch denial');}catch(RuntimeException $e){if($e->getCode()!==410)throw $e;}
+check(DB::table('tech4learn_workspaces')->count()===0,'Retired launch has no provisioning side effects');
 $result=$controller->launch($request($payload),$org);
 $workspace=DB::table('tech4learn_workspaces')->where('id',$org)->first();
-check($workspace->organization_id!==10 && preg_match('/^[a-f0-9]{64}$/D',$result['ticket']),'Isolated tenant and one-time link');
+check($workspace->organization_id!==10 && $result===['ready'=>true] && DB::table('tech4learn_workspace_tickets')->count()===0,'Isolated tenant without browser ticket');
 $user=DB::table('users')->first();
 check(!(bool)$user->is_platform_admin && DB::table('organization_users')->value('organization_id')===$workspace->organization_id,'Native owner has no global admin privilege');
 check(DB::table('configurations')->where('organization_id',$workspace->organization_id)->value('email')===null,'Private source configuration excluded');
@@ -53,7 +55,7 @@ DB::table('groups')->insert([['organization_id'=>$workspace->organization_id,'gr
 $studentPayload=array_replace($payload,['feature'=>'taking','learner'=>['id'=>$learner,'name'=>'Sample learner']]);
 $controller->launch($request($studentPayload),$org);
 $student=DB::table('students')->first();
-check($student->organization_id===$workspace->organization_id && $student->email===null && DB::table('student_groups')->count()===1,'Minimal student identity and only own groups');
+check($student->organization_id===$workspace->organization_id && $student->email===null && DB::table('student_groups')->count()===0,'Minimal student identity without all-group access');
 $controller->restrict($request(['restrictions'=>['taking'],'revision'=>1]),$org);
 try {$controller->launch($request(array_replace($studentPayload,['restrictions'=>['taking'],'revision'=>1])),$org);throw new RuntimeException('Expected restriction');}
 catch(RuntimeException $e){if($e->getCode()!==403)throw $e;}
