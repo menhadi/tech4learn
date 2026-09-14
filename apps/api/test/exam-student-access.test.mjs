@@ -340,6 +340,52 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
       (await call(visibilityPath, visibilityBody, studentCookie)).status,
       503,
     );
+    const preparePath = root + "/student-exam/attempt/prepare";
+    engine.request = async (config, owner, path, payload) => {
+      assert.equal(owner, org);
+      assert.equal(path, `student/${org}/prepare`);
+      assert.equal(payload.learner_id, learner);
+      assert.equal(payload.exam_id, 7);
+      assert.deepEqual(Object.keys(payload.fields), ["request_id"]);
+      return { data: { exam_id: 7, proctor: true, questions: ["PRIVATE"] } };
+    };
+    assert.equal(
+      (await call(preparePath, { request_id: randomUUID() }, staff)).status,
+      401,
+    );
+    assert.equal(
+      (
+        await call(
+          preparePath,
+          { request_id: randomUUID(), exam_id: 99 },
+          studentCookie,
+        )
+      ).status,
+      400,
+    );
+    const prepared = await call(
+      preparePath,
+      { request_id: randomUUID() },
+      studentCookie,
+    );
+    assert.equal(prepared.status, 200);
+    assert.deepEqual(await prepared.json(), { exam_id: 7, proctor: true });
+    engine.request = async () => ({ data: { exam_id: 99, proctor: true } });
+    assert.equal(
+      (await call(preparePath, { request_id: randomUUID() }, studentCookie))
+        .status,
+      503,
+    );
+    assert.equal(
+      (
+        await call(
+          startPath,
+          { request_id: randomUUID(), camera_ready: "yes" },
+          studentCookie,
+        )
+      ).status,
+      400,
+    );
     const capturePath = root + "/student-exam/attempt/proctor";
     const captureBody = {
       request_id: randomUUID(),

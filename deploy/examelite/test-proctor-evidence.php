@@ -11,6 +11,15 @@ $jpeg='/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofH
 $evidence=new App\Services\Tech4LearnProctorEvidence();
 // Create the synthetic attempt before enabling the still-gated proctor mode.
 $cameraPaper=$paper->replicate();$cameraPaper->forceFill(['proctor'=>false,'timer_mode'=>'none','browser_tolerance'=>false,'name'=>'Synthetic camera paper'])->save();$cameraPaper->questions()->sync([$q->id]);
+$preflightPaper=$cameraPaper->replicate();$preflightPaper->proctor=true;$preflightPaper->save();$preflightPaper->questions()->sync([$q->id]);
+$preflightLearner='77777777-7777-7777-7777-777777777777';$beforeAttempts=App\Models\ExamResult::count();$beforeStudents=App\Models\Student::count();
+$setup=$lifecycle->run($workspace,10,$preflightLearner,'Synthetic preview candidate',$preflightPaper->id,'prepare',['request_id'=>$next()]);
+check($setup===['exam_id'=>$preflightPaper->id,'proctor'=>true],'Preflight reports camera requirement only');
+check(App\Models\ExamResult::count()===$beforeAttempts&&App\Models\Student::count()===$beforeStudents,'Preflight creates neither identity nor attempt');
+rejectAnswer(fn()=>$lifecycle->run($workspace,10,$preflightLearner,'Synthetic preview candidate',$preflightPaper->id,'start',['request_id'=>$next()]),'New camera attempt requires readiness acknowledgement');
+check(App\Models\ExamResult::count()===$beforeAttempts&&App\Models\Student::count()===$beforeStudents,'Missing camera readiness rolls back identity and attempt');
+$readyAttempt=$lifecycle->run($workspace,10,$preflightLearner,'Synthetic preview candidate',$preflightPaper->id,'start',['request_id'=>$next(),'camera_ready'=>true]);
+check($readyAttempt['settings']['proctor']&&App\Models\ExamResult::count()===$beforeAttempts+1,'Camera-ready start uses native attempt engine');
 $cameraLearner='eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 $cameraAttempt=$lifecycle->run($workspace,10,$cameraLearner,'Synthetic camera candidate',$cameraPaper->id,'start',['request_id'=>$next()]);
 $cameraId=$cameraAttempt['attempt_id'];$captureId=$next();

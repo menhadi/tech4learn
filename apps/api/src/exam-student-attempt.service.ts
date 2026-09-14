@@ -95,7 +95,8 @@ export class ExamStudentAttemptService {
   ) {
     const context = await this.access.context(org, cookie);
     const allowed: Record<string, string[]> = {
-      start: ["request_id", "language_id"],
+      prepare: ["request_id"],
+      start: ["request_id", "language_id", "camera_ready"],
       answer: ["request_id", "attempt_id", "question_id", "fields", "revision"],
       submit: ["request_id", "attempt_id"],
       visibility: ["request_id", "attempt_id", "event"],
@@ -115,7 +116,7 @@ export class ExamStudentAttemptService {
     const id = (value: unknown) =>
       typeof value === "number" && Number.isSafeInteger(value) && value > 0;
     if (
-      (action !== "start" && !id(body.attempt_id)) ||
+      (!["start", "prepare"].includes(action) && !id(body.attempt_id)) ||
       (body.language_id !== undefined && !id(body.language_id))
     )
       throw new BadRequestException("Invalid exam request.");
@@ -138,6 +139,11 @@ export class ExamStudentAttemptService {
         !/^[a-zA-Z0-9+/]*={0,2}$/.test(body.image))
     )
       throw new BadRequestException("Invalid camera capture.");
+    if (
+      body.camera_ready !== undefined &&
+      typeof body.camera_ready !== "boolean"
+    )
+      throw new BadRequestException("Invalid camera readiness.");
     await this.identity.limit(`exam-attempt:${context.grant_id}`, 120, 60);
     const config = await this.remote.configuration("_platform");
     if (!config?.central)
@@ -168,6 +174,8 @@ export class ExamStudentAttemptService {
           "This paper requires exam controls that are still being integrated. Ask exam staff for a supported paper.",
         duration_changed:
           "The paper duration changed after you started. Ask exam staff to restore it before resuming.",
+        camera_required:
+          "Check camera access before starting or resuming this exam.",
         capture_interval: "Please wait before sending the next camera capture.",
         capture_limit:
           "The capture limit for this attempt has been reached. Contact exam staff.",
@@ -198,6 +206,15 @@ export class ExamStudentAttemptService {
       );
     }
     const data = response.data;
+    if (action === "prepare") {
+      if (
+        !data ||
+        data.exam_id !== Number(context.external_exam_id) ||
+        typeof data.proctor !== "boolean"
+      )
+        throw new ServiceUnavailableException("Exam setup is unavailable.");
+      return { exam_id: data.exam_id, proctor: data.proctor };
+    }
     if (
       (action === "submit" ||
         action === "visibility" ||

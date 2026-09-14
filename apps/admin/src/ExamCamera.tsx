@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 
-// Mounted only for an active camera-enabled attempt. No frames enter draft storage.
+// Preview before starting, then capture for the active attempt. No frames enter draft storage.
 export function ExamCamera({
   base,
   attemptId,
   onReady,
 }: {
   base: string;
-  attemptId: number;
+  attemptId: number | null;
   onReady: (ready: boolean) => void;
 }) {
+  const attemptRef = useRef(attemptId);
+  attemptRef.current = attemptId;
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
   const pending = useRef<{
@@ -52,12 +54,18 @@ export function ExamCamera({
     };
   }, []);
 
+  useEffect(() => {
+    if (attemptId && stream.current) void capture();
+  }, [attemptId]);
+
   function lost() {
     stop();
     readyCallback.current(false);
     setConnected(false);
     setError(
-      "Camera stopped. Reconnect it to continue saving answers. The exam timer continues.",
+      attemptRef.current
+        ? "Camera stopped. Reconnect it to continue saving answers. The exam timer continues."
+        : "Camera stopped. Reconnect it before starting the exam.",
     );
   }
   async function capture() {
@@ -68,6 +76,14 @@ export function ExamCamera({
     readyCallback.current(false);
     const current = generation.current;
     try {
+      if (!attemptRef.current) {
+        readyCallback.current(
+          !!stream.current
+            ?.getVideoTracks()
+            .some((track) => track.readyState === "live" && !track.muted),
+        );
+        return;
+      }
       if (!pending.current) {
         const element = video.current;
         if (
@@ -98,7 +114,7 @@ export function ExamCamera({
           );
         pending.current = {
           request_id: crypto.randomUUID(),
-          attempt_id: attemptId,
+          attempt_id: attemptRef.current,
           image: url.slice(23),
         };
       }
@@ -112,7 +128,7 @@ export function ExamCamera({
       if (
         receipt.saved !== true ||
         receipt.capture_id !== pending.current?.request_id ||
-        receipt.attempt_id !== attemptId
+        receipt.attempt_id !== attemptRef.current
       )
         throw new Error(
           "Camera save was not confirmed. Retry the same capture.",
@@ -193,7 +209,10 @@ export function ExamCamera({
       <p>
         This exam requires a camera image about every 30 seconds for authorised
         exam review. Images are private and expire after 30 days. No audio is
-        recorded. The exam timer continues during camera or connection problems.
+        recorded.{" "}
+        {attemptId
+          ? "The exam timer continues during camera or connection problems."
+          : "No image is uploaded before you start. Check the preview, then start the exam."}
       </p>
       <video
         ref={video}

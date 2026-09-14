@@ -9,11 +9,12 @@ use Illuminate\Contracts\View\View;
 final class Tech4LearnStudentAttempts
 {
  public function run(string $workspace,int $source,string $learner,string $name,int $examId,string $action,array $fields):array {
-  abort_unless(in_array($action,['start','answer','submit','media','visibility','proctor'],true)&&$examId>0,422);
+  abort_unless(in_array($action,['prepare','start','answer','submit','media','visibility','proctor'],true)&&$examId>0,422);
   foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   $requestId=$fields['request_id']??'';abort_unless(is_string($requestId)&&preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$requestId),422);
-  $allowed=match($action){'start'=>['request_id','language_id'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'submit'=>['request_id','attempt_id'],'visibility'=>['request_id','attempt_id','event'],'proctor'=>['request_id','attempt_id','image'],'media'=>['request_id','attempt_id','question_id','asset']};
+  $allowed=match($action){'prepare'=>['request_id'],'start'=>['request_id','language_id','camera_ready'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'submit'=>['request_id','attempt_id'],'visibility'=>['request_id','attempt_id','event'],'proctor'=>['request_id','attempt_id','image'],'media'=>['request_id','attempt_id','question_id','asset']};
   abort_unless(array_diff(array_keys($fields),$allowed)===[],422);
+  if(isset($fields['camera_ready']))abort_unless(is_bool($fields['camera_ready']),422);
   if(isset($fields['language_id']))abort_unless(is_int($fields['language_id'])&&$fields['language_id']>0,422);
   if($action==='answer')abort_unless(is_int($fields['question_id']??null)&&is_array($fields['fields']??null)&&is_string($fields['revision']??null),422);
   if($action==='media')return $this->media($workspace,$source,$learner,$examId,$fields);
@@ -25,6 +26,11 @@ final class Tech4LearnStudentAttempts
    $showResults=!in_array('results',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true);
    $exam=Exam::where('organization_id',$tenant)->findOrFail($examId);
    $nativeId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$learner)->where('kind','student')->value('external_id');
+   if($action==='prepare'){
+    if($nativeId)Student::where('organization_id',$tenant)->where('status','Active')->findOrFail($nativeId);
+    abort_unless($exam->status==='Active'&&$exam->isFrontendVisible()&&$exam->allowsOnlineAttempt(),403);
+    return ['exam_id'=>$examId,'proctor'=>(bool)$exam->proctor];
+   }
    if(!$nativeId){
     abort_unless($action==='start'&&mb_strlen($name)>0&&mb_strlen($name)<=255,422);
     // Explicit exam grant authorises this identity only. Do not enrol in every group.
@@ -65,7 +71,7 @@ final class Tech4LearnStudentAttempts
    if($action==='start'){
     abort_unless(!$attempt||$attempt->total_test_time===null||(float)$attempt->total_test_time===(float)$exam->duration,409,'The paper duration changed after this attempt started. Ask exam staff to restore its duration before resuming.');
     // Do not silently launch modes whose internal controls are not wired yet.
-    abort_unless(!$exam->proctor,422,'This exam requires delivery controls that are not yet available in Tech4Learn.');
+    abort_unless(!$exam->proctor||$attempt!==null||($fields['camera_ready']??false)===true,422,'Camera must be ready before starting this exam.');
     abort_unless($exam->questions()->count()<=500,422,'This paper exceeds the current online question limit.');
    }
    // Native start rejects a closed paper before reaching its timeout handler.

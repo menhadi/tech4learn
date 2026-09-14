@@ -34,6 +34,7 @@ class Tech4LearnStudentController extends Tech4LearnPlatformController
     'This question is outside the current timed section.'=>'section_ended',
     'This timed attempt has no captured section schedule.'=>'schedule_missing',
     'The paper timer mode changed after this attempt started.'=>'timer_changed',
+    'Camera must be ready before starting this exam.'=>'camera_required',
     'Capture interval has not elapsed.'=>'capture_interval',
     'Capture limit reached.'=>'capture_limit',
     default=>null,

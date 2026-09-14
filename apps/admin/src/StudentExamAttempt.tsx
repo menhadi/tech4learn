@@ -46,6 +46,10 @@ type Attempt = {
   result?: { status: string; score_percent: number } | null;
 };
 export function StudentExamAttempt({ base }: { base: string }) {
+  const [prepared, setPrepared] = useState<{
+    exam_id: number;
+    proctor: boolean;
+  } | null>(null);
   const [attempt, setAttempt] = useState<Attempt | null>(null),
     [index, setIndex] = useState(0),
     [answer, setAnswer] = useState<any>(""),
@@ -93,7 +97,11 @@ export function StudentExamAttempt({ base }: { base: string }) {
     setError("");
     pending.current ??= {
       action,
-      body: { ...body, request_id: crypto.randomUUID() },
+      body: {
+        ...body,
+        ...(action === "start" ? { camera_ready: cameraReady } : {}),
+        request_id: crypto.randomUUID(),
+      },
     };
     try {
       const request = pending.current;
@@ -102,7 +110,9 @@ export function StudentExamAttempt({ base }: { base: string }) {
         "POST",
         request.body,
       );
-      if (request.action === "visibility" && !result.completed) {
+      if (request.action === "prepare") {
+        setPrepared(result);
+      } else if (request.action === "visibility" && !result.completed) {
         setAttempt((previous) =>
           previous
             ? { ...previous, tolerance_count: result.tolerance_count }
@@ -340,14 +350,33 @@ export function StudentExamAttempt({ base }: { base: string }) {
       {!attempt && !pending.current && (
         <>
           <p>
-            Start begins the exam timer. Use Save answer before changing
-            questions. You can resume saved work here after refreshing.
+            Check exam setup first. The timer begins only when you start a new
+            attempt; an existing attempt keeps its original timer.
           </p>
-          <button disabled={busy} onClick={() => void send("start", {})}>
-            Start or resume exam
-          </button>
+          {!prepared ? (
+            <button disabled={busy} onClick={() => void send("prepare", {})}>
+              Check exam setup
+            </button>
+          ) : (
+            <button
+              disabled={busy || (prepared.proctor && !cameraReady)}
+              onClick={() => void send("start", {})}
+            >
+              Start or resume exam
+            </button>
+          )}
         </>
       )}
+      {!attempt?.completed &&
+        remaining !== 0 &&
+        (attempt?.settings?.proctor ?? prepared?.proctor) && (
+          <ExamCamera
+            key={base}
+            base={base}
+            attemptId={attempt?.attempt_id ?? null}
+            onReady={setCameraReady}
+          />
+        )}
       {attempt?.completed ? (
         <>
           <h3>Exam submitted</h3>
@@ -378,14 +407,6 @@ export function StudentExamAttempt({ base }: { base: string }) {
                   {attempt.tolerance_count ?? 0}.
                 </p>
               )}
-            {attempt.settings.proctor && remaining !== 0 && (
-              <ExamCamera
-                key={`${base}:${attempt.attempt_id}`}
-                base={base}
-                attemptId={attempt.attempt_id}
-                onReady={setCameraReady}
-              />
-            )}
             {attempt.settings.calculator_allowed && <ExamCalculator />}
             {attempt.section_clock?.active && (
               <div>
