@@ -360,6 +360,48 @@ test("central question sharing requires superadmin; organisation reads respect m
       400,
     );
     const taxonomy = `/organisations/${org}/exam-content/taxonomy/subjects`;
+    const categories = `/organisations/${org}/exam-content/taxonomy/categories`;
+    assert.equal(
+      (await call(categories + "/new", undefined, member)).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call(
+          categories + "/new",
+          {
+            ...create,
+            fields: { title: "Own category", status: true, group_ids: [] },
+          },
+          member,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      requests.at(-1).path,
+      `authoring/${org}/taxonomy/categories/new`,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${other}/exam-content/taxonomy/categories/new`,
+          create,
+          member,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/choices/categories`,
+          undefined,
+          member,
+        )
+      ).status,
+      200,
+    );
     assert.equal(
       (await call(taxonomy + "/new", undefined, member)).status,
       200,
@@ -833,6 +875,7 @@ test("central question sharing requires superadmin; organisation reads respect m
       403,
     );
     assert.equal((await call(taxonomy + "/new", create, member)).status, 403);
+    assert.equal((await call(categories + "/new", create, member)).status, 403);
     assert.equal((await call(exams + "/new", create, member)).status, 403);
     assert.equal(
       (

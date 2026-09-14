@@ -36,6 +36,7 @@ final class Tech4LearnQuestionAuthoring
     }
     public function definition(string $kind):array {
         $definitions=[
+          'categories'=>[\App\Models\Category::class,\App\Http\Controllers\CategoryController::class,['title','description','status','display_order','group_ids','group_orders','show_in_header','header_display_order','meta_title','meta_description','meta_keywords','canonical_url','og_title','og_description','og_image','robots_meta','seo_schema'],'category'],
           'exams'=>[\App\Models\Exam::class,\App\Http\Controllers\ExamController::class,self::EXAM_FIELDS,'exam'],
           'questions'=>[Question::class,QuestionController::class,self::FIELDS,'question'],
           'groups'=>[\App\Models\Group::class,\App\Http\Controllers\GroupController::class,['group_name','display_order'],'group'],
@@ -48,12 +49,18 @@ final class Tech4LearnQuestionAuthoring
     }
     public function owned(string $kind,int $tenant){
         [$model]=$this->definition($kind);$query=$model::query();
+        if($kind==='categories')$query->whereNull('parent_id');
         if(in_array($kind,['topics','subtopics'],true))return $query->whereHas('subject',fn($q)=>$q->where('organization_id',$tenant))->whereHas('group',fn($q)=>$q->where('organization_id',$tenant));
         return $query->where('organization_id',$tenant);
     }
     public function record(string $kind,\Illuminate\Database\Eloquent\Model $model):array {
         if($kind==='questions')return $this->snapshot($model);
         $fields=$model->only(array_values(array_intersect($this->definition($kind)[2],array_keys($model->getAttributes()))));
+        if($kind==='categories'){
+            $groups=$model->groups()->orderBy('groups.id')->get();
+            $fields['group_ids']=$groups->map(fn($g)=>(int)$g->id)->all();
+            $fields['group_orders']=$groups->mapWithKeys(fn($g)=>[$g->id=>$g->pivot->display_order])->all();
+        }
         if(in_array($kind,['subjects','sections'],true))$fields['group_ids']=$model->groups()->orderBy('groups.id')->pluck('groups.id')->map(fn($id)=>(int)$id)->all();
         if($kind==='exams'){
             foreach(['groups'=>'groups','packages'=>'packages','language_ids'=>'languages'] as $field=>$relation)$fields[$field]=$model->$relation()->orderBy($relation.'.id')->pluck($relation.'.id')->map(fn($id)=>(int)$id)->all();

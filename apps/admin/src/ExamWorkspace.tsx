@@ -31,8 +31,8 @@ type Feature = keyof typeof labels;
 type Rules = { restrictions: Feature[]; revision: number };
 const coverage: Record<Feature, [string, string]> = {
   subjects: [
-    "Groups, subjects, topics, subtopics and sections",
-    "Category, package and language administration",
+    "Groups, categories, subjects, topics, subtopics and sections",
+    "Subcategory, package and language administration",
   ],
   questions: [
     "Owned question editing, formula preview and image controls",

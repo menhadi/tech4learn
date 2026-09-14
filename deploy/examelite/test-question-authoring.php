@@ -13,7 +13,7 @@ namespace App\Support {
 namespace {
 if(isset($argv[3])){ $taxonomy=dirname($argv[3]).'/CurriculumTaxonomyService.php'; if(is_file($taxonomy))require $taxonomy; }
 require __DIR__.'/test-content-copies.php';
-if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController'] as $controller){$path=dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
+if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController','CategoryController'] as $controller){$path=dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
 require __DIR__.'/Tech4LearnQuestionAuthoring.php';
 require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 require_once __DIR__.'/Tech4LearnQuestionImageUpload.php';
@@ -118,6 +118,22 @@ check($renamed['fields']['subject_name']==='Renamed syllabus' && $renamed['field
 $beforeTaxonomy=App\Models\Topic::count();
 try{$service->save($workspace,20,$actor,0,['name'=>'Foreign','subject_id'=>1,'group_id'=>$group->id],'new','foreign-topic','topics');throw new RuntimeException('Expected foreign subject denial');}catch(Illuminate\Database\Eloquent\ModelNotFoundException|Symfony\Component\HttpKernel\Exception\HttpException|Illuminate\Validation\ValidationException $e){}
 check(App\Models\Topic::count()===$beforeTaxonomy,'Foreign taxonomy create has no partial records');
+foreach(['title','description','status','display_order','show_in_header','header_display_order','meta_title','meta_description','meta_keywords','canonical_url','og_title','og_description','og_image','robots_meta','seo_schema'] as $field)DB::statement('ALTER TABLE category ADD COLUMN '.$field.' TEXT');
+DB::statement('CREATE TABLE category_groups(category_id INTEGER,group_id INTEGER,display_order INTEGER,created_at TEXT,updated_at TEXT)');
+$routes->add((new Illuminate\Routing\Route(['GET'],'category',fn()=>null))->name('category.index'));
+$categoryFields=['title'=>'Synthetic category','status'=>true,'description'=>'Description','group_ids'=>[$group->id],'group_orders'=>[$group->id=>7],'show_in_header'=>true,'header_display_order'=>3,'meta_title'=>'Preserved metadata'];
+$category=$service->save($workspace,20,$actor,0,$categoryFields,'new','category-create','categories');
+check($category['fields']['title']==='Synthetic category'&&$category['fields']['group_ids']===[$group->id],'Native category created with owned groups');
+check($service->save($workspace,20,$actor,0,$categoryFields,'new','category-create','categories')===$category,'Category create retry does not duplicate');
+$categoryEdit=$service->save($workspace,20,$actor,$category['id'],['title'=>'Renamed category'],$category['revision'],'category-edit','categories');
+check($categoryEdit['fields']['meta_title']==='Preserved metadata'&&$categoryEdit['fields']['show_in_header']===true&&(int)$categoryEdit['fields']['group_orders'][$group->id]===7,'Category edit preserves metadata and group order');
+$categoryCount=App\Models\Category::count();
+try{$service->save($workspace,20,$actor,0,['title'=>'Invalid group','status'=>true,'group_ids'=>[1]],'new','category-foreign','categories');throw new RuntimeException('Expected foreign category group denial');}catch(Illuminate\Validation\ValidationException $e){}
+check(App\Models\Category::count()===$categoryCount,'Invalid category leaves no partial record');
+try{$service->save($workspace,20,$actor,$category['id'],['title'=>'Stale'],$category['revision'],'category-stale','categories');throw new RuntimeException('Expected category conflict');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===409,'Category stale revision denied');}
+$foreignCategory=App\Models\Category::create(['organization_id'=>30,'title'=>'Foreign category']);
+$childCategory=App\Models\Category::create(['organization_id'=>20,'title'=>'Child category','parent_id'=>$category['id']]);
+foreach([$foreignCategory,$childCategory] as $unavailable)check(!$service->owned('categories',20)->whereKey($unavailable->id)->exists(),'Category adapter excludes foreign and child records');
 require __DIR__.'/Tech4LearnPlatformController.php';require __DIR__.'/Tech4LearnAuthoringController.php';
 $controller=new class extends App\Http\Controllers\Tech4LearnAuthoringController {
  protected function configuration(Request $r):array{return ['_platform'=>['organization_id'=>10]];}
@@ -125,6 +141,8 @@ $controller=new class extends App\Http\Controllers\Tech4LearnAuthoringController
 };
 require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 $imageSource='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+$categoryChoices=$controller->choices(Request::create('/','GET'),$workspace,'categories');
+check(in_array($category['id'],array_column($categoryChoices['items'],'id'),true)&&!in_array($foreignCategory->id,array_column($categoryChoices['items'],'id'),true)&&!in_array($childCategory->id,array_column($categoryChoices['items'],'id'),true),'Category choices exclude foreign and child records');
 $imageKey=hash('sha256',$imageSource);
 $imageQuestion=App\Models\Question::findOrFail($created['id']);
 $imageQuestion->explanation='<p>Reference</p><img src="'.$imageSource.'">';$imageQuestion->save();

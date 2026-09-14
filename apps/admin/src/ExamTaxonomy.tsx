@@ -7,6 +7,7 @@ import {
   type QuestionChoice,
 } from "./QuestionChoiceField";
 const labels = {
+  categories: "Categories",
   groups: "Exam groups",
   subjects: "Subjects",
   topics: "Topics",
@@ -60,7 +61,9 @@ function TaxonomyEditor({
       ? "group_name"
       : kind === "subjects"
         ? "subject_name"
-        : "name";
+        : kind === "categories"
+          ? "title"
+          : "name";
   return (
     <section className="panel">
       <h3>
@@ -138,17 +141,17 @@ function TaxonomyEditor({
               org={org}
               kind="groups"
               label="Exam group"
-              required
-              multiple={kind === "subjects" || kind === "sections"}
+              required={kind !== "categories"}
+              multiple={["subjects", "sections", "categories"].includes(kind)}
               value={
-                kind === "subjects" || kind === "sections"
+                ["subjects", "sections", "categories"].includes(kind)
                   ? (values.group_ids ?? [])
                   : (values.group_id ?? null)
               }
               disabled={busy}
               onChange={(v) =>
                 set(
-                  kind === "subjects" || kind === "sections"
+                  ["subjects", "sections", "categories"].includes(kind)
                     ? "group_ids"
                     : "group_id",
                   v,
@@ -191,7 +194,25 @@ function TaxonomyEditor({
               />
             </label>
           )}
-          {kind === "sections" && (
+          {kind === "categories" && (
+            <label>
+              Description
+              <textarea
+                value={values.description ?? ""}
+                disabled={busy}
+                maxLength={10000}
+                onChange={(e) => set("description", e.target.value)}
+              />
+            </label>
+          )}
+          {kind === "categories" && (
+            <p>
+              No selected groups means this category is available to every exam
+              group in your organisation. Existing header and search metadata
+              are preserved.
+            </p>
+          )}
+          {(kind === "sections" || kind === "categories") && (
             <label>
               <input
                 type="checkbox"
@@ -199,7 +220,7 @@ function TaxonomyEditor({
                 disabled={busy}
                 onChange={(e) => set("status", e.target.checked)}
               />
-              Active section
+              Active {kind === "categories" ? "category" : "section"}
             </label>
           )}
           <button

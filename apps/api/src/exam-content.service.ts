@@ -447,6 +447,7 @@ export class ExamContentService {
       ![
         "exams",
         "packages",
+        "categories",
         "groups",
         "subjects",
         "sections",
@@ -509,6 +510,7 @@ export class ExamContentService {
     if (
       ![
         "exams",
+        "categories",
         "groups",
         "subjects",
         "topics",
