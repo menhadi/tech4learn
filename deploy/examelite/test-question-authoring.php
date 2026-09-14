@@ -15,6 +15,7 @@ if(isset($argv[3])){ $taxonomy=dirname($argv[3]).'/CurriculumTaxonomyService.php
 require __DIR__.'/test-content-copies.php';
 if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController'] as $controller){$path=dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
 require __DIR__.'/Tech4LearnQuestionAuthoring.php';
+require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 $app=new Illuminate\Foundation\Application(__DIR__);
@@ -112,6 +113,34 @@ $controller=new class extends App\Http\Controllers\Tech4LearnAuthoringController
  protected function configuration(Request $r):array{return ['_platform'=>['organization_id'=>10]];}
  protected function reply(int $tenant,array $data){return $data;}
 };
+require_once __DIR__.'/Tech4LearnQuestionMedia.php';
+$imageSource='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+$imageKey=hash('sha256',$imageSource);
+$imageQuestion=App\Models\Question::findOrFail($created['id']);
+$imageQuestion->explanation='<p>Reference</p><img src="'.$imageSource.'">';$imageQuestion->save();
+$preview=$service->snapshot($imageQuestion);
+check(str_contains($preview['preview_fields']['explanation'],'t4l-media:'.$imageKey)&&!str_contains($preview['preview_fields']['explanation'],$imageSource),'Authoring preview uses hashed references');
+check($preview['fields']['explanation']===$imageQuestion->explanation,'Authoring preview preserves original editable snapshot');
+$mediaRequest=Request::create('/','GET');
+$imageReply=$controller->questionMedia($mediaRequest,$workspace,(string)$imageQuestion->id,$imageKey);
+check($imageReply['question_id']===$imageQuestion->id&&$imageReply['asset']===$imageKey&&$imageReply['mime']==='image/png','Owned authoring image read');
+check(!isset($imageReply['attempt_id'])&&!str_contains(json_encode($imageReply),$imageSource),'Authoring image returns only raster bytes and identifiers');
+try{app(App\Services\Tech4LearnQuestionMedia::class)->readAuthoring($imageQuestion,10,$imageKey);throw new RuntimeException('Expected foreign owner rejection');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===403,'Foreign authoring owner denied');}
+try{$controller->questionMedia($mediaRequest,$workspace,(string)$imageQuestion->id,str_repeat('a',64));throw new RuntimeException('Expected unreferenced image denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===404,'Unreferenced authoring image denied');}
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'["questions"]']);
+try{$controller->questionMedia($mediaRequest,$workspace,(string)$imageQuestion->id,$imageKey);throw new RuntimeException('Expected restricted image denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===403,'Authoring image restriction enforced');}
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'[]']);
+DB::table('organizations')->where('id',20)->update(['status'=>'inactive']);
+try{$controller->questionMedia($mediaRequest,$workspace,(string)$imageQuestion->id,$imageKey);throw new RuntimeException('Expected inactive owner denial');}catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
+DB::table('organizations')->where('id',20)->update(['status'=>'active']);
+DB::table('questions')->where('id',$imageQuestion->id)->update(['organization_id'=>10]);
+try{$controller->questionMedia($mediaRequest,$workspace,(string)$imageQuestion->id,$imageKey);throw new RuntimeException('Expected foreign question denial');}catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
+DB::table('questions')->where('id',$imageQuestion->id)->update(['organization_id'=>20]);
+$invalidSource='data:image/png;base64,'.base64_encode('not an image');
+$imageQuestion->explanation='<img src="'.$invalidSource.'">';$imageQuestion->save();
+try{$controller->questionMedia($mediaRequest,$workspace,(string)$imageQuestion->id,hash('sha256',$invalidSource));throw new RuntimeException('Expected invalid raster denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===422,'Invalid raster rejected');}
+$imageQuestion->explanation='Image removed';$imageQuestion->save();
+try{$controller->questionMedia($mediaRequest,$workspace,(string)$imageQuestion->id,$imageKey);throw new RuntimeException('Expected removed image denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===404,'Removed authoring image loses access');}
 foreach(['groups','subjects','topics','subtopics','sections','languages','types','difficulties'] as $kind){
  $choices=$controller->choices(Request::create('/','GET',['after'=>'0']),$workspace,$kind);
  foreach($choices['items'] as $item){

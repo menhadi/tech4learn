@@ -67,6 +67,13 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         $q=Question::where('organization_id',$owner)->findOrFail($id);
         return $this->reply($central,array_merge(app(Tech4LearnQuestionAuthoring::class)->snapshot($q),['type'=>$q->qtype?->type,'type_name'=>$q->qtype?->question_type]));
     }
+    public function questionMedia(Request $r,string $org,string $id,string $asset){
+        [$central,$owner]=$this->workspace($r,$org);
+        \App\Models\Organization::where('status','active')->findOrFail($owner);
+        abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
+        $question=Question::where('organization_id',$owner)->findOrFail($id);
+        return $this->reply($central,app(\App\Services\Tech4LearnQuestionMedia::class)->readAuthoring($question,$owner,$asset));
+    }
     public function examAction(Request $r,string $org,string $id,string $action){return $this->save($r,$org,$id,'exams',$action);}
     public function examQuestions(Request $r,string $org,string $id){
         [$central,$owner]=$this->workspace($r,$org,'exams');abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);

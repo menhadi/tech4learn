@@ -15,6 +15,52 @@ import type { Account } from "./identity.service.js";
 
 @Injectable()
 export class ExamContentService {
+  async questionMedia(user: Account, org: string, id: string, asset: string) {
+    await this.questionAccess(user, org, id);
+    if (id === "new" || !/^[a-f0-9]{64}$/.test(asset))
+      throw new BadRequestException("Invalid question image.");
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `authoring/${org}/questions/${id}/media/${asset}`,
+      undefined,
+      14000000,
+      30000,
+    );
+    await this.questionAccess(user, org, id);
+    const data = response.data;
+    const invalid = () =>
+      new ServiceUnavailableException(
+        "This question image could not be loaded.",
+      );
+    if (
+      !data ||
+      data.question_id !== Number(id) ||
+      data.asset !== asset ||
+      ![
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/avif",
+      ].includes(data.mime) ||
+      typeof data.base64 !== "string" ||
+      data.base64.length > 13981016
+    )
+      throw invalid();
+    const buffer = Buffer.from(data.base64, "base64");
+    if (
+      !buffer.length ||
+      buffer.length > 10485760 ||
+      buffer.toString("base64") !== data.base64
+    )
+      throw invalid();
+    await this.access.audit(this.db, user, org, "exams.question.image.viewed", {
+      questionId: Number(id),
+      asset,
+    });
+    return { buffer, mime: data.mime };
+  }
   async resultMedia(
     user: Account,
     org: string,

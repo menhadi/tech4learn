@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
-import { api } from "./api";
+import { api, apiBase } from "./api";
 import { DraftForm } from "./DraftForm";
 import { QuestionChoiceField } from "./QuestionChoiceField";
 import { ExamRichContent } from "./ExamRichContent";
@@ -9,6 +9,7 @@ type Snapshot = {
   id: number;
   revision: string;
   fields: Record<string, any>;
+  preview_fields?: Record<string, string>;
   type?: string;
   type_name?: string;
 };
@@ -17,11 +18,15 @@ export function FormattedField({
   value,
   onChange,
   disabled,
+  previewValue,
+  mediaBase,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   disabled: boolean;
+  previewValue?: string;
+  mediaBase?: string;
 }) {
   const editor = useRef<HTMLDivElement>(null);
   const [preview, setPreview] = useState(false);
@@ -61,9 +66,8 @@ export function FormattedField({
       <legend>{label}</legend>
       {media && (
         <p>
-          Image or formula content is preserved in ExamElite but is not fully
-          displayed here. This field is read-only until the native media editor
-          is integrated.
+          This field contains image or formula markup and is read-only. Its
+          original content is preserved when you save other fields.
         </p>
       )}
       <div
@@ -121,6 +125,11 @@ export function FormattedField({
         }}
         onDrop={(e) => e.preventDefault()}
       />
+      {media && previewValue !== undefined && mediaBase && (
+        <section aria-label={`${label} preview`}>
+          <ExamRichContent value={previewValue} mediaBase={mediaBase} />
+        </section>
+      )}
       {!media && (
         <>
           <p>
@@ -325,6 +334,8 @@ export function ExamQuestionEditor({
           </details>
           <FormattedField
             label="Question"
+            previewValue={record?.preview_fields?.question}
+            mediaBase={`${apiBase}${base}/media`}
             value={String(values.question ?? "")}
             disabled={busy}
             onChange={(v) => set("question", v)}
@@ -336,6 +347,8 @@ export function ExamQuestionEditor({
                 <div key={n}>
                   <FormattedField
                     label={`Option ${n}`}
+                    previewValue={record?.preview_fields?.["option" + n]}
+                    mediaBase={`${apiBase}${base}/media`}
                     value={String(values["option" + n] ?? "")}
                     disabled={busy}
                     onChange={(v) => set("option" + n, v)}
@@ -464,6 +477,8 @@ export function ExamQuestionEditor({
           {selectedType === "S" && (
             <FormattedField
               label="Model answer"
+              previewValue={record?.preview_fields?.si_answer1}
+              mediaBase={`${apiBase}${base}/media`}
               value={String(values.si_answer1 ?? "")}
               disabled={busy}
               onChange={(v) => set("si_answer1", v)}
@@ -494,12 +509,16 @@ export function ExamQuestionEditor({
           </fieldset>
           <FormattedField
             label="Hint"
+            previewValue={record?.preview_fields?.hint}
+            mediaBase={`${apiBase}${base}/media`}
             value={String(values.hint ?? "")}
             disabled={busy}
             onChange={(v) => set("hint", v)}
           />
           <FormattedField
             label="Explanation"
+            previewValue={record?.preview_fields?.explanation}
+            mediaBase={`${apiBase}${base}/media`}
             value={String(values.explanation ?? "")}
             disabled={busy}
             onChange={(v) => set("explanation", v)}

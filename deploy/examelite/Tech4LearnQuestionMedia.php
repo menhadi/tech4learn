@@ -7,7 +7,16 @@ use Illuminate\Support\Facades\Storage;
 /** Only raster images actually referenced by the granted paper's question. */
 class Tech4LearnQuestionMedia
 {
+ public const AUTHORING_FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'];
  public const MAX_BYTES=10485760;
+ /** Caller authenticates the workspace credential and resolves its active owner. */
+ public function readAuthoring(Question $question,int $owner,string $key):array {
+  abort_unless($owner>0&&(int)$question->organization_id===$owner,403);
+  abort_unless(preg_match('/^[a-f0-9]{64}$/D',$key),422);
+  $sources=[];foreach(self::AUTHORING_FIELDS as $field)$sources+=$this->sources((string)($question->$field??''));
+  abort_unless(isset($sources[$key]),404);
+  return $this->raster($sources[$key])+['asset'=>$key,'question_id'=>(int)$question->id];
+ }
  public function sources(string $html):array {
   abort_unless(strlen($html)<=2000000,422);
   $document=new \DOMDocument();$before=libxml_use_internal_errors(true);
@@ -59,11 +68,14 @@ class Tech4LearnQuestionMedia
    $sources+=$this->sources((string)($lang?->passage??''));
   }
   abort_unless(isset($sources[$key]),404);
-  $bytes=$this->bytes($sources[$key]);
+  return $this->raster($sources[$key])+['asset'=>$key,'question_id'=>(int)$question->id,'attempt_id'=>(int)$attempt->id];
+ }
+ private function raster(string $source):array {
+  $bytes=$this->bytes($source);
   abort_unless(strlen($bytes)>0&&strlen($bytes)<=self::MAX_BYTES,422);
   $details=@getimagesizefromstring($bytes);$mime=$details['mime']??'';
   abort_unless(in_array($mime,['image/png','image/jpeg','image/gif','image/webp','image/avif'],true)&&($details[0]??0)*($details[1]??0)<=40000000,422);
-  return ['mime'=>$mime,'base64'=>base64_encode($bytes),'asset'=>$key,'question_id'=>(int)$question->id,'attempt_id'=>(int)$attempt->id];
+  return ['mime'=>$mime,'base64'=>base64_encode($bytes)];
  }
  protected function bytes(string $source):string {
   if(preg_match('#^data:image/(?:png|jpeg|gif|webp|avif);base64,([a-zA-Z0-9+/=\r\n]+)$#D',$source,$match)){

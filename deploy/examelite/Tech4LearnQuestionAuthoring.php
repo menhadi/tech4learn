@@ -72,7 +72,9 @@ final class Tech4LearnQuestionAuthoring
         $fields['fill_blank_answers']=array_map(fn($b)=>['accepted_answers'=>implode(' | ',$b['answers']??[])],$question->fill_blank_config['blanks']??[]);
         foreach(['mode','value','min','max','tolerance'] as $key)$fields['nat_'.$key]=$question->nat_config[$key]??null;
         $fields['nat_mode']=$fields['nat_mode']??'exact';
-        return ['id'=>(int)$question->id,'fields'=>$fields,'type'=>$question->qtype?->type,'type_name'=>$question->qtype?->question_type,'revision'=>$this->revision($question)];
+        $preview=[];$media=app(Tech4LearnQuestionMedia::class);
+        foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $field)$preview[$field]=$media->rewrite((string)($fields[$field]??''));
+        return ['id'=>(int)$question->id,'fields'=>$fields,'preview_fields'=>$preview,'type'=>$question->qtype?->type,'type_name'=>$question->qtype?->question_type,'revision'=>$this->revision($question)];
     }
     private function revision(Question $question):string {
         $attributes=$question->getAttributes();ksort($attributes);

@@ -14,6 +14,26 @@ import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get("organisations/:org/exam-content/questions/:id/media/:asset")
+  async questionImage(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("asset") asset: string,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-question-media:${account.id}:${org}`,
+      180,
+      60,
+    );
+    const image = await this.content.questionMedia(account, org, id, asset);
+    response.setHeader("Content-Type", image.mime);
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(image.buffer);
+  }
   @Get(
     "organisations/:org/exam-results/:learner/attempts/:attempt/media/:stat/:asset",
   )

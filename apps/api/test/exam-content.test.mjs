@@ -69,8 +69,24 @@ test("central question sharing requires superadmin; organisation reads respect m
     token: "private",
   });
   let saveOutcome = "success";
+  let mediaMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    if (path.includes("/media/")) {
+      if (mediaMode === "revoked")
+        await pg.query(
+          "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
+          [member, org],
+        );
+      return {
+        data: {
+          question_id: mediaMode === "wrong" ? 10 : 9,
+          asset: "a".repeat(64),
+          mime: mediaMode === "mime" ? "text/html" : "image/png",
+          base64: Buffer.from("synthetic image bytes").toString("base64"),
+        },
+      };
+    }
     if (path.includes("/choices/"))
       return { items: [{ id: 3, label: "Own classification" }], next: null };
     if (path.startsWith("authoring/"))
@@ -163,6 +179,33 @@ test("central question sharing requires superadmin; organisation reads respect m
     assert.equal((await call(own, undefined, member)).status, 200);
     assert.match(requests.at(-1).path, /source=organisation/);
     assert.equal((await call(own + "/9", undefined, member)).status, 200);
+    const mediaPath = own + "/9/media/" + "a".repeat(64);
+    const authoringImage = await call(mediaPath, undefined, member);
+    assert.equal(authoringImage.status, 200);
+    assert.equal(authoringImage.headers.get("cache-control"), "no-store");
+    assert.equal(authoringImage.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(authoringImage.headers.get("content-type"), "image/png");
+    assert.equal(await authoringImage.text(), "synthetic image bytes");
+    assert.equal(
+      (await call(mediaPath.replace(org, other), undefined, member)).status,
+      404,
+    );
+    assert.equal(
+      (await call(own + "/new/media/" + "a".repeat(64), undefined, member))
+        .status,
+      400,
+    );
+    for (const mode of ["wrong", "mime"]) {
+      mediaMode = mode;
+      assert.equal((await call(mediaPath, undefined, member)).status, 503);
+    }
+    mediaMode = "revoked";
+    assert.equal((await call(mediaPath, undefined, member)).status, 404);
+    await pg.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    mediaMode = "ok";
     const edit = {
       revision: "a".repeat(64),
       request_id: randomUUID(),
