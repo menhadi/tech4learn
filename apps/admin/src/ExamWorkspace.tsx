@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { api } from "./api";
 import { DraftForm } from "./DraftForm";
+import { DirectoryTable } from "./DirectoryTable";
 import { ExamQuestions } from "./ExamContent";
 import { ExamTaxonomy } from "./ExamTaxonomy";
 const ExamProctorReview = lazy(() =>
@@ -28,6 +29,28 @@ const labels = {
 };
 type Feature = keyof typeof labels;
 type Rules = { restrictions: Feature[]; revision: number };
+const coverage: Record<Feature, [string, string]> = {
+  subjects: [
+    "Groups, subjects, topics, subtopics and sections",
+    "Category, package and language administration",
+  ],
+  questions: [
+    "Owned question editing, formula preview and image controls",
+    "Central-original editing and visual formula editor",
+  ],
+  exams: [
+    "Exam settings, question selection, sections and timers",
+    "OMR and PDF workflows",
+  ],
+  taking: [
+    "Scoped student links, start, resume, answers and submission",
+    "Student answer uploads and broader device verification",
+  ],
+  results: [
+    "Result visibility, history and pending-answer marking",
+    "Student media answers and broader report parity",
+  ],
+};
 export function ExamWorkspace({
   org,
   controls = false,
@@ -41,12 +64,14 @@ export function ExamWorkspace({
   const [rules, setRules] = useState<Rules | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
   const [page, setPage] = useState("questions");
   const [restrictions, setRestrictions] = useState<Feature[]>([]);
   useEffect(() => {
     let active = true;
     setRules(null);
     setError("");
+    setNotice("");
     api<Rules>(base)
       .then((r) => {
         if (active) {
@@ -161,7 +186,7 @@ export function ExamWorkspace({
       </h3>
       <p>
         {controls
-          ? "Choose which capabilities this organisation can use when Exams is enabled. Internal authoring and exam-taking screens are still being integrated."
+          ? "Choose which feature groups this organisation can use when Exams is enabled. The coverage table shows implemented tools and remaining work; plan assignment is not yet available."
           : "Use the ExamElite interface to manage subjects, questions, exams and results. Shared content opens as your organisation’s own editable version."}
       </p>
       {error && (
@@ -170,24 +195,34 @@ export function ExamWorkspace({
         </p>
       )}
       {!rules && !error && <p role="status">Loading exam access…</p>}
+      {notice && <p role="status">{notice}</p>}
       {rules &&
         (controls ? (
           <DraftForm
             draftKey={`exam-features-${org}`}
             title="Exam feature restrictions"
-            draftState={restrictions}
+            draftState={{ restrictions, revision: rules.revision }}
             restoreState={(v) => {
-              if (Array.isArray(v))
+              if (
+                v?.revision === rules.revision &&
+                Array.isArray(v.restrictions)
+              )
                 setRestrictions(
-                  v.filter(
-                    (f) => typeof f === "string" && Object.hasOwn(labels, f),
+                  v.restrictions.filter(
+                    (f: unknown): f is Feature =>
+                      typeof f === "string" && Object.hasOwn(labels, f),
                   ),
+                );
+              else
+                setError(
+                  "This draft belongs to an older access revision. Reload saved access before making changes.",
                 );
             }}
             onSubmit={async (e) => {
               e.preventDefault();
               setBusy(true);
               setError("");
+              setNotice("");
               try {
                 const r = await api<Rules>(base + "/restrictions", "POST", {
                   restrictions,
@@ -195,6 +230,7 @@ export function ExamWorkspace({
                 });
                 setRules(r);
                 setRestrictions(r.restrictions);
+                setNotice("Exam feature access saved.");
               } catch (e) {
                 setError(
                   e instanceof Error
@@ -208,7 +244,7 @@ export function ExamWorkspace({
             }}
           >
             {(Object.keys(labels) as Feature[]).map((f) => (
-              <label key={f}>
+              <label key={f} data-no-draft="true">
                 <input
                   type="checkbox"
                   checked={!restrictions.includes(f)}
@@ -225,8 +261,71 @@ export function ExamWorkspace({
               </label>
             ))}
             <button disabled={busy}>Save feature restrictions</button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setRestrictions([])}
+            >
+              Allow all feature groups
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setRestrictions(Object.keys(labels) as Feature[])}
+            >
+              Restrict all feature groups
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setError("");
+                setNotice("");
+                try {
+                  const saved = await api<Rules>(base);
+                  setRules(saved);
+                  setRestrictions(saved.restrictions);
+                  setNotice("Saved access reloaded.");
+                } catch (cause) {
+                  setError(
+                    cause instanceof Error
+                      ? cause.message
+                      : "Unable to reload access.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Reload saved access
+            </button>
           </DraftForm>
         ) : null)}
+      {controls && rules && (
+        <DirectoryTable
+          title="Exam feature coverage"
+          columns={[
+            "Feature group",
+            "Saved access",
+            "Implemented tools",
+            "Remaining work",
+          ]}
+        >
+          {(Object.keys(labels) as Feature[]).map((feature) => (
+            <tr key={feature}>
+              <td>{labels[feature]}</td>
+              <td>
+                {rules.restrictions.includes(feature)
+                  ? "Restricted"
+                  : "Allowed when Exams is enabled"}
+              </td>
+              <td>{coverage[feature][0]}</td>
+              <td>{coverage[feature][1]}</td>
+            </tr>
+          ))}
+        </DirectoryTable>
+      )}
     </section>
   );
 }
