@@ -10,7 +10,7 @@ The response contains a one-use URL fragment, never a token in the query string.
 
 Every student access check revalidates the grant, expiry, active learner, organisation Exams module and Taking restriction. The session resolves one student and one exam server-side. It cannot authenticate to staff APIs or another organisation's student endpoint. Concurrent first exchanges have one winner; a same-browser retry can reuse its already-issued cookie. A consumed link on another browser requires staff to issue a new link.
 
-The sign-in screen displays the assigned exam. Check exam setup reads requirements without starting an attempt; Start or resume then opens the native attempt. The basic attempt screen has question navigation, explicit Save answer, review flags, clearing, answer locks, countdown and submission confirmation. Unsaved edits prevent navigation. A failed save freezes editing until the same request is retried or the student explicitly reloads saved work. Exam answers stay in memory until the server acknowledges saving; browser storage is not used. Staff link-issuing controls are still withheld while the full delivery workflow is unfinished.
+The sign-in screen displays the assigned exam. Check exam setup reads requirements without starting an attempt; Start or resume then opens the native attempt. The basic attempt screen has question navigation, explicit Save answer, review flags, clearing, answer locks, countdown and submission confirmation. Unsaved edits prevent navigation. A failed save freezes editing until the same request is retried or the student explicitly reloads saved work. Exam answers stay in memory until the server acknowledges saving; browser storage is not used. Staff link issuance and revocation are implemented locally for supported papers; the full integration release is still unfinished.
 
 ## Implemented components
 
@@ -36,7 +36,7 @@ Workspace and attempt locks serialise lifecycle mutations. Submission retries re
 
 ## Remaining integration
 
-- Finish the advanced exam controls before enabling staff link issuance. The current native transaction rejects SVG and interactive media, rolling back a newly created attempt rather than showing an incomplete paper.
+- Validate supported delivery settings and representative papers before production use. The current native transaction rejects SVG and interactive media, rolling back a newly created attempt rather than showing an incomplete paper.
 - Replace the older launch path's automatic membership in every native exam group with explicit exam access. Existing external launch/session behaviour is not changed by these private components.
 - Verify the supported raster/formula formats against representative native papers before deployment; SVG and interactive media remain unsupported.
 - Complete result release and manual marking; validate camera delivery on representative devices before a production rollout.
@@ -114,3 +114,9 @@ The organisation Results area includes a private camera review screen using the 
 The authenticated prepare action checks the assigned paper and returns only its camera requirement. It creates neither a student identity nor an exam attempt. Camera permission is requested by an explicit student action. A preview stays entirely in the browser; no image is uploaded before Start. Once ready, Start uses the native engine and the existing stream continues into capture without a second permission step. Answers remain locked until the first capture is acknowledged. A denied permission therefore does not consume a new attempt or start its timer. Resuming an existing attempt never pauses or restarts its native clock.
 
 The readiness flag is a browser acknowledgement, not proof of identity or a tamper-proof camera. Modified clients can falsify readiness or suppress future uploads. The server validates capture ownership, bounds and timing but does not claim liveness detection. Native tests verify preflight has no identity/attempt writes and a missing acknowledgement rolls back a new camera start. HTTP tests verify grant scope and metadata minimisation. Synthetic browser tests verify denial, local-only preview, retained stream, upload retry and ordinary non-camera delivery. Real-device and representative live-paper checks remain outstanding; this is not the complete integration release.
+
+## Staff student-link controls
+
+The organisation workspace now has a Student exam access tool, available when Exams and Taking are unrestricted. Staff select a Tech4Learn student through the shared permission-scoped directory, choose an organisation-owned exam and an access duration of 1–168 hours. The form states that issuing a new link replaces previous access to that paper, including existing sessions. Issuance still uses the previously tested API and does not merge identities by email.
+
+The returned one-use link uses the current domain and a URL fragment. It is shown once in a read-only field outside the draft form, with Copy and Hide controls. It is never opened automatically, emailed, or persisted by the screen. Drafts contain only exam selection and duration, scoped to the staff user, organisation and learner. Recent access records show expiry and sign-in/revocation state; Revoke invalidates the grant through the existing API. The screen labels its bounded history as the latest 50 records. A synthetic browser check covers issuance, same-domain URL, copy, secret exclusion from drafts, revocation and clearing after student selection changes.

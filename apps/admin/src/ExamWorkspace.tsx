@@ -10,6 +10,12 @@ const ExamProctorReview = lazy(() =>
 );
 import { ExamBuilder } from "./ExamBuilder";
 
+const ExamStudentLinks = lazy(() =>
+  import("./ExamStudentLinks").then((module) => ({
+    default: module.ExamStudentLinks,
+  })),
+);
+
 const labels = {
   subjects: "Subjects, topics and sections",
   questions: "Question bank",
@@ -109,6 +115,15 @@ export function ExamWorkspace({
                   Create and manage exams
                 </button>
               )}
+              {!rules.restrictions.includes("taking") &&
+                !rules.restrictions.includes("exams") && (
+                  <button
+                    className={page === "taking" ? "" : "secondary"}
+                    onClick={() => setPage("taking")}
+                  >
+                    Student exam access
+                  </button>
+                )}
             </nav>
             {page === "questions" &&
             !rules.restrictions.includes("questions") ? (
@@ -118,6 +133,12 @@ export function ExamWorkspace({
               <ExamTaxonomy org={org} />
             ) : page === "exams" && !rules.restrictions.includes("exams") ? (
               <ExamBuilder org={org} />
+            ) : page === "taking" &&
+              !rules.restrictions.includes("taking") &&
+              !rules.restrictions.includes("exams") ? (
+              <Suspense fallback={<p role="status">Loading student access…</p>}>
+                <ExamStudentLinks key={org} org={org} />
+              </Suspense>
             ) : (
               <p>Select an available exam tool.</p>
             )}

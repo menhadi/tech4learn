@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, apiBase } from "./api";
-import { DirectoryTable, emptyTableQuery } from "./DirectoryTable";
+import { DirectoryTable } from "./DirectoryTable";
+
+import { ExamLearnerPicker } from "./ExamLearnerPicker";
 
 type Learner = { id: string; name: string; code: string };
 type Attempt = {
@@ -14,46 +16,7 @@ const date = (value: string | null) =>
   value ? new Date(value).toLocaleString() : "—";
 
 export function ExamProctorReview({ org }: { org: string }) {
-  const [query, setQuery] = useState(emptyTableQuery);
-  const [students, setStudents] = useState<Learner[]>([]);
-  const [counts, setCounts] = useState({ total: 0, filtered: 0 });
   const [learner, setLearner] = useState<Learner | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [revision, setRevision] = useState(0);
-  useEffect(() => {
-    if (learner) return;
-    let active = true;
-    setLoading(true);
-    setError("");
-    const timer = setTimeout(() => {
-      void api<{ items: Learner[]; total: number; filtered: number }>(
-        `/organisations/${org}/learners?search=${encodeURIComponent(query.search)}&offset=${query.offset}&limit=${query.limit}&sort=${encodeURIComponent(query.sort || "name")}&direction=${query.direction}&filters=${encodeURIComponent(JSON.stringify(query.filters))}`,
-      )
-        .then((page) => {
-          if (active) {
-            setStudents(
-              page.items.map(({ id, name, code }) => ({ id, name, code })),
-            );
-            setCounts({ total: page.total, filtered: page.filtered });
-          }
-        })
-        .catch((cause) => {
-          if (active) {
-            setStudents([]);
-            setCounts({ total: 0, filtered: 0 });
-            setError(cause.message);
-          }
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
-    }, 200);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [org, learner, query, revision]);
   return (
     <section className="panel">
       <h3>Exam camera review</h3>
@@ -77,41 +40,12 @@ export function ExamProctorReview({ org }: { org: string }) {
           />
         </>
       ) : (
-        <>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            className="secondary"
-            disabled={loading}
-            onClick={() => setRevision((r) => r + 1)}
-          >
-            Refresh students
-          </button>
-          <DirectoryTable
-            title="Choose a student for camera review"
-            columns={["Student", "Code", "Actions"]}
-            columnKeys={["name", "code", ""]}
-            remote={{ query, onChange: setQuery, ...counts, loading }}
-          >
-            {students.map((student) => (
-              <tr key={student.id}>
-                <td>{student.name}</td>
-                <td>{student.code}</td>
-                <td>
-                  <button
-                    disabled={loading}
-                    onClick={() => setLearner(student)}
-                  >
-                    Review attempts
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </DirectoryTable>
-        </>
+        <ExamLearnerPicker
+          org={org}
+          onSelect={setLearner}
+          title="Choose a student for camera review"
+          action="Review attempts"
+        />
       )}
     </section>
   );
