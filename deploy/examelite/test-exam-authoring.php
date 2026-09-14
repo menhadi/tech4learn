@@ -116,6 +116,12 @@ foreach([['group_ids'=>[1]],['tag_ids'=>[(string)$foreignPackageTag->id]],['cate
  try{$service->save($workspace,20,$actor,$packageSaved['id'],$badPackage,$packageEdited['revision'],'package-invalid-'.md5(json_encode($badPackage)),'packages');throw new RuntimeException('Expected package validation');}catch(Illuminate\Validation\ValidationException|Symfony\Component\HttpKernel\Exception\HttpException $e){}
  check($service->record('packages',$packageModel->fresh())===$packageEdited,'Rejected package edit has no partial changes');
 }
+$documentFields=['show_pdf_download'=>false,'show_solution_pdf_download'=>true,'pdf_title_text'=>'Paper title','pdf_header_text'=>'Paper header','pdf_footer_text'=>'Paper footer','pdf_watermark_text'=>'Draft','solution_pdf_title_text'=>'Solutions','solution_pdf_header_text'=>'Solution header','solution_pdf_footer_text'=>'Solution footer','solution_pdf_watermark_text'=>'Review'];
+$documents=$service->save($workspace,20,$actor,$packageSaved['id'],$documentFields,$packageEdited['revision'],'package-documents','packages');
+foreach($documentFields as $key=>$value)check($documents['fields'][$key]===$value,'Package document field saved: '.$key);
+check($service->save($workspace,20,$actor,$packageSaved['id'],$documentFields,$packageEdited['revision'],'package-documents','packages')===$documents,'Package document settings replay');
+try{$service->save($workspace,20,$actor,$packageSaved['id'],['pdf_footer_text'=>str_repeat('x',501)],$documents['revision'],'package-document-invalid','packages');throw new RuntimeException('Expected document text validation');}catch(Illuminate\Validation\ValidationException $e){}
+check($service->record('packages',$packageModel->fresh())===$documents,'Invalid package document settings leave native record unchanged');
 DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>$packageRestrictions]);
 
 echo "Native exam adapter: create, scope, languages, exact pass threshold, update and replay passed.\n";

@@ -318,8 +318,7 @@ function TaxonomyEditor({
                 <p>
                   Package type: {values.package_type}. Paid packages are managed
                   centrally. Assign exams to this package from the exam editor;
-                  existing exam links, ordering and document settings are
-                  preserved here.
+                  existing exam links and ordering are preserved here.
                 </p>
                 <QuestionChoiceField
                   org={org}
@@ -370,6 +369,46 @@ function TaxonomyEditor({
                     }
                   />
                 </label>
+                <details>
+                  <summary>Paper and solution PDF settings</summary>
+                  <p>
+                    These settings apply when ExamElite generates this package's
+                    documents. Downloading them inside Tech4Learn is still being
+                    integrated.
+                  </p>
+                  {[
+                    ["pdf", "Question paper", "show_pdf_download"],
+                    ["solution_pdf", "Solutions", "show_solution_pdf_download"],
+                  ].map(([prefix, title, flag]) => (
+                    <fieldset key={prefix}>
+                      <legend>{title}</legend>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(values[flag])}
+                          onChange={(e) => set(flag, e.target.checked)}
+                        />
+                        Allow {title.toLowerCase()} PDF download
+                      </label>
+                      {["title", "header", "footer", "watermark"].map(
+                        (part) => {
+                          const field = `${prefix}_${part}_text`;
+                          return (
+                            <label key={field}>
+                              {title} {part}
+                              <input
+                                type="text"
+                                maxLength={part === "footer" ? 500 : 255}
+                                value={values[field] ?? ""}
+                                onChange={(e) => set(field, e.target.value)}
+                              />
+                            </label>
+                          );
+                        },
+                      )}
+                    </fieldset>
+                  ))}
+                </details>
               </>
             )}
             {["sections", "categories", "subcategories", "packages"].includes(
