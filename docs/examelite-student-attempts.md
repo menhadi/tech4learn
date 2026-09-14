@@ -39,7 +39,7 @@ Workspace and attempt locks serialise lifecycle mutations. Submission retries re
 - Validate supported delivery settings and representative papers before production use. The current native transaction rejects SVG and interactive media, rolling back a newly created attempt rather than showing an incomplete paper.
 - Replace the older launch path's automatic membership in every native exam group with explicit exam access. Existing external launch/session behaviour is not changed by these private components.
 - Verify the supported raster/formula formats against representative native papers before deployment; SVG and interactive media remain unsupported.
-- Complete result release and manual marking; validate camera delivery on representative devices before a production rollout.
+- Complete manual marking and student result-history navigation; validate camera delivery on representative devices before a production rollout.
 
 ## Local verification
 
@@ -120,3 +120,11 @@ The readiness flag is a browser acknowledgement, not proof of identity or a tamp
 The organisation workspace now has a Student exam access tool, available when Exams and Taking are unrestricted. Staff select a Tech4Learn student through the shared permission-scoped directory, choose an organisation-owned exam and an access duration of 1–168 hours. The form states that issuing a new link replaces previous access to that paper, including existing sessions. Issuance still uses the previously tested API and does not merge identities by email.
 
 The returned one-use link uses the current domain and a URL fragment. It is shown once in a read-only field outside the draft form, with Copy and Hide controls. It is never opened automatically, emailed, or persisted by the screen. Drafts contain only exam selection and duration, scoped to the staff user, organisation and learner. Recent access records show expiry and sign-in/revocation state; Revoke invalidates the grant through the existing API. The screen labels its bounded history as the latest 50 records. A synthetic browser check covers issuance, same-domain URL, copy, secret exclusion from drafts, revocation and clearing after student selection changes.
+
+## Result visibility and refresh
+
+An owned exam's paper controls expose Publish student results and Hide student results. These call ExamElite's native result-publication method through the authoring adapter. The adapter receives a desired boolean state and uses the existing revision/request ledger, so a lost-response retry cannot toggle visibility back. This is the same native `result_after_finish` setting available in exam settings; the organisation Results restriction independently prevents student score access.
+
+The submitted student screen has a read-only Refresh result action bound to the grant and submitted attempt. It returns the current native publication state without creating an attempt or invoking grading. Active attempts reject this read, and cross-paper or cross-student IDs remain inaccessible. A published result can therefore appear after staff release it while the completed screen is open. Persistent student history/navigation after a full page restart remains unfinished.
+
+Native tests cover hiding, publishing, repeated requested state, request replay and a read that cannot submit or grade. HTTP tests cover the publication route, actor scope and wrong/incomplete result responses. Synthetic browser checks cover lost-response publication retry and a student refresh that makes no start request. Manual marking remains outstanding.

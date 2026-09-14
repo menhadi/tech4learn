@@ -381,6 +381,15 @@ export function StudentExamAttempt({ base }: { base: string }) {
         <>
           <h3>Exam submitted</h3>
           <p>Your saved answers have been submitted.</p>
+          <button
+            className="secondary"
+            disabled={busy || !!pending.current}
+            onClick={() =>
+              void send("result", { attempt_id: attempt.attempt_id })
+            }
+          >
+            Refresh result
+          </button>
           {attempt.result ? (
             <p>
               Result: {attempt.result.status} · Score:{" "}

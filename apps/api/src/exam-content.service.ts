@@ -271,6 +271,7 @@ export class ExamContentService {
           "assign-section",
           "subject-timers",
           "set-status",
+          "set-result-status",
         ].includes(action))
     )
       throw new BadRequestException("Invalid exam action.");

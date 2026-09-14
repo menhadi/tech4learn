@@ -99,6 +99,7 @@ export class ExamStudentAttemptService {
       start: ["request_id", "language_id", "camera_ready"],
       answer: ["request_id", "attempt_id", "question_id", "fields", "revision"],
       submit: ["request_id", "attempt_id"],
+      result: ["request_id", "attempt_id"],
       visibility: ["request_id", "attempt_id", "event"],
       proctor: ["request_id", "attempt_id", "image"],
     };
@@ -217,6 +218,7 @@ export class ExamStudentAttemptService {
     }
     if (
       (action === "submit" ||
+        action === "result" ||
         action === "visibility" ||
         action === "proctor") &&
       data?.attempt_id !== body.attempt_id
@@ -235,6 +237,8 @@ export class ExamStudentAttemptService {
       throw new ServiceUnavailableException(
         "The exam service returned an invalid response.",
       );
+    if (action === "result" && data.completed !== true)
+      throw new ServiceUnavailableException("Submitted result is unavailable.");
     if (action === "answer") {
       if (
         data.question_id !== body.question_id ||

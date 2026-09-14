@@ -11,6 +11,7 @@ foreach([
  ['GET','api/tech4learn/v1/review/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts','Tech4LearnProctorController@attempts'],
  ['GET','api/tech4learn/v1/review/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts/1/captures/33333333-3333-3333-3333-333333333333','Tech4LearnProctorController@captures'],
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/media','Tech4LearnStudentController@attempt'],
+ ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/result','Tech4LearnStudentController@attempt'],
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/prepare','Tech4LearnStudentController@attempt'],
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/start','Tech4LearnStudentController@attempt'],
  ['GET','tech4learn/launch','Tech4LearnNativeController@launch'],

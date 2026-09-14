@@ -9,10 +9,10 @@ use Illuminate\Contracts\View\View;
 final class Tech4LearnStudentAttempts
 {
  public function run(string $workspace,int $source,string $learner,string $name,int $examId,string $action,array $fields):array {
-  abort_unless(in_array($action,['prepare','start','answer','submit','media','visibility','proctor'],true)&&$examId>0,422);
+  abort_unless(in_array($action,['prepare','start','answer','submit','result','media','visibility','proctor'],true)&&$examId>0,422);
   foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   $requestId=$fields['request_id']??'';abort_unless(is_string($requestId)&&preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$requestId),422);
-  $allowed=match($action){'prepare'=>['request_id'],'start'=>['request_id','language_id','camera_ready'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'submit'=>['request_id','attempt_id'],'visibility'=>['request_id','attempt_id','event'],'proctor'=>['request_id','attempt_id','image'],'media'=>['request_id','attempt_id','question_id','asset']};
+  $allowed=match($action){'prepare'=>['request_id'],'start'=>['request_id','language_id','camera_ready'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'result'=>['request_id','attempt_id'],'submit'=>['request_id','attempt_id'],'visibility'=>['request_id','attempt_id','event'],'proctor'=>['request_id','attempt_id','image'],'media'=>['request_id','attempt_id','question_id','asset']};
   abort_unless(array_diff(array_keys($fields),$allowed)===[],422);
   if(isset($fields['camera_ready']))abort_unless(is_bool($fields['camera_ready']),422);
   if(isset($fields['language_id']))abort_unless(is_int($fields['language_id'])&&$fields['language_id']>0,422);
@@ -49,8 +49,9 @@ final class Tech4LearnStudentAttempts
    $fingerprint=hash('sha256',json_encode([$action,$source,$learner,$examId,$fields],JSON_THROW_ON_ERROR));
    $prior=DB::table('tech4learn_attempt_requests')->where('workspace_id',$workspace)->where('request_id',$requestId)->first();
    if($prior)abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');
-   $attempt=in_array($action,['submit','visibility'],true)?$this->attempt($tenant,$student->id,$examId,$fields['attempt_id']??null):($prior?$this->attempt($tenant,$student->id,$examId,json_decode($prior->result,true)['attempt_id']):ExamResult::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_id',$examId)->whereNull('end_time')->lockForUpdate()->first());
+   $attempt=in_array($action,['submit','visibility','result'],true)?$this->attempt($tenant,$student->id,$examId,$fields['attempt_id']??null):($prior?$this->attempt($tenant,$student->id,$examId,json_decode($prior->result,true)['attempt_id']):ExamResult::where('organization_id',$tenant)->where('student_id',$student->id)->where('exam_id',$examId)->whereNull('end_time')->lockForUpdate()->first());
    if($attempt?->end_time)return $this->completed($exam,$attempt,$showResults);
+   abort_unless($action!=='result',409,'This attempt is not submitted.');
    if($action==='visibility'){
     abort_unless(($fields['event']??null)==='hidden'&&$exam->browser_tolerance&&(int)$exam->tolerance_count>0,422);
     if($prior)return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);

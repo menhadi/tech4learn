@@ -49,6 +49,16 @@ $active=$service->save($workspace,20,$actor,$exam['id'],['status'=>'Active'],$re
 check($active['status']==='Active','Native activation');
 check($service->save($workspace,20,$actor,$exam['id'],['status'=>'Active'],$removed['revision'],'activate','exams','set-status')===$active,'Activation retry does not toggle back');
 $current=$service->save($workspace,20,$actor,$exam['id'],['status'=>'Active'],$active['revision'],'activate-again','exams','set-status');
+$publicationBefore=$current;
+$current=$service->save($workspace,20,$actor,$exam['id'],['result_after_finish'=>false],$current['revision'],'hide-results','exams','set-result-status');
+check(!$current['fields']['result_after_finish'],'Native result hiding');
+check($service->save($workspace,20,$actor,$exam['id'],['result_after_finish'=>false],$publicationBefore['revision'],'hide-results','exams','set-result-status')===$current,'Result publication retry does not toggle');
+$current=$service->save($workspace,20,$actor,$exam['id'],['result_after_finish'=>false],$current['revision'],'hide-results-again','exams','set-result-status');
+check(!$current['fields']['result_after_finish'],'Repeated desired state leaves results hidden');
+$current=$service->save($workspace,20,$actor,$exam['id'],['result_after_finish'=>true],$current['revision'],'publish-results','exams','set-result-status');
+check($current['fields']['result_after_finish'],'Native result publication');
+try{$service->save($workspace,20,$actor,$exam['id'],['result_after_finish'=>'yes'],$current['revision'],'invalid-publication','exams','set-result-status');throw new RuntimeException('Expected boolean validation');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){}
+
 check($current['status']==='Active','Desired publication status is idempotent with a new request');
 $current=$service->save($workspace,20,$actor,$exam['id'],['name'=>'Part A','duration'=>30,'display_order'=>1],$current['revision'],'section-create','exams','create-section');
 $sectionId=$current['sections'][0]['id'];

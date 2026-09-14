@@ -83,6 +83,28 @@ export function ExamPaperControls({
       >
         {record.status === "Active" ? "Make exam inactive" : "Make exam active"}
       </button>
+      <p>
+        Student results are{" "}
+        <strong>
+          {record.fields.result_after_finish ? "published" : "hidden"}
+        </strong>
+        . This controls completed and future attempts; organisation result
+        restrictions still apply.
+      </p>
+      <button
+        type="button"
+        className="secondary"
+        disabled={locked}
+        onClick={() =>
+          void save("set-result-status", {
+            result_after_finish: !record.fields.result_after_finish,
+          })
+        }
+      >
+        {record.fields.result_after_finish
+          ? "Hide student results"
+          : "Publish student results"}
+      </button>
       <h4>Exam sections</h4>
       <SmartTable>
         <caption>Sections in this exam</caption>

@@ -386,6 +386,71 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
       ).status,
       400,
     );
+    const resultPath = root + "/student-exam/attempt/result";
+    engine.request = async (config, owner, path, payload) => {
+      assert.equal(path, `student/${org}/result`);
+      assert.equal(payload.exam_id, 7);
+      assert.equal(payload.fields.attempt_id, 11);
+      return {
+        data: {
+          attempt_id: 11,
+          exam_id: 7,
+          completed: true,
+          result: { status: "Pass", score_percent: 90 },
+        },
+      };
+    };
+    const refreshed = await call(
+      resultPath,
+      { request_id: randomUUID(), attempt_id: 11 },
+      studentCookie,
+    );
+    assert.equal(refreshed.status, 200);
+    assert.deepEqual((await refreshed.json()).result, {
+      status: "Pass",
+      score_percent: 90,
+    });
+    await pg.query(
+      "INSERT INTO examelite_workspaces(organisation_id,restrictions) VALUES($1,ARRAY['results'])",
+      [org],
+    );
+    const hiddenResult = await call(
+      resultPath,
+      { request_id: randomUUID(), attempt_id: 11 },
+      studentCookie,
+    );
+    assert.equal(hiddenResult.status, 200);
+    assert.equal((await hiddenResult.json()).result, null);
+    await pg.query(
+      "DELETE FROM examelite_workspaces WHERE organisation_id=$1",
+      [org],
+    );
+    engine.request = async () => ({
+      data: { attempt_id: 12, exam_id: 7, completed: true },
+    });
+    assert.equal(
+      (
+        await call(
+          resultPath,
+          { request_id: randomUUID(), attempt_id: 11 },
+          studentCookie,
+        )
+      ).status,
+      503,
+    );
+    engine.request = async () => ({
+      data: { attempt_id: 11, exam_id: 7, completed: false },
+    });
+    assert.equal(
+      (
+        await call(
+          resultPath,
+          { request_id: randomUUID(), attempt_id: 11 },
+          studentCookie,
+        )
+      ).status,
+      503,
+    );
     const capturePath = root + "/student-exam/attempt/proctor";
     const captureBody = {
       request_id: randomUUID(),

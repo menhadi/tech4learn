@@ -49,9 +49,18 @@ rejectAnswer(fn()=>$lifecycle->run($workspace,10,$newLearner,'Synthetic candidat
 $paper->duration=60;$paper->save();
 $answer=$lifecycle->run($workspace,10,$newLearner,'Synthetic candidate',$paper->id,'answer',['request_id'=>$next(),'attempt_id'=>$opened['attempt_id'],'question_id'=>$q->id,'fields'=>['option_selected'=>'7'],'revision'=>$opened['questions'][0]['revision']]);
 check($answer['saved'],'Native lifecycle persists answer');
+rejectAnswer(fn()=>$lifecycle->run($workspace,10,$newLearner,'Synthetic candidate',$paper->id,'result',['request_id'=>$next(),'attempt_id'=>$opened['attempt_id']]),'Result read cannot submit an active attempt');
+check(!App\Models\ExamResult::find($opened['attempt_id'])->end_time,'Result read leaves active attempt unchanged');
 $submitId=$next();
 $finished=$lifecycle->run($workspace,10,$newLearner,'Synthetic candidate',$paper->id,'submit',['request_id'=>$submitId,'attempt_id'=>$opened['attempt_id']]);
 check($finished['completed']&&App\Services\StudentActivityTracker::$submissions===1,'Native controller finalises attempt once');
+$beforeResultRead=App\Models\ExamResult::count();
+$paper->result_after_finish=false;$paper->save();
+check($lifecycle->run($workspace,10,$newLearner,'Synthetic candidate',$paper->id,'result',['request_id'=>$next(),'attempt_id'=>$opened['attempt_id']])['result']===null,'Hidden result stays private on refresh');
+$paper->result_after_finish=true;$paper->save();
+check($lifecycle->run($workspace,10,$newLearner,'Synthetic candidate',$paper->id,'result',['request_id'=>$next(),'attempt_id'=>$opened['attempt_id']])===$finished,'Published result can be refreshed');
+check(App\Models\ExamResult::count()===$beforeResultRead&&App\Services\StudentActivityTracker::$submissions===1,'Result refresh creates and grades no attempt');
+
 check($finished['result']['score_percent']===100.0&&$finished['result']['obtained_marks']===4.0,'Native numerical evaluator supplies the final score');
 check($lifecycle->run($workspace,10,$newLearner,'Synthetic candidate',$paper->id,'submit',['request_id'=>$submitId,'attempt_id'=>$opened['attempt_id']])===$finished&&App\Services\StudentActivityTracker::$submissions===1,'Submission retry never marks twice');
 rejectAnswer(fn()=>$lifecycle->run($workspace,10,$newLearner,'Synthetic candidate',$paper->id,'start',['request_id'=>$next()]),'attempt count exhausted');

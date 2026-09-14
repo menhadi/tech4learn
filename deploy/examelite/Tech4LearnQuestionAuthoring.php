@@ -21,6 +21,7 @@ final class Tech4LearnQuestionAuthoring
         'assign-section'=>['question_ids','question_section_id'],
         'subject-timers'=>['subject_ids','durations'],
         'set-status'=>['status'],
+        'set-result-status'=>['result_after_finish'],
     ];
     public const FIELDS=['qtype_id','subject_id','question_section_id','topic_id','stopic_id','diff_id','passage_id','language_id',
         'question','option1','option2','option3','option4','option5','option6','marks','negative_marks','scoring_policy',
@@ -121,6 +122,7 @@ final class Tech4LearnQuestionAuthoring
                 abort_unless(!array_diff($ids,$paperIds)&&!array_diff($paperIds,$ids),422);
                 abort_unless(\App\Models\Subject::where('organization_id',$tenant)->whereIn('id',$ids)->count()===count($ids),422);
             }
+            if($action==='set-result-status')abort_unless(is_bool($fields['result_after_finish']??null),422);
             if($action==='set-status')abort_unless(in_array($fields['status']??null,['Active','Inactive'],true),422);
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             // The native controller accepts its web form. Give it a private request/session,
@@ -169,8 +171,12 @@ final class Tech4LearnQuestionAuthoring
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
             $controller=app($controllerClass);
             $arguments=['request'=>$request];if($question)$arguments[$parameter]=$question;
-            $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','set-status'=>'toggleStatus'];
+            $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','set-status'=>'toggleStatus','set-result-status'=>'toggleResultStatus'];
             if(in_array($action,['update-section','remove-section'],true))$arguments['section']=$question->sections()->findOrFail($fields['section_id']);
+            if($action==='set-result-status'){
+                if((bool)$question->result_after_finish===$fields['result_after_finish'])return $this->record($kind,$question);
+                unset($arguments[$parameter]);$arguments['id']=$question->id;
+            }
             if($action==='set-status'&&$question->status===$fields['status'])return $this->record($kind,$question);
             $method=$action!==null?$methods[$action]:($question?'update':'store');
             $response=$app->call([$controller,$method],$arguments);

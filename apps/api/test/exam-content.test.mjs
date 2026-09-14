@@ -324,6 +324,39 @@ test("central question sharing requires superadmin; organisation reads respect m
       ).status,
       404,
     );
+    const publication = {
+      fields: { result_after_finish: false },
+      revision: "a".repeat(64),
+      request_id: randomUUID(),
+    };
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/exams/9/actions/set-result-status`,
+          publication,
+          member,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      requests.at(-1).path,
+      `authoring/${org}/exams/9/actions/set-result-status`,
+    );
+    assert.deepEqual(requests.at(-1).body.fields, {
+      result_after_finish: false,
+    });
+    assert.equal(requests.at(-1).body.actor_id, member);
+    assert.equal(
+      (
+        await call(
+          `/organisations/${other}/exam-content/exams/9/actions/set-result-status`,
+          publication,
+          member,
+        )
+      ).status,
+      404,
+    );
     const nativeRequest = remote.request;
     const learner = randomUUID(),
       capture = randomUUID();
