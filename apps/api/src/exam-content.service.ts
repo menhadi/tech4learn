@@ -15,6 +15,181 @@ import type { Account } from "./identity.service.js";
 
 @Injectable()
 export class ExamContentService {
+  async resultReview(
+    user: Account,
+    org: string,
+    learner: string,
+    attempt?: string,
+    after = "0",
+    body?: Record<string, unknown>,
+  ) {
+    await this.proctorAccess(user, org);
+    uuid(learner);
+    if (
+      !/^[0-9]{1,15}$/.test(after) ||
+      (attempt !== undefined && !/^[1-9][0-9]{0,14}$/.test(attempt))
+    )
+      throw new BadRequestException("Invalid result request.");
+    if (body !== undefined) {
+      if (
+        !attempt ||
+        !body ||
+        Object.keys(body).some(
+          (key) => !["marks", "revision", "request_id"].includes(key),
+        ) ||
+        typeof body.revision !== "string" ||
+        !/^[a-f0-9]{64}$/.test(body.revision) ||
+        typeof body.request_id !== "string"
+      )
+        throw new BadRequestException("Invalid marking request.");
+      uuid(body.request_id);
+      const marks = body.marks;
+      if (
+        !marks ||
+        typeof marks !== "object" ||
+        Array.isArray(marks) ||
+        Object.keys(marks).length < 1 ||
+        Object.keys(marks).length > 500 ||
+        Object.entries(marks).some(
+          ([key, value]) =>
+            !/^[1-9][0-9]{0,14}$/.test(key) ||
+            typeof value !== "number" ||
+            !Number.isFinite(value) ||
+            value < 0,
+        )
+      )
+        throw new BadRequestException(
+          "Enter valid marks for every pending answer.",
+        );
+    }
+    await this.workspace.launch(user, org, { feature: "results" }, true);
+    await this.proctorAccess(user, org);
+    const path = `results/${org}/learners/${learner}/attempts${attempt ? "/" + attempt : ""}`;
+    const data = await this.remote.request(
+      await this.config(),
+      org,
+      path + (body ? "" : `?actor_id=${user.id}&after=${after}`),
+      body ? { ...body, actor_id: user.id } : undefined,
+    );
+    await this.proctorAccess(user, org);
+    const invalid = () =>
+      new ServiceUnavailableException(
+        "Exam results are temporarily unavailable.",
+      );
+    const positive = (n: unknown) =>
+      typeof n === "number" && Number.isSafeInteger(n) && n > 0;
+    const finite = (n: unknown) => typeof n === "number" && Number.isFinite(n);
+    const summary = (row: any) => {
+      if (
+        !row ||
+        !positive(row.attempt_id) ||
+        (attempt && row.attempt_id !== Number(attempt)) ||
+        typeof row.result !== "string" ||
+        row.result.length > 80 ||
+        !finite(row.score_percent) ||
+        !finite(row.obtained_marks) ||
+        !finite(row.total_marks) ||
+        row.total_marks < 0
+      )
+        throw invalid();
+      return {
+        attempt_id: row.attempt_id,
+        result: row.result,
+        score_percent: row.score_percent,
+        obtained_marks: row.obtained_marks,
+        total_marks: row.total_marks,
+      };
+    };
+    if (body) {
+      if (data.conflict === true)
+        throw new ConflictException(
+          "This attempt changed. Reload it before marking again.",
+        );
+      if (data.saved === false)
+        throw new BadRequestException(
+          "Check the marks for every pending answer.",
+        );
+      if (data.saved !== true) throw invalid();
+      const result = summary(data.result);
+      await this.access.audit(this.db, user, org, "exams.result.marked", {
+        learnerId: learner,
+        attemptId: Number(attempt),
+        requestId: body.request_id,
+      });
+      return result;
+    }
+    if (attempt) {
+      if (
+        typeof data.revision !== "string" ||
+        !/^[a-f0-9]{64}$/.test(data.revision) ||
+        !Array.isArray(data.questions) ||
+        data.questions.length > 500
+      )
+        throw invalid();
+      const seen = new Set<number>();
+      return {
+        revision: data.revision,
+        summary: summary(data.summary),
+        questions: data.questions.map((row: any) => {
+          if (
+            !row ||
+            !positive(row.stat_id) ||
+            seen.has(row.stat_id) ||
+            !positive(row.question_id) ||
+            typeof row.question_text !== "string" ||
+            row.question_text.length > 100000 ||
+            typeof row.answer_text !== "string" ||
+            row.answer_text.length > 100000 ||
+            typeof row.reference_text !== "string" ||
+            row.reference_text.length > 100000 ||
+            typeof row.text_review_supported !== "boolean" ||
+            !finite(row.maximum_marks) ||
+            row.maximum_marks < 0
+          )
+            throw invalid();
+          seen.add(row.stat_id);
+          return {
+            stat_id: row.stat_id,
+            question_id: row.question_id,
+            question_text: row.question_text,
+            answer_text: row.answer_text,
+            reference_text: row.reference_text,
+            text_review_supported: row.text_review_supported,
+            maximum_marks: row.maximum_marks,
+          };
+        }),
+      };
+    }
+    if (
+      !Array.isArray(data.items) ||
+      data.items.length > 50 ||
+      (data.next !== null && !positive(data.next))
+    )
+      throw invalid();
+    return {
+      next: data.next,
+      items: data.items.map((row: any) => {
+        const result = summary(row);
+        if (
+          !positive(row.exam_id) ||
+          typeof row.exam_name !== "string" ||
+          row.exam_name.length > 250 ||
+          typeof row.finished_at !== "string" ||
+          !Number.isFinite(Date.parse(row.finished_at)) ||
+          !Number.isSafeInteger(row.pending_count) ||
+          row.pending_count < 0
+        )
+          throw invalid();
+        return {
+          ...result,
+          exam_id: row.exam_id,
+          exam_name: row.exam_name,
+          finished_at: row.finished_at,
+          pending_count: row.pending_count,
+        };
+      }),
+    };
+  }
   private async proctorAccess(user: Account, org: string) {
     await this.access.require(user, org, "exams.manage");
     const rules = await this.workspace.status(user, org);

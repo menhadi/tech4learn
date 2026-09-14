@@ -18,6 +18,15 @@ DB::table('exam_result_details')->insert(['organization_id'=>20,'exam_result_id'
 DB::table('exam_result_details')->insert(['organization_id'=>99,'exam_result_id'=>$manual->id]);
 $review=$marking->review($workspace,10,$actor,$newLearner,$manual->id);
 check(count($review['questions'])===1&&$review['questions'][0]['answer_text']==='Synthetic written answer','Pending answer available to scoped marker');
+$originalQuestion=$q->fresh()->question;
+$q->question='<p>Changed question</p>';$q->save();
+rejectAnswer(fn()=>$marking->save($workspace,10,$actor,$newLearner,$manual->id,[$pending->id=>5],$review['revision'],$next()),'Changed question invalidates marking review');
+$q->question='<img src="/private-question.png">';$q->save();
+$mediaReview=$marking->review($workspace,10,$actor,$newLearner,$manual->id);
+check(!$mediaReview['questions'][0]['text_review_supported'],'Media question flagged for complete review');
+rejectAnswer(fn()=>$marking->save($workspace,10,$actor,$newLearner,$manual->id,[$pending->id=>5],$mediaReview['revision'],$next()),'Incomplete media display cannot be graded');
+$q->question=$originalQuestion;$q->save();
+$review=$marking->review($workspace,10,$actor,$newLearner,$manual->id);
 $extra=$pending->replicate();$extra->save();
 $two=$marking->review($workspace,10,$actor,$newLearner,$manual->id);
 rejectAnswer(fn()=>$marking->save($workspace,10,$actor,$newLearner,$manual->id,[$pending->id=>5],$two['revision'],$next()),'Partial pending marking cannot finalise the result');

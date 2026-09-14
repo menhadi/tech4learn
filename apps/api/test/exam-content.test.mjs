@@ -494,6 +494,144 @@ test("central question sharing requires superadmin; organisation reads respect m
       [org],
     );
     remote.request = nativeRequest;
+    const resultPath = `/organisations/${org}/exam-results/${learner}/attempts`;
+    const resultSummary = {
+      attempt_id: 19,
+      result: "Pending",
+      score_percent: 0,
+      obtained_marks: 0,
+      total_marks: 10,
+    };
+    let resultMode = "success";
+    remote.request = async (c, o, path, body) => {
+      if (!path.startsWith("results/")) return nativeRequest(c, o, path, body);
+      requests.push({ o, path, body });
+      if (resultMode === "revoke")
+        await pg.query(
+          "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
+          [member, org],
+        );
+      if (body) {
+        if (resultMode === "conflict") return { saved: false, conflict: true };
+        if (resultMode === "invalid") return { saved: false };
+        return {
+          saved: true,
+          result: {
+            ...resultSummary,
+            attempt_id: resultMode === "wrong" ? 99 : 19,
+            private_extra: "omit",
+          },
+        };
+      }
+      if (path.includes("/19?"))
+        return {
+          revision: "a".repeat(64),
+          summary: resultSummary,
+          questions: [
+            {
+              stat_id: 3,
+              question_id: 8,
+              question_text: "Explain",
+              answer_text: "Synthetic answer",
+              reference_text: "Reference",
+              text_review_supported: true,
+              maximum_marks: 10,
+              correct_answer: "omit",
+            },
+          ],
+        };
+      return {
+        next: null,
+        items: [
+          {
+            ...resultSummary,
+            exam_id: 8,
+            exam_name: "Synthetic paper",
+            finished_at: "2026-09-14T00:00:00Z",
+            pending_count: 1,
+            student_email: "omit",
+          },
+        ],
+      };
+    };
+    assert.equal((await call(resultPath, undefined, member)).status, 200);
+    assert.match(requests.at(-1).path, new RegExp(`actor_id=${member}`));
+    const markingReview = await (
+      await call(resultPath + "/19", undefined, member)
+    ).json();
+    assert.equal(markingReview.questions[0].answer_text, "Synthetic answer");
+    assert.equal(JSON.stringify(markingReview).includes("omit"), false);
+    const markingBody = {
+      marks: { 3: 5 },
+      revision: "a".repeat(64),
+      request_id: randomUUID(),
+    };
+    const marked = await call(resultPath + "/19", markingBody, member);
+    assert.equal(marked.status, 201);
+    assert.equal(requests.at(-1).body.actor_id, member);
+    assert.equal(JSON.stringify(await marked.json()).includes("omit"), false);
+    for (const changes of [
+      { marks: {} },
+      { marks: { 3: -1 } },
+      { marks: { 3: "5" } },
+      { actor_id: admin },
+      { revision: "old" },
+    ])
+      assert.equal(
+        (await call(resultPath + "/19", { ...markingBody, ...changes }, member))
+          .status,
+        400,
+      );
+    assert.equal(
+      (await call(resultPath.replace(org, other), undefined, member)).status,
+      404,
+    );
+    assert.equal((await fetch(base + resultPath)).status, 401);
+    resultMode = "wrong";
+    assert.equal(
+      (await call(resultPath + "/19", markingBody, member)).status,
+      503,
+    );
+    resultMode = "conflict";
+    assert.equal(
+      (await call(resultPath + "/19", markingBody, member)).status,
+      409,
+    );
+    resultMode = "invalid";
+    assert.equal(
+      (await call(resultPath + "/19", markingBody, member)).status,
+      400,
+    );
+    resultMode = "revoke";
+    assert.equal((await call(resultPath, undefined, member)).status, 404);
+    await pg.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    await pg.query(
+      "INSERT INTO examelite_workspaces(organisation_id,restrictions) VALUES($1,$2)",
+      [org, ["results"]],
+    );
+    assert.equal((await call(resultPath, undefined, member)).status, 403);
+    await pg.query(
+      "DELETE FROM examelite_workspaces WHERE organisation_id=$1",
+      [org],
+    );
+    const markingAudit = await pg.query(
+      "SELECT details FROM audit_events WHERE organisation_id=$1 AND action='exams.result.marked'",
+      [org],
+    );
+    assert.deepEqual(
+      markingAudit.rows.map((row) => row.details),
+      [
+        {
+          learnerId: learner,
+          attemptId: 19,
+          requestId: markingBody.request_id,
+        },
+      ],
+    );
+    remote.request = nativeRequest;
     const body = {
       direction: "share",
       question_ids: [9, 2, 9],

@@ -14,6 +14,52 @@ import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get("organisations/:org/exam-results/:learner/attempts")
+  async resultAttempts(
+    @Param("org") org: string,
+    @Param("learner") learner: string,
+    @Query("after") after = "0",
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.resultReview(
+      await this.identity.account(session(cookie)),
+      org,
+      learner,
+      undefined,
+      after,
+    );
+  }
+  @Get("organisations/:org/exam-results/:learner/attempts/:attempt")
+  async resultReview(
+    @Param("org") org: string,
+    @Param("learner") learner: string,
+    @Param("attempt") attempt: string,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.resultReview(
+      await this.identity.account(session(cookie)),
+      org,
+      learner,
+      attempt,
+    );
+  }
+  @Post("organisations/:org/exam-results/:learner/attempts/:attempt")
+  async markResult(
+    @Param("org") org: string,
+    @Param("learner") learner: string,
+    @Param("attempt") attempt: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.content.resultReview(
+      await this.identity.account(session(cookie)),
+      org,
+      learner,
+      attempt,
+      "0",
+      body,
+    );
+  }
   @Get("organisations/:org/exam-proctor/:learner/attempts")
   async proctorAttempts(
     @Param("org") org: string,

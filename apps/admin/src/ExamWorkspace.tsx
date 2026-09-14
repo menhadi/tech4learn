@@ -9,6 +9,9 @@ const ExamProctorReview = lazy(() =>
   })),
 );
 import { ExamBuilder } from "./ExamBuilder";
+const ExamResults = lazy(() =>
+  import("./ExamResults").then((module) => ({ default: module.ExamResults })),
+);
 
 const ExamStudentLinks = lazy(() =>
   import("./ExamStudentLinks").then((module) => ({
@@ -73,7 +76,8 @@ export function ExamWorkspace({
               Results and camera review are restricted for this organisation.
             </p>
           ) : (
-            <Suspense fallback={<p role="status">Loading camera review…</p>}>
+            <Suspense fallback={<p role="status">Loading results…</p>}>
+              <ExamResults key={`results:${org}`} org={org} />
               <ExamProctorReview key={org} org={org} />
             </Suspense>
           ))}

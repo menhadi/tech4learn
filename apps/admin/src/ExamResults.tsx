@@ -1,0 +1,396 @@
+import { useEffect, useState } from "react";
+import { api, ApiError } from "./api";
+import { DraftForm } from "./DraftForm";
+import { DirectoryTable } from "./DirectoryTable";
+import { ExamLearnerPicker, type ExamLearner } from "./ExamLearnerPicker";
+
+type Summary = {
+  attempt_id: number;
+  result: string;
+  score_percent: number;
+  obtained_marks: number;
+  total_marks: number;
+};
+type Attempt = Summary & {
+  exam_id: number;
+  exam_name: string;
+  finished_at: string;
+  pending_count: number;
+};
+type Review = {
+  revision: string;
+  summary: Summary;
+  questions: {
+    stat_id: number;
+    question_id: number;
+    question_text: string;
+    answer_text: string;
+    reference_text: string;
+    text_review_supported: boolean;
+    maximum_marks: number;
+  }[];
+};
+
+export function ExamResults({ org }: { org: string }) {
+  const [learner, setLearner] = useState<ExamLearner | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <section className="panel">
+      <h3>Results and marking</h3>
+      <p>
+        Review submitted exams and mark pending written answers. ExamElite
+        calculates the result using the paper’s settings.
+      </p>
+      {learner ? (
+        <>
+          <p>
+            Student: <strong>{learner.name}</strong> · {learner.code}
+          </p>
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() => setLearner(null)}
+          >
+            Choose another student
+          </button>
+          <StudentResults
+            key={`${org}:${learner.id}`}
+            org={org}
+            learner={learner.id}
+            onBusy={setBusy}
+          />
+        </>
+      ) : (
+        <ExamLearnerPicker
+          org={org}
+          onSelect={setLearner}
+          title="Choose a student for results"
+          action="View results"
+        />
+      )}
+    </section>
+  );
+}
+function StudentResults({
+  org,
+  learner,
+  onBusy,
+}: {
+  org: string;
+  learner: string;
+  onBusy: (value: boolean) => void;
+}) {
+  const base = `/organisations/${org}/exam-results/${learner}/attempts`;
+  const [rows, setRows] = useState<Attempt[]>([]);
+  const [next, setNext] = useState<number | null>(null);
+  const [page, setPage] = useState({ after: 0, revision: 0 });
+  const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    onBusy(busy);
+    return () => onBusy(false);
+  }, [busy, onBusy]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    void api<{ items: Attempt[]; next: number | null }>(
+      `${base}?after=${page.after}`,
+    )
+      .then((result) => {
+        if (active) {
+          setRows((old) =>
+            page.after ? [...old, ...result.items] : result.items,
+          );
+          setNext(result.next);
+        }
+      })
+      .catch((cause) => {
+        if (active) {
+          setRows([]);
+          setNext(null);
+          setAttempt(null);
+          setError(cause.message);
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [base, page]);
+  const refresh = () => {
+    setAttempt(null);
+    setPage((old) => ({ after: 0, revision: old.revision + 1 }));
+  };
+  return (
+    <>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <button
+        className="secondary"
+        disabled={loading || busy}
+        onClick={refresh}
+      >
+        Refresh results
+      </button>
+      {loading && <p role="status">Loading results…</p>}
+      {!loading && !error && !rows.length && (
+        <p>No submitted exams were found for this student.</p>
+      )}
+      {!!rows.length && (
+        <DirectoryTable
+          title="Submitted exams — loaded records"
+          columns={[
+            "Exam",
+            "Score (%)",
+            "Result",
+            "Pending answers",
+            "Finished",
+            "Actions",
+          ]}
+        >
+          {rows.map((row) => (
+            <tr key={row.attempt_id}>
+              <td>{row.exam_name}</td>
+              <td>{row.score_percent}</td>
+              <td>{row.result}</td>
+              <td>{row.pending_count}</td>
+              <td>{new Date(row.finished_at).toLocaleString()}</td>
+              <td>
+                <button disabled={busy} onClick={() => setAttempt(row)}>
+                  Review result
+                </button>
+              </td>
+            </tr>
+          ))}
+        </DirectoryTable>
+      )}
+      {next !== null && (
+        <button
+          className="secondary"
+          disabled={loading || busy}
+          onClick={() => setPage((old) => ({ ...old, after: next }))}
+        >
+          Load more results
+        </button>
+      )}
+      {attempt && (
+        <Marking
+          key={attempt.attempt_id}
+          base={`${base}/${attempt.attempt_id}`}
+          learner={learner}
+          name={attempt.exam_name}
+          onBusy={setBusy}
+          onSaved={refresh}
+        />
+      )}
+    </>
+  );
+}
+function Marking({
+  base,
+  learner,
+  name,
+  onBusy,
+  onSaved,
+}: {
+  base: string;
+  learner: string;
+  name: string;
+  onBusy: (value: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [review, setReview] = useState<Review | null>(null);
+  const [reload, setReload] = useState(0);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [pending, setPending] = useState<{
+    request_id: string;
+    revision: string;
+    marks: Record<string, number>;
+  } | null>(null);
+  useEffect(() => {
+    onBusy(busy || pending !== null);
+    return () => onBusy(false);
+  }, [busy, pending, onBusy]);
+  useEffect(() => {
+    let active = true;
+    setReview(null);
+    setError("");
+    setStale(false);
+    void api<Review>(base)
+      .then((result) => {
+        if (active) setReview(result);
+      })
+      .catch((cause) => {
+        if (active) setError(cause.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [base, reload]);
+  return (
+    <section className="panel">
+      <h4>{name}</h4>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {!review && !error && <p role="status">Loading submitted answers…</p>}
+      <button
+        className="secondary"
+        disabled={busy}
+        onClick={() => {
+          setPending(null);
+          setReload((value) => value + 1);
+        }}
+      >
+        Reload result
+      </button>
+      {review && (
+        <>
+          {review.questions.some((q) => !q.text_review_supported) && (
+            <p role="alert">
+              This attempt contains media, a passage or formatted mathematics.
+              Marking is unavailable until the complete review display is
+              integrated.
+            </p>
+          )}
+          <p>
+            Result: {review.summary.result} · {review.summary.obtained_marks} /{" "}
+            {review.summary.total_marks} marks · {review.summary.score_percent}%
+          </p>
+          {!review.questions.length ? (
+            <p>No answers are awaiting manual marking.</p>
+          ) : (
+            <>
+              <p>Enter marks for every pending answer before saving.</p>
+              {pending && (
+                <p role="status">
+                  Save was not confirmed. Retry the same marks, or reload to
+                  check the current result.
+                </p>
+              )}
+              <DraftForm
+                draftKey={`exam-marking:${learner}:${review.summary.attempt_id}:${review.revision}`}
+                title="Pending answer marks"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (
+                    busy ||
+                    stale ||
+                    review.questions.some((q) => !q.text_review_supported)
+                  )
+                    return;
+                  const form = new FormData(event.currentTarget);
+                  const request = pending ?? {
+                    request_id: crypto.randomUUID(),
+                    revision: review.revision,
+                    marks: Object.fromEntries(
+                      review.questions.map((q) => [
+                        q.stat_id,
+                        Number(form.get(`mark-${q.stat_id}`)),
+                      ]),
+                    ),
+                  };
+                  setPending(request);
+                  setBusy(true);
+                  setError("");
+                  try {
+                    await api(base, "POST", request);
+                    setPending(null);
+                    onSaved();
+                  } catch (cause) {
+                    setError(
+                      cause instanceof Error
+                        ? cause.message
+                        : "Marking was not confirmed.",
+                    );
+                    if (
+                      cause instanceof ApiError &&
+                      [400, 401, 403, 404, 409].includes(cause.status)
+                    ) {
+                      setPending(null);
+                      setStale(cause.status !== 400);
+                    }
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <fieldset
+                  disabled={
+                    busy ||
+                    pending !== null ||
+                    stale ||
+                    review.questions.some((q) => !q.text_review_supported)
+                  }
+                >
+                  <legend>Pending answers</legend>
+                  {review.questions.map((q, index) => (
+                    <div className="panel" key={q.stat_id}>
+                      <h5>Question {index + 1}</h5>
+                      <p style={{ whiteSpace: "pre-wrap" }}>
+                        {q.question_text}
+                      </p>
+                      <p>
+                        <strong>Student answer</strong>
+                      </p>
+                      <p style={{ whiteSpace: "pre-wrap" }}>
+                        {q.answer_text || "No written answer"}
+                      </p>
+                      {q.reference_text && (
+                        <>
+                          <p>
+                            <strong>Reference answer</strong>
+                          </p>
+                          <p style={{ whiteSpace: "pre-wrap" }}>
+                            {q.reference_text}
+                          </p>
+                        </>
+                      )}
+                      <label>
+                        Marks (maximum {q.maximum_marks})
+                        <input
+                          name={`mark-${q.stat_id}`}
+                          type="number"
+                          min={0}
+                          max={q.maximum_marks}
+                          step="any"
+                          required
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </fieldset>
+                <button
+                  type="submit"
+                  disabled={
+                    busy ||
+                    stale ||
+                    review.questions.some((q) => !q.text_review_supported)
+                  }
+                >
+                  {busy
+                    ? "Saving…"
+                    : pending
+                      ? "Retry saving marks"
+                      : "Save all marks"}
+                </button>
+              </DraftForm>
+            </>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
