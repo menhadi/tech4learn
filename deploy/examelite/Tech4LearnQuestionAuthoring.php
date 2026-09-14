@@ -84,7 +84,7 @@ final class Tech4LearnQuestionAuthoring
         [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
         abort_unless($id>=0,422);
         $imageAction=$kind==='questions'&&$action==='set-image'&&$id>0;
-        if($imageAction)$allowedFields=['field','image','asset'];
+        if($imageAction)$allowedFields=['field','image','asset','remove'];
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);

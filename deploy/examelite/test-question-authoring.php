@@ -171,6 +171,12 @@ $app->instance(App\Http\Controllers\QuestionController::class,new class extends 
 try{$service->save($workspace,20,$actor,$imageQuestion->id,$uploadFields,$replaced['revision'],'image-failed','questions','set-image');throw new RuntimeException('Expected native failure');}catch(RuntimeException $e){check($e->getMessage()==='synthetic image save failure','Native image failure propagated');}
 $app->forgetInstance(App\Http\Controllers\QuestionController::class);
 check(count($imageDisk->files)===2&&$service->snapshot($imageQuestion->fresh())===$replaced,'Native failure rolls back question and removes uploaded file');
+$removeFields=['field'=>'explanation','asset'=>array_key_first(app(App\Services\Tech4LearnQuestionMedia::class)->sources($replaced['fields']['explanation'])),'remove'=>true];
+$beforeRemoveWrites=$imageDisk->writes;
+$removed=$service->save($workspace,20,$actor,$imageQuestion->id,$removeFields,$replaced['revision'],'image-remove','questions','set-image');
+check(!str_contains($removed['fields']['explanation'],'<img')&&count($imageDisk->files)===2&&$imageDisk->writes===$beforeRemoveWrites,'Removal only changes the question reference');
+check($service->save($workspace,20,$actor,$imageQuestion->id,$removeFields,$replaced['revision'],'image-remove','questions','set-image')===$removed,'Removal retry preserves outcome');
+try{$service->save($workspace,20,$actor,$imageQuestion->id,$removeFields,$removed['revision'],'image-remove-stale','questions','set-image');throw new RuntimeException('Expected missing image denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===422,'Missing image cannot be removed');}
 foreach(['groups','subjects','topics','subtopics','sections','languages','types','difficulties'] as $kind){
  $choices=$controller->choices(Request::create('/','GET',['after'=>'0']),$workspace,$kind);
  foreach($choices['items'] as $item){

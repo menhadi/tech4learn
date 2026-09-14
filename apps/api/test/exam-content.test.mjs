@@ -222,6 +222,37 @@ test("central question sharing requires superadmin; organisation reads respect m
       201,
     );
     assert.match(requests.at(-1).path, /questions\/9\/image$/);
+    const removeWrite = {
+      ...imageWrite,
+      request_id: randomUUID(),
+      fields: { field: "question", asset: "a".repeat(64), remove: true },
+    };
+    assert.equal(
+      (await call(own + "/9/image", removeWrite, member)).status,
+      201,
+    );
+    assert.equal(requests.at(-1).body.fields.remove, true);
+    assert.equal("image" in requests.at(-1).body.fields, false);
+    assert.equal(
+      (
+        await call(
+          own + "/9/image",
+          { ...removeWrite, fields: { ...removeWrite.fields, image: "AAAA" } },
+          member,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          own + "/9/image",
+          { ...removeWrite, fields: { field: "question", remove: true } },
+          member,
+        )
+      ).status,
+      400,
+    );
     assert.equal(requests.at(-1).body.actor_id, member);
     assert.equal(
       (await call(own + "/9/image", { ...imageWrite, actor_id: admin }, member))

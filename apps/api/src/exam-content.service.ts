@@ -597,7 +597,7 @@ export class ExamContentService {
           (key) => !["fields", "revision", "request_id"].includes(key),
         ) ||
         Object.keys(fields).some(
-          (key) => !["field", "image", "asset"].includes(key),
+          (key) => !["field", "image", "asset", "remove"].includes(key),
         ) ||
         typeof fields.field !== "string" ||
         ![
@@ -612,9 +612,12 @@ export class ExamContentService {
           "explanation",
           "si_answer1",
         ].includes(fields.field) ||
-        typeof fields.image !== "string" ||
-        !fields.image.length ||
-        fields.image.length > 699052 ||
+        (fields.remove !== undefined && fields.remove !== true) ||
+        (fields.remove === true
+          ? fields.image !== undefined || fields.asset === undefined
+          : typeof fields.image !== "string" ||
+            !fields.image.length ||
+            fields.image.length > 699052) ||
         (fields.asset !== undefined &&
           (typeof fields.asset !== "string" ||
             !/^[a-f0-9]{64}$/.test(fields.asset)))

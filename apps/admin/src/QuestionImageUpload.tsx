@@ -27,9 +27,10 @@ export function QuestionImageUpload({
   const [pending, setPending] = useState<{
     request_id: string;
     revision: string;
-    fields: { field: string; image: string; asset?: string };
+    fields: { field: string; image?: string; asset?: string; remove?: true };
   } | null>(null);
   const choosing = useRef(0);
+  const removing = asset.startsWith("remove:");
   const fields = [
     ["question", "Question"],
     ["hint", "Hint"],
@@ -62,11 +63,13 @@ export function QuestionImageUpload({
       }}
       onSubmit={async (event) => {
         event.preventDefault();
-        if (busy || disabled || (!pending && !image)) return;
-        const request = pending ?? {
+        if (busy || disabled || (!pending && !image && !removing)) return;
+        const request: NonNullable<typeof pending> = pending ?? {
           request_id: crypto.randomUUID(),
           revision: record.revision,
-          fields: { field, image, ...(asset ? { asset } : {}) },
+          fields: removing
+            ? { field, asset: asset.slice(7), remove: true }
+            : { field, image, ...(asset ? { asset } : {}) },
         };
         setPending(request);
         onPending(true);
@@ -133,12 +136,18 @@ export function QuestionImageUpload({
                 Replace image {i + 1}
               </option>
             ))}
+            {assets.map((key, i) => (
+              <option key={"remove:" + key} value={"remove:" + key}>
+                Remove image {i + 1}
+              </option>
+            ))}
           </select>
         </label>
         <label>
           Image file
           <input
             type="file"
+            disabled={removing}
             accept="image/png,image/jpeg,image/webp"
             onChange={async (e) => {
               const file = e.target.files?.[0];
@@ -177,15 +186,29 @@ export function QuestionImageUpload({
           />
         </label>
       </fieldset>
-      {preview && (
+      {removing && (
+        <p>
+          The selected image will be removed from this field. Other questions
+          using the stored file are unchanged.
+        </p>
+      )}
+      {preview && !removing && (
         <img
           src={preview}
           alt="Selected question image"
           style={{ maxWidth: "100%", maxHeight: 240 }}
         />
       )}
-      <button disabled={disabled || busy || (!pending && !image)}>
-        {busy ? "Saving image…" : pending ? "Retry image upload" : "Save image"}
+      <button disabled={disabled || busy || (!pending && !image && !removing)}>
+        {busy
+          ? "Saving image…"
+          : pending
+            ? pending.fields.remove
+              ? "Retry image removal"
+              : "Retry image upload"
+            : removing
+              ? "Remove image"
+              : "Save image"}
       </button>
       {pending && (
         <button type="button" disabled={busy} onClick={onReload}>
