@@ -14,6 +14,37 @@ import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get(
+    "organisations/:org/exam-results/:learner/attempts/:attempt/media/:stat/:asset",
+  )
+  async resultImage(
+    @Param("org") org: string,
+    @Param("learner") learner: string,
+    @Param("attempt") attempt: string,
+    @Param("stat") stat: string,
+    @Param("asset") asset: string,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-result-media:${account.id}:${org}`,
+      180,
+      60,
+    );
+    const image = await this.content.resultMedia(
+      account,
+      org,
+      learner,
+      attempt,
+      stat,
+      asset,
+    );
+    response.setHeader("Content-Type", image.mime);
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(image.buffer);
+  }
   @Get("organisations/:org/exam-results/:learner/attempts")
   async resultAttempts(
     @Param("org") org: string,

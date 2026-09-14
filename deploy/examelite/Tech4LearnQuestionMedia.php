@@ -36,8 +36,17 @@ class Tech4LearnQuestionMedia
   return preg_replace('/(<img\b[^>]*\bsrc=")\/t4l-question-media\/([a-f0-9]{64})(")/i','$1t4l-media:$2$3',$html);
  }
  public function read(Question $question,ExamResult $attempt,string $key):array {
+  abort_unless(!$attempt->end_time,403);
+  return $this->readQuestion($question,$attempt,$key);
+ }
+ /** Caller has authenticated the mapped staff and pending result before reaching here. */
+ public function readReview(Question $question,ExamResult $attempt,string $key):array {
+  abort_unless($attempt->end_time,403);
+  return $this->readQuestion($question,$attempt,$key);
+ }
+ private function readQuestion(Question $question,ExamResult $attempt,string $key):array {
   abort_unless(preg_match('/^[a-f0-9]{64}$/D',$key),422);
-  abort_unless((int)$question->organization_id===(int)$attempt->organization_id&&!$attempt->end_time,403);
+  abort_unless((int)$question->organization_id===(int)$attempt->organization_id,403);
   $translation=$question->langs()->where('language_id',(int)$attempt->language_id)->first();$sources=[];
   foreach(['question','option1','option2','option3','option4','option5','option6','hint'] as $field)$sources+=$this->sources((string)($translation?->$field??$question->$field??''));
   if($passage=$question->passage){

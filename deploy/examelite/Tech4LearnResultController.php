@@ -7,6 +7,11 @@ use Illuminate\Http\Request;
 /** Requires the dedicated platform credential, plus its asserted scoped staff actor. */
 class Tech4LearnResultController extends Tech4LearnPlatformController
 {
+ public function media(Request $r,string $org,string $learner,string $attempt,string $stat,string $asset){
+  $source=$this->configuration($r)['_platform']['organization_id'];$actor=$r->query('actor_id');
+  abort_unless(is_string($actor)&&preg_match('/^[1-9][0-9]{0,14}$/D',$attempt)&&preg_match('/^[1-9][0-9]{0,14}$/D',$stat)&&preg_match('/^[a-f0-9]{64}$/D',$asset),422);
+  return $this->reply($source,['data'=>app(Tech4LearnResultMarking::class)->media($org,$source,$actor,$learner,(int)$attempt,(int)$stat,$asset)]);
+ }
  public function attempts(Request $r,string $org,string $learner){
   $source=$this->configuration($r)['_platform']['organization_id'];
   $actor=$r->query('actor_id');$after=$r->query('after','0');

@@ -16,6 +16,9 @@ Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('t
     Route::post('/student/{org}/{action}', [Tech4LearnStudentController::class, 'attempt'])->where('action','prepare|start|answer|submit|result|media|visibility|proctor');
 });
 
+Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('throttle:1800,1,t4l-result-media:')->group(function () {
+    Route::get('/results/{org}/learners/{learner}/attempts/{attempt}/media/{stat}/{asset}', [Tech4LearnResultController::class, 'media']);
+});
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::get('/results/{org}/learners/{learner}/attempts', [Tech4LearnResultController::class, 'attempts']);
     Route::get('/results/{org}/learners/{learner}/attempts/{attempt}', [Tech4LearnResultController::class, 'review']);

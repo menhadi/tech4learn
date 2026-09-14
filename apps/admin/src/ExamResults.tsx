@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ApiError } from "./api";
+import { api, apiBase, ApiError } from "./api";
 import { DraftForm } from "./DraftForm";
 import { ExamRichContent } from "./ExamRichContent";
 import { DirectoryTable } from "./DirectoryTable";
@@ -28,6 +28,7 @@ type Review = {
     answer_html: string;
     reference_html: string;
     review_supported: boolean;
+    passage: { name: string; html: string } | null;
     maximum_marks: number;
   }[];
 };
@@ -223,6 +224,7 @@ function Marking({
     !!review &&
     review.questions.every(
       (q) =>
+        (!q.passage || ready[`${q.stat_id}:passage`]) &&
         ready[`${q.stat_id}:question`] &&
         ready[`${q.stat_id}:answer`] &&
         (!q.reference_html || ready[`${q.stat_id}:reference`]),
@@ -273,8 +275,8 @@ function Marking({
         <>
           {review.questions.some((q) => !q.review_supported) && (
             <p role="alert">
-              This attempt contains media or a passage. Marking is unavailable
-              until the complete review display is integrated.
+              This attempt contains media. Marking is unavailable until the
+              complete review display is integrated.
             </p>
           )}
           <p>
@@ -358,8 +360,21 @@ function Marking({
                   {review.questions.map((q, index) => (
                     <div className="panel" key={q.stat_id}>
                       <h5>Question {index + 1}</h5>
+                      {q.passage && (
+                        <section>
+                          <h5>{q.passage.name || "Passage"}</h5>
+                          <ExamRichContent
+                            value={q.passage.html}
+                            mediaBase={`${apiBase}${base}/media/${q.stat_id}`}
+                            onReady={(value) =>
+                              track(`${q.stat_id}:passage`, value)
+                            }
+                          />
+                        </section>
+                      )}
                       <ExamRichContent
                         value={q.question_html}
+                        mediaBase={`${apiBase}${base}/media/${q.stat_id}`}
                         onReady={(value) =>
                           track(`${q.stat_id}:question`, value)
                         }

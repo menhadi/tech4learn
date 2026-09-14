@@ -511,6 +511,17 @@ test("central question sharing requires superadmin; organisation reads respect m
           "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
           [member, org],
         );
+      if (path.includes("/media/"))
+        return {
+          data: {
+            attempt_id: resultMode === "wrong" ? 99 : 19,
+            stat_id: 3,
+            asset: "d".repeat(64),
+            mime: "image/png",
+            base64:
+              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=",
+          },
+        };
       if (body) {
         if (resultMode === "conflict") return { saved: false, conflict: true };
         if (resultMode === "invalid") return { saved: false };
@@ -535,6 +546,11 @@ test("central question sharing requires superadmin; organisation reads respect m
               answer_html: "Synthetic answer",
               reference_html: "Reference",
               review_supported: true,
+              passage: {
+                name: "Synthetic passage",
+                html: "<p>Read this passage.</p>",
+                private_extra: "omit",
+              },
               maximum_marks: 10,
               correct_answer: "omit",
             },
@@ -559,6 +575,21 @@ test("central question sharing requires superadmin; organisation reads respect m
     const markingReview = await (
       await call(resultPath + "/19", undefined, member)
     ).json();
+    const resultImagePath = resultPath + "/19/media/3/" + "d".repeat(64);
+    const resultImage = await call(resultImagePath, undefined, member);
+    assert.equal(resultImage.status, 200);
+    assert.equal(resultImage.headers.get("content-type"), "image/png");
+    assert.match(resultImage.headers.get("cache-control"), /no-store/);
+    assert.equal(resultImage.headers.get("x-content-type-options"), "nosniff");
+    assert.equal((await resultImage.arrayBuffer()).byteLength, 68);
+    resultMode = "wrong";
+    assert.equal((await call(resultImagePath, undefined, member)).status, 503);
+    resultMode = "success";
+    assert.equal(
+      (await call(resultImagePath.replace(org, other), undefined, member))
+        .status,
+      404,
+    );
     assert.equal(markingReview.questions[0].answer_html, "Synthetic answer");
     assert.equal(JSON.stringify(markingReview).includes("omit"), false);
     const markingBody = {

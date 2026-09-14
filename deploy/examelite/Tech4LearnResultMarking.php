@@ -43,15 +43,28 @@ final class Tech4LearnResultMarking
   $ids=$rows->pluck('question_id')->unique()->values()->all();
   $questions=\App\Models\Question::where('organization_id',$attempt->organization_id)->whereIn('id',$ids)->orderBy('id')->lockForUpdate()->get();
   abort_unless($questions->count()===count($ids),409);
-  return hash('sha256',json_encode([$attempt->getAttributes(),$exam->passing_percentage,$rows->map(fn($row)=>$row->getAttributes())->all(),$questions->map(fn($row)=>$row->getAttributes())->all()],JSON_THROW_ON_ERROR));
+  return hash('sha256',json_encode([$attempt->getAttributes(),$exam->passing_percentage,$rows->map(fn($row)=>$row->getAttributes())->all(),$questions->map(fn($row)=>[$row->getAttributes(),$this->content($row,$attempt)])->all()],JSON_THROW_ON_ERROR));
  }
  private function summary(ExamResult $attempt):array {
   return ['attempt_id'=>(int)$attempt->id,'result'=>(string)$attempt->result,'score_percent'=>(float)$attempt->percent,'obtained_marks'=>(float)$attempt->obtained_marks,'total_marks'=>(float)$attempt->total_marks];
  }
- private function formattedSupported($question,$row):bool {
+ private function content($question,ExamResult $attempt):array {
+  $translated=$question->langs()->where('language_id',(int)$attempt->language_id)->lockForUpdate()->first();
+  $passage=null;
+  if($question->passage_id){
+   $source=\App\Models\Passage::where('organization_id',$attempt->organization_id)->lockForUpdate()->findOrFail($question->passage_id);
+   // Match the passage language/fallback used by the native student payload.
+   $language=$source->langs()->where('language_id',(int)$question->language_id)->lockForUpdate()->first()??$source->langs()->orderBy('id')->lockForUpdate()->first();
+   abort_unless($language&&trim((string)$language->passage)!=='',409,'Passage content is unavailable.');
+   $passage=['name'=>mb_substr(strip_tags((string)$source->name),0,250),'html'=>(string)$language->passage];
+  }
+  return ['question_html'=>(string)($translated?->question??$question->question),'passage'=>$passage];
+ }
+ private function formattedSupported(array $display,$row):bool {
   // Until the staff media renderer is connected, never grade an incomplete display.
-  $content=(string)$question->question.' '.(string)$row->answer.' '.(string)$row->correct_answer;
-  return !$question->passage_id&&!preg_match('/<(?:img|svg|video|audio|iframe|object|script|style|canvas|embed)\b/i',$content);
+  $answers=(string)$row->answer.' '.(string)$row->correct_answer;
+  $content=$display['question_html'].' '.($display['passage']['html']??'').' '.$answers;
+  return !preg_match('/<img\b/i',$answers)&&!preg_match('/<(?:svg|video|audio|iframe|object|script|style|canvas|embed|math-field)\b/i',$content);
  }
  private function html(mixed $value):string {return (string)$value;}
  public function attempts(string $workspace,int $source,string $actor,string $learner,int $after=0):array {
@@ -70,10 +83,21 @@ final class Tech4LearnResultMarking
  public function review(string $workspace,int $source,string $actor,string $learner,int $id):array {
   return DB::transaction(function()use($workspace,$source,$actor,$learner,$id){
    [$owner,,$student]=$this->scope($workspace,$source,$actor,$learner);$attempt=$this->attempt($owner,$student,$id);$rows=$this->pending($attempt);
-   return ['revision'=>$this->revision($attempt,$rows),'summary'=>$this->summary($attempt),'questions'=>$rows->map(function($row)use($owner){
+   return ['revision'=>$this->revision($attempt,$rows),'summary'=>$this->summary($attempt),'questions'=>$rows->map(function($row)use($owner,$attempt){
     $question=\App\Models\Question::where('organization_id',$owner)->findOrFail($row->question_id);
-    return ['stat_id'=>(int)$row->id,'question_id'=>(int)$row->question_id,'question_html'=>$this->html($question->question),'answer_html'=>$this->html($row->answer),'reference_html'=>$this->html($row->correct_answer),'review_supported'=>$this->formattedSupported($question,$row),'maximum_marks'=>(float)$row->marks];
+    $display=$this->content($question,$attempt);
+    $media=app(Tech4LearnQuestionMedia::class);$display['question_html']=$media->rewrite($display['question_html']);
+    if($display['passage'])$display['passage']['html']=$media->rewrite($display['passage']['html']);
+    return $display+['stat_id'=>(int)$row->id,'question_id'=>(int)$row->question_id,'answer_html'=>$this->html($row->answer),'reference_html'=>$this->html($row->correct_answer),'review_supported'=>$this->formattedSupported($display,$row),'maximum_marks'=>(float)$row->marks];
    })->all()];
+  });
+ }
+ public function media(string $workspace,int $source,string $actor,string $learner,int $id,int $statId,string $asset):array {
+  return DB::transaction(function()use($workspace,$source,$actor,$learner,$id,$statId,$asset){
+   [$owner,,$student]=$this->scope($workspace,$source,$actor,$learner);$attempt=$this->attempt($owner,$student,$id);
+   $stat=ExamStat::where('organization_id',$owner)->where('student_id',$student)->where('exam_id',$attempt->exam_id)->where('exam_result_id',$id)->where('ques_status','P')->findOrFail($statId);
+   $question=\App\Models\Question::where('organization_id',$owner)->findOrFail($stat->question_id);
+   return app(Tech4LearnQuestionMedia::class)->readReview($question,$attempt,$asset)+['stat_id'=>$statId];
   });
  }
  public function save(string $workspace,int $source,string $actor,string $learner,int $id,array $marks,string $revision,string $requestId):array {
@@ -88,7 +112,7 @@ final class Tech4LearnResultMarking
    $rows=$this->pending($attempt);abort_unless(hash_equals($this->revision($attempt,$rows),$revision),409,'The attempt changed. Reload before marking.');
    abort_unless($rows->count()===count($marks),422,'Mark every pending answer together.');
    foreach($rows as $row)abort_unless(array_key_exists($row->id,$marks)&&is_numeric($row->marks)&&is_finite((float)$row->marks)&&$marks[$row->id]<=(float)$row->marks,422);
-   foreach($rows as $row){$question=\App\Models\Question::where('organization_id',$owner)->findOrFail($row->question_id);abort_unless($this->formattedSupported($question,$row),422,'This answer requires the media review screen.');}
+   foreach($rows as $row){$question=\App\Models\Question::where('organization_id',$owner)->findOrFail($row->question_id);abort_unless($this->formattedSupported($this->content($question,$attempt),$row),422,'This answer requires the media review screen.');}
    $this->invoke($owner,$user,$attempt,$marks);
    abort_unless($this->pending($attempt)->isEmpty(),500,'Native marking did not finish.');
    $result=$this->summary($attempt->fresh());

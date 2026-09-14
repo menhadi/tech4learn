@@ -15,6 +15,64 @@ import type { Account } from "./identity.service.js";
 
 @Injectable()
 export class ExamContentService {
+  async resultMedia(
+    user: Account,
+    org: string,
+    learner: string,
+    attempt: string,
+    stat: string,
+    asset: string,
+  ) {
+    await this.proctorAccess(user, org);
+    uuid(learner);
+    if (
+      ![attempt, stat].every((value) => /^[1-9][0-9]{0,14}$/.test(value)) ||
+      !/^[a-f0-9]{64}$/.test(asset)
+    )
+      throw new BadRequestException("Invalid result image.");
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `results/${org}/learners/${learner}/attempts/${attempt}/media/${stat}/${asset}?actor_id=${user.id}`,
+      undefined,
+      14000000,
+      30000,
+    );
+    await this.proctorAccess(user, org);
+    const data = response.data;
+    const invalid = () =>
+      new ServiceUnavailableException("This result image could not be loaded.");
+    if (
+      !data ||
+      data.attempt_id !== Number(attempt) ||
+      data.stat_id !== Number(stat) ||
+      data.asset !== asset ||
+      ![
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/avif",
+      ].includes(data.mime) ||
+      typeof data.base64 !== "string" ||
+      data.base64.length > 13981016
+    )
+      throw invalid();
+    const buffer = Buffer.from(data.base64, "base64");
+    if (
+      !buffer.length ||
+      buffer.length > 10485760 ||
+      buffer.toString("base64") !== data.base64
+    )
+      throw invalid();
+    await this.access.audit(this.db, user, org, "exams.result.image.viewed", {
+      learnerId: learner,
+      attemptId: Number(attempt),
+      statId: Number(stat),
+      asset,
+    });
+    return { buffer, mime: data.mime };
+  }
   async resultReview(
     user: Account,
     org: string,
@@ -143,6 +201,12 @@ export class ExamContentService {
             typeof row.reference_html !== "string" ||
             row.reference_html.length > 100000 ||
             typeof row.review_supported !== "boolean" ||
+            (row.passage !== null &&
+              (!row.passage ||
+                typeof row.passage.name !== "string" ||
+                row.passage.name.length > 250 ||
+                typeof row.passage.html !== "string" ||
+                row.passage.html.length > 100000)) ||
             !finite(row.maximum_marks) ||
             row.maximum_marks < 0
           )
@@ -155,6 +219,10 @@ export class ExamContentService {
             answer_html: row.answer_html,
             reference_html: row.reference_html,
             review_supported: row.review_supported,
+            passage:
+              row.passage === null
+                ? null
+                : { name: row.passage.name, html: row.passage.html },
             maximum_marks: row.maximum_marks,
           };
         }),
