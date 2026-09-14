@@ -29,11 +29,15 @@ Central questions can be shared into selected organisations. Superadmin can also
 
 ## Still required before the full release
 
-Central-original editing, the native media/formula editor, student sign-in/attempt/resume/submission, marking, native result screens, plan catalogue and per-provider module availability still require implementation. The current question editor supports organisation-owned questions. Classification screens support exam groups, subjects, topics, subtopics and question sections through native create/update actions; category assignment and language administration are not yet editable here. Feature restrictions for the existing native backend are retained, but are not evidence that each replacement internal screen is ready.
+Central-original editing, the native media/formula authoring editor, the full plan/provider module catalogue, category/package/language administration, OMR/PDF workflows and representative end-to-end verification remain unfinished. The current question editor supports organisation-owned questions. Classification screens support exam groups, subjects, topics, subtopics and question sections through native create/update actions; category assignment and language administration are not yet editable here. Feature restrictions for the existing native backend are retained, but are not evidence that each replacement internal screen is ready.
+
+Same-domain student sign-in, staff-issued exam links, start/resume, answer saving, submission, published result history and staff pending-answer marking now have local implementations and tests. ExamElite's native controllers still own attempts and grading. The student and marking renderer supports bounded formulas and private question/passage/reference images; this does not provide a rich authoring editor or student answer uploads. See [current student and marking status](examelite-student-attempts.md) for exact boundaries. The full integration is not ready for deployment as a completed release.
 
 The old native workspace backend and its expiring sessions are retained for compatibility. Disabling the Tech4Learn module prevents new exam API use in Tech4Learn; it does not immediately revoke a previously issued native session. Existing native session expiry and feature restrictions still apply. Full same-domain delivery must replace that session path before broad use.
 
-## Deployment and verification
+## Deployment and verification history
+
+The milestones below record the sequence of implementation. Earlier statements that a student screen or marking is unavailable describe that milestone, not the current status above. Test counts are also historical; the latest repository check passes 85 tests, with native-controller and synthetic browser checks run separately.
 
 Development and tests run locally. Live access by the assistant is read-only. The user runs `deploy/examelite/deploy-central-content.sh` from a checked Git revision. The script requires the earlier native provider setup, preserves private credentials, installs additive sources, adds `tech4learn_content_transfers` and `tech4learn_authoring_requests`, verifies routes/schema and updates Tech4Learn. It does not install certificates or create DNS records.
 

@@ -129,7 +129,7 @@ The submitted student screen has a read-only Refresh result action bound to the 
 
 Load previous results is also available before starting, including after a page reload while the student grant/session remains valid. It lists the latest 50 submitted attempts for that assigned paper and lets the student open a published result. It does not provision an identity, create an attempt or invoke marking. Native publication settings and the organisation Results restriction still hide unpublished scores. Exam setup returns to the start controls; the native engine continues to enforce attempt limits. Native/HTTP tests cover scope, no writes, hidden scores and response minimisation. A synthetic browser remount test verifies history and result reads without a prepare/start request. This does not provide permanent result access after the exam grant expires.
 
-Native tests cover hiding, publishing, repeated requested state, request replay and a read that cannot submit or grade. HTTP tests cover the publication route, actor scope and wrong/incomplete result responses. Synthetic browser checks cover lost-response publication retry and a student refresh that makes no start request. The manual-marking interface remains outstanding.
+Native tests cover hiding, publishing, repeated requested state, request replay and a read that cannot submit or grade. HTTP tests cover the publication route, actor scope and wrong/incomplete result responses. Synthetic browser checks cover lost-response publication retry and a student refresh that makes no start request. The staff manual-marking implementation and its remaining media limitations are described below.
 
 ## Staff result review and formatted marking
 
