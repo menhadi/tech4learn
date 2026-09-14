@@ -7,6 +7,7 @@ import {
   type QuestionChoice,
 } from "./QuestionChoiceField";
 const labels = {
+  packages: "Exam packages",
   languages: "Languages",
   categories: "Categories",
   subcategories: "Subcategories",
@@ -210,18 +211,28 @@ function TaxonomyEditor({
                   kind="groups"
                   label="Exam group"
                   required={kind !== "categories"}
-                  multiple={["subjects", "sections", "categories"].includes(
-                    kind,
-                  )}
+                  multiple={[
+                    "subjects",
+                    "sections",
+                    "categories",
+                    "packages",
+                  ].includes(kind)}
                   value={
-                    ["subjects", "sections", "categories"].includes(kind)
+                    ["subjects", "sections", "categories", "packages"].includes(
+                      kind,
+                    )
                       ? (values.group_ids ?? [])
                       : (values.group_id ?? null)
                   }
                   disabled={busy}
                   onChange={(v) =>
                     set(
-                      ["subjects", "sections", "categories"].includes(kind)
+                      [
+                        "subjects",
+                        "sections",
+                        "categories",
+                        "packages",
+                      ].includes(kind)
                         ? "group_ids"
                         : "group_id",
                       v,
@@ -282,7 +293,9 @@ function TaxonomyEditor({
                 setting.
               </p>
             )}
-            {(kind === "categories" || kind === "subcategories") && (
+            {(kind === "categories" ||
+              kind === "subcategories" ||
+              kind === "packages") && (
               <label>
                 Description
                 <textarea
@@ -300,7 +313,68 @@ function TaxonomyEditor({
                 metadata are preserved.
               </p>
             )}
-            {["sections", "categories", "subcategories"].includes(kind) && (
+            {kind === "packages" && (
+              <>
+                <p>
+                  Package type: {values.package_type}. Paid packages are managed
+                  centrally. Assign exams to this package from the exam editor;
+                  existing exam links, ordering and document settings are
+                  preserved here.
+                </p>
+                <QuestionChoiceField
+                  org={org}
+                  kind="categories"
+                  label="Category"
+                  value={values.category_level_1 ?? null}
+                  disabled={busy}
+                  onChange={(v) => {
+                    set("category_level_1", v);
+                    set("category_level_2", null);
+                  }}
+                />
+                <QuestionChoiceField
+                  org={org}
+                  kind="subcategories"
+                  label="Subcategory"
+                  value={values.category_level_2 ?? null}
+                  parentId={
+                    values.category_level_1
+                      ? Number(values.category_level_1)
+                      : null
+                  }
+                  disabled={busy || !values.category_level_1}
+                  onChange={(v) => set("category_level_2", v)}
+                />
+                <QuestionChoiceField
+                  org={org}
+                  kind="package-tags"
+                  label="Package tags"
+                  multiple
+                  value={(values.tag_ids ?? []).map(Number)}
+                  disabled={busy}
+                  onChange={(v: number[]) => set("tag_ids", v.map(String))}
+                />
+                <label>
+                  Access duration (days; blank means no expiry)
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={values.expiry_days ?? ""}
+                    disabled={busy}
+                    onChange={(e) =>
+                      set(
+                        "expiry_days",
+                        e.target.value === "" ? null : Number(e.target.value),
+                      )
+                    }
+                  />
+                </label>
+              </>
+            )}
+            {["sections", "categories", "subcategories", "packages"].includes(
+              kind,
+            ) && (
               <label>
                 <input
                   type="checkbox"
@@ -313,7 +387,9 @@ function TaxonomyEditor({
                   ? "category"
                   : kind === "subcategories"
                     ? "subcategory"
-                    : "section"}
+                    : kind === "packages"
+                      ? "package"
+                      : "section"}
               </label>
             )}
             <button

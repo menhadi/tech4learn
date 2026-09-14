@@ -28,13 +28,15 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
             'categories'=>['category','title'],
             'subcategories'=>['category','title'],
             'platform-languages'=>['languages','name'],
+            'package-tags'=>['package_tags','name'],
             'exams'=>['exams','name'], 'packages'=>['packages','name'], 'groups'=>['groups','group_name'], 'subjects'=>['subjects','subject_name'],
             'sections'=>['question_sections','name'], 'topics'=>['topics','name'],
             'subtopics'=>['stopics','name'], 'languages'=>['languages','name'],
             'types'=>['qtypes','question_type'], 'difficulties'=>['diffs','diff_level'],
         ];
         abort_unless(isset($definitions[$kind]),404);[$table,$label]=$definitions[$kind];
-        if($kind==='platform-languages')$query=DB::table('languages')->where('organization_id',$central)->whereNotExists(fn($q)=>$q->selectRaw('1')->from('languages as enabled')->whereColumn('enabled.code','languages.code')->where('enabled.organization_id',$owner)->where('enabled.is_enabled',true));
+        if($kind==='package-tags')$query=DB::table('package_tags')->where('status',1)->where(fn($q)=>$q->whereNull('organization_id')->orWhere('organization_id',$owner));
+        elseif($kind==='platform-languages')$query=DB::table('languages')->where('organization_id',$central)->whereNotExists(fn($q)=>$q->selectRaw('1')->from('languages as enabled')->whereColumn('enabled.code','languages.code')->where('enabled.organization_id',$owner)->where('enabled.is_enabled',true));
         elseif($kind==='languages')$query=\App\Models\Language::enabledForOrganization($owner)->toBase();
         else {
             $query=DB::table($table);
@@ -64,6 +66,7 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         [$central,$owner]=$this->workspace($r,$org,app(Tech4LearnQuestionAuthoring::class)->feature($kind));
         abort_unless($kind!=='questions',404);$service=app(Tech4LearnQuestionAuthoring::class);$service->definition($kind);
         if($kind==='exams'&&$id==='new')return $this->reply($central,$service->newExam());
+        if($kind==='packages'&&$id==='new')return $this->reply($central,['id'=>0,'revision'=>'new','fields'=>['name'=>'','package_type'=>'free','status'=>true,'group_ids'=>[],'tag_ids'=>[],'display_order'=>0,'auto_enroll_on_registration'=>false,'show_pdf_download'=>true,'show_solution_pdf_download'=>true]]);
         if($id==='new')return $this->reply($central,['id'=>0,'revision'=>'new','fields'=>array_intersect_key(['display_order'=>0,'group_ids'=>[],'category_ids'=>[],'status'=>true],array_flip($service->definition($kind)[2]))]);
         abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
         return $this->reply($central,$service->record($kind,$service->owned($kind,$owner)->findOrFail($id)));

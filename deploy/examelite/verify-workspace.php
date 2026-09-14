@@ -4,6 +4,8 @@ $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
 if(!class_exists(\App\Http\Controllers\LanguageController::class)||!\Illuminate\Support\Facades\Schema::hasColumns('languages',['organization_id','source_language_id','name','code','value1','value2','is_enabled']))throw new RuntimeException('Native language management requires the current ExamElite language controller and schema.');
+if(!class_exists(\App\Http\Controllers\PackageController::class)||!\Illuminate\Support\Facades\Schema::hasColumns('packages',['organization_id','name','slug','package_type','status','display_order','expiry_days','auto_enroll_on_registration','show_pdf_download','show_solution_pdf_download','flashcards_enabled','guest_flashcards_enabled','ai_flashcard_generation_enabled']))throw new RuntimeException('Native package management requires the current ExamElite package controller and schema.');
+foreach(['package_groups','package_tags','package_tag_package','exam_packages'] as $table)if(!\Illuminate\Support\Facades\Schema::hasTable($table))throw new RuntimeException('Native package relationships are incomplete.');
 foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_workspace_tickets','tech4learn_workspace_copies','tech4learn_content_transfers','tech4learn_authoring_requests','tech4learn_attempt_requests','tech4learn_attempt_clocks','tech4learn_proctor_evidence'] as $table) {
     if(!\Illuminate\Support\Facades\Schema::hasTable($table))throw new RuntimeException('Workspace migration is incomplete.');
 }

@@ -370,6 +370,53 @@ test("central question sharing requires superadmin; organisation reads respect m
       400,
     );
     const taxonomy = `/organisations/${org}/exam-content/taxonomy/subjects`;
+    const packages = `/organisations/${org}/exam-content/taxonomy/packages`;
+    assert.equal(
+      (await call(packages + "/new", undefined, member)).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call(
+          packages + "/new",
+          {
+            ...create,
+            fields: {
+              name: "Own package",
+              package_type: "free",
+              status: true,
+              group_ids: [3],
+            },
+          },
+          member,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      requests.at(-1).path,
+      `authoring/${org}/taxonomy/packages/new`,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${other}/exam-content/taxonomy/packages/new`,
+          create,
+          member,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/choices/package-tags`,
+          undefined,
+          member,
+        )
+      ).status,
+      200,
+    );
     const languages = `/organisations/${org}/exam-content/taxonomy/languages`;
     const disableLanguage = {
       fields: {},
@@ -1033,6 +1080,7 @@ test("central question sharing requires superadmin; organisation reads respect m
       403,
     );
     assert.equal((await call(taxonomy + "/new", create, member)).status, 403);
+    assert.equal((await call(packages + "/new", create, member)).status, 403);
     assert.equal((await call(languages + "/new", create, member)).status, 403);
     assert.equal(
       (await call(languages + "/9/disable", disableLanguage, member)).status,

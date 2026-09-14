@@ -8,7 +8,7 @@ namespace App\Support {
   public static function id(){return self::$tenant??self::resolve()->id;}
   public static function hostId($host){return self::resolve($host)->id;}
  }
- class SaasAccess {public static function abortIfLimitReached($feature):void{} public static function organization(){return \App\Models\Organization::find(Tenant::id());} public static function isPlatformAdmin():bool{return $GLOBALS['t4lTestPlatformAdmin']??false;}}
+ class SaasAccess {public static function abortIfLimitReached($feature):void{} public static function organization(){return \App\Models\Organization::find(Tenant::id());} public static function isPlatformAdmin():bool{return $GLOBALS['t4lTestPlatformAdmin']??false;} public static function isPlatformOwner():bool{return false;} public static function featureEnabled($feature):bool{return true;}}
 }
 namespace {
 // The native controller consults this organisation configuration helper.

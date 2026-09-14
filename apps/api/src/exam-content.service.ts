@@ -457,6 +457,7 @@ export class ExamContentService {
         "subtopics",
         "languages",
         "platform-languages",
+        "package-tags",
         "types",
         "difficulties",
       ].includes(kind) ||
@@ -517,6 +518,7 @@ export class ExamContentService {
       ![
         "exams",
         "languages",
+        "packages",
         "categories",
         "subcategories",
         "groups",

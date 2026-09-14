@@ -90,6 +90,33 @@ check($current['fields']['timer_mode']==='subject' && (int)$current['subject_dur
 try{$service->save($workspace,20,$actor,$exam['id'],['subject_ids'=>[$subject['id']],'durations'=>[80]],$current['revision'],'excess-timer','exams','subject-timers');throw new RuntimeException('Expected timer overflow rejection');}catch(Illuminate\Validation\ValidationException $e){}
 $current=$service->save($workspace,20,$actor,$exam['id'],['section_id'=>$sectionId],$current['revision'],'remove-section','exams','remove-section');
 check(!App\Models\ExamSection::find($sectionId),'Native empty section removal');
+if(isset($argv[3])&&is_file(dirname($argv[3]).'/PackageController.php'))require dirname($argv[3]).'/PackageController.php';
+$packageRestrictions=DB::table('tech4learn_workspaces')->where('id',$workspace)->value('restrictions');DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'[]']);
+$packageColumns=DB::getSchemaBuilder()->getColumnListing('packages');
+foreach(array_merge(App\Services\Tech4LearnQuestionAuthoring::PACKAGE_FIELDS,['photo','created_at','updated_at']) as $field){if(in_array($field,['group_ids','tag_ids'],true)||in_array($field,$packageColumns,true))continue;DB::statement('ALTER TABLE packages ADD COLUMN '.$field.' TEXT');}
+DB::statement('CREATE TABLE package_tags(id INTEGER PRIMARY KEY,organization_id INTEGER,name TEXT,slug TEXT,status INTEGER,created_at TEXT,updated_at TEXT)');
+DB::statement('CREATE TABLE package_tag_package(package_id INTEGER,package_tag_id INTEGER,created_at TEXT,updated_at TEXT)');
+$routes->add((new Illuminate\Routing\Route(['GET'],'packages',fn()=>null))->name('packages.index'));
+$packageTag=App\Models\PackageTag::create(['organization_id'=>20,'name'=>'Synthetic tag','slug'=>'synthetic','status'=>true]);
+$foreignPackageTag=App\Models\PackageTag::create(['organization_id'=>30,'name'=>'Foreign tag','slug'=>'foreign','status'=>true]);
+$packageTagChoices=$controller->choices(Illuminate\Http\Request::create('/','GET'),$workspace,'package-tags');
+check(in_array($packageTag->id,array_column($packageTagChoices['items'],'id'),true)&&!in_array($foreignPackageTag->id,array_column($packageTagChoices['items'],'id'),true),'Package tag choices stay scoped');
+$packageFields=['name'=>'Synthetic package','package_type'=>'free','status'=>true,'group_ids'=>[$group->id],'tag_ids'=>[(string)$packageTag->id],'category_level_1'=>$category['id'],'category_level_2'=>$subcategory['id'],'pdf_title_text'=>'Preserve PDF title','show_pdf_download'=>true,'show_solution_pdf_download'=>false,'expiry_days'=>30];
+$packageSaved=$service->save($workspace,20,$actor,0,$packageFields,'new','package-create','packages');
+check($packageSaved['fields']['name']==='Synthetic package'&&$packageSaved['fields']['group_ids']===[$group->id],'Native package created with owned groups');
+check($service->save($workspace,20,$actor,0,$packageFields,'new','package-create','packages')===$packageSaved,'Native package create replay');
+$packageModel=App\Models\Package::findOrFail($packageSaved['id']);$packageModel->setTranslation('name','xx','Preserved translation');$packageModel->photo='uploads/package/synthetic.png';$packageModel->save();
+$packageLinkedExam=App\Models\Exam::create(['organization_id'=>20,'name'=>'Synthetic linked paper','status'=>'Inactive']);
+$packageModel->exams()->attach($packageLinkedExam->id,['display_order'=>7]);
+$packageSaved=$service->record('packages',$packageModel->fresh());
+$packageEdited=$service->save($workspace,20,$actor,$packageSaved['id'],['name'=>'Renamed package'],$packageSaved['revision'],'package-edit','packages');
+check($packageEdited['fields']['pdf_title_text']==='Preserve PDF title'&&$packageEdited['fields']['show_solution_pdf_download']===false&&$packageEdited['fields']['tag_ids']===[(string)$packageTag->id],'Native package edit preserves documents and tags');
+check((int)DB::table('exam_packages')->where('package_id',$packageSaved['id'])->value('display_order')===7&&$packageModel->fresh()->getTranslation('name','xx')==='Preserved translation'&&$packageModel->fresh()->photo==='uploads/package/synthetic.png','Package edit preserves linked exam ordering, translations and photo');
+foreach([['group_ids'=>[1]],['tag_ids'=>[(string)$foreignPackageTag->id]],['category_level_1'=>$foreignCategory->id],['package_type'=>'paid'],['exam_id'=>[$packageLinkedExam->id]]] as $badPackage){
+ try{$service->save($workspace,20,$actor,$packageSaved['id'],$badPackage,$packageEdited['revision'],'package-invalid-'.md5(json_encode($badPackage)),'packages');throw new RuntimeException('Expected package validation');}catch(Illuminate\Validation\ValidationException|Symfony\Component\HttpKernel\Exception\HttpException $e){}
+ check($service->record('packages',$packageModel->fresh())===$packageEdited,'Rejected package edit has no partial changes');
+}
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>$packageRestrictions]);
 
 echo "Native exam adapter: create, scope, languages, exact pass threshold, update and replay passed.\n";
 }

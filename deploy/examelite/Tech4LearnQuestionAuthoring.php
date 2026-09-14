@@ -29,6 +29,7 @@ final class Tech4LearnQuestionAuthoring
         'nat_tolerance','status','correct_answers','si_answer1','group_ids','tag_ids'];
 
     public const EXAM_FIELDS=['name','test_type','test_subject_id','test_topic_id','test_stopic_id','exam_year','exam_session','duration','attempt_count','passing_percentage','display_order','instruction','show_instruction','syllabus','start_date','end_date','groups','packages','language_ids','category_level_1','category_level_2','offline_enabled','online_attempt_enabled','frontend_visible','omr_enabled','browser_tolerance','random_question','result_after_finish','option_shuffle','allow_answer_change','grouping_mode','use_group_timer','timer_mode','is_subject_timer','negative_marking','proctor','calculator_allowed','tolerance_count'];
+    public const PACKAGE_FIELDS=['name','description','slug','package_type','amount','discounted_amount','auto_enroll_on_registration','status','expiry_days','display_order','group_ids','tag_ids','category_level_1','category_level_2','show_pdf_download','show_solution_pdf_download','pdf_title_text','pdf_header_text','pdf_footer_text','pdf_watermark_text','solution_pdf_title_text','solution_pdf_header_text','solution_pdf_footer_text','solution_pdf_watermark_text','flashcards_enabled','guest_flashcards_enabled','ai_flashcard_generation_enabled','meta_title','meta_description','meta_keywords','canonical_url','og_title','og_description','og_image','robots_meta','seo_schema'];
     public function feature(string $kind):string{return $kind==='questions'?'questions':($kind==='exams'?'exams':'subjects');}
     public function newExam():array {
         $fields=array_fill_keys(['offline_enabled','online_attempt_enabled','frontend_visible','omr_enabled','browser_tolerance','random_question','option_shuffle','use_group_timer','is_subject_timer','negative_marking','proctor','calculator_allowed'],false);
@@ -41,6 +42,7 @@ final class Tech4LearnQuestionAuthoring
             $definition[2][]='parent_id';return $definition;
         }
         $definitions=[
+          'packages'=>[\App\Models\Package::class,\App\Http\Controllers\PackageController::class,self::PACKAGE_FIELDS,'package'],
           'languages'=>[\App\Models\Language::class,\App\Http\Controllers\LanguageController::class,['master_language_id','value1','value2'],'language'],
           'categories'=>[\App\Models\Category::class,\App\Http\Controllers\CategoryController::class,['title','description','status','display_order','group_ids','group_orders','show_in_header','header_display_order','meta_title','meta_description','meta_keywords','canonical_url','og_title','og_description','og_image','robots_meta','seo_schema'],'category'],
           'exams'=>[\App\Models\Exam::class,\App\Http\Controllers\ExamController::class,self::EXAM_FIELDS,'exam'],
@@ -64,6 +66,10 @@ final class Tech4LearnQuestionAuthoring
         if($kind==='questions')return $this->snapshot($model);
         $fields=$model->only(array_values(array_intersect($this->definition($kind)[2],array_keys($model->getAttributes()))));
         if($kind==='languages')$fields=array_merge($fields,['name'=>$model->name,'code'=>$model->code,'is_enabled'=>(bool)$model->is_enabled]);
+        if($kind==='packages'){
+            $fields['group_ids']=$model->groups()->orderBy('groups.id')->pluck('groups.id')->map(fn($id)=>(int)$id)->all();
+            $fields['tag_ids']=$model->tags()->orderBy('package_tags.id')->pluck('package_tags.id')->map(fn($id)=>(string)$id)->all();
+        }
         if($kind==='categories'){
             $groups=$model->groups()->orderBy('groups.id')->get();
             $fields['group_ids']=$groups->map(fn($g)=>(int)$g->id)->all();
@@ -76,6 +82,7 @@ final class Tech4LearnQuestionAuthoring
             $fields['use_group_timer']=($fields['timer_mode']??'none')!=='none';
         }
         $relations=$kind==='exams'?[DB::table('exam_questions')->where('exam_id',$model->id)->orderBy('question_id')->get(['question_id','exam_section_id'])->toArray(),$model->sections()->orderBy('id')->get()->toArray(),$model->subjectDurations()->orderBy('subject_id')->get()->toArray()]:[];
+        if($kind==='packages')$relations=DB::table('exam_packages')->where('package_id',$model->id)->orderBy('exam_id')->get(['exam_id','display_order'])->toArray();
         $raw=$model->getAttributes();ksort($raw);
         return array_merge(['id'=>(int)$model->id,'fields'=>$fields,'revision'=>hash('sha256',json_encode([$raw,$fields,$relations],JSON_THROW_ON_ERROR))],$kind==='exams'?['test_types'=>\App\Models\Exam::testTypeLabels(),'timezone'=>config('app.timezone','UTC'),'status'=>$model->status,'sections'=>$relations[1],'subject_durations'=>$relations[2],'paper_subjects'=>\App\Models\Subject::where('organization_id',$model->organization_id)->whereIn('id',$model->questions()->select('questions.subject_id'))->orderBy('id')->get(['id','subject_name'])->map(fn($s)=>['id'=>(int)$s->id,'name'=>strip_tags($s->subject_name)])->values()->all()]:[]);
     }
@@ -114,6 +121,7 @@ final class Tech4LearnQuestionAuthoring
             if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         }
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
+        if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
         $fingerprint=hash('sha256',json_encode([$kind,$action,$tenant,$actor,$id,$fields,$revision],JSON_THROW_ON_ERROR));
         $storedImage=null;
         try{return DB::transaction(function()use($workspace,$tenant,$actor,$id,$fields,$revision,$requestId,$fingerprint,$kind,$action,$imageAction,&$storedImage){
@@ -154,6 +162,10 @@ final class Tech4LearnQuestionAuthoring
             if($action==='set-result-status')abort_unless(is_bool($fields['result_after_finish']??null),422);
             if($action==='set-status')abort_unless(in_array($fields['status']??null,['Active','Inactive'],true),422);
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
+            if($kind==='packages')abort_unless(!isset($values['tag_ids'])||is_array($values['tag_ids']),422);
+            if($kind==='packages')foreach(($values['tag_ids']??[]) as $tag){
+                if(is_numeric($tag))abort_unless(\App\Models\PackageTag::where('status',1)->where(fn($q)=>$q->whereNull('organization_id')->orWhere('organization_id',$tenant))->whereKey((int)$tag)->exists(),422,'A package tag is unavailable. Review the selected tags.');
+            }
             // The native controller accepts its web form. Give it a private request/session,
             // and translate its redirect feedback into an atomic API outcome.
             $result=$this->invoke($tenant,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?null:$action);
@@ -198,7 +210,7 @@ final class Tech4LearnQuestionAuthoring
         }
         try {
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
-            if($kind==='languages')abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
+            if(in_array($kind,['languages','packages'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
             $controller=app($controllerClass);
             $arguments=['request'=>$request];if($question)$arguments[$parameter]=$question;
             $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','set-status'=>'toggleStatus','set-result-status'=>'toggleResultStatus'];
