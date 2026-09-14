@@ -56,6 +56,7 @@ check($evidence->purgeExpired()===0,'Unexpired records survive cleanup');
 $review=$evidence->review($workspace,10,$cameraLearner,$cameraId);
 check(count($review['items'])===2&&!str_contains(json_encode($review),$jpeg),'Review lists private metadata only');
 check($evidence->review($workspace,10,$cameraLearner,$cameraId,$captureId)['base64']===$jpeg,'Scoped review reads a private JPEG');
+check($evidence->attempts($workspace,10,'11111111-2222-3333-4444-555555555555')===['items'=>[],'next'=>null],'A learner without an exam identity has empty evidence history');
 $history=$evidence->attempts($workspace,10,$cameraLearner);
 check(count($history['items'])===1&&$history['items'][0]['attempt_id']===$cameraId,'Review history is mapped to this learner only');
 check($evidence->attempts($workspace,10,$cameraLearner,$cameraId)['items']===[],'Review attempt cursor is bounded');

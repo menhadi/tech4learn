@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { api } from "./api";
 import { DraftForm } from "./DraftForm";
 import { ExamQuestions } from "./ExamContent";
 import { ExamTaxonomy } from "./ExamTaxonomy";
+const ExamProctorReview = lazy(() =>
+  import("./ExamProctorReview").then((module) => ({
+    default: module.ExamProctorReview,
+  })),
+);
 import { ExamBuilder } from "./ExamBuilder";
 
 const labels = {
@@ -47,6 +52,27 @@ export function ExamWorkspace({
       active = false;
     };
   }, [base]);
+  if (!controls && resultsOnly)
+    return (
+      <section>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {!rules && !error && <p role="status">Loading exam access…</p>}
+        {rules &&
+          (rules.restrictions.includes("results") ? (
+            <p>
+              Results and camera review are restricted for this organisation.
+            </p>
+          ) : (
+            <Suspense fallback={<p role="status">Loading camera review…</p>}>
+              <ExamProctorReview key={org} org={org} />
+            </Suspense>
+          ))}
+      </section>
+    );
   if (!controls)
     return resultsOnly ? null : (
       <section>

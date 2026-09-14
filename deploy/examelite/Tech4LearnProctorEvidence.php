@@ -9,12 +9,13 @@ use Illuminate\Support\Facades\DB;
 final class Tech4LearnProctorEvidence
 {
  /** Server-credential callers must also enforce the staff permission in Tech4Learn. */
- private function reviewer(string $workspace,int $source,string $learner):array {
+ private function reviewer(string $workspace,int $source,string $learner,bool $allowUnmapped=false):array {
   foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$source)->first();abort_unless($w&&$w->organization_id,404);
   abort_unless(\App\Models\Organization::where('id',$w->organization_id)->where('status','active')->exists(),403);
   abort_unless(!in_array('results',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
   $studentId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$learner)->where('kind','student')->value('external_id');
+  if($studentId===null&&$allowUnmapped)return [(int)$w->organization_id,0];
   $student=Student::where('organization_id',$w->organization_id)->findOrFail($studentId);
   return [(int)$w->organization_id,(int)$student->id];
  }
@@ -22,7 +23,8 @@ final class Tech4LearnProctorEvidence
   return DB::table('tech4learn_proctor_evidence')->where('workspace_id',$workspace)->where('organization_id',$owner)->where('student_id',$student)->where('attempt_id',$attempt)->where('exam_id',$exam)->where('expires_at','>',now());
  }
  public function attempts(string $workspace,int $source,string $learner,int $after=0):array {
-  abort_unless($after>=0,422);[$owner,$student]=$this->reviewer($workspace,$source,$learner);
+  abort_unless($after>=0,422);[$owner,$student]=$this->reviewer($workspace,$source,$learner,true);
+  if(!$student)return ['items'=>[],'next'=>null];
   $rows=ExamResult::where('organization_id',$owner)->where('student_id',$student)->where('id','>',$after)
    ->whereExists(function($q)use($workspace,$owner,$student){$q->selectRaw('1')->from('tech4learn_proctor_evidence')->whereColumn('attempt_id','exam_results.id')->whereColumn('exam_id','exam_results.exam_id')->where('workspace_id',$workspace)->where('organization_id',$owner)->where('student_id',$student)->where('expires_at','>',now());})
    ->orderBy('id')->limit(51)->get(['id','exam_id','start_time','end_time']);
