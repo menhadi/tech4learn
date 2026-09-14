@@ -531,10 +531,10 @@ test("central question sharing requires superadmin; organisation reads respect m
             {
               stat_id: 3,
               question_id: 8,
-              question_text: "Explain",
-              answer_text: "Synthetic answer",
-              reference_text: "Reference",
-              text_review_supported: true,
+              question_html: "Explain",
+              answer_html: "Synthetic answer",
+              reference_html: "Reference",
+              review_supported: true,
               maximum_marks: 10,
               correct_answer: "omit",
             },
@@ -559,7 +559,7 @@ test("central question sharing requires superadmin; organisation reads respect m
     const markingReview = await (
       await call(resultPath + "/19", undefined, member)
     ).json();
-    assert.equal(markingReview.questions[0].answer_text, "Synthetic answer");
+    assert.equal(markingReview.questions[0].answer_html, "Synthetic answer");
     assert.equal(JSON.stringify(markingReview).includes("omit"), false);
     const markingBody = {
       marks: { 3: 5 },

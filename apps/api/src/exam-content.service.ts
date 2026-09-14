@@ -136,13 +136,13 @@ export class ExamContentService {
             !positive(row.stat_id) ||
             seen.has(row.stat_id) ||
             !positive(row.question_id) ||
-            typeof row.question_text !== "string" ||
-            row.question_text.length > 100000 ||
-            typeof row.answer_text !== "string" ||
-            row.answer_text.length > 100000 ||
-            typeof row.reference_text !== "string" ||
-            row.reference_text.length > 100000 ||
-            typeof row.text_review_supported !== "boolean" ||
+            typeof row.question_html !== "string" ||
+            row.question_html.length > 100000 ||
+            typeof row.answer_html !== "string" ||
+            row.answer_html.length > 100000 ||
+            typeof row.reference_html !== "string" ||
+            row.reference_html.length > 100000 ||
+            typeof row.review_supported !== "boolean" ||
             !finite(row.maximum_marks) ||
             row.maximum_marks < 0
           )
@@ -151,10 +151,10 @@ export class ExamContentService {
           return {
             stat_id: row.stat_id,
             question_id: row.question_id,
-            question_text: row.question_text,
-            answer_text: row.answer_text,
-            reference_text: row.reference_text,
-            text_review_supported: row.text_review_supported,
+            question_html: row.question_html,
+            answer_html: row.answer_html,
+            reference_html: row.reference_html,
+            review_supported: row.review_supported,
             maximum_marks: row.maximum_marks,
           };
         }),

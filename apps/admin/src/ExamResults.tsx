@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "./api";
 import { DraftForm } from "./DraftForm";
+import { ExamRichContent } from "./ExamRichContent";
 import { DirectoryTable } from "./DirectoryTable";
 import { ExamLearnerPicker, type ExamLearner } from "./ExamLearnerPicker";
 
@@ -23,10 +24,10 @@ type Review = {
   questions: {
     stat_id: number;
     question_id: number;
-    question_text: string;
-    answer_text: string;
-    reference_text: string;
-    text_review_supported: boolean;
+    question_html: string;
+    answer_html: string;
+    reference_html: string;
+    review_supported: boolean;
     maximum_marks: number;
   }[];
 };
@@ -217,6 +218,17 @@ function Marking({
     revision: string;
     marks: Record<string, number>;
   } | null>(null);
+  const [ready, setReady] = useState<Record<string, boolean>>({});
+  const contentReady =
+    !!review &&
+    review.questions.every(
+      (q) =>
+        ready[`${q.stat_id}:question`] &&
+        ready[`${q.stat_id}:answer`] &&
+        (!q.reference_html || ready[`${q.stat_id}:reference`]),
+    );
+  const track = (key: string, value: boolean) =>
+    setReady((old) => (old[key] === value ? old : { ...old, [key]: value }));
   useEffect(() => {
     onBusy(busy || pending !== null);
     return () => onBusy(false);
@@ -224,6 +236,7 @@ function Marking({
   useEffect(() => {
     let active = true;
     setReview(null);
+    setReady({});
     setError("");
     setStale(false);
     void api<Review>(base)
@@ -258,11 +271,10 @@ function Marking({
       </button>
       {review && (
         <>
-          {review.questions.some((q) => !q.text_review_supported) && (
+          {review.questions.some((q) => !q.review_supported) && (
             <p role="alert">
-              This attempt contains media, a passage or formatted mathematics.
-              Marking is unavailable until the complete review display is
-              integrated.
+              This attempt contains media or a passage. Marking is unavailable
+              until the complete review display is integrated.
             </p>
           )}
           <p>
@@ -274,6 +286,11 @@ function Marking({
           ) : (
             <>
               <p>Enter marks for every pending answer before saving.</p>
+              {!contentReady && (
+                <p role="status">
+                  Waiting for all answer content to display before marking.
+                </p>
+              )}
               {pending && (
                 <p role="status">
                   Save was not confirmed. Retry the same marks, or reload to
@@ -286,9 +303,10 @@ function Marking({
                 onSubmit={async (event) => {
                   event.preventDefault();
                   if (
+                    !contentReady ||
                     busy ||
                     stale ||
-                    review.questions.some((q) => !q.text_review_supported)
+                    review.questions.some((q) => !q.review_supported)
                   )
                     return;
                   const form = new FormData(event.currentTarget);
@@ -329,33 +347,41 @@ function Marking({
               >
                 <fieldset
                   disabled={
+                    !contentReady ||
                     busy ||
                     pending !== null ||
                     stale ||
-                    review.questions.some((q) => !q.text_review_supported)
+                    review.questions.some((q) => !q.review_supported)
                   }
                 >
                   <legend>Pending answers</legend>
                   {review.questions.map((q, index) => (
                     <div className="panel" key={q.stat_id}>
                       <h5>Question {index + 1}</h5>
-                      <p style={{ whiteSpace: "pre-wrap" }}>
-                        {q.question_text}
-                      </p>
+                      <ExamRichContent
+                        value={q.question_html}
+                        onReady={(value) =>
+                          track(`${q.stat_id}:question`, value)
+                        }
+                      />
                       <p>
                         <strong>Student answer</strong>
                       </p>
-                      <p style={{ whiteSpace: "pre-wrap" }}>
-                        {q.answer_text || "No written answer"}
-                      </p>
-                      {q.reference_text && (
+                      <ExamRichContent
+                        value={q.answer_html || "No written answer"}
+                        onReady={(value) => track(`${q.stat_id}:answer`, value)}
+                      />
+                      {q.reference_html && (
                         <>
                           <p>
                             <strong>Reference answer</strong>
                           </p>
-                          <p style={{ whiteSpace: "pre-wrap" }}>
-                            {q.reference_text}
-                          </p>
+                          <ExamRichContent
+                            value={q.reference_html}
+                            onReady={(value) =>
+                              track(`${q.stat_id}:reference`, value)
+                            }
+                          />
                         </>
                       )}
                       <label>
@@ -375,9 +401,10 @@ function Marking({
                 <button
                   type="submit"
                   disabled={
+                    !contentReady ||
                     busy ||
                     stale ||
-                    review.questions.some((q) => !q.text_review_supported)
+                    review.questions.some((q) => !q.review_supported)
                   }
                 >
                   {busy

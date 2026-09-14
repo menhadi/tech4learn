@@ -48,12 +48,12 @@ final class Tech4LearnResultMarking
  private function summary(ExamResult $attempt):array {
   return ['attempt_id'=>(int)$attempt->id,'result'=>(string)$attempt->result,'score_percent'=>(float)$attempt->percent,'obtained_marks'=>(float)$attempt->obtained_marks,'total_marks'=>(float)$attempt->total_marks];
  }
- private function textSupported($question,$row):bool {
+ private function formattedSupported($question,$row):bool {
   // Until the staff media renderer is connected, never grade an incomplete display.
   $content=(string)$question->question.' '.(string)$row->answer.' '.(string)$row->correct_answer;
-  return !$question->passage_id&&!preg_match('/<(?:img|math|svg|video|audio|iframe|object|table|sup|sub)\b|\\\\[a-zA-Z(\[]|\$[^$]+\$/i',$content);
+  return !$question->passage_id&&!preg_match('/<(?:img|svg|video|audio|iframe|object|script|style|canvas|embed)\b/i',$content);
  }
- private function text(mixed $value):string {return html_entity_decode(strip_tags(preg_replace('/<\/(?:p|div)>|<br\s*\/?\s*>/i',"\n",(string)$value)),ENT_QUOTES|ENT_HTML5,'UTF-8');}
+ private function html(mixed $value):string {return (string)$value;}
  public function attempts(string $workspace,int $source,string $actor,string $learner,int $after=0):array {
   abort_unless($after>=0,422);
   return DB::transaction(function()use($workspace,$source,$actor,$learner,$after){
@@ -72,7 +72,7 @@ final class Tech4LearnResultMarking
    [$owner,,$student]=$this->scope($workspace,$source,$actor,$learner);$attempt=$this->attempt($owner,$student,$id);$rows=$this->pending($attempt);
    return ['revision'=>$this->revision($attempt,$rows),'summary'=>$this->summary($attempt),'questions'=>$rows->map(function($row)use($owner){
     $question=\App\Models\Question::where('organization_id',$owner)->findOrFail($row->question_id);
-    return ['stat_id'=>(int)$row->id,'question_id'=>(int)$row->question_id,'question_text'=>$this->text($question->question),'answer_text'=>$this->text($row->answer),'reference_text'=>$this->text($row->correct_answer),'text_review_supported'=>$this->textSupported($question,$row),'maximum_marks'=>(float)$row->marks];
+    return ['stat_id'=>(int)$row->id,'question_id'=>(int)$row->question_id,'question_html'=>$this->html($question->question),'answer_html'=>$this->html($row->answer),'reference_html'=>$this->html($row->correct_answer),'review_supported'=>$this->formattedSupported($question,$row),'maximum_marks'=>(float)$row->marks];
    })->all()];
   });
  }
@@ -88,7 +88,7 @@ final class Tech4LearnResultMarking
    $rows=$this->pending($attempt);abort_unless(hash_equals($this->revision($attempt,$rows),$revision),409,'The attempt changed. Reload before marking.');
    abort_unless($rows->count()===count($marks),422,'Mark every pending answer together.');
    foreach($rows as $row)abort_unless(array_key_exists($row->id,$marks)&&is_numeric($row->marks)&&is_finite((float)$row->marks)&&$marks[$row->id]<=(float)$row->marks,422);
-   foreach($rows as $row){$question=\App\Models\Question::where('organization_id',$owner)->findOrFail($row->question_id);abort_unless($this->textSupported($question,$row),422,'This answer requires the media review screen.');}
+   foreach($rows as $row){$question=\App\Models\Question::where('organization_id',$owner)->findOrFail($row->question_id);abort_unless($this->formattedSupported($question,$row),422,'This answer requires the media review screen.');}
    $this->invoke($owner,$user,$attempt,$marks);
    abort_unless($this->pending($attempt)->isEmpty(),500,'Native marking did not finish.');
    $result=$this->summary($attempt->fresh());

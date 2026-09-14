@@ -105,7 +105,8 @@ export async function renderExamHtml(
   let expressions = 0;
   for (const node of nodes) {
     if (node.parentElement?.closest("math")) continue;
-    const pattern = /\\\(([\s\S]*?)\\\)|\\\[([\s\S]*?)\\\]|\$\$([\s\S]*?)\$\$/g;
+    const pattern =
+      /\\\(([\s\S]*?)\\\)|\\\[([\s\S]*?)\\\]|\$\$([\s\S]*?)\$\$|(?<!\\)\$(?!\$)([^$\n]+?)(?<!\\)\$(?!\$)/g;
     const text = node.textContent ?? "";
     const matches = [...text.matchAll(pattern)];
     if (!matches.length) continue;
@@ -120,7 +121,10 @@ export async function renderExamHtml(
       );
       const formula = document.createElement("span");
       formula.innerHTML = DOMPurify.sanitize(
-        texToMathML(match[1] ?? match[2] ?? match[3], match[1] === undefined),
+        texToMathML(
+          match[1] ?? match[2] ?? match[3] ?? match[4],
+          match[1] === undefined && match[4] === undefined,
+        ),
         { ALLOWED_TAGS: mathTags, ALLOWED_ATTR: mathAttributes },
       );
       fragment.append(...Array.from(formula.childNodes));
