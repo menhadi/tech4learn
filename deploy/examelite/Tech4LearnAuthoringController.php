@@ -23,6 +23,7 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         abort_unless(is_string($search)&&mb_strlen($search)<=120&&is_string($after)&&preg_match('/^[0-9]{1,15}$/D',$after),422);
         $definitions=[
             'categories'=>['category','title'],
+            'subcategories'=>['category','title'],
             'exams'=>['exams','name'], 'packages'=>['packages','name'], 'groups'=>['groups','group_name'], 'subjects'=>['subjects','subject_name'],
             'sections'=>['question_sections','name'], 'topics'=>['topics','name'],
             'subtopics'=>['stopics','name'], 'languages'=>['languages','name'],
@@ -33,6 +34,7 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         else {
             $query=DB::table($table);
             if($kind==='categories')$query->whereNull('parent_id');
+            if($kind==='subcategories')$query->whereNotNull('parent_id')->whereExists(fn($q)=>$q->selectRaw('1')->from('category as parent')->whereColumn('parent.id','category.parent_id')->where('parent.organization_id',$owner)->whereNull('parent.parent_id'));
             if(in_array($kind,['topics','subtopics'],true)){
                 $query->whereExists(fn($q)=>$q->selectRaw('1')->from('groups')->whereColumn('groups.id',$table.'.group_id')->where('groups.organization_id',$owner));
                 $query->whereExists(fn($q)=>$q->selectRaw('1')->from('subjects')->whereColumn('subjects.id',$table.'.subject_id')->where('subjects.organization_id',$owner));

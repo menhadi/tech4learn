@@ -448,6 +448,7 @@ export class ExamContentService {
         "exams",
         "packages",
         "categories",
+        "subcategories",
         "groups",
         "subjects",
         "sections",
@@ -511,6 +512,7 @@ export class ExamContentService {
       ![
         "exams",
         "categories",
+        "subcategories",
         "groups",
         "subjects",
         "topics",

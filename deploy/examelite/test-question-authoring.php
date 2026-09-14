@@ -11,6 +11,8 @@ namespace App\Support {
  class SaasAccess {public static function abortIfLimitReached($feature):void{}}
 }
 namespace {
+// The native controller consults this organisation configuration helper.
+if(!function_exists('subcategories_enabled')){function subcategories_enabled():bool{return $GLOBALS['t4lTestSubcategoriesEnabled']??true;}}
 if(isset($argv[3])){ $taxonomy=dirname($argv[3]).'/CurriculumTaxonomyService.php'; if(is_file($taxonomy))require $taxonomy; }
 require __DIR__.'/test-content-copies.php';
 if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController','CategoryController'] as $controller){$path=dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
@@ -134,6 +136,22 @@ try{$service->save($workspace,20,$actor,$category['id'],['title'=>'Stale'],$cate
 $foreignCategory=App\Models\Category::create(['organization_id'=>30,'title'=>'Foreign category']);
 $childCategory=App\Models\Category::create(['organization_id'=>20,'title'=>'Child category','parent_id'=>$category['id']]);
 foreach([$foreignCategory,$childCategory] as $unavailable)check(!$service->owned('categories',20)->whereKey($unavailable->id)->exists(),'Category adapter excludes foreign and child records');
+$routes->add((new Illuminate\Routing\Route(['GET'],'subcategories',fn()=>null))->name('subcategories.index'));
+$subFields=['title'=>'Synthetic subcategory','parent_id'=>$category['id'],'status'=>true];
+$subcategory=$service->save($workspace,20,$actor,0,$subFields,'new','subcategory-create','subcategories');
+check((int)$subcategory['fields']['parent_id']===$category['id'],'Native subcategory references owned parent');
+check($service->save($workspace,20,$actor,0,$subFields,'new','subcategory-create','subcategories')===$subcategory,'Subcategory create replay does not duplicate');
+$subEdit=$service->save($workspace,20,$actor,$subcategory['id'],['title'=>'Edited subcategory'],$subcategory['revision'],'subcategory-edit','subcategories');
+check($subEdit['fields']['title']==='Edited subcategory'&&(int)$subEdit['fields']['parent_id']===$category['id'],'Native subcategory edit preserves parent');
+foreach([$foreignCategory->id,$subcategory['id']] as $invalidParent){
+ try{$service->save($workspace,20,$actor,$subcategory['id'],['parent_id'=>$invalidParent],$subEdit['revision'],'subcategory-invalid-'.$invalidParent,'subcategories');throw new RuntimeException('Expected invalid parent denial');}catch(Illuminate\Validation\ValidationException $e){}
+ check($service->record('subcategories',App\Models\Category::find($subcategory['id']))===$subEdit,'Invalid parent leaves subcategory unchanged');
+}
+$GLOBALS['t4lTestSubcategoriesEnabled']=false;$beforeSubRequests=DB::table('tech4learn_authoring_requests')->count();
+try{$service->save($workspace,20,$actor,0,$subFields,'new','subcategory-disabled','subcategories');throw new RuntimeException('Expected disabled subcategory denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===404,'Native subcategory feature setting enforced');}
+check(DB::table('tech4learn_authoring_requests')->count()===$beforeSubRequests,'Disabled subcategory leaves no request entry');$GLOBALS['t4lTestSubcategoriesEnabled']=true;
+$corruptChild=App\Models\Category::create(['organization_id'=>20,'title'=>'Foreign parent child','parent_id'=>$foreignCategory->id]);
+check(!$service->owned('subcategories',20)->whereKey($corruptChild->id)->exists(),'Subcategory with foreign parent cannot be edited');
 require __DIR__.'/Tech4LearnPlatformController.php';require __DIR__.'/Tech4LearnAuthoringController.php';
 $controller=new class extends App\Http\Controllers\Tech4LearnAuthoringController {
  protected function configuration(Request $r):array{return ['_platform'=>['organization_id'=>10]];}
@@ -143,6 +161,8 @@ require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 $imageSource='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
 $categoryChoices=$controller->choices(Request::create('/','GET'),$workspace,'categories');
 check(in_array($category['id'],array_column($categoryChoices['items'],'id'),true)&&!in_array($foreignCategory->id,array_column($categoryChoices['items'],'id'),true)&&!in_array($childCategory->id,array_column($categoryChoices['items'],'id'),true),'Category choices exclude foreign and child records');
+$subChoices=$controller->choices(Request::create('/','GET'),$workspace,'subcategories');
+check(in_array($subcategory['id'],array_column($subChoices['items'],'id'),true)&&!in_array($category['id'],array_column($subChoices['items'],'id'),true)&&!in_array($corruptChild->id,array_column($subChoices['items'],'id'),true),'Subcategory choices exclude parents and foreign parent references');
 $imageKey=hash('sha256',$imageSource);
 $imageQuestion=App\Models\Question::findOrFail($created['id']);
 $imageQuestion->explanation='<p>Reference</p><img src="'.$imageSource.'">';$imageQuestion->save();

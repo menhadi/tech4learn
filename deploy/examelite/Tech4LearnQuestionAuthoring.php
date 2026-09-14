@@ -35,6 +35,11 @@ final class Tech4LearnQuestionAuthoring
         return ['id'=>0,'revision'=>'new','fields'=>array_merge($fields,['name'=>'','test_type'=>'full_length','duration'=>60,'attempt_count'=>1,'passing_percentage'=>null,'display_order'=>0,'groups'=>[],'packages'=>[],'language_ids'=>[],'grouping_mode'=>'subject','timer_mode'=>'none','result_after_finish'=>true,'allow_answer_change'=>true,'show_instruction'=>true,'tolerance_count'=>0]),'test_types'=>\App\Models\Exam::testTypeLabels(),'timezone'=>config('app.timezone','UTC')];
     }
     public function definition(string $kind):array {
+        if($kind==='subcategories'){
+            $definition=$this->definition('categories');
+            $definition[2]=array_values(array_diff($definition[2],['group_ids','group_orders']));
+            $definition[2][]='parent_id';return $definition;
+        }
         $definitions=[
           'categories'=>[\App\Models\Category::class,\App\Http\Controllers\CategoryController::class,['title','description','status','display_order','group_ids','group_orders','show_in_header','header_display_order','meta_title','meta_description','meta_keywords','canonical_url','og_title','og_description','og_image','robots_meta','seo_schema'],'category'],
           'exams'=>[\App\Models\Exam::class,\App\Http\Controllers\ExamController::class,self::EXAM_FIELDS,'exam'],
@@ -50,6 +55,7 @@ final class Tech4LearnQuestionAuthoring
     public function owned(string $kind,int $tenant){
         [$model]=$this->definition($kind);$query=$model::query();
         if($kind==='categories')$query->whereNull('parent_id');
+        if($kind==='subcategories')$query->whereNotNull('parent_id')->whereHas('parent',fn($q)=>$q->where('organization_id',$tenant)->whereNull('parent_id'));
         if(in_array($kind,['topics','subtopics'],true))return $query->whereHas('subject',fn($q)=>$q->where('organization_id',$tenant))->whereHas('group',fn($q)=>$q->where('organization_id',$tenant));
         return $query->where('organization_id',$tenant);
     }
@@ -192,7 +198,7 @@ final class Tech4LearnQuestionAuthoring
                 unset($arguments[$parameter]);$arguments['id']=$question->id;
             }
             if($action==='set-status'&&$question->status===$fields['status'])return $this->record($kind,$question);
-            $method=$action!==null?$methods[$action]:($question?'update':'store');
+            $method=$action!==null?$methods[$action]:($question?'update':($kind==='subcategories'?'storeSubcategory':'store'));
             $response=$app->call([$controller,$method],$arguments);
             if($session->has('errors'))throw ValidationException::withMessages($session->get('errors')->getBag('default')->messages());
             $jsonSuccess=$action!==null&&$response instanceof \Illuminate\Http\JsonResponse&&$response->getStatusCode()<300&&($response->getData(true)['success']??false)===true;

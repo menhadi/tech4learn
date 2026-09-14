@@ -8,6 +8,7 @@ import {
 } from "./QuestionChoiceField";
 const labels = {
   categories: "Categories",
+  subcategories: "Subcategories",
   groups: "Exam groups",
   subjects: "Subjects",
   topics: "Topics",
@@ -61,7 +62,7 @@ function TaxonomyEditor({
       ? "group_name"
       : kind === "subjects"
         ? "subject_name"
-        : kind === "categories"
+        : kind === "categories" || kind === "subcategories"
           ? "title"
           : "name";
   return (
@@ -126,116 +127,141 @@ function TaxonomyEditor({
             }
           }}
         >
-          <label>
-            Name
-            <input
-              required
-              maxLength={kind === "sections" ? 191 : 255}
-              value={values[name] ?? ""}
-              disabled={busy}
-              onChange={(e) => set(name, e.target.value)}
-            />
-          </label>
-          {kind !== "groups" && (
-            <QuestionChoiceField
-              org={org}
-              kind="groups"
-              label="Exam group"
-              required={kind !== "categories"}
-              multiple={["subjects", "sections", "categories"].includes(kind)}
-              value={
-                ["subjects", "sections", "categories"].includes(kind)
-                  ? (values.group_ids ?? [])
-                  : (values.group_id ?? null)
-              }
-              disabled={busy}
-              onChange={(v) =>
-                set(
+          <div data-no-draft="true">
+            <label>
+              Name
+              <input
+                required
+                maxLength={kind === "sections" ? 191 : 255}
+                value={values[name] ?? ""}
+                disabled={busy}
+                onChange={(e) => set(name, e.target.value)}
+              />
+            </label>
+            {kind !== "groups" && kind !== "subcategories" && (
+              <QuestionChoiceField
+                org={org}
+                kind="groups"
+                label="Exam group"
+                required={kind !== "categories"}
+                multiple={["subjects", "sections", "categories"].includes(kind)}
+                value={
                   ["subjects", "sections", "categories"].includes(kind)
-                    ? "group_ids"
-                    : "group_id",
-                  v,
-                )
-              }
-            />
-          )}
-          {["topics", "subtopics"].includes(kind) && (
-            <QuestionChoiceField
-              org={org}
-              kind="subjects"
-              label="Subject"
-              required
-              value={values.subject_id ?? null}
+                    ? (values.group_ids ?? [])
+                    : (values.group_id ?? null)
+                }
+                disabled={busy}
+                onChange={(v) =>
+                  set(
+                    ["subjects", "sections", "categories"].includes(kind)
+                      ? "group_ids"
+                      : "group_id",
+                    v,
+                  )
+                }
+              />
+            )}
+            {["topics", "subtopics"].includes(kind) && (
+              <QuestionChoiceField
+                org={org}
+                kind="subjects"
+                label="Subject"
+                required
+                value={values.subject_id ?? null}
+                disabled={busy}
+                onChange={(v) => set("subject_id", v)}
+              />
+            )}
+            {kind === "subtopics" && (
+              <QuestionChoiceField
+                org={org}
+                kind="topics"
+                label="Topic"
+                required
+                value={values.topic_id ?? null}
+                disabled={busy}
+                onChange={(v) => set("topic_id", v)}
+              />
+            )}
+            {kind !== "subjects" && (
+              <label>
+                Display order
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={values.display_order ?? 0}
+                  disabled={busy}
+                  onChange={(e) => set("display_order", Number(e.target.value))}
+                />
+              </label>
+            )}
+            {kind === "subcategories" && (
+              <QuestionChoiceField
+                org={org}
+                kind="categories"
+                label="Parent category"
+                required
+                value={values.parent_id ?? null}
+                disabled={busy}
+                onChange={(v) => set("parent_id", v)}
+              />
+            )}
+            {kind === "subcategories" && (
+              <p>
+                Subcategories inherit their parent category’s exam groups.
+                Saving follows your organisation’s ExamElite subcategory
+                setting.
+              </p>
+            )}
+            {(kind === "categories" || kind === "subcategories") && (
+              <label>
+                Description
+                <textarea
+                  value={values.description ?? ""}
+                  disabled={busy}
+                  maxLength={10000}
+                  onChange={(e) => set("description", e.target.value)}
+                />
+              </label>
+            )}
+            {kind === "categories" && (
+              <p>
+                No selected groups means this category is available to every
+                exam group in your organisation. Existing header and search
+                metadata are preserved.
+              </p>
+            )}
+            {["sections", "categories", "subcategories"].includes(kind) && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={Boolean(values.status)}
+                  disabled={busy}
+                  onChange={(e) => set("status", e.target.checked)}
+                />
+                Active{" "}
+                {kind === "categories"
+                  ? "category"
+                  : kind === "subcategories"
+                    ? "subcategory"
+                    : "section"}
+              </label>
+            )}
+            <button
+              disabled={busy || (record.id > 0 && !Object.keys(changes).length)}
+            >
+              Save classification
+            </button>
+            <button
+              className="secondary"
+              type="button"
               disabled={busy}
-              onChange={(v) => set("subject_id", v)}
-            />
-          )}
-          {kind === "subtopics" && (
-            <QuestionChoiceField
-              org={org}
-              kind="topics"
-              label="Topic"
-              required
-              value={values.topic_id ?? null}
-              disabled={busy}
-              onChange={(v) => set("topic_id", v)}
-            />
-          )}
-          {kind !== "subjects" && (
-            <label>
-              Display order
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={values.display_order ?? 0}
-                disabled={busy}
-                onChange={(e) => set("display_order", Number(e.target.value))}
-              />
-            </label>
-          )}
-          {kind === "categories" && (
-            <label>
-              Description
-              <textarea
-                value={values.description ?? ""}
-                disabled={busy}
-                maxLength={10000}
-                onChange={(e) => set("description", e.target.value)}
-              />
-            </label>
-          )}
-          {kind === "categories" && (
-            <p>
-              No selected groups means this category is available to every exam
-              group in your organisation. Existing header and search metadata
-              are preserved.
-            </p>
-          )}
-          {(kind === "sections" || kind === "categories") && (
-            <label>
-              <input
-                type="checkbox"
-                checked={Boolean(values.status)}
-                disabled={busy}
-                onChange={(e) => set("status", e.target.checked)}
-              />
-              Active {kind === "categories" ? "category" : "section"}
-            </label>
-          )}
-          <button
-            disabled={busy || (record.id > 0 && !Object.keys(changes).length)}
-          >
-            Save classification
-          </button>
-          <button
-            className="secondary"
-            type="button"
-            disabled={busy}
-            onClick={() => void load()}
-          >
-            Reload saved classification
-          </button>
+              onClick={() => void load()}
+            >
+              Reload saved classification
+            </button>
+          </div>
         </DraftForm>
       )}
     </section>
