@@ -46,6 +46,14 @@ type Attempt = {
   result?: { status: string; score_percent: number } | null;
 };
 export function StudentExamAttempt({ base }: { base: string }) {
+  const [history, setHistory] = useState<
+    | {
+        attempt_id: number;
+        finished_at: string;
+        result: { status: string; score_percent: number } | null;
+      }[]
+    | null
+  >(null);
   const [prepared, setPrepared] = useState<{
     exam_id: number;
     proctor: boolean;
@@ -93,6 +101,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
   async function send(action: string, body: any) {
     if (running.current) return;
     running.current = true;
+    if (action === "history") setHistory(null);
     setBusy(true);
     setError("");
     pending.current ??= {
@@ -112,6 +121,8 @@ export function StudentExamAttempt({ base }: { base: string }) {
       );
       if (request.action === "prepare") {
         setPrepared(result);
+      } else if (request.action === "history") {
+        setHistory(result.items);
       } else if (request.action === "visibility" && !result.completed) {
         setAttempt((previous) =>
           previous
@@ -347,6 +358,46 @@ export function StudentExamAttempt({ base }: { base: string }) {
             )}
         </>
       )}
+      {(!attempt || attempt.completed) && (
+        <section>
+          <button
+            className="secondary"
+            disabled={busy || !!pending.current}
+            onClick={() => void send("history", {})}
+          >
+            Load previous results
+          </button>
+          {history && (
+            <>
+              <h3>Latest submitted attempts (up to 50)</h3>
+              {!history.length ? (
+                <p>No submitted attempts were found for this exam.</p>
+              ) : (
+                <ul>
+                  {history.map((row) => (
+                    <li key={row.attempt_id}>
+                      {new Date(row.finished_at).toLocaleString()} ·{" "}
+                      {row.result
+                        ? `${row.result.status} · ${row.result.score_percent}%`
+                        : "Result not published"}{" "}
+                      ·{" "}
+                      <button
+                        className="secondary"
+                        disabled={busy || !!pending.current}
+                        onClick={() =>
+                          void send("result", { attempt_id: row.attempt_id })
+                        }
+                      >
+                        View submitted result
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </section>
+      )}
       {!attempt && !pending.current && (
         <>
           <p>
@@ -380,6 +431,18 @@ export function StudentExamAttempt({ base }: { base: string }) {
       {attempt?.completed ? (
         <>
           <h3>Exam submitted</h3>
+          <button
+            className="secondary"
+            disabled={busy || !!pending.current}
+            onClick={() => {
+              setAttempt(null);
+              setPrepared(null);
+              setRemaining(null);
+              setSectionRemaining(null);
+            }}
+          >
+            Exam setup
+          </button>
           <p>Your saved answers have been submitted.</p>
           <button
             className="secondary"

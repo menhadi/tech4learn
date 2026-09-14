@@ -9,10 +9,10 @@ use Illuminate\Contracts\View\View;
 final class Tech4LearnStudentAttempts
 {
  public function run(string $workspace,int $source,string $learner,string $name,int $examId,string $action,array $fields):array {
-  abort_unless(in_array($action,['prepare','start','answer','submit','result','media','visibility','proctor'],true)&&$examId>0,422);
+  abort_unless(in_array($action,['prepare','history','start','answer','submit','result','media','visibility','proctor'],true)&&$examId>0,422);
   foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   $requestId=$fields['request_id']??'';abort_unless(is_string($requestId)&&preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$requestId),422);
-  $allowed=match($action){'prepare'=>['request_id'],'start'=>['request_id','language_id','camera_ready'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'result'=>['request_id','attempt_id'],'submit'=>['request_id','attempt_id'],'visibility'=>['request_id','attempt_id','event'],'proctor'=>['request_id','attempt_id','image'],'media'=>['request_id','attempt_id','question_id','asset']};
+  $allowed=match($action){'prepare','history'=>['request_id'],'start'=>['request_id','language_id','camera_ready'],'answer'=>['request_id','attempt_id','question_id','fields','revision'],'result'=>['request_id','attempt_id'],'submit'=>['request_id','attempt_id'],'visibility'=>['request_id','attempt_id','event'],'proctor'=>['request_id','attempt_id','image'],'media'=>['request_id','attempt_id','question_id','asset']};
   abort_unless(array_diff(array_keys($fields),$allowed)===[],422);
   if(isset($fields['camera_ready']))abort_unless(is_bool($fields['camera_ready']),422);
   if(isset($fields['language_id']))abort_unless(is_int($fields['language_id'])&&$fields['language_id']>0,422);
@@ -26,6 +26,12 @@ final class Tech4LearnStudentAttempts
    $showResults=!in_array('results',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true);
    $exam=Exam::where('organization_id',$tenant)->findOrFail($examId);
    $nativeId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$learner)->where('kind','student')->value('external_id');
+   if($action==='history'){
+    if(!$nativeId)return ['exam_id'=>$examId,'items'=>[]];
+    Student::where('organization_id',$tenant)->where('status','Active')->findOrFail($nativeId);
+    $rows=ExamResult::where('organization_id',$tenant)->where('student_id',$nativeId)->where('exam_id',$examId)->whereNotNull('end_time')->orderByDesc('id')->limit(50)->get();
+    return ['exam_id'=>$examId,'items'=>$rows->map(fn($row)=>$this->completed($exam,$row,$showResults)+['finished_at'=>\Carbon\Carbon::parse($row->end_time)->toIso8601String()])->all()];
+   }
    if($action==='prepare'){
     if($nativeId)Student::where('organization_id',$tenant)->where('status','Active')->findOrFail($nativeId);
     abort_unless($exam->status==='Active'&&$exam->isFrontendVisible()&&$exam->allowsOnlineAttempt(),403);

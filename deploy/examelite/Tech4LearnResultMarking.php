@@ -62,9 +62,9 @@ final class Tech4LearnResultMarking
  }
  private function formattedSupported(array $display,$row):bool {
   // Until the staff media renderer is connected, never grade an incomplete display.
-  $answers=(string)$row->answer.' '.(string)$row->correct_answer;
+  $answers=(string)$row->answer.' '.app(Tech4LearnQuestionMedia::class)->reference((string)$row->correct_answer);
   $content=$display['question_html'].' '.($display['passage']['html']??'').' '.$answers;
-  return !preg_match('/<img\b/i',$answers)&&!preg_match('/<(?:svg|video|audio|iframe|object|script|style|canvas|embed|math-field)\b/i',$content);
+  return !preg_match('/<img\b/i',(string)$row->answer)&&!preg_match('/<(?:svg|video|audio|iframe|object|script|style|canvas|embed|math-field)\b/i',$content);
  }
  private function html(mixed $value):string {return (string)$value;}
  public function attempts(string $workspace,int $source,string $actor,string $learner,int $after=0):array {
@@ -88,7 +88,7 @@ final class Tech4LearnResultMarking
     $display=$this->content($question,$attempt);
     $media=app(Tech4LearnQuestionMedia::class);$display['question_html']=$media->rewrite($display['question_html']);
     if($display['passage'])$display['passage']['html']=$media->rewrite($display['passage']['html']);
-    return $display+['stat_id'=>(int)$row->id,'question_id'=>(int)$row->question_id,'answer_html'=>$this->html($row->answer),'reference_html'=>$this->html($row->correct_answer),'review_supported'=>$this->formattedSupported($display,$row),'maximum_marks'=>(float)$row->marks];
+    return $display+['stat_id'=>(int)$row->id,'question_id'=>(int)$row->question_id,'answer_html'=>$this->html($row->answer),'reference_html'=>$media->rewrite($media->reference((string)$row->correct_answer)),'review_supported'=>$this->formattedSupported($display,$row),'maximum_marks'=>(float)$row->marks];
    })->all()];
   });
  }
@@ -97,7 +97,7 @@ final class Tech4LearnResultMarking
    [$owner,,$student]=$this->scope($workspace,$source,$actor,$learner);$attempt=$this->attempt($owner,$student,$id);
    $stat=ExamStat::where('organization_id',$owner)->where('student_id',$student)->where('exam_id',$attempt->exam_id)->where('exam_result_id',$id)->where('ques_status','P')->findOrFail($statId);
    $question=\App\Models\Question::where('organization_id',$owner)->findOrFail($stat->question_id);
-   return app(Tech4LearnQuestionMedia::class)->readReview($question,$attempt,$asset)+['stat_id'=>$statId];
+   return app(Tech4LearnQuestionMedia::class)->readReview($question,$attempt,$stat,$asset)+['stat_id'=>$statId];
   });
  }
  public function save(string $workspace,int $source,string $actor,string $learner,int $id,array $marks,string $revision,string $requestId):array {

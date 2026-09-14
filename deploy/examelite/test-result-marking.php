@@ -55,6 +55,16 @@ rejectAnswer(fn()=>$marking->media($workspace,10,$actor,$newLearner,$manual->id,
 $pending->answer='<img src="'.$reviewSource.'">';$pending->save();
 check(!$marking->review($workspace,10,$actor,$newLearner,$manual->id)['questions'][0]['review_supported'],'Student supplied image references are not fetched');
 $pending->answer='Synthetic written answer';$pending->save();
+$originalReference=$pending->correct_answer;
+$referenceSource='data:image/png;base64,'.trim(chunk_split($png,40,"\n"));$referenceAsset=hash('sha256',$referenceSource);
+$pending->correct_answer=json_encode(['<img src="'.$referenceSource.'">']);$pending->save();
+$referenceReview=$marking->review($workspace,10,$actor,$newLearner,$manual->id);
+check($referenceReview['questions'][0]['review_supported']&&str_contains($referenceReview['questions'][0]['reference_html'],'t4l-media:'.$referenceAsset),'Stored reference image is rewritten');
+check($marking->media($workspace,10,$actor,$newLearner,$manual->id,$pending->id,$referenceAsset)['base64']===$png,'Stored reference image is readable only through review');
+$pending->correct_answer=json_encode(['<svg><text>Unsupported</text></svg>'],JSON_HEX_TAG);$pending->save();
+check(!$marking->review($workspace,10,$actor,$newLearner,$manual->id)['questions'][0]['review_supported'],'Encoded unsupported reference is still rejected');
+$pending->correct_answer=$originalReference;$pending->save();
+rejectAnswer(fn()=>$marking->media($workspace,10,$actor,$newLearner,$manual->id,$pending->id,$referenceAsset),'Removed reference image is no longer authorised');
 $q->passage_id=null;$q->save();
 $review=$marking->review($workspace,10,$actor,$newLearner,$manual->id);
 $two=$marking->review($workspace,10,$actor,$newLearner,$manual->id);

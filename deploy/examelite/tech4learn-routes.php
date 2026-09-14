@@ -13,7 +13,7 @@ use App\Http\Controllers\Tech4LearnResultController;
 // Separate from authoring's shared-IP 30/minute allowance. The T4L server
 // also limits each authenticated grant; every call requires the central credential.
 Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('throttle:6000,1,t4l-student:')->group(function () {
-    Route::post('/student/{org}/{action}', [Tech4LearnStudentController::class, 'attempt'])->where('action','prepare|start|answer|submit|result|media|visibility|proctor');
+    Route::post('/student/{org}/{action}', [Tech4LearnStudentController::class, 'attempt'])->where('action','prepare|history|start|answer|submit|result|media|visibility|proctor');
 });
 
 Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('throttle:1800,1,t4l-result-media:')->group(function () {

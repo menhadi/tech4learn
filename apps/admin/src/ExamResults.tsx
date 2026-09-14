@@ -393,6 +393,7 @@ function Marking({
                           </p>
                           <ExamRichContent
                             value={q.reference_html}
+                            mediaBase={`${apiBase}${base}/media/${q.stat_id}`}
                             onReady={(value) =>
                               track(`${q.stat_id}:reference`, value)
                             }

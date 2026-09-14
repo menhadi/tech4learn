@@ -96,6 +96,7 @@ export class ExamStudentAttemptService {
     const context = await this.access.context(org, cookie);
     const allowed: Record<string, string[]> = {
       prepare: ["request_id"],
+      history: ["request_id"],
       start: ["request_id", "language_id", "camera_ready"],
       answer: ["request_id", "attempt_id", "question_id", "fields", "revision"],
       submit: ["request_id", "attempt_id"],
@@ -117,7 +118,8 @@ export class ExamStudentAttemptService {
     const id = (value: unknown) =>
       typeof value === "number" && Number.isSafeInteger(value) && value > 0;
     if (
-      (!["start", "prepare"].includes(action) && !id(body.attempt_id)) ||
+      (!["start", "prepare", "history"].includes(action) &&
+        !id(body.attempt_id)) ||
       (body.language_id !== undefined && !id(body.language_id))
     )
       throw new BadRequestException("Invalid exam request.");
@@ -207,6 +209,57 @@ export class ExamStudentAttemptService {
       );
     }
     const data = response.data;
+    if (action === "history") {
+      const invalid = () =>
+        new ServiceUnavailableException("Previous results are unavailable.");
+      if (
+        !data ||
+        data.exam_id !== Number(context.external_exam_id) ||
+        !Array.isArray(data.items) ||
+        data.items.length > 50
+      )
+        throw invalid();
+      const rules = (
+        await this.db.query<{ restrictions: string[] }>(
+          "SELECT restrictions FROM examelite_workspaces WHERE organisation_id=$1",
+          [org],
+        )
+      ).rows[0];
+      const seen = new Set<number>();
+      return {
+        exam_id: data.exam_id,
+        items: data.items.map((row: any) => {
+          if (
+            !row ||
+            !id(row.attempt_id) ||
+            seen.has(row.attempt_id) ||
+            row.exam_id !== data.exam_id ||
+            row.completed !== true ||
+            typeof row.finished_at !== "string" ||
+            !Number.isFinite(Date.parse(row.finished_at)) ||
+            (row.result !== null &&
+              (!row.result ||
+                typeof row.result.status !== "string" ||
+                row.result.status.length > 80 ||
+                typeof row.result.score_percent !== "number" ||
+                !Number.isFinite(row.result.score_percent)))
+          )
+            throw invalid();
+          seen.add(row.attempt_id);
+          return {
+            attempt_id: row.attempt_id,
+            finished_at: row.finished_at,
+            result:
+              !row.result || rules?.restrictions?.includes("results")
+                ? null
+                : {
+                    status: row.result.status,
+                    score_percent: row.result.score_percent,
+                  },
+          };
+        }),
+      };
+    }
     if (action === "prepare") {
       if (
         !data ||

@@ -40,14 +40,18 @@ class Tech4LearnQuestionMedia
   return $this->readQuestion($question,$attempt,$key);
  }
  /** Caller has authenticated the mapped staff and pending result before reaching here. */
- public function readReview(Question $question,ExamResult $attempt,string $key):array {
-  abort_unless($attempt->end_time,403);
-  return $this->readQuestion($question,$attempt,$key);
+ public function readReview(Question $question,ExamResult $attempt,\App\Models\ExamStat $stat,string $key):array {
+  abort_unless($attempt->end_time&&(int)$stat->organization_id===(int)$attempt->organization_id&&(int)$stat->exam_result_id===(int)$attempt->id&&(int)$stat->student_id===(int)$attempt->student_id&&(int)$stat->question_id===(int)$question->id&&$stat->ques_status==='P',403);
+  return $this->readQuestion($question,$attempt,$key,$this->reference((string)$stat->correct_answer));
  }
- private function readQuestion(Question $question,ExamResult $attempt,string $key):array {
+ public function reference(string $value):string {
+  $decoded=json_decode($value,true);
+  return is_array($decoded)&&count(array_filter($decoded,fn($v)=>!is_string($v)&&!is_numeric($v)))===0?implode(', ',$decoded):$value;
+ }
+ private function readQuestion(Question $question,ExamResult $attempt,string $key,string $reference=''):array {
   abort_unless(preg_match('/^[a-f0-9]{64}$/D',$key),422);
   abort_unless((int)$question->organization_id===(int)$attempt->organization_id,403);
-  $translation=$question->langs()->where('language_id',(int)$attempt->language_id)->first();$sources=[];
+  $translation=$question->langs()->where('language_id',(int)$attempt->language_id)->first();$sources=$this->sources($reference);
   foreach(['question','option1','option2','option3','option4','option5','option6','hint'] as $field)$sources+=$this->sources((string)($translation?->$field??$question->$field??''));
   if($passage=$question->passage){
    abort_unless((int)$passage->organization_id===(int)$question->organization_id,403);

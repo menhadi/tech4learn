@@ -387,6 +387,78 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
       400,
     );
     const resultPath = root + "/student-exam/attempt/result";
+    const historyPath = root + "/student-exam/attempt/history";
+    let wrongHistory = false;
+    engine.request = async (config, owner, path, payload) => {
+      assert.equal(path, `student/${org}/history`);
+      assert.equal(payload.learner_id, learner);
+      assert.equal(payload.exam_id, 7);
+      return {
+        data: {
+          exam_id: 7,
+          items: [
+            {
+              attempt_id: 19,
+              exam_id: wrongHistory ? 99 : 7,
+              completed: true,
+              finished_at: "2026-09-14T00:00:00Z",
+              result: {
+                status: "Pass",
+                score_percent: 50,
+                private_extra: "PRIVATE",
+              },
+              answers: "PRIVATE",
+            },
+          ],
+        },
+      };
+    };
+    const historyReply = await call(
+      historyPath,
+      { request_id: randomUUID() },
+      studentCookie,
+    );
+    assert.equal(historyReply.status, 200);
+    const historyData = await historyReply.json();
+    assert.equal(historyData.items[0].result.score_percent, 50);
+    assert.equal(JSON.stringify(historyData).includes("PRIVATE"), false);
+    assert.equal(
+      (await call(historyPath, { request_id: randomUUID() }, staff)).status,
+      401,
+    );
+    assert.equal(
+      (
+        await call(
+          historyPath,
+          { request_id: randomUUID(), exam_id: 99 },
+          studentCookie,
+        )
+      ).status,
+      400,
+    );
+    wrongHistory = true;
+    assert.equal(
+      (await call(historyPath, { request_id: randomUUID() }, studentCookie))
+        .status,
+      503,
+    );
+    wrongHistory = false;
+    await pg.query(
+      "INSERT INTO examelite_workspaces(organisation_id,restrictions) VALUES($1,$2)",
+      [org, ["results"]],
+    );
+    assert.equal(
+      (
+        await (
+          await call(historyPath, { request_id: randomUUID() }, studentCookie)
+        ).json()
+      ).items[0].result,
+      null,
+    );
+    await pg.query(
+      "DELETE FROM examelite_workspaces WHERE organisation_id=$1",
+      [org],
+    );
     engine.request = async (config, owner, path, payload) => {
       assert.equal(path, `student/${org}/result`);
       assert.equal(payload.exam_id, 7);

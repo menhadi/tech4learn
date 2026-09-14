@@ -218,5 +218,16 @@ $studentRoute=$router->getRoutes()->match(Illuminate\Http\Request::create('https
 check(in_array('throttle:6000,1,t4l-student:',$studentRoute->gatherMiddleware(),true)&&in_array('throttle:api',$studentRoute->excludedMiddleware(),true),'Student route has a separate prefixed limit instead of the inherited shared-IP API bucket');
 $authorRoute=$router->getRoutes()->match(Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/authoring/'.$workspace.'/questions/1','GET'));
 check(in_array('throttle:30,1',$authorRoute->gatherMiddleware(),true)&&!in_array('throttle:api',$authorRoute->excludedMiddleware(),true),'Authoring rate limits remain intact');
+$beforeHistoryCount=App\Models\ExamResult::count();$beforeHistoryStudents=App\Models\Student::count();$beforeHistorySubmissions=App\Services\StudentActivityTracker::$submissions;
+$history=$lifecycle->run($workspace,10,$newLearner,'Synthetic candidate',$paper->id,'history',['request_id'=>$next()]);
+check(count($history['items'])>0&&count($history['items'])<=50,'Submitted history is available without starting');
+foreach($history['items'] as $row)check($row['exam_id']===$paper->id&&$row['completed']===true&&isset($row['finished_at']),'History stays within the granted paper');
+$unknownHistory=$lifecycle->run($workspace,10,$next(),'Synthetic unmapped',$paper->id,'history',['request_id'=>$next()]);
+check($unknownHistory['items']===[]&&App\Models\ExamResult::count()===$beforeHistoryCount&&App\Models\Student::count()===$beforeHistoryStudents&&App\Services\StudentActivityTracker::$submissions===$beforeHistorySubmissions,'History has no identity, attempt or grading writes');
+$published=$paper->result_after_finish;$paper->result_after_finish=false;$paper->save();
+$hiddenHistory=$lifecycle->run($workspace,10,$newLearner,'Synthetic candidate',$paper->id,'history',['request_id'=>$next()]);
+foreach($hiddenHistory['items'] as $row)check($row['result']===null,'History respects hidden results');
+$paper->result_after_finish=$published;$paper->save();
+rejectAnswer(fn()=>$lifecycle->run($workspace,99,$newLearner,'Synthetic candidate',$paper->id,'history',['request_id'=>$next()]),'Foreign source cannot read history');
 echo "Native student lifecycle: start, resume, answers, submission and restrictions passed.\n";
 }
