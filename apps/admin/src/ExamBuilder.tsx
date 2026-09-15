@@ -649,6 +649,7 @@ function ExamEditor({
               key={`${org}-${record.id}-${record.revision}`}
               org={org}
               record={record}
+              onSaved={setRecord}
               disabled={busy || Object.keys(changes).length > 0}
             />
           )}

@@ -39,8 +39,8 @@ const coverage: Record<Feature, [string, string]> = {
     "Central-original editing and visual formula editor",
   ],
   exams: [
-    "Exam settings, question selection, sections and timers",
-    "OMR and PDF workflows",
+    "Exam settings, paper controls, PDF generation and approved downloads",
+    "Translation approval, OMR and generated-file verification",
   ],
   taking: [
     "Scoped student links, start, resume, answers and submission",

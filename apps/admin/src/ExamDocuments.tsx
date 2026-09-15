@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { apiBase } from "./api";
+import { api, apiBase, ApiError } from "./api";
 import { QuestionChoiceField } from "./QuestionChoiceField";
 import type { Exam } from "./ExamBuilder";
 
@@ -7,16 +7,91 @@ export function ExamDocuments({
   org,
   record,
   disabled,
+  onSaved,
 }: {
   org: string;
   record: Exam;
   disabled: boolean;
+  onSaved: (record: Exam) => void;
 }) {
   const [packageId, setPackage] = useState<number | null>(null);
   const [languageId, setLanguage] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [pending, setPending] = useState<{
+    fields: {
+      package_id: number;
+      language_id: number;
+      document_type: "questions" | "solutions";
+    };
+    revision: string;
+    request_id: string;
+  } | null>(null);
   const active = useRef<AbortController | null>(null);
+  async function generate(type: "questions" | "solutions") {
+    if (
+      busy ||
+      disabled ||
+      packageId === null ||
+      languageId === null ||
+      (pending && pending.fields.document_type !== type)
+    )
+      return;
+    const request = pending ?? {
+      fields: {
+        package_id: packageId,
+        language_id: languageId,
+        document_type: type,
+      },
+      revision: record.revision,
+      request_id: crypto.randomUUID(),
+    };
+    setPending(request);
+    setBusy(true);
+    setMessage("");
+    try {
+      await api<Exam>(
+        `/organisations/${org}/exam-content/exams/${record.id}/actions/generate-document`,
+        "POST",
+        request,
+        35000,
+      );
+      setPending(null);
+      setMessage(
+        "PDF generation requested. The native worker must finish before a new download is available.",
+      );
+    } catch (error) {
+      if (error instanceof ApiError && [400, 409].includes(error.status))
+        setPending(null);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Generation could not be confirmed. Retry the same request.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function reload() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const saved = await api<Exam>(
+        `/organisations/${org}/exam-content/taxonomy/exams/${record.id}`,
+      );
+      setPending(null);
+      onSaved(saved);
+      setMessage(
+        "Saved exam reloaded. Check the approved download before requesting another generation.",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to reload the exam.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   useEffect(
     () => () => {
       active.current?.abort();
@@ -25,7 +100,7 @@ export function ExamDocuments({
     [],
   );
   async function download(type: "questions" | "solutions") {
-    if (busy || disabled) return;
+    if (busy || disabled || pending) return;
     const controller = new AbortController();
     active.current = controller;
     const timer = window.setTimeout(() => controller.abort(), 35000);
@@ -94,8 +169,9 @@ export function ExamDocuments({
         variant. Changes to exam settings do not regenerate an approved PDF.
       </p>
       <p>
-        PDF generation and approval inside Tech4Learn are still being
-        integrated.
+        Generation requires an assigned package and language. Native translation
+        approval is required; approval controls inside Tech4Learn are still
+        being integrated.
       </p>
       <QuestionChoiceField
         org={org}
@@ -103,7 +179,7 @@ export function ExamDocuments({
         label="PDF package"
         value={packageId}
         allowedIds={(record.fields.packages ?? []).map(Number)}
-        disabled={disabled || busy}
+        disabled={disabled || busy || Boolean(pending)}
         onChange={setPackage}
       />
       <QuestionChoiceField
@@ -112,12 +188,12 @@ export function ExamDocuments({
         label="PDF language"
         value={languageId}
         allowedIds={(record.fields.language_ids ?? []).map(Number)}
-        disabled={disabled || busy}
+        disabled={disabled || busy || Boolean(pending)}
         onChange={setLanguage}
       />
       <button
         type="button"
-        disabled={disabled || busy}
+        disabled={disabled || busy || Boolean(pending)}
         onClick={() => void download("questions")}
       >
         Download approved paper
@@ -125,11 +201,49 @@ export function ExamDocuments({
       <button
         type="button"
         className="secondary"
-        disabled={disabled || busy}
+        disabled={disabled || busy || Boolean(pending)}
         onClick={() => void download("solutions")}
       >
         Download approved solutions
       </button>
+      <details>
+        <summary>Generate a replacement PDF</summary>
+        <p>
+          The last approved document remains downloadable while its replacement
+          is processed. This does not change exam answers or student marks.
+        </p>
+        {(["questions", "solutions"] as const).map((type) => (
+          <button
+            type="button"
+            key={type}
+            disabled={
+              disabled ||
+              busy ||
+              packageId === null ||
+              languageId === null ||
+              Boolean(pending && pending.fields.document_type !== type)
+            }
+            onClick={() => void generate(type)}
+          >
+            {pending?.fields.document_type === type ? "Retry" : "Generate"}{" "}
+            {type === "questions" ? "paper" : "solutions"} PDF
+          </button>
+        ))}
+        {pending && (
+          <p>
+            This generation request is awaiting confirmation. Retry keeps the
+            same request and selections.
+          </p>
+        )}
+        <button
+          type="button"
+          className="secondary"
+          disabled={disabled || busy}
+          onClick={() => void reload()}
+        >
+          Reload document selections
+        </button>
+      </details>
       {message && <p role="status">{message}</p>}
     </section>
   );
