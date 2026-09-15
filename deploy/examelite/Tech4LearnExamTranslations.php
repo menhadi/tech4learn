@@ -9,6 +9,26 @@ final class Tech4LearnExamTranslations
 {
     private const FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','fill_blank','si_answer1'];
     public function review(string $workspace,int $source,string $actor,int $examId,int $languageId,int $after=0,?string $expectedRevision=null):array {
+        $result=$this->snapshot($workspace,$source,$actor,$examId,$languageId,$after,$expectedRevision);
+        $media=app(Tech4LearnQuestionMedia::class);
+        $rewrite=fn($fields)=>$fields===null?null:array_map(fn($html)=>$html===null?null:$media->rewrite((string)$html),$fields);
+        $result['source']=$rewrite($result['source']);$result['translation']=$rewrite($result['translation']);
+        foreach($result['items'] as &$item){$item['source']=$rewrite($item['source']);$item['translation']=$rewrite($item['translation']);}unset($item);
+        return $result;
+    }
+    public function media(string $workspace,int $source,string $actor,int $examId,int $languageId,int $questionId,string $asset,string $revision):array {
+        abort_unless($questionId>=0&&preg_match('/^[a-f0-9]{64}$/D',$revision),422);
+        $read=fn()=>$this->snapshot($workspace,$source,$actor,$examId,$languageId,max(0,$questionId-1),$revision);
+        $review=$read();
+        if($questionId===0){$fields=$review;}
+        else {$fields=$review['items'][0]??null;abort_unless($fields&&$fields['question_id']===$questionId,404);}
+        $wording=array_merge(array_values($fields['source']),array_values($fields['translation']??[]));
+        $result=app(Tech4LearnQuestionMedia::class)->readReferenced($wording,$asset);
+        // Recheck access and the complete reviewed version after reading the file.
+        $read();
+        return $result+['exam_id'=>$examId,'language_id'=>$languageId,'question_id'=>$questionId,'revision'=>$revision];
+    }
+    private function snapshot(string $workspace,int $source,string $actor,int $examId,int $languageId,int $after,?string $expectedRevision):array {
         foreach([$workspace,$actor] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($examId>0&&$languageId>0&&$after>=0,422);
         abort_unless($expectedRevision===null||preg_match('/^[a-f0-9]{64}$/D',$expectedRevision),422);

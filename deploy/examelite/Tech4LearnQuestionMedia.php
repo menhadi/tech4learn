@@ -9,6 +9,14 @@ class Tech4LearnQuestionMedia
 {
  public const AUTHORING_FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'];
  public const MAX_BYTES=10485760;
+ /** Caller supplies only wording from an already authorised, revision-checked review. */
+ public function readReferenced(array $wording,string $key):array {
+  abort_unless(preg_match('/^[a-f0-9]{64}$/D',$key),422);
+  $sources=[];
+  foreach($wording as $html){abort_unless(is_string($html)||$html===null,422);$sources+=$this->sources((string)$html);}
+  abort_unless(isset($sources[$key]),404);
+  return $this->raster($sources[$key])+['asset'=>$key];
+ }
  /** Caller authenticates the workspace credential and resolves its active owner. */
  public function readAuthoring(Question $question,int $owner,string $key):array {
   abort_unless($owner>0&&(int)$question->organization_id===$owner,403);

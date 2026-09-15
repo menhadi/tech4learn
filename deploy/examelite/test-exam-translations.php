@@ -64,4 +64,27 @@ try {
     $request->query->set('after','-1');$reject(fn()=>$controller->review($request,$workspace,(string)$paper->id,(string)$target->id));$request->query->remove('after');
     $request->headers->remove('Authorization');$reject(fn()=>$controller->review($request,$workspace,(string)$paper->id,(string)$target->id));
 } finally {unlink($configFile);}
+$image='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+$asset=hash('sha256',$image);
+$translated->question='<p>Translated image</p><img src="'.$image.'">';$translated->save();
+$imageReview=$read();
+check(str_contains($imageReview['items'][0]['translation']['question'],'t4l-media:'.$asset)&&!str_contains($imageReview['items'][0]['translation']['question'],'data:image'),'Review rewrites translated image references');
+$mediaRead=fn()=>$reader->media($workspace,10,$actor,$paper->id,$target->id,$question->id,$asset,$imageReview['revision']);
+$bytes=$mediaRead();check($bytes['mime']==='image/png'&&base64_decode($bytes['base64'],true)===base64_decode(explode(',',$image,2)[1],true),'Only referenced translated raster bytes are returned');
+$reject(fn()=>$reader->media($workspace,10,$actor,$paper->id,$target->id,$question->id,str_repeat('0',64),$imageReview['revision']));
+$reject(fn()=>$reader->media($workspace,10,$actor,$paper->id,$target->id,$foreign->id,$asset,$imageReview['revision']));
+$reject(fn()=>$reader->media($workspace,30,$actor,$paper->id,$target->id,$question->id,$asset,$imageReview['revision']));
+$translated->question='Image removed';$translated->save();$reject($mediaRead);
+$paper->instruction='<img src="'.$image.'">';$paper->save();$paperReview=$read();
+check($reader->media($workspace,10,$actor,$paper->id,$target->id,0,$asset,$paperReview['revision'])['mime']==='image/png','Exam wording images use an explicit exam-level selector');
+$normalMedia=$app->make(App\Services\Tech4LearnQuestionMedia::class);
+$app->instance(App\Services\Tech4LearnQuestionMedia::class,new class extends App\Services\Tech4LearnQuestionMedia {
+    protected function bytes(string $source):string {
+        $bytes=parent::bytes($source);
+        DB::table('organization_users')->where('organization_id',20)->where('user_id',1)->update(['status'=>0]);
+        return $bytes;
+    }
+});
+try {$reject(fn()=>$reader->media($workspace,10,$actor,$paper->id,$target->id,0,$asset,$paperReview['revision']));}
+finally {$app->instance(App\Services\Tech4LearnQuestionMedia::class,$normalMedia);DB::table('organization_users')->where('organization_id',20)->where('user_id',1)->update(['status'=>1]);}
 echo "Native translation review: completeness, revisions, pagination and tenant access passed.\n";

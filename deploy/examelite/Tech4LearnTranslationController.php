@@ -6,6 +6,13 @@ use Illuminate\Http\Request;
 
 class Tech4LearnTranslationController extends Tech4LearnPlatformController
 {
+    public function media(Request $request,string $org,string $exam,string $language,string $question,string $asset) {
+        $source=$this->configuration($request)['_platform']['organization_id'];
+        abort_unless(array_diff(array_keys($request->query()),['actor_id','revision'])===[],422);
+        $actor=$request->query('actor_id');$revision=$request->query('revision');
+        abort_unless(is_string($actor)&&is_string($revision)&&preg_match('/^[1-9][0-9]{0,14}$/D',$exam)&&preg_match('/^[1-9][0-9]{0,14}$/D',$language)&&preg_match('/^(0|[1-9][0-9]{0,14})$/D',$question),422);
+        return $this->reply($source,['data'=>app(Tech4LearnExamTranslations::class)->media($org,$source,$actor,(int)$exam,(int)$language,(int)$question,$asset,$revision)]);
+    }
     public function review(Request $request,string $org,string $exam,string $language) {
         $source=$this->configuration($request)['_platform']['organization_id'];
         abort_unless(array_diff(array_keys($request->query()),['actor_id','after','revision'])===[],422);

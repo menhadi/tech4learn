@@ -22,6 +22,7 @@ Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('t
     Route::get('/results/{org}/learners/{learner}/attempts/{attempt}/media/{stat}/{asset}', [Tech4LearnResultController::class, 'media']);
 });
 Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('throttle:1800,1,t4l-authoring-media:')->group(function () {
+    Route::get('/translations/{org}/exams/{exam}/languages/{language}/media/{question}/{asset}', [Tech4LearnTranslationController::class, 'media']);
     Route::get('/authoring/{org}/questions/{id}/media/{asset}', [Tech4LearnAuthoringController::class, 'questionMedia']);
 });
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {

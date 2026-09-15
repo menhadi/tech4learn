@@ -18,6 +18,7 @@ foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_worksp
 foreach([\App\Http\Controllers\Tech4LearnProctorController::class,\App\Services\Tech4LearnProctorEvidence::class,\App\Services\Tech4LearnAttemptClock::class,\App\Services\Tech4LearnQuestionMedia::class,\App\Services\Tech4LearnAttemptAnswers::class,\App\Services\Tech4LearnAttemptPayload::class,\App\Services\Tech4LearnStudentContext::class,\App\Services\Tech4LearnStudentAttempts::class] as $service)if(!class_exists($service))throw new RuntimeException('Student attempt adapter is missing.');
 foreach([
  ['GET','api/tech4learn/v1/translations/11111111-1111-1111-1111-111111111111/exams/1/languages/1','Tech4LearnTranslationController@review'],
+ ['GET','api/tech4learn/v1/translations/11111111-1111-1111-1111-111111111111/exams/1/languages/1/media/0/'.str_repeat('a',64),'Tech4LearnTranslationController@media'],
  ['GET','api/tech4learn/v1/documents/11111111-1111-1111-1111-111111111111/exams/1/questions','Tech4LearnDocumentController@read'],
  ['GET','api/tech4learn/v1/documents/11111111-1111-1111-1111-111111111111/exams/1/questions/status','Tech4LearnDocumentController@documentStatus'],
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/history','Tech4LearnStudentController@attempt'],
