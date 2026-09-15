@@ -14,6 +14,22 @@ import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get("organisations/:org/exam-content/exams/:id/translations/:language")
+  async reviewTranslation(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("language") language: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-translation-review:${account.id}:${org}`,
+      30,
+      60,
+    );
+    return this.content.reviewTranslation(account, org, id, language, query);
+  }
   @Get("organisations/:org/exam-content/exams/:id/documents/:type/status")
   async documentStatus(
     @Param("org") org: string,

@@ -72,8 +72,66 @@ test("central question sharing requires superadmin; organisation reads respect m
   let disableOutcome = "success";
   let mediaMode = "ok";
   let documentMode = "ok";
+  let translationMode = "ok";
+  const translatedWording = Object.fromEntries(
+    [
+      "question",
+      "option1",
+      "option2",
+      "option3",
+      "option4",
+      "option5",
+      "option6",
+      "hint",
+      "explanation",
+      "fill_blank",
+      "si_answer1",
+    ].map((key) => [key, key === "question" ? "Synthetic wording" : null]),
+  );
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    if (path.startsWith("translations/")) {
+      if (translationMode === "revoked")
+        await pg.query(
+          "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
+          [member, org],
+        );
+      return {
+        data: {
+          exam_id: translationMode === "wrong" ? 10 : 9,
+          language_id: 5,
+          language_name: "Synthetic language",
+          revision: "a".repeat(64),
+          approved: false,
+          progress: {
+            status: "pending",
+            translated: 0,
+            remaining: 1,
+            total: translationMode === "counts" ? 2 : 1,
+            exam_content_ready: false,
+          },
+          source: {
+            name: "Synthetic exam",
+            instruction: null,
+            syllabus: null,
+            private_extra: "omitted",
+          },
+          translation: null,
+          items: [
+            {
+              question_id: 7,
+              source: translatedWording,
+              translation: null,
+              stale_fields: [
+                translationMode === "field" ? "secret" : "question",
+              ],
+            },
+          ],
+          next: translationMode === "cursor" ? 99 : null,
+          private_path: "/private/omitted",
+        },
+      };
+    }
     if (path.startsWith("documents/")) {
       if (documentMode === "revoked")
         await pg.query(
@@ -312,6 +370,55 @@ test("central question sharing requires superadmin; organisation reads respect m
       [member, org],
     );
     documentMode = "ok";
+    const translationPath = `/organisations/${org}/exam-content/exams/9/translations/5`;
+    const reviewResponse = await call(translationPath, undefined, member);
+    assert.equal(reviewResponse.status, 200);
+    assert.equal(reviewResponse.headers.get("cache-control"), "no-store");
+    const translationResult = await reviewResponse.json();
+    assert.equal(translationResult.items[0].source.question, "Synthetic wording");
+    assert.equal(translationResult.private_path, undefined);
+    assert.equal(translationResult.source.private_extra, undefined);
+    assert.match(requests.at(-1).path, new RegExp(`actor_id=${member}`));
+    assert.equal(
+      (await call(translationPath.replace(org, other), undefined, member)).status,
+      404,
+    );
+    for (const suffix of [
+      `?actor_id=${admin}`,
+      "?after=-1",
+      "?after=7",
+      "?revision=bad",
+      "?language_id=6",
+    ]) {
+      const before = requests.length;
+      assert.equal(
+        (await call(translationPath + suffix, undefined, member)).status,
+        400,
+      );
+      assert.equal(requests.length, before);
+    }
+    for (const mode of ["wrong", "counts", "field", "cursor"]) {
+      translationMode = mode;
+      assert.equal((await call(translationPath, undefined, member)).status, 503);
+    }
+    translationMode = "ok";
+    assert.equal(
+      (
+        await call(
+          translationPath + "?revision=" + "b".repeat(64),
+          undefined,
+          member,
+        )
+      ).status,
+      503,
+    );
+    translationMode = "revoked";
+    assert.equal((await call(translationPath, undefined, member)).status, 404);
+    await pg.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    translationMode = "ok";
     const imageWrite = {
       revision: "a".repeat(64),
       request_id: randomUUID(),

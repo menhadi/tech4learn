@@ -12,9 +12,50 @@ import { AccessService } from "./access.service.js";
 import { ExamEliteService } from "./examelite.service.js";
 import { ExamWorkspaceService } from "./exam-workspace.service.js";
 import type { Account } from "./identity.service.js";
+import { translationReview } from "./exam-translation-review.js";
 
 @Injectable()
 export class ExamContentService {
+  async reviewTranslation(
+    user: Account,
+    org: string,
+    id: string,
+    language: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.questionAccess(user, org, id, "exams");
+    const after = query.after ?? "0";
+    const revision = query.revision;
+    if (
+      id === "new" ||
+      !/^[1-9][0-9]{0,14}$/.test(language) ||
+      Object.keys(query).some((key) => !["after", "revision"].includes(key)) ||
+      typeof after !== "string" ||
+      !/^(0|[1-9][0-9]{0,14})$/.test(after) ||
+      (revision !== undefined &&
+        (typeof revision !== "string" || !/^[a-f0-9]{64}$/.test(revision))) ||
+      (after !== "0" && revision === undefined)
+    )
+      throw new BadRequestException("Invalid translation review selection.");
+    const params = new URLSearchParams({ actor_id: user.id, after });
+    if (typeof revision === "string") params.set("revision", revision);
+    const result = await this.remote.request(
+      await this.config(),
+      org,
+      `translations/${org}/exams/${id}/languages/${language}?${params}`,
+      undefined,
+      2100000,
+      30000,
+    );
+    await this.questionAccess(user, org, id, "exams");
+    return translationReview(
+      result.data,
+      Number(id),
+      Number(language),
+      Number(after),
+      revision as string | undefined,
+    );
+  }
   async documentStatus(
     user: Account,
     org: string,
