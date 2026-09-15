@@ -14,6 +14,41 @@ import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get(
+    "organisations/:org/exam-content/exams/:id/translations/:language/media/:question/:revision/:asset",
+  )
+  async translationImage(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("language") language: string,
+    @Param("question") question: string,
+    @Param("revision") revision: string,
+    @Param("asset") asset: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-translation-media:${account.id}:${org}`,
+      180,
+      60,
+    );
+    const image = await this.content.translationMedia(
+      account,
+      org,
+      id,
+      language,
+      question,
+      revision,
+      asset,
+      query,
+    );
+    response.setHeader("Content-Type", image.mime);
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(image.buffer);
+  }
   @Get("organisations/:org/exam-content/exams/:id/translations/:language")
   async reviewTranslation(
     @Param("org") org: string,

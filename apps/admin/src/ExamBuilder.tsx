@@ -9,6 +9,7 @@ import {
 import { FormattedField } from "./ExamQuestionEditor";
 import { ExamPaperControls } from "./ExamPaperControls";
 import { ExamDocuments } from "./ExamDocuments";
+import { ExamTranslationReview } from "./ExamTranslationReview";
 export type Exam = {
   id: number;
   revision: string;
@@ -650,6 +651,14 @@ function ExamEditor({
               org={org}
               record={record}
               onSaved={setRecord}
+              disabled={busy || Object.keys(changes).length > 0}
+            />
+          )}
+          {record.id > 0 && (
+            <ExamTranslationReview
+              key={`translation-${org}-${record.id}-${record.revision}`}
+              org={org}
+              record={record}
               disabled={busy || Object.keys(changes).length > 0}
             />
           )}

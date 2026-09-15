@@ -96,6 +96,22 @@ test("central question sharing requires superadmin; organisation reads respect m
           "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
           [member, org],
         );
+      if (path.includes("/media/"))
+        return {
+          data: {
+            exam_id: translationMode === "wrong" ? 10 : 9,
+            language_id: 5,
+            question_id: 7,
+            revision:
+              translationMode === "revision" ? "b".repeat(64) : "a".repeat(64),
+            asset: "c".repeat(64),
+            mime: translationMode === "mime" ? "image/svg+xml" : "image/png",
+            base64:
+              translationMode === "base64"
+                ? "!!!"
+                : Buffer.from("synthetic raster").toString("base64"),
+          },
+        };
       return {
         data: {
           exam_id: translationMode === "wrong" ? 10 : 9,
@@ -375,12 +391,16 @@ test("central question sharing requires superadmin; organisation reads respect m
     assert.equal(reviewResponse.status, 200);
     assert.equal(reviewResponse.headers.get("cache-control"), "no-store");
     const translationResult = await reviewResponse.json();
-    assert.equal(translationResult.items[0].source.question, "Synthetic wording");
+    assert.equal(
+      translationResult.items[0].source.question,
+      "Synthetic wording",
+    );
     assert.equal(translationResult.private_path, undefined);
     assert.equal(translationResult.source.private_extra, undefined);
     assert.match(requests.at(-1).path, new RegExp(`actor_id=${member}`));
     assert.equal(
-      (await call(translationPath.replace(org, other), undefined, member)).status,
+      (await call(translationPath.replace(org, other), undefined, member))
+        .status,
       404,
     );
     for (const suffix of [
@@ -399,7 +419,10 @@ test("central question sharing requires superadmin; organisation reads respect m
     }
     for (const mode of ["wrong", "counts", "field", "cursor"]) {
       translationMode = mode;
-      assert.equal((await call(translationPath, undefined, member)).status, 503);
+      assert.equal(
+        (await call(translationPath, undefined, member)).status,
+        503,
+      );
     }
     translationMode = "ok";
     assert.equal(
@@ -414,6 +437,50 @@ test("central question sharing requires superadmin; organisation reads respect m
     );
     translationMode = "revoked";
     assert.equal((await call(translationPath, undefined, member)).status, 404);
+    await pg.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    translationMode = "ok";
+    const translationImagePath =
+      translationPath + "/media/7/" + "a".repeat(64) + "/" + "c".repeat(64);
+    const translatedImage = await call(translationImagePath, undefined, member);
+    assert.equal(translatedImage.status, 200);
+    assert.equal(translatedImage.headers.get("content-type"), "image/png");
+    assert.equal(translatedImage.headers.get("cache-control"), "no-store");
+    assert.equal(
+      translatedImage.headers.get("x-content-type-options"),
+      "nosniff",
+    );
+    assert.equal(await translatedImage.text(), "synthetic raster");
+    assert.match(requests.at(-1).path, new RegExp(`actor_id=${member}`));
+    assert.equal(
+      (await call(translationImagePath.replace(org, other), undefined, member))
+        .status,
+      404,
+    );
+    assert.equal(
+      (
+        await call(
+          translationImagePath + "?actor_id=" + admin,
+          undefined,
+          member,
+        )
+      ).status,
+      400,
+    );
+    for (const mode of ["wrong", "revision", "mime", "base64"]) {
+      translationMode = mode;
+      assert.equal(
+        (await call(translationImagePath, undefined, member)).status,
+        503,
+      );
+    }
+    translationMode = "revoked";
+    assert.equal(
+      (await call(translationImagePath, undefined, member)).status,
+      404,
+    );
     await pg.query(
       "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
       [member, org],

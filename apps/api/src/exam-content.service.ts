@@ -16,6 +16,80 @@ import { translationReview } from "./exam-translation-review.js";
 
 @Injectable()
 export class ExamContentService {
+  async translationMedia(
+    user: Account,
+    org: string,
+    id: string,
+    language: string,
+    question: string,
+    revision: string,
+    asset: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.questionAccess(user, org, id, "exams");
+    if (
+      id === "new" ||
+      !/^[1-9][0-9]{0,14}$/.test(language) ||
+      !/^(0|[1-9][0-9]{0,14})$/.test(question) ||
+      !/^[a-f0-9]{64}$/.test(revision) ||
+      !/^[a-f0-9]{64}$/.test(asset) ||
+      Object.keys(query).length
+    )
+      throw new BadRequestException("Invalid translation image selection.");
+    const params = new URLSearchParams({ actor_id: user.id, revision });
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `translations/${org}/exams/${id}/languages/${language}/media/${question}/${asset}?${params}`,
+      undefined,
+      14000000,
+      30000,
+    );
+    await this.questionAccess(user, org, id, "exams");
+    const data = response.data;
+    const invalid = () =>
+      new ServiceUnavailableException(
+        "The translation image could not be loaded.",
+      );
+    if (
+      !data ||
+      data.exam_id !== Number(id) ||
+      data.language_id !== Number(language) ||
+      data.question_id !== Number(question) ||
+      data.revision !== revision ||
+      data.asset !== asset ||
+      ![
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/avif",
+      ].includes(data.mime) ||
+      typeof data.base64 !== "string" ||
+      data.base64.length > 13981016
+    )
+      throw invalid();
+    const buffer = Buffer.from(data.base64, "base64");
+    if (
+      !buffer.length ||
+      buffer.length > 10485760 ||
+      buffer.toString("base64") !== data.base64
+    )
+      throw invalid();
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      "exams.translation.image.viewed",
+      {
+        examId: Number(id),
+        languageId: Number(language),
+        questionId: Number(question),
+        asset,
+      },
+    );
+    return { buffer, mime: data.mime as string };
+  }
   async reviewTranslation(
     user: Account,
     org: string,
