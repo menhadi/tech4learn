@@ -11,6 +11,7 @@ namespace {
 require __DIR__.'/test-exam-authoring.php';
 require dirname($argv[3]).'/ExamTranslationService.php';
 require dirname($argv[3]).'/ExamDocumentController.php';
+require dirname($argv[3]).'/ExamDocumentBulkActionService.php';
 require __DIR__.'/Tech4LearnExamTranslations.php';
 require __DIR__.'/Tech4LearnTranslationController.php';
 use Illuminate\Support\Facades\DB;
@@ -124,5 +125,19 @@ $foreignPdfPackage=App\Models\Package::create(['organization_id'=>30,'name'=>'Fo
 $freshReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$target->id);
 $reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$target->id,'translation_revision'=>$freshReview['revision']],$service->record('exams',$approvalPaper->fresh())['revision'],'translation-foreign-package','exams','approve-translation'));
 check(App\Services\ExamDocumentLifecycleService::$queued===1,'Approval cannot enqueue a foreign package PDF');
+$approvalPaper->packages()->detach($foreignPdfPackage->id);
+$approvalQuestion->question='Source needs another translation';$approvalQuestion->save();
+$refreshReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$target->id);
+$refreshRecord=$service->record('exams',$approvalPaper->fresh());
+$refreshFields=['language_id'=>$target->id,'translation_revision'=>$refreshReview['revision']];
+$GLOBALS['t4lTestAiTranslation']=false;
+$reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,$refreshFields,$refreshRecord['revision'],'translation-plan-denied','exams','refresh-translation'));
+check(App\Jobs\TranslateExamLanguageJob::$queued===0,'Plan restriction blocks dispatch');
+$GLOBALS['t4lTestAiTranslation']=true;
+$refresh=$service->save($workspace,20,$actor,$approvalPaper->id,$refreshFields,$refreshRecord['revision'],'translation-refresh','exams','refresh-translation');
+check($refresh['translation_requested']&&App\Jobs\TranslateExamLanguageJob::$queued===1,'Native bulk service queues one selected translation');
+check($service->save($workspace,20,$actor,$approvalPaper->id,$refreshFields,$refreshRecord['revision'],'translation-refresh','exams','refresh-translation')===$refresh&&App\Jobs\TranslateExamLanguageJob::$queued===1,'Translation refresh replay does not dispatch again');
+$reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$target->id,'translation_revision'=>str_repeat('0',64)],$refreshRecord['revision'],'translation-refresh-stale','exams','refresh-translation'));
+check(App\Jobs\TranslateExamLanguageJob::$queued===1,'Stale refresh cannot dispatch');
 echo "Native translation review and approval: fingerprints, pagination, media, scope and retry passed.\n";
 }

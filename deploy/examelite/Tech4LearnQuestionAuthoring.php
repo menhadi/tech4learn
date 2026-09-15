@@ -24,6 +24,7 @@ final class Tech4LearnQuestionAuthoring
         'set-result-status'=>['result_after_finish'],
         'generate-document'=>['package_id','language_id','document_type'],
         'approve-translation'=>['language_id','translation_revision'],
+        'refresh-translation'=>['language_id','translation_revision'],
     ];
     public const FIELDS=['qtype_id','subject_id','question_section_id','topic_id','stopic_id','diff_id','passage_id','language_id',
         'question','option1','option2','option3','option4','option5','option6','marks','negative_marks','scoring_policy',
@@ -169,10 +170,12 @@ final class Tech4LearnQuestionAuthoring
                 \App\Models\Package::where('organization_id',$tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['package_id']);
                 \App\Models\Language::enabledForOrganization($tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['language_id']);
             }
-            if($action==='approve-translation'){
+            if(in_array($action,['approve-translation','refresh-translation'],true)){
                 abort_unless(is_int($fields['language_id']??null)&&$fields['language_id']>0&&is_string($fields['translation_revision']??null),422);
                 $review=app(Tech4LearnExamTranslations::class)->review($workspace,(int)$w->source_organization_id,$actor,$id,$fields['language_id'],0,$fields['translation_revision']);
-                abort_unless($review['progress']['remaining']===0&&$review['progress']['exam_content_ready'],409,'Complete and review the current translation before approving it.');
+                $complete=$review['progress']['remaining']===0&&$review['progress']['exam_content_ready'];
+                if($action==='approve-translation')abort_unless($complete,409,'Complete and review the current translation before approving it.');
+                else abort_unless(!$complete,409,'This translation is already current. Reload its review.');
                 abort_unless($question->packages()->where('packages.organization_id',$tenant)->count()===$question->packages()->count(),403);
             }
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
@@ -224,7 +227,13 @@ final class Tech4LearnQuestionAuthoring
         }
         try {
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
-            if(in_array($kind,['languages','packages'],true)||in_array($action,['generate-document','approve-translation'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
+            if(in_array($kind,['languages','packages'],true)||in_array($action,['generate-document','approve-translation','refresh-translation'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
+            if($action==='refresh-translation'){
+                abort_unless(\App\Support\SaasAccess::featureEnabled('ai_translation',$organisation),403,'AI translation is not enabled for this organisation plan.');
+                $result=app(ExamDocumentBulkActionService::class)->process([$question->id.':0:'.$fields['language_id']],$tenant,(int)$user->id,'translate',true);
+                abort_unless($result['processed']===1,409,'This translation could not be queued.');
+                return $this->record($kind,$question)+['translation_requested'=>true];
+            }
             $controller=app($controllerClass);
             $arguments=['request'=>$request];if($question)$arguments[$parameter]=$question;
             $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','generate-document'=>'generate','set-status'=>'toggleStatus','set-result-status'=>'toggleResultStatus'];
