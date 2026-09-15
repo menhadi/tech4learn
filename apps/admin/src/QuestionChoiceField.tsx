@@ -18,6 +18,7 @@ export function QuestionChoiceField({
   disabled,
   onChange,
   parentId,
+  allowedIds,
 }: {
   org: string;
   kind: string;
@@ -28,6 +29,7 @@ export function QuestionChoiceField({
   disabled: boolean;
   onChange: (value: any, option?: QuestionChoice) => void;
   parentId?: number | null;
+  allowedIds?: number[];
 }) {
   const [items, setItems] = useState<QuestionChoice[]>([]),
     [search, setSearch] = useState(""),
@@ -118,24 +120,26 @@ export function QuestionChoiceField({
                 Selected #{id}
               </label>
             ))}
-          {items.map((item) => (
-            <label key={item.id}>
-              <input
-                type="checkbox"
-                checked={selected.includes(item.id)}
-                disabled={disabled}
-                onChange={(e) =>
-                  onChange(
-                    e.target.checked
-                      ? [...selected, item.id]
-                      : selected.filter((x) => x !== item.id),
-                    item,
-                  )
-                }
-              />
-              {item.label}
-            </label>
-          ))}
+          {items
+            .filter((item) => !allowedIds || allowedIds.includes(item.id))
+            .map((item) => (
+              <label key={item.id}>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(item.id)}
+                  disabled={disabled}
+                  onChange={(e) =>
+                    onChange(
+                      e.target.checked
+                        ? [...selected, item.id]
+                        : selected.filter((x) => x !== item.id),
+                      item,
+                    )
+                  }
+                />
+                {item.label}
+              </label>
+            ))}
         </>
       ) : (
         <label>
@@ -162,11 +166,13 @@ export function QuestionChoiceField({
                   Selected #{id}
                 </option>
               ))}
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
+            {items
+              .filter((item) => !allowedIds || allowedIds.includes(item.id))
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
           </select>
         </label>
       )}

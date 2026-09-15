@@ -8,6 +8,7 @@ import {
 } from "./QuestionChoiceField";
 import { FormattedField } from "./ExamQuestionEditor";
 import { ExamPaperControls } from "./ExamPaperControls";
+import { ExamDocuments } from "./ExamDocuments";
 export type Exam = {
   id: number;
   revision: string;
@@ -643,6 +644,14 @@ function ExamEditor({
               Reload saved exam
             </button>
           </DraftForm>
+          {record.id > 0 && (
+            <ExamDocuments
+              key={`${org}-${record.id}-${record.revision}`}
+              org={org}
+              record={record}
+              disabled={busy || Object.keys(changes).length > 0}
+            />
+          )}
           {record.id > 0 && (
             <ExamPaperControls
               org={org}
