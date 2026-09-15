@@ -22,6 +22,7 @@ final class Tech4LearnQuestionAuthoring
         'subject-timers'=>['subject_ids','durations'],
         'set-status'=>['status'],
         'set-result-status'=>['result_after_finish'],
+        'generate-document'=>['package_id','language_id','document_type'],
     ];
     public const FIELDS=['qtype_id','subject_id','question_section_id','topic_id','stopic_id','diff_id','passage_id','language_id',
         'question','option1','option2','option3','option4','option5','option6','marks','negative_marks','scoring_policy',
@@ -161,6 +162,12 @@ final class Tech4LearnQuestionAuthoring
             }
             if($action==='set-result-status')abort_unless(is_bool($fields['result_after_finish']??null),422);
             if($action==='set-status')abort_unless(in_array($fields['status']??null,['Active','Inactive'],true),422);
+            if($action==='generate-document'){
+                foreach(['package_id','language_id'] as $key)abort_unless(is_int($fields[$key]??null)&&$fields[$key]>0,422);
+                abort_unless(in_array($fields['document_type']??null,['questions','solutions'],true),422);
+                \App\Models\Package::where('organization_id',$tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['package_id']);
+                \App\Models\Language::enabledForOrganization($tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['language_id']);
+            }
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             if($kind==='packages')abort_unless(!isset($values['tag_ids'])||is_array($values['tag_ids']),422);
             if($kind==='packages')foreach(($values['tag_ids']??[]) as $tag){
@@ -210,10 +217,10 @@ final class Tech4LearnQuestionAuthoring
         }
         try {
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
-            if(in_array($kind,['languages','packages'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
+            if(in_array($kind,['languages','packages'],true)||$action==='generate-document')abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
             $controller=app($controllerClass);
             $arguments=['request'=>$request];if($question)$arguments[$parameter]=$question;
-            $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','set-status'=>'toggleStatus','set-result-status'=>'toggleResultStatus'];
+            $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','generate-document'=>'generate','set-status'=>'toggleStatus','set-result-status'=>'toggleResultStatus'];
             if(in_array($action,['update-section','remove-section'],true))$arguments['section']=$question->sections()->findOrFail($fields['section_id']);
             if($action==='set-result-status'){
                 if((bool)$question->result_after_finish===$fields['result_after_finish'])return $this->record($kind,$question);
@@ -225,6 +232,10 @@ final class Tech4LearnQuestionAuthoring
                 $methods[$action]='destroy';unset($arguments[$parameter]);$arguments['id']=$question->id;
             }
             $method=$action!==null?$methods[$action]:($question?'update':($kind==='subcategories'?'storeSubcategory':'store'));
+            if($action==='generate-document'){
+                $controller=app(\App\Http\Controllers\ExamDocumentController::class);$method='generate';
+                $arguments=['request'=>$request,'exam'=>$question,'language'=>\App\Models\Language::enabledForOrganization($tenant)->findOrFail($fields['language_id'])];
+            }
             $response=$app->call([$controller,$method],$arguments);
             if($session->has('errors'))throw ValidationException::withMessages($session->get('errors')->getBag('default')->messages());
             $jsonSuccess=$action!==null&&$response instanceof \Illuminate\Http\JsonResponse&&$response->getStatusCode()<300&&($response->getData(true)['success']??false)===true;

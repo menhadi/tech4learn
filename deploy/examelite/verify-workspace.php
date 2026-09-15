@@ -3,6 +3,7 @@ require '/home/examelite/public_html/vendor/autoload.php';
 $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
+if(!method_exists(\App\Http\Controllers\ExamDocumentController::class,'generate'))throw new RuntimeException('Native PDF generation controller is missing.');
 foreach([\App\Services\Tech4LearnExamDocuments::class,\App\Services\ExamDocumentLifecycleService::class,\App\Http\Controllers\Tech4LearnDocumentController::class] as $service)if(!class_exists($service))throw new RuntimeException('Native approved document adapter is missing.');
 if(!\Illuminate\Support\Facades\Schema::hasColumns('exam_pdf_builds',['organization_id','exam_id','package_id','language_id','document_type','status','current_path','updated_at']))throw new RuntimeException('Native PDF publication schema is incomplete.');
 if(!class_exists(\App\Http\Controllers\LanguageController::class)||!\Illuminate\Support\Facades\Schema::hasColumns('languages',['organization_id','source_language_id','name','code','value1','value2','is_enabled']))throw new RuntimeException('Native language management requires the current ExamElite language controller and schema.');
