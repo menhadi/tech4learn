@@ -26,7 +26,7 @@ $app->instance('db',$db->getDatabaseManager());$app->bind('db.schema',fn()=>$db-
 $app->instance('config',new Illuminate\Config\Repository(['app'=>['locale'=>'en','fallback_locale'=>'en']]));
 Illuminate\Support\Facades\Facade::setFacadeApplication($app);
 $guard=new class {public $current=null;function user(){return $this->current;}function id(){return $this->current?->id;}function setUser($u){$this->current=$u;return $this;}function forgetUser(){$this->current=null;return $this;}};
-$app->instance('auth',new class($guard){function __construct(private $guard){}function guard($name){return $this->guard;}});
+$app->instance('auth',new class($guard){function __construct(private $guard){}function guard($name){return $this->guard;}function id(){return $this->guard->id();}});
 $translator=new Illuminate\Translation\Translator(new Illuminate\Translation\ArrayLoader(),'en');
 $validator=new Illuminate\Validation\Factory($translator,$app);$validator->setPresenceVerifier(new Illuminate\Validation\DatabasePresenceVerifier($db->getDatabaseManager()));
 $app->instance('validator',$validator);

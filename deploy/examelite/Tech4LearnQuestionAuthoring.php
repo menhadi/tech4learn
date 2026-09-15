@@ -23,6 +23,7 @@ final class Tech4LearnQuestionAuthoring
         'set-status'=>['status'],
         'set-result-status'=>['result_after_finish'],
         'generate-document'=>['package_id','language_id','document_type'],
+        'approve-translation'=>['language_id','translation_revision'],
     ];
     public const FIELDS=['qtype_id','subject_id','question_section_id','topic_id','stopic_id','diff_id','passage_id','language_id',
         'question','option1','option2','option3','option4','option5','option6','marks','negative_marks','scoring_policy',
@@ -168,6 +169,12 @@ final class Tech4LearnQuestionAuthoring
                 \App\Models\Package::where('organization_id',$tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['package_id']);
                 \App\Models\Language::enabledForOrganization($tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['language_id']);
             }
+            if($action==='approve-translation'){
+                abort_unless(is_int($fields['language_id']??null)&&$fields['language_id']>0&&is_string($fields['translation_revision']??null),422);
+                $review=app(Tech4LearnExamTranslations::class)->review($workspace,(int)$w->source_organization_id,$actor,$id,$fields['language_id'],0,$fields['translation_revision']);
+                abort_unless($review['progress']['remaining']===0&&$review['progress']['exam_content_ready'],409,'Complete and review the current translation before approving it.');
+                abort_unless($question->packages()->where('packages.organization_id',$tenant)->count()===$question->packages()->count(),403);
+            }
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             if($kind==='packages')abort_unless(!isset($values['tag_ids'])||is_array($values['tag_ids']),422);
             if($kind==='packages')foreach(($values['tag_ids']??[]) as $tag){
@@ -217,7 +224,7 @@ final class Tech4LearnQuestionAuthoring
         }
         try {
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
-            if(in_array($kind,['languages','packages'],true)||$action==='generate-document')abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
+            if(in_array($kind,['languages','packages'],true)||in_array($action,['generate-document','approve-translation'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
             $controller=app($controllerClass);
             $arguments=['request'=>$request];if($question)$arguments[$parameter]=$question;
             $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','generate-document'=>'generate','set-status'=>'toggleStatus','set-result-status'=>'toggleResultStatus'];
@@ -231,9 +238,10 @@ final class Tech4LearnQuestionAuthoring
                 if(!(bool)$question->is_enabled)return $this->record($kind,$question);
                 $methods[$action]='destroy';unset($arguments[$parameter]);$arguments['id']=$question->id;
             }
+            $methods['approve-translation']='approve';
             $method=$action!==null?$methods[$action]:($question?'update':($kind==='subcategories'?'storeSubcategory':'store'));
-            if($action==='generate-document'){
-                $controller=app(\App\Http\Controllers\ExamDocumentController::class);$method='generate';
+            if(in_array($action,['generate-document','approve-translation'],true)){
+                $controller=app(\App\Http\Controllers\ExamDocumentController::class);$method=$action==='generate-document'?'generate':'approve';
                 $arguments=['request'=>$request,'exam'=>$question,'language'=>\App\Models\Language::enabledForOrganization($tenant)->findOrFail($fields['language_id'])];
             }
             $response=$app->call([$controller,$method],$arguments);

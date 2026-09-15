@@ -1,7 +1,16 @@
 <?php
+namespace App\Services {
+    // Native approval is exercised; worker dispatch is counted, never run.
+    class ExamDocumentLifecycleService {public static int $queued=0;public function queue(...$args){self::$queued++;}}
+}
+namespace App\Jobs {
+    class TranslateExamLanguageJob {public static int $queued=0;public static function dispatch(...$args){self::$queued++;}}
+}
+namespace {
 // Synthetic data only. Native completeness/fingerprint logic runs without AI or jobs.
 require __DIR__.'/test-exam-authoring.php';
 require dirname($argv[3]).'/ExamTranslationService.php';
+require dirname($argv[3]).'/ExamDocumentController.php';
 require __DIR__.'/Tech4LearnExamTranslations.php';
 require __DIR__.'/Tech4LearnTranslationController.php';
 use Illuminate\Support\Facades\DB;
@@ -87,4 +96,33 @@ $app->instance(App\Services\Tech4LearnQuestionMedia::class,new class extends App
 });
 try {$reject(fn()=>$reader->media($workspace,10,$actor,$paper->id,$target->id,0,$asset,$paperReview['revision']));}
 finally {$app->instance(App\Services\Tech4LearnQuestionMedia::class,$normalMedia);DB::table('organization_users')->where('organization_id',20)->where('user_id',1)->update(['status'=>1]);}
-echo "Native translation review: completeness, revisions, pagination and tenant access passed.\n";
+$approvalPaper=Exam::create(['organization_id'=>20,'name'=>'Approval fixture','status'=>'Inactive']);
+$approvalPaper->languages()->attach($target->id,['auto_pdf'=>true]);
+$approvalPaper->packages()->attach($packageSaved['id']);
+$approvalQuestion=Question::create(['organization_id'=>20,'question'=>'Approval source']);$approvalPaper->questions()->attach($approvalQuestion->id);
+$approvalTranslation=QuestionLang::create(['question_id'=>$approvalQuestion->id,'language_id'=>$target->id,'question'=>'Approval target','source_fingerprint'=>$native->questionFingerprint($approvalQuestion),'source_field_fingerprints'=>$native->questionFieldFingerprints($approvalQuestion)]);
+ExamLanguageTranslation::create(['exam_id'=>$approvalPaper->id,'language_id'=>$target->id,'name'=>'Approval translated exam','source_fingerprint'=>$native->examFingerprint($approvalPaper),'source_field_fingerprints'=>$native->examFieldFingerprints($approvalPaper)]);
+$approvalReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$target->id);
+$approvalFields=['language_id'=>$target->id,'translation_revision'=>$approvalReview['revision']];
+$approvalRecord=$service->record('exams',$approvalPaper->fresh());
+$approved=$service->save($workspace,20,$actor,$approvalPaper->id,$approvalFields,$approvalRecord['revision'],'translation-approve','exams','approve-translation');
+$approvedPivot=$approvalPaper->languages()->first()->pivot;
+check($approvedPivot->translation_status==='ready'&&(int)$approvedPivot->translation_approved_by===1&&filled($approvedPivot->translation_approved_at),'Native approval records mapped staff');
+check(App\Services\ExamDocumentLifecycleService::$queued===1&&App\Jobs\TranslateExamLanguageJob::$queued===0,'Approval respects native automatic PDF setting without starting AI translation');
+check($service->save($workspace,20,$actor,$approvalPaper->id,$approvalFields,$approvalRecord['revision'],'translation-approve','exams','approve-translation')===$approved&&App\Services\ExamDocumentLifecycleService::$queued===1,'Lost approval response replays without another PDF request');
+$approvalTranslation->question='Target wording changed after review';$approvalTranslation->save();
+$reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,$approvalFields,$approved['revision'],'translation-stale','exams','approve-translation'));
+$approvalQuestion->question='Source changed';$approvalQuestion->save();
+$incomplete=$reader->review($workspace,10,$actor,$approvalPaper->id,$target->id);
+$reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$target->id,'translation_revision'=>$incomplete['revision']],$service->record('exams',$approvalPaper->fresh())['revision'],'translation-incomplete','exams','approve-translation'));
+DB::table('organization_users')->where('organization_id',20)->where('user_id',1)->update(['status'=>0]);
+$reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,$approvalFields,$approvalRecord['revision'],'translation-approve','exams','approve-translation'));
+DB::table('organization_users')->where('organization_id',20)->where('user_id',1)->update(['status'=>1]);
+check(App\Jobs\TranslateExamLanguageJob::$queued===0&&App\Services\ExamDocumentLifecycleService::$queued===1,'Stale, incomplete and revoked approvals dispatch no work');
+$approvalTranslation->source_fingerprint=$native->questionFingerprint($approvalQuestion);$approvalTranslation->source_field_fingerprints=$native->questionFieldFingerprints($approvalQuestion);$approvalTranslation->save();
+$foreignPdfPackage=App\Models\Package::create(['organization_id'=>30,'name'=>'Foreign PDF package']);$approvalPaper->packages()->attach($foreignPdfPackage->id);
+$freshReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$target->id);
+$reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$target->id,'translation_revision'=>$freshReview['revision']],$service->record('exams',$approvalPaper->fresh())['revision'],'translation-foreign-package','exams','approve-translation'));
+check(App\Services\ExamDocumentLifecycleService::$queued===1,'Approval cannot enqueue a foreign package PDF');
+echo "Native translation review and approval: fingerprints, pagination, media, scope and retry passed.\n";
+}
