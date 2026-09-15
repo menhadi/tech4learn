@@ -80,6 +80,19 @@ test("central question sharing requires superadmin; organisation reads respect m
           "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
           [member, org],
         );
+      if (path.includes("/status?"))
+        return {
+          data: {
+            exam_id: documentMode === "wrong" ? 10 : 9,
+            package_id: 4,
+            language_id: null,
+            document_type: "questions",
+            build_id: 3,
+            status: documentMode === "invalid" ? "unknown" : "processing",
+            approved_available: true,
+            current_path: "/private/omitted.pdf",
+          },
+        };
       return {
         data: {
           exam_id: documentMode === "wrong" ? 10 : 9,
@@ -270,6 +283,30 @@ test("central question sharing requires superadmin; organisation reads respect m
     }
     documentMode = "revoked";
     assert.equal((await call(documentPath, undefined, member)).status, 404);
+    await pg.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    documentMode = "ok";
+    const statusPath = documentPath.replace("?", "/status?");
+    const state = await call(statusPath, undefined, member);
+    assert.equal(state.status, 200);
+    assert.equal(state.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await state.json(), {
+      document_type: "questions",
+      status: "processing",
+      approved_available: true,
+    });
+    assert.equal(
+      (await call(statusPath.replace(org, other), undefined, member)).status,
+      404,
+    );
+    for (const mode of ["wrong", "invalid"]) {
+      documentMode = mode;
+      assert.equal((await call(statusPath, undefined, member)).status, 503);
+    }
+    documentMode = "revoked";
+    assert.equal((await call(statusPath, undefined, member)).status, 404);
     await pg.query(
       "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
       [member, org],

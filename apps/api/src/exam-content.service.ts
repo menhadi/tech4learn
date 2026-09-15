@@ -15,6 +15,72 @@ import type { Account } from "./identity.service.js";
 
 @Injectable()
 export class ExamContentService {
+  async documentStatus(
+    user: Account,
+    org: string,
+    id: string,
+    type: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.questionAccess(user, org, id, "exams");
+    if (
+      id === "new" ||
+      !["questions", "solutions"].includes(type) ||
+      Object.keys(query).some(
+        (key) => !["package_id", "language_id"].includes(key),
+      )
+    )
+      throw new BadRequestException("Invalid document selection.");
+    const params = new URLSearchParams({ actor_id: user.id });
+    for (const key of ["package_id", "language_id"]) {
+      if (query[key] === undefined) continue;
+      if (
+        typeof query[key] !== "string" ||
+        !/^[1-9][0-9]{0,14}$/.test(query[key])
+      )
+        throw new BadRequestException("Invalid document selection.");
+      params.set(key, query[key]);
+    }
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `documents/${org}/exams/${id}/${type}/status?${params}`,
+      undefined,
+      10000,
+      15000,
+    );
+    await this.questionAccess(user, org, id, "exams");
+    const data = response.data;
+    if (
+      !data ||
+      data.exam_id !== Number(id) ||
+      data.document_type !== type ||
+      data.package_id !==
+        (query.package_id === undefined ? null : Number(query.package_id)) ||
+      data.language_id !==
+        (query.language_id === undefined ? null : Number(query.language_id)) ||
+      ![
+        "not_built",
+        "queued",
+        "processing",
+        "ready",
+        "stale",
+        "failed",
+      ].includes(data.status) ||
+      typeof data.approved_available !== "boolean" ||
+      (data.status === "not_built"
+        ? data.build_id !== null || data.approved_available
+        : !Number.isSafeInteger(data.build_id) || data.build_id <= 0)
+    )
+      throw new ServiceUnavailableException(
+        "The PDF status could not be loaded.",
+      );
+    return {
+      document_type: type,
+      status: data.status as string,
+      approved_available: data.approved_available as boolean,
+    };
+  }
   async examDocument(
     user: Account,
     org: string,

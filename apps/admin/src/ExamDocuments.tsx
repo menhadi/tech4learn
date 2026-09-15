@@ -18,6 +18,39 @@ export function ExamDocuments({
   const [languageId, setLanguage] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [statuses, setStatuses] = useState<
+    { document_type: string; status: string; approved_available: boolean }[]
+  >([]);
+  async function checkStatus() {
+    if (busy || disabled) return;
+    setBusy(true);
+    setMessage("");
+    setStatuses([]);
+    const params = new URLSearchParams();
+    if (packageId !== null) params.set("package_id", String(packageId));
+    if (languageId !== null) params.set("language_id", String(languageId));
+    try {
+      setStatuses(
+        await Promise.all(
+          ["questions", "solutions"].map((type) =>
+            api<{
+              document_type: string;
+              status: string;
+              approved_available: boolean;
+            }>(
+              `/organisations/${org}/exam-content/exams/${record.id}/documents/${type}/status?${params}`,
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to load PDF status.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   const [pending, setPending] = useState<{
     fields: {
       package_id: number;
@@ -47,6 +80,7 @@ export function ExamDocuments({
       request_id: crypto.randomUUID(),
     };
     setPending(request);
+    setStatuses([]);
     setBusy(true);
     setMessage("");
     try {
@@ -180,7 +214,10 @@ export function ExamDocuments({
         value={packageId}
         allowedIds={(record.fields.packages ?? []).map(Number)}
         disabled={disabled || busy || Boolean(pending)}
-        onChange={setPackage}
+        onChange={(value) => {
+          setPackage(value);
+          setStatuses([]);
+        }}
       />
       <QuestionChoiceField
         org={org}
@@ -189,7 +226,10 @@ export function ExamDocuments({
         value={languageId}
         allowedIds={(record.fields.language_ids ?? []).map(Number)}
         disabled={disabled || busy || Boolean(pending)}
-        onChange={setLanguage}
+        onChange={(value) => {
+          setLanguage(value);
+          setStatuses([]);
+        }}
       />
       <button
         type="button"
@@ -206,6 +246,29 @@ export function ExamDocuments({
       >
         Download approved solutions
       </button>
+      <button
+        type="button"
+        className="secondary"
+        disabled={busy || disabled}
+        onClick={() => void checkStatus()}
+      >
+        Check PDF status
+      </button>
+      {statuses.length > 0 && (
+        <ul aria-label="PDF build status">
+          {statuses.map((item) => (
+            <li key={item.document_type}>
+              {item.document_type === "questions"
+                ? "Question paper"
+                : "Solutions"}
+              : {item.status.replaceAll("_", " ")}.{" "}
+              {item.approved_available
+                ? "An approved PDF is available."
+                : "No approved PDF is available."}
+            </li>
+          ))}
+        </ul>
+      )}
       <details>
         <summary>Generate a replacement PDF</summary>
         <p>
