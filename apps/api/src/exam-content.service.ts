@@ -824,6 +824,7 @@ export class ExamContentService {
           "set-status",
           "set-result-status",
           "generate-document",
+          "approve-translation",
         ].includes(action))
     )
       throw new BadRequestException("Invalid exam action.");
@@ -850,6 +851,22 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid question changes.");
+    if (action === "approve-translation") {
+      const fields = b.fields as Record<string, unknown>;
+      if (
+        Object.keys(fields).some(
+          (key) => !["language_id", "translation_revision"].includes(key),
+        ) ||
+        !Number.isSafeInteger(fields.language_id) ||
+        Number(fields.language_id) <= 0 ||
+        Number(fields.language_id) >= 1e15 ||
+        typeof fields.translation_revision !== "string" ||
+        !/^[a-f0-9]{64}$/.test(fields.translation_revision)
+      )
+        throw new BadRequestException(
+          "Review the current assigned language before approving it.",
+        );
+    }
     if (action === "generate-document") {
       const fields = b.fields as Record<string, unknown>;
       if (

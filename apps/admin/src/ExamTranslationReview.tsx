@@ -108,6 +108,12 @@ export function ExamTranslationReview({
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [pending, setPending] = useState<{
+    fields: { language_id: number; translation_revision: string };
+    revision: string;
+    request_id: string;
+  } | null>(null);
   const request = useRef(0);
   useEffect(
     () => () => {
@@ -119,10 +125,68 @@ export function ExamTranslationReview({
     if (disabled) {
       request.current++;
       setReview(null);
+      setConfirmed(false);
       setBusy(false);
     }
   }, [disabled]);
   const base = `/organisations/${org}/exam-content/exams/${record.id}/translations/${language}`;
+  async function approve() {
+    if (
+      disabled ||
+      busy ||
+      (!pending &&
+        (!review ||
+          !confirmed ||
+          review.approved ||
+          review.progress.remaining !== 0 ||
+          !review.progress.exam_content_ready))
+    )
+      return;
+    const payload = pending ?? {
+      fields: {
+        language_id: review!.language_id,
+        translation_revision: review!.revision,
+      },
+      revision: record.revision,
+      request_id: crypto.randomUUID(),
+    };
+    const version = ++request.current;
+    setPending(payload);
+    setBusy(true);
+    setMessage("");
+    try {
+      await api(
+        `/organisations/${org}/exam-content/exams/${record.id}/actions/approve-translation`,
+        "POST",
+        payload,
+        35000,
+      );
+      if (version !== request.current) return;
+      setPending(null);
+      setReview(null);
+      setConfirmed(false);
+      setMessage(
+        "Translation approved. Reload the review to see its current status. Automatic PDFs follow the saved exam settings.",
+      );
+    } catch (error) {
+      if (version !== request.current) return;
+      if (
+        error instanceof ApiError &&
+        [400, 403, 404, 409].includes(error.status)
+      ) {
+        setPending(null);
+        setReview(null);
+        setConfirmed(false);
+      }
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Approval could not be confirmed. Retry the same request or reload the review.",
+      );
+    } finally {
+      if (version === request.current) setBusy(false);
+    }
+  }
   async function load(nextPage = 0, restart = false) {
     if (disabled || busy || language === null) return;
     const version = ++request.current;
@@ -139,6 +203,8 @@ export function ExamTranslationReview({
       const result = await api<Review>(`${base}?${params}`);
       if (version !== request.current) return;
       setReview(result);
+      setConfirmed(false);
+      if (restart) setPending(null);
       setSelected(result.items[0]?.question_id ?? 0);
       setPage(nextPage);
       setCursors(
@@ -172,8 +238,8 @@ export function ExamTranslationReview({
     <details className="card">
       <summary>Review translations</summary>
       <p>
-        Compare saved source and translated wording. Translation edits and
-        approval are not yet available here.
+        Compare saved source and translated wording before approval. Translation
+        editing is not yet available here.
       </p>
       <QuestionChoiceField
         org={org}
@@ -181,10 +247,11 @@ export function ExamTranslationReview({
         label="Review language"
         value={language}
         allowedIds={record.fields.language_ids}
-        disabled={disabled || busy}
+        disabled={disabled || busy || pending !== null}
         onChange={(value) => {
           setLanguage(value);
           setReview(null);
+          setConfirmed(false);
           setPage(0);
           setCursors([0]);
           setMessage("");
@@ -201,6 +268,22 @@ export function ExamTranslationReview({
         <p role="alert" className="error">
           {message}
         </p>
+      )}
+      {pending && (
+        <div role="status">
+          <p>
+            Approval has not been confirmed. Retry preserves the same reviewed
+            version and request. Reloading checks the saved status before
+            starting another approval.
+          </p>
+          <button
+            type="button"
+            disabled={disabled || busy}
+            onClick={() => void approve()}
+          >
+            Retry translation approval
+          </button>
+        </div>
       )}
       {review && (
         <>
@@ -233,7 +316,7 @@ export function ExamTranslationReview({
                 Question on this page
                 <select
                   value={selected}
-                  disabled={busy}
+                  disabled={busy || pending !== null}
                   onChange={(event) => setSelected(Number(event.target.value))}
                 >
                   {review.items.map((item, index) => (
@@ -262,18 +345,45 @@ export function ExamTranslationReview({
           <p>Review page {page + 1}. Up to 50 questions per page.</p>
           <button
             type="button"
-            disabled={busy || page === 0}
+            disabled={busy || pending !== null || page === 0}
             onClick={() => void load(page - 1)}
           >
             Previous review page
           </button>
           <button
             type="button"
-            disabled={busy || review.next === null}
+            disabled={busy || pending !== null || review.next === null}
             onClick={() => void load(page + 1)}
           >
             Next review page
           </button>
+          {!review.approved &&
+            review.progress.remaining === 0 &&
+            review.progress.exam_content_ready &&
+            !pending && (
+              <fieldset disabled={disabled || busy}>
+                <legend>Approve this translation</legend>
+                <p>
+                  Approval may start automatic PDF generation for the exam's
+                  packages.
+                </p>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={confirmed}
+                    onChange={(event) => setConfirmed(event.target.checked)}
+                  />
+                  I have reviewed the exam wording and all translated questions.
+                </label>
+                <button
+                  type="button"
+                  disabled={!confirmed}
+                  onClick={() => void approve()}
+                >
+                  Approve reviewed translation
+                </button>
+              </fieldset>
+            )}
         </>
       )}
     </details>
