@@ -3,6 +3,8 @@ require '/home/examelite/public_html/vendor/autoload.php';
 $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
+foreach([\App\Services\Tech4LearnExamTranslations::class,\App\Services\ExamTranslationService::class,\App\Http\Controllers\Tech4LearnTranslationController::class] as $service)if(!class_exists($service))throw new RuntimeException('Native translation review adapter is missing.');
+foreach(['exam_language_translations','question_langs'] as $table)if(!\Illuminate\Support\Facades\Schema::hasColumns($table,['source_fingerprint','source_field_fingerprints']))throw new RuntimeException('Native translation fingerprints are missing.');
 if(!method_exists(\App\Http\Controllers\ExamDocumentController::class,'generate'))throw new RuntimeException('Native PDF generation controller is missing.');
 foreach([\App\Services\Tech4LearnExamDocuments::class,\App\Services\ExamDocumentLifecycleService::class,\App\Http\Controllers\Tech4LearnDocumentController::class] as $service)if(!class_exists($service))throw new RuntimeException('Native approved document adapter is missing.');
 if(!\Illuminate\Support\Facades\Schema::hasColumns('exam_pdf_builds',['organization_id','exam_id','package_id','language_id','document_type','status','current_path','updated_at']))throw new RuntimeException('Native PDF publication schema is incomplete.');
@@ -15,6 +17,7 @@ foreach(['tech4learn_workspaces','tech4learn_workspace_users','tech4learn_worksp
 }
 foreach([\App\Http\Controllers\Tech4LearnProctorController::class,\App\Services\Tech4LearnProctorEvidence::class,\App\Services\Tech4LearnAttemptClock::class,\App\Services\Tech4LearnQuestionMedia::class,\App\Services\Tech4LearnAttemptAnswers::class,\App\Services\Tech4LearnAttemptPayload::class,\App\Services\Tech4LearnStudentContext::class,\App\Services\Tech4LearnStudentAttempts::class] as $service)if(!class_exists($service))throw new RuntimeException('Student attempt adapter is missing.');
 foreach([
+ ['GET','api/tech4learn/v1/translations/11111111-1111-1111-1111-111111111111/exams/1/languages/1','Tech4LearnTranslationController@review'],
  ['GET','api/tech4learn/v1/documents/11111111-1111-1111-1111-111111111111/exams/1/questions','Tech4LearnDocumentController@read'],
  ['GET','api/tech4learn/v1/documents/11111111-1111-1111-1111-111111111111/exams/1/questions/status','Tech4LearnDocumentController@documentStatus'],
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/history','Tech4LearnStudentController@attempt'],
