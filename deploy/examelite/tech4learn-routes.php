@@ -25,6 +25,7 @@ Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('t
 });
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::get('/documents/{org}/exams/{exam}/{type}', [Tech4LearnDocumentController::class, 'read'])->where('type','questions|solutions');
+    Route::get('/documents/{org}/exams/{exam}/{type}/status', [Tech4LearnDocumentController::class, 'documentStatus'])->where('type','questions|solutions');
     Route::get('/results/{org}/learners/{learner}/attempts', [Tech4LearnResultController::class, 'attempts']);
     Route::get('/results/{org}/learners/{learner}/attempts/{attempt}', [Tech4LearnResultController::class, 'review']);
     Route::post('/results/{org}/learners/{learner}/attempts/{attempt}', [Tech4LearnResultController::class, 'save']);

@@ -31,8 +31,15 @@ $read=fn()=>$documents->read($workspace,10,$actor,$packageLinkedExam->id,$packag
 $reject=function(callable $operation,string $label){try{$operation();throw new RuntimeException('Expected rejection: '.$label);}catch(Symfony\Component\HttpKernel\Exception\HttpException|Illuminate\Database\Eloquent\ModelNotFoundException|Illuminate\Validation\ValidationException $e){}};
 try {
     $result=$read();check(base64_decode($result['base64'],true)===$pdf&&$result['build_id']===$build->id&&!isset($result['path']),'Approved native document returns only bounded bytes and IDs');
+    $status=fn()=>$documents->status($workspace,10,$actor,$packageLinkedExam->id,$packageSaved['id'],null,'questions');
+    check($status()['status']==='ready'&&$status()['approved_available']===true&&!array_key_exists('current_path',$status()),'Document status returns readiness without storage paths');
+    $missing=$documents->status($workspace,10,$actor,$packageLinkedExam->id,$packageSaved['id'],null,'solutions');
+    check($missing['status']==='not_built'&&$missing['build_id']===null&&!$missing['approved_available'],'Unbuilt document has explicit state');
     // The engine intentionally serves the previous approved artifact while rebuilding.
     $build->status='processing';$build->save();check($read()===$result,'Native prior artifact retained while replacement is processing');
+    check($status()['status']==='processing'&&$status()['approved_available'],'Processing state retains prior approved availability');
+    $build->status='failed';$build->save();check($status()['status']==='failed'&&$status()['approved_available'],'Failed replacement retains old approved artifact');
+    $build->status='processing';$build->save();
     $reject(fn()=>$documents->read($workspace,30,$actor,$packageLinkedExam->id,$packageSaved['id'],null,'questions'),'Foreign source');
     $reject(fn()=>$documents->read($workspace,10,$actor,$packageLinkedExam->id,$packageSaved['id'],null,'solutions'),'Unapproved solution');
     $reject(fn()=>$documents->read($workspace,10,$actor,$packageLinkedExam->id,null,null,'questions'),'Wrong package selection');
@@ -48,8 +55,10 @@ try {
     $build->organization_id=30;$build->save();$reject($read,'Mismatched native build owner');$build->organization_id=20;
     $build->current_path=$outside;$build->save();$reject($read,'File outside native PDF storage');
     $build->current_path=$inside;$build->save();file_put_contents($inside,'Not a PDF');$reject($read,'Invalid PDF signature');
+    check(!$status()['approved_available'],'Malformed file is not advertised as available');
     $handle=fopen($inside,'wb');fwrite($handle,'%PDF-1.4');ftruncate($handle,App\Services\Tech4LearnExamDocuments::MAX_BYTES+1);fclose($handle);$reject($read,'Oversized PDF');file_put_contents($inside,$pdf);
     DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'["exams"]']);$reject($read,'Restricted exams');
+    $reject($status,'Restricted document status');
     DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'[]']);
     DB::table('organizations')->where('id',20)->update(['status'=>'inactive']);$reject($read,'Inactive organisation');DB::table('organizations')->where('id',20)->update(['status'=>'active']);
     $staffId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$actor)->where('kind','staff')->value('external_id');
@@ -87,6 +96,8 @@ try {
         $request=Illuminate\Http\Request::create('https://central.example.test/documents','GET',['actor_id'=>$actor,'package_id'=>(string)$packageSaved['id']],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$token]);
         $reply=$controller->read($request,$workspace,(string)$packageLinkedExam->id,'questions');
         check($reply->getData(true)['data']===$result&&str_contains($reply->headers->get('Cache-Control'),'no-store'),'Credential document read has private response');
+        $stateReply=$controller->documentStatus($request,$workspace,(string)$packageLinkedExam->id,'questions');
+        check($stateReply->getData(true)['data']===$status()&&str_contains($stateReply->headers->get('Cache-Control'),'no-store'),'Credential status response is private');
         $request->query->set('path',$outside);$reject(fn()=>$controller->read($request,$workspace,(string)$packageLinkedExam->id,'questions'),'Caller cannot supply a path');$request->query->remove('path');
         $request->headers->remove('Authorization');$reject(fn()=>$controller->read($request,$workspace,(string)$packageLinkedExam->id,'questions'),'Missing dedicated credential');
     } finally {unlink($configFile);}
