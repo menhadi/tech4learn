@@ -642,6 +642,7 @@ export class ExamContentService {
           "subject-timers",
           "set-status",
           "set-result-status",
+          "generate-document",
         ].includes(action))
     )
       throw new BadRequestException("Invalid exam action.");
@@ -668,6 +669,26 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid question changes.");
+    if (action === "generate-document") {
+      const fields = b.fields as Record<string, unknown>;
+      if (
+        Object.keys(fields).some(
+          (key) =>
+            !["package_id", "language_id", "document_type"].includes(key),
+        ) ||
+        !["package_id", "language_id"].every(
+          (key) =>
+            Number.isSafeInteger(fields[key]) &&
+            Number(fields[key]) > 0 &&
+            Number(fields[key]) < 1e15,
+        ) ||
+        typeof fields.document_type !== "string" ||
+        !["questions", "solutions"].includes(fields.document_type)
+      )
+        throw new BadRequestException(
+          "Select an assigned package, language and document type.",
+        );
+    }
     if (
       languageDisable &&
       (Object.keys(b.fields as object).length ||

@@ -374,6 +374,11 @@ test("central question sharing requires superadmin; organisation reads respect m
       "assign-section": { question_ids: [9], question_section_id: 3 },
       "subject-timers": { subject_ids: [2], durations: [30] },
       "set-status": { status: "Active" },
+      "generate-document": {
+        package_id: 4,
+        language_id: 5,
+        document_type: "questions",
+      },
     })) {
       assert.equal(
         (
@@ -402,6 +407,29 @@ test("central question sharing requires superadmin; organisation reads respect m
       404,
     );
     saveOutcome = "conflict";
+    for (const fields of [
+      { package_id: -1, language_id: 5, document_type: "questions" },
+      { package_id: 4, language_id: 5, document_type: ["questions"] },
+      {
+        package_id: 4,
+        language_id: 5,
+        document_type: "questions",
+        force: true,
+      },
+    ]) {
+      const before = requests.length;
+      assert.equal(
+        (
+          await call(
+            `/organisations/${org}/exam-content/exams/9/actions/generate-document`,
+            { ...edit, fields },
+            member,
+          )
+        ).status,
+        400,
+      );
+      assert.equal(requests.length, before);
+    }
     assert.equal((await call(own + "/9", edit, member)).status, 409);
     saveOutcome = "invalid";
     const invalid = await call(own + "/9", edit, member);
@@ -1132,6 +1160,23 @@ test("central question sharing requires superadmin; organisation reads respect m
       [org, ["questions", "subjects", "exams"]],
     );
     assert.equal((await call(documentPath, undefined, member)).status, 403);
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/exams/9/actions/generate-document`,
+          {
+            ...edit,
+            fields: {
+              package_id: 4,
+              language_id: 5,
+              document_type: "questions",
+            },
+          },
+          member,
+        )
+      ).status,
+      403,
+    );
     assert.equal(
       (await call(taxonomy + "/new", undefined, member)).status,
       403,
