@@ -14,6 +14,33 @@ import { session } from "./identity.controller.js";
 import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
+  @Get("organisations/:org/exam-content/exams/:id/documents/:type")
+  async examDocument(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("type") type: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-documents:${account.id}:${org}`, 20, 60);
+    const document = await this.content.examDocument(
+      account,
+      org,
+      id,
+      type,
+      query,
+    );
+    response.setHeader("Content-Type", "application/pdf");
+    response.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${document.filename}"`,
+    );
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(document.buffer);
+  }
   @Get("organisations/:org/exam-content/questions/:id/media/:asset")
   async questionImage(
     @Param("org") org: string,

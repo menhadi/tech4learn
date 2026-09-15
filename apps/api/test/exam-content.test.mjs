@@ -71,8 +71,29 @@ test("central question sharing requires superadmin; organisation reads respect m
   let saveOutcome = "success";
   let disableOutcome = "success";
   let mediaMode = "ok";
+  let documentMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    if (path.startsWith("documents/")) {
+      if (documentMode === "revoked")
+        await pg.query(
+          "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
+          [member, org],
+        );
+      return {
+        data: {
+          exam_id: documentMode === "wrong" ? 10 : 9,
+          package_id: 4,
+          language_id: null,
+          document_type: "questions",
+          build_id: 3,
+          mime: documentMode === "mime" ? "text/html" : "application/pdf",
+          base64: Buffer.from(
+            documentMode === "invalid" ? "not PDF" : "%PDF-1.4 synthetic",
+          ).toString("base64"),
+        },
+      };
+    }
     if (path.endsWith("/disable"))
       return {
         saved: true,
@@ -219,6 +240,41 @@ test("central question sharing requires superadmin; organisation reads respect m
       [member, org],
     );
     mediaMode = "ok";
+    const documentPath = `/organisations/${org}/exam-content/exams/9/documents/questions?package_id=4`;
+    const pdf = await call(documentPath, undefined, member);
+    assert.equal(pdf.status, 200);
+    assert.equal(pdf.headers.get("content-type"), "application/pdf");
+    assert.equal(pdf.headers.get("cache-control"), "no-store");
+    assert.match(
+      pdf.headers.get("content-disposition"),
+      /attachment; filename="exam-9-questions.pdf"/,
+    );
+    assert.equal(await pdf.text(), "%PDF-1.4 synthetic");
+    assert.ok(requests.at(-1).path.includes(`actor_id=${member}`));
+    assert.equal(
+      (await call(documentPath.replace(org, other), undefined, member)).status,
+      404,
+    );
+    assert.equal(
+      (await call(documentPath + "&actor_id=" + admin, undefined, member))
+        .status,
+      400,
+    );
+    assert.equal(
+      (await call(documentPath + "&language_id=-1", undefined, member)).status,
+      400,
+    );
+    for (const mode of ["wrong", "mime", "invalid"]) {
+      documentMode = mode;
+      assert.equal((await call(documentPath, undefined, member)).status, 503);
+    }
+    documentMode = "revoked";
+    assert.equal((await call(documentPath, undefined, member)).status, 404);
+    await pg.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    documentMode = "ok";
     const imageWrite = {
       revision: "a".repeat(64),
       request_id: randomUUID(),
@@ -1075,6 +1131,7 @@ test("central question sharing requires superadmin; organisation reads respect m
       "UPDATE examelite_workspaces SET restrictions=$2 WHERE organisation_id=$1",
       [org, ["questions", "subjects", "exams"]],
     );
+    assert.equal((await call(documentPath, undefined, member)).status, 403);
     assert.equal(
       (await call(taxonomy + "/new", undefined, member)).status,
       403,

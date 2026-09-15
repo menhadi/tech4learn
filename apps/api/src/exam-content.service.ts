@@ -15,6 +15,69 @@ import type { Account } from "./identity.service.js";
 
 @Injectable()
 export class ExamContentService {
+  async examDocument(
+    user: Account,
+    org: string,
+    id: string,
+    type: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.questionAccess(user, org, id, "exams");
+    if (
+      id === "new" ||
+      !["questions", "solutions"].includes(type) ||
+      Object.keys(query).some((k) => !["package_id", "language_id"].includes(k))
+    )
+      throw new BadRequestException("Invalid document selection.");
+    const params = new URLSearchParams({ actor_id: user.id });
+    for (const key of ["package_id", "language_id"]) {
+      const value = query[key];
+      if (value === undefined) continue;
+      if (typeof value !== "string" || !/^[1-9][0-9]{0,14}$/.test(value))
+        throw new BadRequestException("Invalid document selection.");
+      params.set(key, value);
+    }
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `documents/${org}/exams/${id}/${type}?${params}`,
+      undefined,
+      14000000,
+      30000,
+    );
+    await this.questionAccess(user, org, id, "exams");
+    const data = response.data;
+    const invalid = () =>
+      new ServiceUnavailableException("The approved PDF could not be loaded.");
+    if (
+      !data ||
+      data.exam_id !== Number(id) ||
+      data.document_type !== type ||
+      data.package_id !==
+        (query.package_id === undefined ? null : Number(query.package_id)) ||
+      data.language_id !==
+        (query.language_id === undefined ? null : Number(query.language_id)) ||
+      !Number.isSafeInteger(data.build_id) ||
+      data.build_id <= 0 ||
+      data.mime !== "application/pdf" ||
+      typeof data.base64 !== "string" ||
+      data.base64.length > 13981016
+    )
+      throw invalid();
+    const buffer = Buffer.from(data.base64, "base64");
+    if (
+      buffer.length > 10485760 ||
+      buffer.toString("base64") !== data.base64 ||
+      buffer.subarray(0, 5).toString("ascii") !== "%PDF-"
+    )
+      throw invalid();
+    await this.access.audit(this.db, user, org, "exams.document.downloaded", {
+      examId: Number(id),
+      buildId: data.build_id,
+      documentType: type,
+    });
+    return { buffer, filename: `exam-${id}-${type}.pdf` };
+  }
   async questionMedia(user: Account, org: string, id: string, asset: string) {
     await this.questionAccess(user, org, id);
     if (id === "new" || !/^[a-f0-9]{64}$/.test(asset))
