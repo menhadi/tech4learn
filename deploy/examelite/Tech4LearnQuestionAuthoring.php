@@ -26,6 +26,7 @@ final class Tech4LearnQuestionAuthoring
         'approve-translation'=>['language_id','translation_revision'],
         'refresh-translation'=>['language_id','translation_revision'],
         'save-question-translation'=>['language_id','translation_revision','question_id','wording'],
+        'save-exam-translation'=>['language_id','translation_revision','wording'],
     ];
     public const FIELDS=['qtype_id','subject_id','question_section_id','topic_id','stopic_id','diff_id','passage_id','language_id',
         'question','option1','option2','option3','option4','option5','option6','marks','negative_marks','scoring_policy',
@@ -116,8 +117,10 @@ final class Tech4LearnQuestionAuthoring
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
-        if($action==='save-question-translation'){
-            abort_unless(is_int($fields['question_id']??null)&&$fields['question_id']>0&&is_array($fields['wording']??null)&&count($fields['wording'])>0&&!array_diff(array_keys($fields['wording']),Tech4LearnTranslationEdits::FIELDS),422);
+        if(in_array($action,['save-question-translation','save-exam-translation'],true)){
+            if($action==='save-question-translation')abort_unless(is_int($fields['question_id']??null)&&$fields['question_id']>0,422);
+            $wordingFields=$action==='save-exam-translation'?Tech4LearnTranslationEdits::EXAM_FIELDS:Tech4LearnTranslationEdits::FIELDS;
+            abort_unless(is_array($fields['wording']??null)&&count($fields['wording'])>0&&!array_diff(array_keys($fields['wording']),$wordingFields),422);
             foreach($fields['wording'] as $key=>$value){abort_unless($value===null||(is_string($value)&&strlen($value)<=200000),422);if(is_string($value))$fields['wording'][$key]=$this->formattedText($value,$key);}
         }
         if($kind==='languages'){
@@ -175,7 +178,7 @@ final class Tech4LearnQuestionAuthoring
                 \App\Models\Package::where('organization_id',$tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['package_id']);
                 \App\Models\Language::enabledForOrganization($tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['language_id']);
             }
-            if(in_array($action,['approve-translation','refresh-translation','save-question-translation'],true)){
+            if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)){
                 abort_unless(is_int($fields['language_id']??null)&&$fields['language_id']>0&&is_string($fields['translation_revision']??null),422);
                 $review=app(Tech4LearnExamTranslations::class)->review($workspace,(int)$w->source_organization_id,$actor,$id,$fields['language_id'],0,$fields['translation_revision']);
                 $complete=$review['progress']['remaining']===0&&$review['progress']['exam_content_ready'];
@@ -233,7 +236,11 @@ final class Tech4LearnQuestionAuthoring
         }
         try {
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
-            if(in_array($kind,['languages','packages'],true)||in_array($action,['generate-document','approve-translation','refresh-translation','save-question-translation'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
+            if(in_array($kind,['languages','packages'],true)||in_array($action,['generate-document','approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
+            if($action==='save-exam-translation'){
+                app(Tech4LearnTranslationEdits::class)->applyExam($question,$fields);
+                return $this->record($kind,$question->fresh());
+            }
             if($action==='save-question-translation'){
                 app(Tech4LearnTranslationEdits::class)->apply($question,$fields,$request);
                 return $this->record($kind,$question->fresh());

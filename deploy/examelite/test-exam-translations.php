@@ -171,6 +171,7 @@ $newFields=['language_id'=>$newLanguage->id,'translation_revision'=>$newReview['
 $service->save($workspace,20,$actor,$approvalPaper->id,$newFields,$newRecord['revision'],'translation-new','exams','save-question-translation');
 $newTarget=QuestionLang::where('question_id',$approvalQuestion->id)->where('language_id',$newLanguage->id)->sole();
 check(in_array('option1',$native->questionFieldsNeedingTranslation($approvalQuestion,$newTarget),true),'Creating one field does not mark untranslated options current');
+check(!in_array('option2',$native->questionFieldsNeedingTranslation($approvalQuestion,$newTarget),true),'Empty source and target fields need no invented translation');
 $foreignPaper=Exam::create(['organization_id'=>30,'name'=>'Foreign paper']);$foreignPaper->questions()->attach($approvalQuestion->id);
 $foreignReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$newLanguage->id);
 $reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,array_replace($newFields,['translation_revision'=>$foreignReview['revision']]),$service->record('exams',$approvalPaper->fresh())['revision'],'translation-cross-paper','exams','save-question-translation'));
@@ -178,5 +179,29 @@ $foreignPaper->questions()->detach($approvalQuestion->id);
 $invalidReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$newLanguage->id);$beforeTarget=$newTarget->fresh()->getAttributes();
 try{$service->save($workspace,20,$actor,$approvalPaper->id,array_replace($newFields,['translation_revision'=>$invalidReview['revision'],'wording'=>['question'=>'']]),$service->record('exams',$approvalPaper->fresh())['revision'],'translation-invalid','exams','save-question-translation');throw new RuntimeException('Expected native translation validation');}catch(Illuminate\Validation\ValidationException $e){}
 check($newTarget->fresh()->getAttributes()===$beforeTarget,'Native validation failure leaves translated wording and fingerprints unchanged');
+$approvalPaper->languages()->updateExistingPivot($target->id,['translation_status'=>'ready','translation_approved_at'=>now(),'translation_approved_by'=>1]);
+$examReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$target->id);
+$examRecord=$service->record('exams',$approvalPaper->fresh());
+$examTarget=ExamLanguageTranslation::where('exam_id',$approvalPaper->id)->where('language_id',$target->id)->sole();
+$examTarget->instruction='<img src="'.$image.'">';$examTarget->save();
+$examReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$target->id);
+$examFields=['language_id'=>$target->id,'translation_revision'=>$examReview['revision'],'wording'=>['name'=>'Manually translated exam title']];
+$invalidations=App\Services\ExamDocumentInvalidationService::$calls;
+$examSaved=$service->save($workspace,20,$actor,$approvalPaper->id,$examFields,$examRecord['revision'],'exam-wording-edit','exams','save-exam-translation');
+check($examTarget->fresh()->name==='Manually translated exam title'&&$examTarget->fresh()->instruction==='<img src="'.$image.'">'&&$approvalPaper->fresh()->name==='Approval fixture','Exam translation edit preserves source and untouched media');
+check(!$approvalPaper->languages()->first()->pivot->translation_approved_at&&App\Services\ExamDocumentInvalidationService::$calls===$invalidations+1,'Exam translation save clears approval and invalidates native PDFs');
+check($service->save($workspace,20,$actor,$approvalPaper->id,$examFields,$examRecord['revision'],'exam-wording-edit','exams','save-exam-translation')===$examSaved&&App\Services\ExamDocumentInvalidationService::$calls===$invalidations+1,'Exam wording retry preserves exactly one invalidation');
+$reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,$examFields,$examSaved['revision'],'exam-wording-stale','exams','save-exam-translation'));
+$approvalPaper->instruction='Source instructions need translation';$approvalPaper->save();
+$newExamReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$newLanguage->id);
+$newExamRecord=$service->record('exams',$approvalPaper->fresh());
+$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$newLanguage->id,'translation_revision'=>$newExamReview['revision'],'wording'=>['name'=>'New exam translation']],$newExamRecord['revision'],'exam-wording-new','exams','save-exam-translation');
+$newExamTarget=ExamLanguageTranslation::where('exam_id',$approvalPaper->id)->where('language_id',$newLanguage->id)->sole();
+check(isset($newExamTarget->source_field_fingerprints['name'],$newExamTarget->source_field_fingerprints['syllabus'])&&!isset($newExamTarget->source_field_fingerprints['instruction']),'Partial exam translation does not certify untouched fields');
+$badExamReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$newLanguage->id);
+$beforeExam=$newExamTarget->getAttributes();
+try{$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$newLanguage->id,'translation_revision'=>$badExamReview['revision'],'wording'=>['name'=>'']],$service->record('exams',$approvalPaper->fresh())['revision'],'exam-wording-invalid','exams','save-exam-translation');throw new RuntimeException('Expected exam translation validation');}catch(Illuminate\Validation\ValidationException $e){}
+check($newExamTarget->fresh()->getAttributes()===$beforeExam,'Invalid exam title rolls back without changing translation');
+$reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$newLanguage->id,'translation_revision'=>$badExamReview['revision'],'wording'=>['organization_id'=>30]],$service->record('exams',$approvalPaper->fresh())['revision'],'exam-wording-override','exams','save-exam-translation'));
 echo "Native translation review and approval: fingerprints, pagination, media, scope and retry passed.\n";
 }

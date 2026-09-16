@@ -586,6 +586,11 @@ test("central question sharing requires superadmin; organisation reads respect m
       "assign-section": { question_ids: [9], question_section_id: 3 },
       "subject-timers": { subject_ids: [2], durations: [30] },
       "set-status": { status: "Active" },
+      "save-exam-translation": {
+        language_id: 5,
+        translation_revision: "a".repeat(64),
+        wording: { name: "Translated exam", instruction: "<p>Read first</p>" },
+      },
       "save-question-translation": {
         language_id: 5,
         translation_revision: "a".repeat(64),
@@ -632,6 +637,32 @@ test("central question sharing requires superadmin; organisation reads respect m
       ).status,
       404,
     );
+    for (const wording of [
+      {},
+      { question: "Wrong kind" },
+      { name: 42 },
+      { organization_id: 30 },
+    ]) {
+      const before = requests.length;
+      assert.equal(
+        (
+          await call(
+            `/organisations/${org}/exam-content/exams/9/actions/save-exam-translation`,
+            {
+              ...edit,
+              fields: {
+                language_id: 5,
+                translation_revision: "a".repeat(64),
+                wording,
+              },
+            },
+            member,
+          )
+        ).status,
+        400,
+      );
+      assert.equal(requests.length, before);
+    }
     saveOutcome = "conflict";
     const validTranslationEdit = {
       language_id: 5,

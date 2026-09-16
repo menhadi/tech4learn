@@ -3,7 +3,7 @@ import { api, ApiError } from "./api";
 import { DraftForm } from "./DraftForm";
 import { FormattedField } from "./ExamQuestionEditor";
 
-const fields = [
+const questionFields = [
   "question",
   "option1",
   "option2",
@@ -16,6 +16,9 @@ const fields = [
   "fill_blank",
 ];
 const labels: Record<string, string> = {
+  name: "Translated exam title",
+  instruction: "Translated instructions",
+  syllabus: "Translated syllabus",
   question: "Translated question",
   hint: "Translated hint",
   explanation: "Translated explanation",
@@ -24,6 +27,7 @@ const labels: Record<string, string> = {
 type Wording = Record<string, string | null>;
 export function ExamTranslationEditor({
   org,
+  mode = "question",
   examId,
   examRevision,
   languageId,
@@ -34,6 +38,7 @@ export function ExamTranslationEditor({
   onSaved,
 }: {
   org: string;
+  mode?: "question" | "exam";
   examId: number;
   examRevision: string;
   languageId: number;
@@ -47,6 +52,8 @@ export function ExamTranslationEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const fields =
+    mode === "exam" ? ["name", "instruction", "syllabus"] : questionFields;
   const [changes, setChanges] = useState<Record<string, string | null>>({});
   const [pending, setPending] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,10 +72,11 @@ export function ExamTranslationEditor({
     );
   return (
     <section className="panel">
-      <h3>Edit translated question</h3>
+      <h3>Edit translated {mode === "exam" ? "exam wording" : "question"}</h3>
       <p>
-        Changes apply to this organisation's translated question wherever it is
-        used. Affected papers need translation approval again. Image and
+        Changes apply to this organisation's translated{" "}
+        {mode === "exam" ? "exam wording" : "question wherever it is used"}.
+        Affected papers need translation approval again. Image and
         visual-formula fields remain read-only.
       </p>
       <button type="button" disabled={busy} onClick={onClose}>
@@ -112,7 +120,7 @@ export function ExamTranslationEditor({
           setError("");
           try {
             await api(
-              `/organisations/${org}/exam-content/exams/${examId}/actions/save-question-translation`,
+              `/organisations/${org}/exam-content/exams/${examId}/actions/save-${mode}-translation`,
               "POST",
               {
                 revision: examRevision,
@@ -120,7 +128,9 @@ export function ExamTranslationEditor({
                 fields: {
                   language_id: languageId,
                   translation_revision: translationRevision,
-                  question_id: question.question_id,
+                  ...(mode === "question"
+                    ? { question_id: question.question_id }
+                    : {}),
                   wording: changes,
                 },
               },
@@ -148,6 +158,7 @@ export function ExamTranslationEditor({
             .filter(
               (field) =>
                 field === "question" ||
+                field === "name" ||
                 question.source[field] ||
                 question.translation?.[field],
             )

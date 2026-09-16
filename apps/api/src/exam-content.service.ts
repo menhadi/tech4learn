@@ -827,6 +827,7 @@ export class ExamContentService {
           "approve-translation",
           "refresh-translation",
           "save-question-translation",
+          "save-exam-translation",
         ].includes(action))
     )
       throw new BadRequestException("Invalid exam action.");
@@ -853,20 +854,27 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid question changes.");
-    if (action === "save-question-translation") {
+    if (
+      action === "save-question-translation" ||
+      action === "save-exam-translation"
+    ) {
       const fields = b.fields as Record<string, unknown>;
       const wording = fields.wording;
+      const examWording = action === "save-exam-translation";
       if (
         Object.keys(fields).some(
           (key) =>
             ![
               "language_id",
               "translation_revision",
-              "question_id",
+              ...(examWording ? [] : ["question_id"]),
               "wording",
             ].includes(key),
         ) ||
-        ![fields.language_id, fields.question_id].every(
+        ![
+          fields.language_id,
+          ...(examWording ? [] : [fields.question_id]),
+        ].every(
           (value) =>
             Number.isSafeInteger(value) &&
             Number(value) > 0 &&
@@ -880,23 +888,27 @@ export class ExamContentService {
         !Object.keys(wording).length ||
         Object.entries(wording).some(
           ([key, value]) =>
-            ![
-              "question",
-              "option1",
-              "option2",
-              "option3",
-              "option4",
-              "option5",
-              "option6",
-              "hint",
-              "explanation",
-              "fill_blank",
-            ].includes(key) ||
+            !(
+              examWording
+                ? ["name", "instruction", "syllabus"]
+                : [
+                    "question",
+                    "option1",
+                    "option2",
+                    "option3",
+                    "option4",
+                    "option5",
+                    "option6",
+                    "hint",
+                    "explanation",
+                    "fill_blank",
+                  ]
+            ).includes(key) ||
             (value !== null &&
               (typeof value !== "string" || value.length > 200000)),
         )
       )
-        throw new BadRequestException("Invalid translated question changes.");
+        throw new BadRequestException("Invalid translated wording changes.");
     }
     if (action === "approve-translation" || action === "refresh-translation") {
       const fields = b.fields as Record<string, unknown>;

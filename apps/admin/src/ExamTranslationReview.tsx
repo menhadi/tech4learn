@@ -111,6 +111,7 @@ export function ExamTranslationReview({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState(false);
+  const [editingExam, setEditingExam] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [pending, setPending] = useState<{
     action: "approve-translation" | "refresh-translation";
@@ -352,6 +353,47 @@ export function ExamTranslationReview({
               translation={review.translation}
               mediaBase={mediaBase(0)}
             />
+            {!review.is_source_language &&
+              !pending &&
+              review.progress.status !== "processing" &&
+              !editing && (
+                <button
+                  type="button"
+                  disabled={busy || disabled}
+                  onClick={() => {
+                    setEditingExam(true);
+                    setEditing(true);
+                  }}
+                >
+                  Edit translated exam wording
+                </button>
+              )}
+            {editing && editingExam && (
+              <ExamTranslationEditor
+                key={`${review.revision}-exam`}
+                mode="exam"
+                org={org}
+                examId={record.id}
+                examRevision={record.revision}
+                languageId={review.language_id}
+                translationRevision={review.revision}
+                question={{
+                  question_id: 0,
+                  source: review.source,
+                  translation: review.translation,
+                }}
+                mediaBase={mediaBase(0)}
+                onClose={() => setEditing(false)}
+                onSaved={() => {
+                  setEditing(false);
+                  setReview(null);
+                  setConfirmed(false);
+                  setMessage(
+                    "Exam wording saved. Reload the translation review before approving it.",
+                  );
+                }}
+              />
+            )}
           </details>
           {review.items.length ? (
             <>
@@ -389,12 +431,15 @@ export function ExamTranslationReview({
                   <button
                     type="button"
                     disabled={busy || disabled}
-                    onClick={() => setEditing(true)}
+                    onClick={() => {
+                      setEditingExam(false);
+                      setEditing(true);
+                    }}
                   >
                     Edit translated wording
                   </button>
                 )}
-              {question && editing && (
+              {question && editing && !editingExam && (
                 <ExamTranslationEditor
                   key={`${review.revision}-${selected}`}
                   org={org}
