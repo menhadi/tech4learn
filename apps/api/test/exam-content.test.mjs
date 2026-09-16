@@ -95,6 +95,25 @@ test("central question sharing requires superadmin; organisation reads respect m
   let centralTaxMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    const packageImage = /^central\/packages\/[1-9][0-9]*\/image$/.test(path);
+    if (packageImage) path = `central/taxonomy/packages/${path.split("/")[2]}`;
+    if (path.startsWith("central/packages/") && path.includes("/media/")) {
+      if (centralMode === "revoked")
+        await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+          admin,
+        ]);
+      return {
+        data: {
+          package_id: centralMode === "wrong" ? 8 : 7,
+          asset: "c".repeat(64),
+          mime: centralMode === "mime" ? "image/svg+xml" : "image/png",
+          base64:
+            centralMode === "base64"
+              ? "!"
+              : Buffer.from("synthetic raster").toString("base64"),
+        },
+      };
+    }
     if (path.startsWith("central/taxonomy/")) {
       if (centralTaxMode === "revoked")
         await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
@@ -115,7 +134,14 @@ test("central question sharing requires superadmin; organisation reads respect m
         kind: centralTaxMode === "kind" ? "other" : parts[2],
         record: {
           ...(parts[2] === "packages"
-            ? { photo_asset: centralTaxMode === "asset" ? "bad" : null }
+            ? {
+                photo_asset:
+                  centralTaxMode === "asset"
+                    ? "bad"
+                    : packageImage && !body?.fields.remove
+                      ? "c".repeat(64)
+                      : null,
+              }
             : {}),
           id:
             centralTaxMode === "id"
@@ -137,7 +163,9 @@ test("central question sharing requires superadmin; organisation reads respect m
               : parts[2] === "packages"
                 ? {
                     package_type: centralTaxMode === "paid" ? "paid" : "free",
-                    ...(body?.fields ?? {}),
+                    ...(packageImage
+                      ? { name: "Synthetic central package" }
+                      : (body?.fields ?? {})),
                   }
                 : (body?.fields ?? {}),
         },
@@ -2042,6 +2070,72 @@ test("central question sharing requires superadmin; organisation reads respect m
       );
     }
     centralTaxMode = "ok";
+    centralMode = "ok";
+    {
+      const packageImagePath = platform + "/central/packages/7/image";
+      const packagePreview =
+        platform + "/central/packages/7/media/" + "c".repeat(64);
+      const upload = {
+        ...taxBody,
+        fields: { image: Buffer.from("synthetic").toString("base64") },
+      };
+      assert.equal((await call(packageImagePath, upload, member)).status, 403);
+      assert.equal((await call(packagePreview, undefined, member)).status, 403);
+      assert.equal((await call(packageImagePath, upload)).status, 201);
+      assert.equal(requests.at(-1).path, "central/packages/7/image");
+      assert.deepEqual(requests.at(-1).body, { ...upload, actor_id: admin });
+      assert.equal((await call(packageImagePath, upload)).status, 201);
+      assert.equal(
+        (
+          await call(packageImagePath, {
+            ...upload,
+            fields: { remove: true, asset: "c".repeat(64) },
+          })
+        ).status,
+        201,
+      );
+      const preview = await call(packagePreview);
+      assert.equal(preview.status, 200);
+      assert.equal(preview.headers.get("content-type"), "image/png");
+      assert.equal(preview.headers.get("cache-control"), "no-store");
+      assert.equal(await preview.text(), "synthetic raster");
+      for (const fields of [
+        { field: "question", image: "abc" },
+        { photo: "outside" },
+        { image: "x".repeat(699053) },
+        { remove: true },
+        { remove: true, asset: "c".repeat(64), image: "abc" },
+        { image: "abc", asset: "bad" },
+      ]) {
+        const count = requests.length;
+        assert.equal(
+          (await call(packageImagePath, { ...upload, fields })).status,
+          400,
+        );
+        assert.equal(requests.length, count);
+      }
+      assert.equal(
+        (await call(platform + "/central/packages/new/image", upload)).status,
+        400,
+      );
+      assert.equal((await call(packagePreview + "?path=outside")).status, 400);
+      for (const mode of ["wrong", "mime", "base64"]) {
+        centralMode = mode;
+        assert.equal((await call(packagePreview)).status, 503);
+      }
+      centralMode = "revoked";
+      assert.equal((await call(packagePreview)).status, 403);
+      await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+        admin,
+      ]);
+      centralMode = "ok";
+      centralTaxMode = "revoked";
+      assert.equal((await call(packageImagePath, upload)).status, 403);
+      await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+        admin,
+      ]);
+      centralTaxMode = "ok";
+    }
     for (const invalid of [
       { ...taxBody, actor_id: member },
       { ...taxBody, fields: { organization_id: 20 } },

@@ -108,6 +108,58 @@ export class ExamContentController {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.send(document.buffer);
   }
+  @Get("platform/exam-content/:org/central/packages/:id/media/:asset")
+  async centralPackageImage(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("asset") asset: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-central-package-media:${account.id}`,
+      180,
+      60,
+    );
+    const image = await this.content.packageMedia(
+      account,
+      org,
+      id,
+      asset,
+      query,
+      true,
+    );
+    response.setHeader("Content-Type", image.mime);
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(image.buffer);
+  }
+  @Post("platform/exam-content/:org/central/packages/:id/image")
+  async centralPackageImageWrite(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-central-package-image:${account.id}`,
+      30,
+      60,
+    );
+    return this.content.centralTaxonomy(
+      account,
+      org,
+      "packages",
+      id,
+      query,
+      body ?? {},
+      true,
+    );
+  }
   @Get("organisations/:org/exam-content/packages/:id/media/:asset")
   async packageImage(
     @Param("org") org: string,

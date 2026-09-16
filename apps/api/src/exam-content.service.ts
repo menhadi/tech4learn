@@ -39,7 +39,13 @@ export class ExamContentService {
     id: string,
     query: Record<string, unknown>,
     body?: Record<string, unknown>,
+    imageAction = false,
   ) {
+    if (
+      imageAction &&
+      (kind !== "packages" || id === "new" || body === undefined)
+    )
+      throw new BadRequestException("Save the package before adding an image.");
     await this.centralAccess(user, org, id, true);
     const definitions: Record<string, string[]> = {
       groups: ["group_name", "display_order"],
@@ -130,8 +136,14 @@ export class ExamContentService {
         typeof fields !== "object" ||
         Array.isArray(fields) ||
         !Object.keys(fields).length ||
-        Object.keys(fields).some((key) => !definitions[kind].includes(key)) ||
-        Buffer.byteLength(JSON.stringify(fields), "utf8") > 250000 ||
+        Object.keys(fields).some(
+          (key) =>
+            !(
+              imageAction ? ["image", "asset", "remove"] : definitions[kind]
+            ).includes(key),
+        ) ||
+        Buffer.byteLength(JSON.stringify(fields), "utf8") >
+          (imageAction ? 710000 : 250000) ||
         typeof body.revision !== "string" ||
         (id === "new"
           ? body.revision !== "new"
@@ -152,6 +164,21 @@ export class ExamContentService {
         throw new BadRequestException(
           "Central paid package authoring is not available yet.",
         );
+      if (imageAction) {
+        const image = fields as Record<string, unknown>;
+        if (
+          (image.asset !== undefined &&
+            (typeof image.asset !== "string" ||
+              !/^[a-f0-9]{64}$/.test(image.asset))) ||
+          (image.remove !== undefined && image.remove !== true) ||
+          (image.remove === true
+            ? !image.asset || image.image !== undefined
+            : typeof image.image !== "string" ||
+              image.image.length === 0 ||
+              image.image.length > 699052)
+        )
+          throw new BadRequestException("Invalid central package image.");
+      }
       payload = {
         fields,
         revision: body.revision,
@@ -162,7 +189,9 @@ export class ExamContentService {
     const response = await this.remote.request(
       await this.config(),
       org,
-      `central/taxonomy/${kind}/${id}`,
+      imageAction
+        ? `central/packages/${id}/image`
+        : `central/taxonomy/${kind}/${id}`,
       payload,
       4000000,
       30000,
@@ -866,12 +895,13 @@ export class ExamContentService {
     id: string,
     asset: string,
     query: Record<string, unknown>,
+    central = false,
   ) {
     if (Object.keys(query).length)
       throw new BadRequestException(
         "Package images do not accept query overrides.",
       );
-    return this.authoringMedia(user, org, id, asset, "packages");
+    return this.authoringMedia(user, org, id, asset, "packages", central);
   }
   private async authoringMedia(
     user: Account,
@@ -879,29 +909,36 @@ export class ExamContentService {
     id: string,
     asset: string,
     kind: "questions" | "packages",
+    central = false,
   ) {
-    await this.questionAccess(
-      user,
-      org,
-      id,
-      kind === "packages" ? "subjects" : "questions",
-    );
+    if (central) await this.centralAccess(user, org, id);
+    else
+      await this.questionAccess(
+        user,
+        org,
+        id,
+        kind === "packages" ? "subjects" : "questions",
+      );
     if (id === "new" || !/^[a-f0-9]{64}$/.test(asset))
       throw new BadRequestException("Invalid authoring image.");
     const response = await this.remote.request(
       await this.config(),
       org,
-      `authoring/${org}/${kind}/${id}/media/${asset}`,
+      central
+        ? `central/${kind}/${id}/media/${asset}`
+        : `authoring/${org}/${kind}/${id}/media/${asset}`,
       undefined,
       14000000,
       30000,
     );
-    await this.questionAccess(
-      user,
-      org,
-      id,
-      kind === "packages" ? "subjects" : "questions",
-    );
+    if (central) await this.centralAccess(user, org, id);
+    else
+      await this.questionAccess(
+        user,
+        org,
+        id,
+        kind === "packages" ? "subjects" : "questions",
+      );
     const data = response.data;
     const invalid = () =>
       new ServiceUnavailableException("This image could not be loaded.");
@@ -931,7 +968,7 @@ export class ExamContentService {
       this.db,
       user,
       org,
-      `exams.${kind === "packages" ? "package" : "question"}.image.viewed`,
+      `exams.${central ? "central." : ""}${kind === "packages" ? "package" : "question"}.image.viewed`,
       {
         [kind === "packages" ? "packageId" : "questionId"]: Number(id),
         asset,

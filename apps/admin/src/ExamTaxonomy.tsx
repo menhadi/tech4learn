@@ -20,6 +20,7 @@ const labels = {
 };
 type Kind = keyof typeof labels;
 const centralKinds: Kind[] = [
+  "packages",
   "categories",
   "subcategories",
   "groups",
@@ -36,10 +37,12 @@ type RecordData = {
 };
 function PackagePhoto({
   org,
+  central = false,
   id,
   asset,
 }: {
   org: string;
+  central?: boolean;
   id: number;
   asset: string;
 }) {
@@ -59,7 +62,7 @@ function PackagePhoto({
         </div>
       ) : (
         <img
-          src={`${apiBase}/organisations/${org}/exam-content/packages/${id}/media/${asset}`}
+          src={`${apiBase}${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/packages/${id}/media/${asset}`}
           alt="Current package image"
           style={{ maxWidth: "100%", maxHeight: 240, objectFit: "contain" }}
           onError={() => setFailed(true)}
@@ -403,6 +406,7 @@ function TaxonomyEditor({
               <>
                 {record.id > 0 && typeof record.photo_asset === "string" && (
                   <PackagePhoto
+                    central={central}
                     key={record.photo_asset}
                     org={org}
                     id={record.id}
@@ -410,9 +414,11 @@ function TaxonomyEditor({
                   />
                 )}
                 <p>
-                  Package type: {values.package_type}. Paid packages are managed
-                  centrally. Assign exams to this package from the exam editor;
-                  existing exam links and ordering are preserved here.
+                  Package type: {values.package_type}.{" "}
+                  {central
+                    ? "Paid package editing is still being integrated."
+                    : "Paid packages are managed centrally. Assign exams from the exam editor."}{" "}
+                  Existing exam links and ordering are preserved here.
                 </p>
                 <QuestionChoiceField
                   central={central}
@@ -492,7 +498,7 @@ function TaxonomyEditor({
                   Add tag to selection
                 </button>
                 <p>
-                  New tags are created in your organisation when you save this
+                  New tags are created in this catalogue when you save the
                   package.
                 </p>
                 {(values.tag_ids ?? [])
@@ -621,7 +627,8 @@ function TaxonomyEditor({
           <QuestionImageUpload
             key={`${record.revision}-${imageVersion}`}
             kind="package"
-            base={`/organisations/${org}/exam-content/packages/${record.id}`}
+            central={central}
+            base={`${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/packages/${record.id}`}
             record={record}
             disabled={
               busy ||
@@ -753,9 +760,9 @@ export function ExamTaxonomy({
       </h3>
       {central && (
         <p>
-          Manage central categories, exam groups, subjects, topics, subtopics
-          and question sections. Organisation-owned copies keep their own
-          versions.
+          Manage central free packages, categories, exam groups, subjects,
+          topics, subtopics and question sections. Organisation-owned copies
+          keep their own versions.
         </p>
       )}
       <label>
