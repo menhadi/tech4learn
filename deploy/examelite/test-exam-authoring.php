@@ -4,7 +4,7 @@ namespace App\Jobs {
  class ReconcileExamDocumentsForExamJob {public static int $scheduled=0;public static function dispatch($id){self::$scheduled++;return new self;}public function afterCommit(){return $this;}}
 }
 namespace App\Services {
- class ExamDocumentInvalidationService {public static int $calls=0;public function invalidateExam($exam){self::$calls++;}}
+ class ExamDocumentInvalidationService {public static int $calls=0;public static int $questionCalls=0;public function invalidateExam($exam){self::$calls++;}public function invalidateQuestion($question,$force=false){self::$questionCalls++;}}
  class PypContentService {public function forgetForExam($exam,$previous=[]):void{}}
 }
 namespace {
