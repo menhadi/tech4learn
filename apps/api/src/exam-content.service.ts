@@ -79,6 +79,44 @@ export class ExamContentService {
       ),
       "parent_id",
     ];
+    definitions.packages = [
+      "name",
+      "description",
+      "slug",
+      "package_type",
+      "amount",
+      "discounted_amount",
+      "auto_enroll_on_registration",
+      "status",
+      "expiry_days",
+      "display_order",
+      "group_ids",
+      "tag_ids",
+      "category_level_1",
+      "category_level_2",
+      "show_pdf_download",
+      "show_solution_pdf_download",
+      "pdf_title_text",
+      "pdf_header_text",
+      "pdf_footer_text",
+      "pdf_watermark_text",
+      "solution_pdf_title_text",
+      "solution_pdf_header_text",
+      "solution_pdf_footer_text",
+      "solution_pdf_watermark_text",
+      "flashcards_enabled",
+      "guest_flashcards_enabled",
+      "ai_flashcard_generation_enabled",
+      "meta_title",
+      "meta_description",
+      "meta_keywords",
+      "canonical_url",
+      "og_title",
+      "og_description",
+      "og_image",
+      "robots_meta",
+      "seo_schema",
+    ];
     if (!Object.hasOwn(definitions, kind) || Object.keys(query).length)
       throw new BadRequestException("Invalid central classification.");
     let payload: Record<string, unknown> | undefined;
@@ -105,6 +143,14 @@ export class ExamContentService {
       )
         throw new BadRequestException(
           "Invalid central classification changes.",
+        );
+      if (
+        kind === "packages" &&
+        Object.hasOwn(fields, "package_type") &&
+        (fields as Record<string, unknown>).package_type !== "free"
+      )
+        throw new BadRequestException(
+          "Central paid package authoring is not available yet.",
         );
       payload = {
         fields,
@@ -161,7 +207,16 @@ export class ExamContentService {
       !record.fields ||
       typeof record.fields !== "object" ||
       Array.isArray(record.fields) ||
-      Object.keys(record.fields).some((key) => !definitions[kind].includes(key))
+      Object.keys(record.fields).some(
+        (key) => !definitions[kind].includes(key),
+      ) ||
+      (kind === "packages" &&
+        (record.fields.package_type !== "free" ||
+          (newDraft
+            ? record.photo_asset != null
+            : record.photo_asset !== null &&
+              (typeof record.photo_asset !== "string" ||
+                !/^[a-f0-9]{64}$/.test(record.photo_asset)))))
     )
       throw new ServiceUnavailableException(
         "Unable to verify the central classification. Retry the same request or reload.",
@@ -177,7 +232,14 @@ export class ExamContentService {
         ...(body === undefined ? {} : { requestId: body.request_id }),
       },
     );
-    return { id: record.id, revision: record.revision, fields: record.fields };
+    return {
+      id: record.id,
+      revision: record.revision,
+      fields: record.fields,
+      ...(kind === "packages"
+        ? { photo_asset: record.photo_asset ?? null }
+        : {}),
+    };
   }
   async centralChoices(
     user: Account,
@@ -191,6 +253,8 @@ export class ExamContentService {
     const parent = query.parent_id;
     if (
       ![
+        "packages",
+        "package-tags",
         "categories",
         "subcategories",
         "groups",

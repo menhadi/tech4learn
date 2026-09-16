@@ -114,6 +114,9 @@ test("central question sharing requires superadmin; organisation reads respect m
         saved: body ? true : undefined,
         kind: centralTaxMode === "kind" ? "other" : parts[2],
         record: {
+          ...(parts[2] === "packages"
+            ? { photo_asset: centralTaxMode === "asset" ? "bad" : null }
+            : {}),
           id:
             centralTaxMode === "id"
               ? -1
@@ -131,7 +134,12 @@ test("central question sharing requires superadmin; organisation reads respect m
           fields:
             centralTaxMode === "fields"
               ? { organization_id: 20 }
-              : (body?.fields ?? {}),
+              : parts[2] === "packages"
+                ? {
+                    package_type: centralTaxMode === "paid" ? "paid" : "free",
+                    ...(body?.fields ?? {}),
+                  }
+                : (body?.fields ?? {}),
         },
       };
     }
@@ -1900,7 +1908,7 @@ test("central question sharing requires superadmin; organisation reads respect m
       choicesPath + "?organization_id=20",
       choicesPath + "?after=-1",
       choicesPath + "?search=" + "x".repeat(121),
-      platform + "/central/choices/packages",
+      platform + "/central/choices/exams",
     ]) {
       const before = requests.length;
       assert.equal((await call(path)).status, 400);
@@ -1923,7 +1931,12 @@ test("central question sharing requires superadmin; organisation reads respect m
     assert.equal((await call(choicesPath)).status, 403);
     await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
     centralChoiceMode = "ok";
-    for (const kind of ["categories", "subcategories"]) {
+    for (const kind of [
+      "categories",
+      "subcategories",
+      "packages",
+      "package-tags",
+    ]) {
       const suffix = kind === "subcategories" ? "?parent_id=9" : "";
       assert.equal(
         (await call(platform + `/central/choices/${kind}` + suffix)).status,
@@ -1974,6 +1987,12 @@ test("central question sharing requires superadmin; organisation reads respect m
     assert.equal((await call(taxPath, taxBody)).status, 201);
     assert.deepEqual(requests.at(-1).body, { ...taxBody, actor_id: admin });
     for (const [kind, fields] of Object.entries({
+      packages: {
+        name: "Central package",
+        package_type: "free",
+        group_ids: [1],
+        tag_ids: ["New tag"],
+      },
       categories: { title: "Central category", status: true, group_ids: [1] },
       subcategories: { title: "Central child", status: true, parent_id: 1 },
       subjects: { subject_name: "Subject", group_ids: [1] },
@@ -1991,6 +2010,38 @@ test("central question sharing requires superadmin; organisation reads respect m
         ).status,
         201,
       );
+    centralTaxMode = "ok";
+    const packagePath = platform + "/central/taxonomy/packages/7";
+    const packageBody = { ...taxBody, fields: { name: "Central package" } };
+    assert.equal((await call(packagePath, undefined, member)).status, 403);
+    assert.equal((await call(packagePath, packageBody, member)).status, 403);
+    assert.equal(
+      (await call(platform + "/central/taxonomy/packages/new")).status,
+      200,
+    );
+    assert.equal((await call(packagePath, packageBody)).status, 201);
+    assert.equal((await (await call(packagePath)).json()).photo_asset, null);
+    for (const fields of [
+      { package_type: "paid" },
+      { photo: "/etc/passwd" },
+      { organization_id: 20 },
+    ]) {
+      const count = requests.length;
+      assert.equal(
+        (await call(packagePath, { ...taxBody, fields })).status,
+        400,
+      );
+      assert.equal(requests.length, count);
+    }
+    for (const mode of ["asset", "paid"]) {
+      centralTaxMode = mode;
+      assert.equal((await call(packagePath)).status, 503);
+      assert.equal(
+        (await call(platform + "/central/taxonomy/packages/new")).status,
+        503,
+      );
+    }
+    centralTaxMode = "ok";
     for (const invalid of [
       { ...taxBody, actor_id: member },
       { ...taxBody, fields: { organization_id: 20 } },
