@@ -112,7 +112,7 @@ final class Tech4LearnQuestionAuthoring
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'questions',$action);
     }
     public function saveCentralTaxonomy(int $central,string $actor,string $kind,int $id,array $fields,string $revision,string $requestId):array {
-        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections'],true),422);
+        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories'],true),422);
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,$kind);
     }
     private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {

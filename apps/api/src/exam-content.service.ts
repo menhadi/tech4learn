@@ -54,6 +54,31 @@ export class ExamContentService {
       ],
       sections: ["name", "group_ids", "display_order", "status"],
     };
+    definitions.categories = [
+      "title",
+      "description",
+      "status",
+      "display_order",
+      "group_ids",
+      "group_orders",
+      "show_in_header",
+      "header_display_order",
+      "meta_title",
+      "meta_description",
+      "meta_keywords",
+      "canonical_url",
+      "og_title",
+      "og_description",
+      "og_image",
+      "robots_meta",
+      "seo_schema",
+    ];
+    definitions.subcategories = [
+      ...definitions.categories.filter(
+        (key) => !["group_ids", "group_orders"].includes(key),
+      ),
+      "parent_id",
+    ];
     if (!Object.hasOwn(definitions, kind) || Object.keys(query).length)
       throw new BadRequestException("Invalid central classification.");
     let payload: Record<string, unknown> | undefined;
@@ -163,8 +188,11 @@ export class ExamContentService {
     await this.centralAccess(user, org, "new", true);
     const search = query.search ?? "";
     const after = query.after ?? "0";
+    const parent = query.parent_id;
     if (
       ![
+        "categories",
+        "subcategories",
         "groups",
         "subjects",
         "sections",
@@ -174,7 +202,16 @@ export class ExamContentService {
         "types",
         "difficulties",
       ].includes(kind) ||
-      Object.keys(query).some((key) => !["search", "after"].includes(key)) ||
+      Object.keys(query).some(
+        (key) =>
+          !(
+            kind === "subcategories"
+              ? ["search", "after", "parent_id"]
+              : ["search", "after"]
+          ).includes(key),
+      ) ||
+      (parent !== undefined &&
+        (typeof parent !== "string" || !/^[1-9][0-9]{0,14}$/.test(parent))) ||
       typeof search !== "string" ||
       search.length > 120 ||
       typeof after !== "string" ||
@@ -184,7 +221,7 @@ export class ExamContentService {
     const response = await this.remote.request(
       await this.config(),
       org,
-      `central/choices/${kind}?search=${encodeURIComponent(search)}&after=${after}`,
+      `central/choices/${kind}?search=${encodeURIComponent(search)}&after=${after}${parent === undefined ? "" : `&parent_id=${parent}`}`,
     );
     await this.centralAccess(user, org, "new", true);
     const invalid = () =>

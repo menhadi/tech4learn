@@ -20,6 +20,8 @@ const labels = {
 };
 type Kind = keyof typeof labels;
 const centralKinds: Kind[] = [
+  "categories",
+  "subcategories",
   "groups",
   "subjects",
   "topics",
@@ -374,8 +376,7 @@ function TaxonomyEditor({
             {kind === "subcategories" && (
               <p>
                 Subcategories inherit their parent category’s exam groups.
-                Saving follows your organisation’s ExamElite subcategory
-                setting.
+                Saving follows the configured ExamElite subcategory setting.
               </p>
             )}
             {(kind === "categories" ||
@@ -394,7 +395,7 @@ function TaxonomyEditor({
             {kind === "categories" && (
               <p>
                 No selected groups means this category is available to every
-                exam group in your organisation. Existing header and search
+                exam group in this catalogue. Existing header and search
                 metadata are preserved.
               </p>
             )}
@@ -752,8 +753,9 @@ export function ExamTaxonomy({
       </h3>
       {central && (
         <p>
-          Manage central exam groups, subjects, topics, subtopics and question
-          sections. Organisation-owned copies keep their own versions.
+          Manage central categories, exam groups, subjects, topics, subtopics
+          and question sections. Organisation-owned copies keep their own
+          versions.
         </p>
       )}
       <label>

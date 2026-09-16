@@ -24,8 +24,8 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
     public function centralChoices(Request $r,string $kind){
         $central=(int)$this->configuration($r)['_platform']['organization_id'];
         \App\Models\Organization::where('status','active')->findOrFail($central);
-        abort_unless(in_array($kind,['groups','subjects','sections','topics','subtopics','languages','types','difficulties'],true),404);
-        abort_unless(!array_diff(array_keys($r->query()),['search','after']),422);
+        abort_unless(in_array($kind,['groups','subjects','sections','topics','subtopics','languages','types','difficulties','categories','subcategories'],true),404);
+        abort_unless(!array_diff(array_keys($r->query()),$kind==='subcategories'?['search','after','parent_id']:['search','after']),422);
         return $this->ownerChoices($r,$central,$central,$kind);
     }
     /** Internal owner scope comes only from a credential or an authorised workspace. */

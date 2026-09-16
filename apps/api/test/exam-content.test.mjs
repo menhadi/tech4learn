@@ -1922,6 +1922,32 @@ test("central question sharing requires superadmin; organisation reads respect m
     centralChoiceMode = "revoked";
     assert.equal((await call(choicesPath)).status, 403);
     await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
+    centralChoiceMode = "ok";
+    for (const kind of ["categories", "subcategories"]) {
+      const suffix = kind === "subcategories" ? "?parent_id=9" : "";
+      assert.equal(
+        (await call(platform + `/central/choices/${kind}` + suffix)).status,
+        200,
+      );
+      assert.equal(
+        requests.at(-1).path,
+        `central/choices/${kind}?search=&after=0` +
+          (suffix ? "&parent_id=9" : ""),
+      );
+    }
+    for (const path of [
+      "categories?parent_id=9",
+      "subcategories?parent_id=0",
+      "subcategories?parent_id=bad",
+      "subcategories?parent_id=9&owner=20",
+    ]) {
+      const before = requests.length;
+      assert.equal(
+        (await call(platform + "/central/choices/" + path)).status,
+        400,
+      );
+      assert.equal(requests.length, before);
+    }
     const centralCreate = platform + "/central/questions";
     const taxPath = platform + "/central/taxonomy/groups/7";
     const taxNew = platform + "/central/taxonomy/groups/new";
@@ -1948,6 +1974,8 @@ test("central question sharing requires superadmin; organisation reads respect m
     assert.equal((await call(taxPath, taxBody)).status, 201);
     assert.deepEqual(requests.at(-1).body, { ...taxBody, actor_id: admin });
     for (const [kind, fields] of Object.entries({
+      categories: { title: "Central category", status: true, group_ids: [1] },
+      subcategories: { title: "Central child", status: true, parent_id: 1 },
       subjects: { subject_name: "Subject", group_ids: [1] },
       topics: { name: "Topic", group_id: 1, subject_id: 2 },
       subtopics: { name: "Subtopic", group_id: 1, subject_id: 2, topic_id: 3 },
