@@ -107,6 +107,38 @@ final class Tech4LearnQuestionAuthoring
         $attributes=$question->getAttributes();ksort($attributes);
         return hash('sha256',json_encode([$attributes,$question->groups()->orderBy('groups.id')->pluck('groups.id')->all(),$question->tags()->orderBy('question_tags.id')->pluck('question_tags.id')->all()],JSON_THROW_ON_ERROR));
     }
+    /** Dedicated-credential caller supplies the configured central owner, never a browser organisation ID. */
+    public function saveCentralQuestion(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
+        abort_unless($central>0&&$id>=0&&count($fields)>0,422);
+        foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
+        abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
+        if(array_diff(array_keys($fields),self::FIELDS)||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>250000)
+            throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
+        foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
+        $fingerprint=hash('sha256',json_encode([$actor,$id,$fields,$revision],JSON_THROW_ON_ERROR));
+        return DB::transaction(function()use($central,$actor,$id,$fields,$revision,$requestId,$fingerprint){
+            // Serialise provisioning and retries within this actual central organisation.
+            Organization::where('status','active')->lockForUpdate()->findOrFail($central);
+            $prior=DB::table('tech4learn_central_requests')->where('organization_id',$central)->where('request_id',$requestId)->first();
+            $mapping=DB::table('tech4learn_central_users')->where('organization_id',$central)->where('local_id',$actor)->first();
+            if(!$mapping){
+                abort_unless(!$prior,403,'Central author mapping is unavailable.');
+                $key=hash('sha256','central:'.$central.':'.$actor);
+                $user=User::create(['name'=>'Tech4Learn central author','username'=>'t4lc-'.$key,'email'=>$key.'@tech4learn.invalid','password'=>\Illuminate\Support\Facades\Hash::make(bin2hex(random_bytes(32))),'ugroup_id'=>0,'status'=>1,'is_platform_admin'=>false]);
+                DB::table('organization_users')->insert(['organization_id'=>$central,'user_id'=>$user->id,'role'=>'owner','status'=>1,'created_at'=>now(),'updated_at'=>now()]);
+                DB::table('tech4learn_central_users')->insert(['organization_id'=>$central,'local_id'=>$actor,'external_id'=>$user->id]);
+            }else $user=User::where('status',1)->where('is_platform_admin',false)->lockForUpdate()->findOrFail($mapping->external_id);
+            abort_unless(DB::table('organization_users')->where('organization_id',$central)->where('user_id',$user->id)->where('status',1)->lockForUpdate()->first()!==null,403);
+            if($prior){abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);}
+            $question=$id?$this->owned('questions',$central)->lockForUpdate()->findOrFail($id):null;
+            if($question)abort_unless(hash_equals($this->snapshot($question)['revision'],$revision),409,'Central question changed. Reload before saving.');
+            else abort_unless($revision==='new',422);
+            $values=$question?array_replace($this->snapshot($question)['fields'],$fields):$fields;
+            $result=$this->invoke($central,$user,$values,$question,'questions');
+            DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
+            return $result;
+        });
+    }
     public function save(string $workspace,int $tenant,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind='questions',?string $action=null):array {
         [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
         abort_unless($id>=0,422);

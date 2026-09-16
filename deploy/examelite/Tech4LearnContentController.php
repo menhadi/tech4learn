@@ -9,6 +9,15 @@ use App\Services\Tech4LearnContentCopies;
 /** Server-credential API. T4L authorises its authenticated superadmin before transfers. */
 class Tech4LearnContentController extends Tech4LearnPlatformController
 {
+    public function centralWrite(Request $r,string $id='new') {
+        $central=$this->configuration($r)['_platform']['organization_id'];
+        abort_unless($r->query()===[]&&!array_diff(array_keys($r->all()),['actor_id','fields','revision','request_id']),422);
+        abort_unless($id==='new'||preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
+        foreach(['actor_id','revision','request_id'] as $key)abort_unless(is_string($r->input($key)),422);
+        abort_unless(is_array($r->input('fields')),422);
+        $result=app(\App\Services\Tech4LearnQuestionAuthoring::class)->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'));
+        return $this->reply($central,$result);
+    }
     /** Separate central-bank reads: an organisation ID can never select this owner. */
     private function centralQuestion(Request $r,string $id):array {
         $tenant=$this->configuration($r)['_platform']['organization_id'];

@@ -4,6 +4,13 @@ $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
+// Central originals have their own author mappings and retry namespace, not a tenant workspace.
+if(!Schema::hasTable('tech4learn_central_users'))Schema::create('tech4learn_central_users',function(Blueprint $t){
+ $t->unsignedBigInteger('organization_id');$t->uuid('local_id');$t->unsignedBigInteger('external_id')->unique();$t->primary(['organization_id','local_id'],'t4l_central_user_pk');
+});
+if(!Schema::hasTable('tech4learn_central_requests'))Schema::create('tech4learn_central_requests',function(Blueprint $t){
+ $t->unsignedBigInteger('organization_id');$t->uuid('request_id');$t->uuid('actor_id');$t->string('fingerprint',64);$t->longText('result');$t->timestamp('created_at');$t->primary(['organization_id','request_id'],'t4l_central_request_pk');
+});
 if(!Schema::hasTable('tech4learn_workspaces'))Schema::create('tech4learn_workspaces',function(Blueprint $t){
  $t->uuid('id')->primary();$t->unsignedBigInteger('source_organization_id');$t->unsignedBigInteger('organization_id')->nullable()->unique();$t->integer('revision')->default(0);$t->text('restrictions');
 });

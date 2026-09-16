@@ -9,6 +9,7 @@ test -f /home/examelite/public_html/app/Providers/Tech4LearnWorkspaceProvider.ph
 python3 -B "$source/check-workspace-connection.py" --configuration-only
 php "$source/test-content-api.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-question-authoring.php" /home/examelite/public_html/vendor/autoload.php
+php "$source/test-central-question-authoring.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-workspace-provision.php" /home/examelite/public_html/vendor/autoload.php
 python3 -B "$source/install-read-connector.py"
 python3 -B "$source/install-workspace.py"

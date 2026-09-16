@@ -2,6 +2,7 @@
 require '/home/examelite/public_html/vendor/autoload.php';
 $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+foreach(['tech4learn_central_users'=>['organization_id','local_id','external_id'],'tech4learn_central_requests'=>['organization_id','request_id','actor_id','fingerprint','result','created_at']] as $table=>$columns)if(!\Illuminate\Support\Facades\Schema::hasColumns($table,$columns))throw new RuntimeException('Central authoring schema is missing.');
 foreach([\App\Services\Tech4LearnPackageImageUpload::class,\App\Services\Tech4LearnQuestionImageUpload::class] as $service)if(!class_exists($service))throw new RuntimeException('Native image adapter is missing.');
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
 foreach([\App\Services\Tech4LearnExamTranslations::class,\App\Services\ExamTranslationService::class,\App\Http\Controllers\Tech4LearnTranslationController::class] as $service)if(!class_exists($service))throw new RuntimeException('Native translation review adapter is missing.');
@@ -43,6 +44,8 @@ foreach([
  ['GET','api/tech4learn/v1/workspace/status','Tech4LearnWorkspaceController@health'],
  ['GET','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/questions','Tech4LearnContentController@questions'],
  ['GET','api/tech4learn/v1/central/questions/1','Tech4LearnContentController@centralDetail'],
+ ['POST','api/tech4learn/v1/central/questions','Tech4LearnContentController@centralWrite'],
+ ['POST','api/tech4learn/v1/central/questions/1','Tech4LearnContentController@centralWrite'],
  ['GET','api/tech4learn/v1/central/questions/1/media/'.str_repeat('a',64),'Tech4LearnContentController@centralMedia'],
  ['POST','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/transfer','Tech4LearnContentController@transfer'],
  ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/choices/groups','Tech4LearnAuthoringController@choices'],
