@@ -5,6 +5,7 @@ import { DraftForm } from "./DraftForm";
 import { QuestionChoiceField } from "./QuestionChoiceField";
 import { ExamRichContent } from "./ExamRichContent";
 import { QuestionImageUpload } from "./QuestionImageUpload";
+import { ExamFormulaInsert } from "./ExamFormulaInsert";
 
 export type Snapshot = {
   id: number;
@@ -133,6 +134,10 @@ export function FormattedField({
       )}
       {!media && (
         <>
+          <ExamFormulaInsert
+            disabled={disabled}
+            onInsert={(formula) => onChange(clean + formula)}
+          />
           <p>
             Write formulas using {"\\(x^2\\)"} within text or {"\\[x^2\\]"} on a
             separate line. Preview checks how the content will look to students.

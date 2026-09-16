@@ -110,6 +110,9 @@ $formula='<p>Solve \\(x^2=9\\) and \\[x=\\sqrt{9}\\].</p>';
 $formulaSaved=$service->save($workspace,20,$actor,$created['id'],['question'=>$formula],$created['revision'],'formula-edit');
 check($formulaSaved['fields']['question']===$formula && $formulaSaved['fields']['nat_value']==9,'Native formula text preserved without changing the answer');
 check($service->save($workspace,20,$actor,$created['id'],['question'=>$formula],$created['revision'],'formula-edit')===$formulaSaved,'Formula edit retry preserved');
+$insertedFormula='<div>\\[\\begin{pmatrix} a &amp; b \\\\ c &amp; d \\end{pmatrix}\\]</div><p>\\(\\ce{H2O}\\)</p>';
+$inserted=$service->save($workspace,20,$actor,$created['id'],['question'=>$insertedFormula],$formulaSaved['revision'],'formula-insert');
+check($inserted['fields']['question']===$insertedFormula&&$inserted['fields']['nat_value']===9,'Inserted matrix and chemistry TeX preserve source entities and answer');
 try{$service->save($workspace,20,$actor,0,array_replace($createFields,['nat_value'=>null]),'new','create-invalid');throw new RuntimeException('Expected create validation');}catch(Illuminate\Validation\ValidationException $e){}
 check(App\Models\Question::count()===$beforeCount+1,'Invalid create has no partial record');
 
