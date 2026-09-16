@@ -157,10 +157,12 @@ export function FormattedField({
 }
 export function ExamQuestionEditor({
   org,
+  central = false,
   id,
   onClose,
 }: {
   org: string;
+  central?: boolean;
   id: number | "new";
   onClose: () => void;
 }) {
@@ -174,11 +176,16 @@ export function ExamQuestionEditor({
   const [activeId, setActiveId] = useState<number | "new">(id);
   const [selectedType, setSelectedType] = useState("");
   const [imagePending, setImagePending] = useState(false);
-  const base = `/organisations/${org}/exam-content/questions/${activeId}`;
+  const base = `${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/questions/${activeId}`;
+  const mediaBase = `${apiBase}${base}${central && record ? `/${record.revision}` : ""}/media`;
   useEffect(() => {
     let active = true;
     setBusy(true);
     setError("");
+    if (central) {
+      setRecord(null);
+      setNotice("");
+    }
     api<Snapshot>(base)
       .then((r) => {
         if (active) {
@@ -197,7 +204,7 @@ export function ExamQuestionEditor({
     return () => {
       active = false;
     };
-  }, [base, reload]);
+  }, [base, central, reload]);
   const set = (key: string, value: any) => {
     if (imagePending) return;
     setChanges((old) => ({ ...old, [key]: value }));
@@ -210,6 +217,12 @@ export function ExamQuestionEditor({
       <h3>
         {activeId === "new" ? "Create question" : `Question #${activeId}`}
       </h3>
+      {central && (
+        <p>
+          Editing the shared central original. Existing organisation copies keep
+          their own changes.
+        </p>
+      )}
       <button
         className="secondary"
         onClick={onClose}
@@ -226,7 +239,7 @@ export function ExamQuestionEditor({
       {record && (
         <DraftForm
           key={activeId}
-          draftKey={`exam-question-${org}-${activeId}`}
+          draftKey={`exam-question-${central ? "central-" : ""}${org}-${activeId}`}
           title={record.type_name ?? "Question details"}
           draftState={{
             revision: record.revision,
@@ -276,7 +289,11 @@ export function ExamQuestionEditor({
               if (activeId === "new") setActiveId(saved.id);
               setChanges({});
               setRequest(null);
-              setNotice("Question saved in your organisation.");
+              setNotice(
+                central
+                  ? "Central original saved. Existing organisation copies are unchanged."
+                  : "Question saved in your organisation.",
+              );
             } catch (e) {
               setError(
                 e instanceof Error ? e.message : "Unable to save question.",
@@ -290,6 +307,7 @@ export function ExamQuestionEditor({
           {activeId === "new" && (
             <QuestionChoiceField
               org={org}
+              central={central}
               kind="types"
               label="Question type"
               value={values.qtype_id ?? null}
@@ -305,6 +323,7 @@ export function ExamQuestionEditor({
             <summary>Classification and language</summary>
             <QuestionChoiceField
               org={org}
+              central={central}
               kind="groups"
               label="Exam groups"
               multiple
@@ -315,6 +334,7 @@ export function ExamQuestionEditor({
             />
             <QuestionChoiceField
               org={org}
+              central={central}
               kind="languages"
               label="Language"
               required
@@ -334,6 +354,7 @@ export function ExamQuestionEditor({
               <QuestionChoiceField
                 key={key}
                 org={org}
+                central={central}
                 kind={kind}
                 label={label}
                 value={values[key] ?? null}
@@ -349,7 +370,7 @@ export function ExamQuestionEditor({
           <FormattedField
             label="Question"
             previewValue={record?.preview_fields?.question}
-            mediaBase={`${apiBase}${base}/media`}
+            mediaBase={mediaBase}
             value={String(values.question ?? "")}
             disabled={busy || imagePending}
             onChange={(v) => set("question", v)}
@@ -362,7 +383,7 @@ export function ExamQuestionEditor({
                   <FormattedField
                     label={`Option ${n}`}
                     previewValue={record?.preview_fields?.["option" + n]}
-                    mediaBase={`${apiBase}${base}/media`}
+                    mediaBase={mediaBase}
                     value={String(values["option" + n] ?? "")}
                     disabled={busy || imagePending}
                     onChange={(v) => set("option" + n, v)}
@@ -492,7 +513,7 @@ export function ExamQuestionEditor({
             <FormattedField
               label="Model answer"
               previewValue={record?.preview_fields?.si_answer1}
-              mediaBase={`${apiBase}${base}/media`}
+              mediaBase={mediaBase}
               value={String(values.si_answer1 ?? "")}
               disabled={busy || imagePending}
               onChange={(v) => set("si_answer1", v)}
@@ -524,7 +545,7 @@ export function ExamQuestionEditor({
           <FormattedField
             label="Hint"
             previewValue={record?.preview_fields?.hint}
-            mediaBase={`${apiBase}${base}/media`}
+            mediaBase={mediaBase}
             value={String(values.hint ?? "")}
             disabled={busy || imagePending}
             onChange={(v) => set("hint", v)}
@@ -532,7 +553,7 @@ export function ExamQuestionEditor({
           <FormattedField
             label="Explanation"
             previewValue={record?.preview_fields?.explanation}
-            mediaBase={`${apiBase}${base}/media`}
+            mediaBase={mediaBase}
             value={String(values.explanation ?? "")}
             disabled={busy || imagePending}
             onChange={(v) => set("explanation", v)}
@@ -552,7 +573,7 @@ export function ExamQuestionEditor({
           </button>
         </DraftForm>
       )}
-      {record && activeId !== "new" && (
+      {!central && record && activeId !== "new" && (
         <QuestionImageUpload
           key={`${base}-${record.revision}-${reload}`}
           base={base}

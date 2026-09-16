@@ -197,6 +197,7 @@ export function ExamQuestions({
     return (
       <ExamQuestionEditor
         org={org}
+        central={central && source === "central"}
         id={editing}
         onClose={() => setEditing(null)}
       />
@@ -346,6 +347,9 @@ export function ExamQuestions({
                 <td>
                   <button disabled={busy} onClick={() => setPreviewing(q.id)}>
                     Preview original
+                  </button>
+                  <button disabled={busy} onClick={() => setEditing(q.id)}>
+                    Edit original
                   </button>
                 </td>
               ) : (

@@ -10,6 +10,7 @@ export type QuestionChoice = {
 };
 export function QuestionChoiceField({
   org,
+  central = false,
   kind,
   label,
   value,
@@ -21,6 +22,7 @@ export function QuestionChoiceField({
   allowedIds,
 }: {
   org: string;
+  central?: boolean;
   kind: string;
   label: string;
   value: number | number[] | null;
@@ -51,7 +53,7 @@ export function QuestionChoiceField({
     const term = after ? loaded : search;
     try {
       const r = await api<{ items: QuestionChoice[]; next: number | null }>(
-        `/organisations/${org}/exam-content/choices/${kind}?search=${encodeURIComponent(term)}&after=${after}${parentId === undefined ? "" : `&parent_id=${parentId}`}`,
+        `${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/choices/${kind}?search=${encodeURIComponent(term)}&after=${after}${parentId === undefined ? "" : `&parent_id=${parentId}`}`,
       );
       if (request !== generation.current) return;
       setItems((old) => (after ? [...old, ...r.items] : r.items));
@@ -72,7 +74,7 @@ export function QuestionChoiceField({
     return () => {
       generation.current++;
     };
-  }, [org, kind, parentId]);
+  }, [org, central, kind, parentId]);
   const selected = Array.isArray(value) ? value : value ? [value] : [];
   return (
     <fieldset>
