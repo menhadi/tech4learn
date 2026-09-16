@@ -24,12 +24,12 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
     public function centralChoices(Request $r,string $kind){
         $central=(int)$this->configuration($r)['_platform']['organization_id'];
         \App\Models\Organization::where('status','active')->findOrFail($central);
-        abort_unless(in_array($kind,['groups','subjects','sections','topics','subtopics','languages','types','difficulties','categories','subcategories'],true),404);
+        abort_unless(in_array($kind,['groups','subjects','sections','topics','subtopics','languages','types','difficulties','categories','subcategories','packages','package-tags'],true),404);
         abort_unless(!array_diff(array_keys($r->query()),$kind==='subcategories'?['search','after','parent_id']:['search','after']),422);
-        return $this->ownerChoices($r,$central,$central,$kind);
+        return $this->ownerChoices($r,$central,$central,$kind,true);
     }
     /** Internal owner scope comes only from a credential or an authorised workspace. */
-    private function ownerChoices(Request $r,int $central,int $owner,string $kind){
+    private function ownerChoices(Request $r,int $central,int $owner,string $kind,bool $centralOnly=false){
         $search=$r->query('search','');$after=$r->query('after','0');
         $parent=$r->query('parent_id','');
         abort_unless(is_string($parent)&&($parent===''||($kind==='subcategories'&&preg_match('/^[1-9][0-9]{0,14}$/D',$parent))),422);
@@ -51,6 +51,7 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         elseif($kind==='languages')$query=\App\Models\Language::enabledForOrganization($owner)->toBase();
         else {
             $query=DB::table($table);
+            if($centralOnly&&$kind==='packages')$query->where('package_type','free');
             if($kind==='categories')$query->whereNull('parent_id');
             if($kind==='subcategories')$query->whereNotNull('parent_id')->whereExists(fn($q)=>$q->selectRaw('1')->from('category as parent')->whereColumn('parent.id','category.parent_id')->where('parent.organization_id',$owner)->whereNull('parent.parent_id'));
             if($parent!=='')$query->where('parent_id',(int)$parent);

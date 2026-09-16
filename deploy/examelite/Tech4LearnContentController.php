@@ -10,7 +10,7 @@ use App\Services\Tech4LearnContentCopies;
 class Tech4LearnContentController extends Tech4LearnPlatformController
 {
     public function centralImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image');}
-    private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories'],true),404);}
+    private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages'],true),404);}
     public function centralTaxonomy(Request $r,string $kind,string $id) {
         $central=(int)$this->configuration($r)['_platform']['organization_id'];
         $this->centralTaxonomyKind($kind);
@@ -18,6 +18,10 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         \App\Models\Organization::where('status','active')->findOrFail($central);
         $service=app(\App\Services\Tech4LearnQuestionAuthoring::class);
         $record=$id==='new'?['id'=>0,'revision'=>'new','fields'=>array_intersect_key(['display_order'=>0,'group_ids'=>[],'category_ids'=>[],'status'=>true],array_flip($service->definition($kind)[2]))]:$service->record($kind,$service->owned($kind,$central)->findOrFail((int)$id));
+        if($kind==='packages'){
+            if($id==='new')$record['fields']+=['name'=>'','package_type'=>'free','tag_ids'=>[],'auto_enroll_on_registration'=>false,'show_pdf_download'=>true,'show_solution_pdf_download'=>true];
+            else abort_unless(($record['fields']['package_type']??null)==='free',404);
+        }
         return $this->reply($central,['kind'=>$kind,'record'=>$record]);
     }
     public function centralTaxonomyWrite(Request $r,string $kind,string $id='new') {

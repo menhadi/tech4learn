@@ -112,7 +112,7 @@ final class Tech4LearnQuestionAuthoring
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'questions',$action);
     }
     public function saveCentralTaxonomy(int $central,string $actor,string $kind,int $id,array $fields,string $revision,string $requestId):array {
-        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories'],true),422);
+        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages'],true),422);
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,$kind);
     }
     private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {
@@ -124,6 +124,7 @@ final class Tech4LearnQuestionAuthoring
         if(array_diff(array_keys($fields),$imageAction?['field','image','asset','remove']:$this->definition($kind)[2])||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
+        if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
         $identity=[$actor,$id,$fields,$revision];if($imageAction)$identity[]=$action;if($kind!=='questions')$identity[]=$kind;
         $fingerprint=hash('sha256',json_encode($identity,JSON_THROW_ON_ERROR));
         $storedImage=null;
@@ -146,10 +147,25 @@ final class Tech4LearnQuestionAuthoring
             else abort_unless($revision==='new',422);
             if($imageAction)$fields=app(Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
+            if($kind==='packages'){
+                abort_unless(($values['package_type']??null)==='free'&&(!$question||$question->package_type==='free'),422,'Central paid package authoring is not available through this adapter.');
+                $this->validatePackageTags($central,$values);
+            }
             $result=$this->invoke($central,$user,$values,$question,$kind);
             DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app(Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
+    }
+    private function validatePackageTags(int $owner,array $values):void {
+        abort_unless(!isset($values['tag_ids'])||is_array($values['tag_ids']),422);
+        foreach(($values['tag_ids']??[]) as $tag){
+            if(is_numeric($tag))abort_unless(\App\Models\PackageTag::where('status',1)->where(fn($q)=>$q->whereNull('organization_id')->orWhere('organization_id',$owner))->whereKey((int)$tag)->exists(),422,'A package tag is unavailable. Review the selected tags.');
+            else {
+                abort_unless(is_string($tag)&&mb_strlen($tag)<=60&&trim($tag)!==''&&strip_tags($tag)===$tag,422,'Use a plain package tag name of up to 60 characters.');
+                $slug=\Illuminate\Support\Str::slug(trim($tag));
+                abort_unless($slug!==''&&!\App\Models\PackageTag::where('organization_id',$owner)->where('slug',$slug)->where(fn($q)=>$q->whereNull('status')->orWhere('status','<>',1))->exists(),422,'This tag is empty or disabled. Choose another tag.');
+            }
+        }
     }
     public function save(string $workspace,int $tenant,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind='questions',?string $action=null):array {
         [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
@@ -232,15 +248,7 @@ final class Tech4LearnQuestionAuthoring
                 abort_unless($question->packages()->where('packages.organization_id',$tenant)->count()===$question->packages()->count(),403);
             }
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
-            if($kind==='packages')abort_unless(!isset($values['tag_ids'])||is_array($values['tag_ids']),422);
-            if($kind==='packages')foreach(($values['tag_ids']??[]) as $tag){
-                if(is_numeric($tag))abort_unless(\App\Models\PackageTag::where('status',1)->where(fn($q)=>$q->whereNull('organization_id')->orWhere('organization_id',$tenant))->whereKey((int)$tag)->exists(),422,'A package tag is unavailable. Review the selected tags.');
-                else {
-                    abort_unless(is_string($tag)&&mb_strlen($tag)<=60&&trim($tag)!==''&&strip_tags($tag)===$tag,422,'Use a plain package tag name of up to 60 characters.');
-                    $slug=\Illuminate\Support\Str::slug(trim($tag));
-                    abort_unless($slug!==''&&!\App\Models\PackageTag::where('organization_id',$tenant)->where('slug',$slug)->where(fn($q)=>$q->whereNull('status')->orWhere('status','<>',1))->exists(),422,'This tag is empty or disabled. Choose another tag.');
-                }
-            }
+            if($kind==='packages')$this->validatePackageTags($tenant,$values);
             // The native controller accepts its web form. Give it a private request/session,
             // and translate its redirect feedback into an atomic API outcome.
             $result=$this->invoke($tenant,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action);
