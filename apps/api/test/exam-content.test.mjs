@@ -585,6 +585,12 @@ test("central question sharing requires superadmin; organisation reads respect m
       "assign-section": { question_ids: [9], question_section_id: 3 },
       "subject-timers": { subject_ids: [2], durations: [30] },
       "set-status": { status: "Active" },
+      "save-question-translation": {
+        language_id: 5,
+        translation_revision: "a".repeat(64),
+        question_id: 7,
+        wording: { question: "<p>Translated wording</p>" },
+      },
       "approve-translation": {
         language_id: 5,
         translation_revision: "a".repeat(64),
@@ -626,6 +632,33 @@ test("central question sharing requires superadmin; organisation reads respect m
       404,
     );
     saveOutcome = "conflict";
+    const validTranslationEdit = {
+      language_id: 5,
+      translation_revision: "a".repeat(64),
+      question_id: 7,
+      wording: { question: "Translated wording" },
+    };
+    for (const fields of [
+      { ...validTranslationEdit, question_id: 0 },
+      { ...validTranslationEdit, translation_revision: "old" },
+      { ...validTranslationEdit, wording: {} },
+      { ...validTranslationEdit, wording: { si_answer1: "Unsupported field" } },
+      { ...validTranslationEdit, wording: { question: 42 } },
+      { ...validTranslationEdit, source_question: "Override" },
+    ]) {
+      const before = requests.length;
+      assert.equal(
+        (
+          await call(
+            `/organisations/${org}/exam-content/exams/9/actions/save-question-translation`,
+            { ...edit, fields },
+            member,
+          )
+        ).status,
+        400,
+      );
+      assert.equal(requests.length, before);
+    }
     for (const fields of [
       { language_id: 0, translation_revision: "a".repeat(64) },
       { language_id: 5, translation_revision: "old" },
@@ -1412,6 +1445,16 @@ test("central question sharing requires superadmin; organisation reads respect m
       [org, ["questions", "subjects", "exams"]],
     );
     assert.equal((await call(documentPath, undefined, member)).status, 403);
+    assert.equal(
+      (
+        await call(
+          `/organisations/${org}/exam-content/exams/9/actions/save-question-translation`,
+          { ...edit, fields: validTranslationEdit },
+          member,
+        )
+      ).status,
+      403,
+    );
     assert.equal(
       (
         await call(

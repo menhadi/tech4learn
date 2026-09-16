@@ -826,6 +826,7 @@ export class ExamContentService {
           "generate-document",
           "approve-translation",
           "refresh-translation",
+          "save-question-translation",
         ].includes(action))
     )
       throw new BadRequestException("Invalid exam action.");
@@ -852,6 +853,51 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid question changes.");
+    if (action === "save-question-translation") {
+      const fields = b.fields as Record<string, unknown>;
+      const wording = fields.wording;
+      if (
+        Object.keys(fields).some(
+          (key) =>
+            ![
+              "language_id",
+              "translation_revision",
+              "question_id",
+              "wording",
+            ].includes(key),
+        ) ||
+        ![fields.language_id, fields.question_id].every(
+          (value) =>
+            Number.isSafeInteger(value) &&
+            Number(value) > 0 &&
+            Number(value) < 1e15,
+        ) ||
+        typeof fields.translation_revision !== "string" ||
+        !/^[a-f0-9]{64}$/.test(fields.translation_revision) ||
+        !wording ||
+        typeof wording !== "object" ||
+        Array.isArray(wording) ||
+        !Object.keys(wording).length ||
+        Object.entries(wording).some(
+          ([key, value]) =>
+            ![
+              "question",
+              "option1",
+              "option2",
+              "option3",
+              "option4",
+              "option5",
+              "option6",
+              "hint",
+              "explanation",
+              "fill_blank",
+            ].includes(key) ||
+            (value !== null &&
+              (typeof value !== "string" || value.length > 200000)),
+        )
+      )
+        throw new BadRequestException("Invalid translated question changes.");
+    }
     if (action === "approve-translation" || action === "refresh-translation") {
       const fields = b.fields as Record<string, unknown>;
       if (
