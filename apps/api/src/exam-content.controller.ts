@@ -108,6 +108,33 @@ export class ExamContentController {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.send(document.buffer);
   }
+  @Get("organisations/:org/exam-content/packages/:id/media/:asset")
+  async packageImage(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("asset") asset: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-package-media:${account.id}:${org}`,
+      180,
+      60,
+    );
+    const image = await this.content.packageMedia(
+      account,
+      org,
+      id,
+      asset,
+      query,
+    );
+    response.setHeader("Content-Type", image.mime);
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(image.buffer);
+  }
   @Get("organisations/:org/exam-content/questions/:id/media/:asset")
   async questionImage(
     @Param("org") org: string,

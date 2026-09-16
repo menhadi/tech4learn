@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "./api";
+import { api, apiBase } from "./api";
 import { DraftForm } from "./DraftForm";
 import { SmartTable } from "./DirectoryTable";
 import {
@@ -18,7 +18,46 @@ const labels = {
   sections: "Question sections",
 };
 type Kind = keyof typeof labels;
-type RecordData = { id: number; revision: string; fields: Record<string, any> };
+type RecordData = {
+  id: number;
+  revision: string;
+  fields: Record<string, any>;
+  photo_asset?: string | null;
+};
+function PackagePhoto({
+  org,
+  id,
+  asset,
+}: {
+  org: string;
+  id: number;
+  asset: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!/^[a-f0-9]{64}$/.test(asset)) return null;
+  return (
+    <section aria-label="Current package image">
+      {failed ? (
+        <div>
+          <p role="alert">
+            The package image could not be loaded. Retry, or reload the package
+            to check for a changed image.
+          </p>
+          <button type="button" onClick={() => setFailed(false)}>
+            Retry package image
+          </button>
+        </div>
+      ) : (
+        <img
+          src={`${apiBase}/organisations/${org}/exam-content/packages/${id}/media/${asset}`}
+          alt="Current package image"
+          style={{ maxWidth: "100%", maxHeight: 240, objectFit: "contain" }}
+          onError={() => setFailed(true)}
+        />
+      )}
+    </section>
+  );
+}
 function TaxonomyEditor({
   org,
   kind,
@@ -328,6 +367,14 @@ function TaxonomyEditor({
             )}
             {kind === "packages" && (
               <>
+                {record.id > 0 && typeof record.photo_asset === "string" && (
+                  <PackagePhoto
+                    key={record.photo_asset}
+                    org={org}
+                    id={record.id}
+                    asset={record.photo_asset}
+                  />
+                )}
                 <p>
                   Package type: {values.package_type}. Paid packages are managed
                   centrally. Assign exams to this package from the exam editor;

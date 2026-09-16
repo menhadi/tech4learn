@@ -260,26 +260,56 @@ export class ExamContentService {
     return { buffer, filename: `exam-${id}-${type}.pdf` };
   }
   async questionMedia(user: Account, org: string, id: string, asset: string) {
-    await this.questionAccess(user, org, id);
+    return this.authoringMedia(user, org, id, asset, "questions");
+  }
+  async packageMedia(
+    user: Account,
+    org: string,
+    id: string,
+    asset: string,
+    query: Record<string, unknown>,
+  ) {
+    if (Object.keys(query).length)
+      throw new BadRequestException(
+        "Package images do not accept query overrides.",
+      );
+    return this.authoringMedia(user, org, id, asset, "packages");
+  }
+  private async authoringMedia(
+    user: Account,
+    org: string,
+    id: string,
+    asset: string,
+    kind: "questions" | "packages",
+  ) {
+    await this.questionAccess(
+      user,
+      org,
+      id,
+      kind === "packages" ? "subjects" : "questions",
+    );
     if (id === "new" || !/^[a-f0-9]{64}$/.test(asset))
-      throw new BadRequestException("Invalid question image.");
+      throw new BadRequestException("Invalid authoring image.");
     const response = await this.remote.request(
       await this.config(),
       org,
-      `authoring/${org}/questions/${id}/media/${asset}`,
+      `authoring/${org}/${kind}/${id}/media/${asset}`,
       undefined,
       14000000,
       30000,
     );
-    await this.questionAccess(user, org, id);
+    await this.questionAccess(
+      user,
+      org,
+      id,
+      kind === "packages" ? "subjects" : "questions",
+    );
     const data = response.data;
     const invalid = () =>
-      new ServiceUnavailableException(
-        "This question image could not be loaded.",
-      );
+      new ServiceUnavailableException("This image could not be loaded.");
     if (
       !data ||
-      data.question_id !== Number(id) ||
+      data[kind === "packages" ? "package_id" : "question_id"] !== Number(id) ||
       data.asset !== asset ||
       ![
         "image/png",
@@ -299,10 +329,16 @@ export class ExamContentService {
       buffer.toString("base64") !== data.base64
     )
       throw invalid();
-    await this.access.audit(this.db, user, org, "exams.question.image.viewed", {
-      questionId: Number(id),
-      asset,
-    });
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      `exams.${kind === "packages" ? "package" : "question"}.image.viewed`,
+      {
+        [kind === "packages" ? "packageId" : "questionId"]: Number(id),
+        asset,
+      },
+    );
     return { buffer, mime: data.mime };
   }
   async resultMedia(

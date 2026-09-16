@@ -199,10 +199,14 @@ test("central question sharing requires superadmin; organisation reads respect m
         );
       return {
         data: {
-          question_id: mediaMode === "wrong" ? 10 : 9,
+          [path.includes("/packages/") ? "package_id" : "question_id"]:
+            mediaMode === "wrong" ? 10 : 9,
           asset: "a".repeat(64),
           mime: mediaMode === "mime" ? "text/html" : "image/png",
-          base64: Buffer.from("synthetic image bytes").toString("base64"),
+          base64:
+            mediaMode === "base64"
+              ? "!!!"
+              : Buffer.from("synthetic image bytes").toString("base64"),
         },
       };
     }
@@ -323,6 +327,44 @@ test("central question sharing requires superadmin; organisation reads respect m
     }
     mediaMode = "revoked";
     assert.equal((await call(mediaPath, undefined, member)).status, 404);
+    await pg.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    mediaMode = "ok";
+    const packageImagePath = `/organisations/${org}/exam-content/packages/9/media/${"a".repeat(64)}`;
+    const packageImage = await call(packageImagePath, undefined, member);
+    assert.equal(packageImage.status, 200);
+    assert.equal(packageImage.headers.get("content-type"), "image/png");
+    assert.equal(packageImage.headers.get("cache-control"), "no-store");
+    assert.equal(packageImage.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(await packageImage.text(), "synthetic image bytes");
+    assert.equal(
+      requests.at(-1).path,
+      `authoring/${org}/packages/9/media/${"a".repeat(64)}`,
+    );
+    assert.equal(
+      (await call(packageImagePath.replace(org, other), undefined, member))
+        .status,
+      404,
+    );
+    for (const suffix of ["?path=secret", "?actor_id=" + admin]) {
+      const before = requests.length;
+      assert.equal(
+        (await call(packageImagePath + suffix, undefined, member)).status,
+        400,
+      );
+      assert.equal(requests.length, before);
+    }
+    for (const mode of ["wrong", "mime", "base64"]) {
+      mediaMode = mode;
+      assert.equal(
+        (await call(packageImagePath, undefined, member)).status,
+        503,
+      );
+    }
+    mediaMode = "revoked";
+    assert.equal((await call(packageImagePath, undefined, member)).status, 404);
     await pg.query(
       "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
       [member, org],
@@ -1477,6 +1519,7 @@ test("central question sharing requires superadmin; organisation reads respect m
       [org, ["questions", "subjects", "exams"]],
     );
     assert.equal((await call(documentPath, undefined, member)).status, 403);
+    assert.equal((await call(packageImagePath, undefined, member)).status, 403);
     assert.equal(
       (
         await call(
