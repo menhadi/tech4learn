@@ -43,11 +43,13 @@ const flags = {
 };
 function ExamQuestionsEditor({
   org,
+  central = false,
   record,
   onSaved,
   disabled,
 }: {
   org: string;
+  central?: boolean;
   record: Exam;
   onSaved: (r: Exam) => void;
   disabled: boolean;
@@ -68,7 +70,9 @@ function ExamQuestionsEditor({
     key: string;
     id: string;
   } | null>(null);
-  const base = `/organisations/${org}/exam-content`;
+  const base = central
+    ? `/platform/exam-content/${org}/central`
+    : `/organisations/${org}/exam-content`;
   async function load(after = 0) {
     setBusy(true);
     setError("");
@@ -76,7 +80,7 @@ function ExamQuestionsEditor({
       const result = await api<{ items: typeof items; next: number | null }>(
         mode === "attached"
           ? `${base}/exams/${record.id}/questions?after=${after}`
-          : `${base}/questions?source=organisation&search=${encodeURIComponent(after ? loadedSearch : search)}&after=${after}`,
+          : `${central ? `/platform/exam-content/${org}` : base}/questions?source=${central ? "central" : "organisation"}&search=${encodeURIComponent(after ? loadedSearch : search)}&after=${after}`,
       );
       setItems((old) => (after ? [...old, ...result.items] : result.items));
       setNext(result.next);
@@ -111,7 +115,9 @@ function ExamQuestionsEditor({
           }}
         >
           <option value="attached">In this exam</option>
-          <option value="bank">Organisation question bank</option>
+          <option value="bank">
+            {central ? "Central question bank" : "Organisation question bank"}
+          </option>
         </select>
       </label>
       {mode === "bank" && (
@@ -225,6 +231,7 @@ function ExamQuestionsEditor({
       {mode === "attached" && (
         <div>
           <QuestionChoiceField
+            central={central}
             org={org}
             kind="sections"
             label="Section for selected questions (empty means General)"
@@ -285,10 +292,12 @@ function ExamQuestionsEditor({
 }
 function ExamEditor({
   org,
+  central = false,
   id,
   onClose,
 }: {
   org: string;
+  central?: boolean;
   id: number | "new";
   onClose: () => void;
 }) {
@@ -298,12 +307,14 @@ function ExamEditor({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
-  const base = `/organisations/${org}/exam-content/taxonomy/exams`;
+  const base = `${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/taxonomy/exams`;
+  const [activeId, setActiveId] = useState<number | "new">(id);
   async function load() {
     setBusy(true);
     setError("");
+    setRecord(null);
     try {
-      setRecord(await api<Exam>(`${base}/${record?.id || id}`));
+      setRecord(await api<Exam>(`${base}/${activeId}`));
       setChanges({});
       setRequest(null);
     } catch (e) {
@@ -314,7 +325,7 @@ function ExamEditor({
   }
   useEffect(() => {
     void load();
-  }, [org, id]);
+  }, [org, id, central]);
   const set = (key: string, value: any) => {
     setChanges((old) => ({ ...old, [key]: value }));
     setRequest(null);
@@ -333,11 +344,14 @@ function ExamEditor({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {!record && !busy && error && (
+        <button onClick={() => void load()}>Retry loading exam</button>
+      )}
       {record && (
         <>
           <DraftForm
             key={record.id || "new"}
-            draftKey={`exam-settings-${record.id || "new"}`}
+            draftKey={`${central ? `central-exam-${org}` : "exam"}-settings-${record.id || "new"}`}
             title="Exam settings"
             draftState={{ revision: record.revision, changes, request }}
             restoreState={(s) => {
@@ -371,6 +385,7 @@ function ExamEditor({
                   },
                 );
                 setRecord(saved);
+                setActiveId(saved.id);
                 setChanges({});
                 setRequest(null);
                 setNotice("Exam settings saved.");
@@ -415,6 +430,7 @@ function ExamEditor({
                 values.test_type,
               ) && (
                 <QuestionChoiceField
+                  central={central}
                   org={org}
                   kind="subjects"
                   label="Test subject"
@@ -426,6 +442,7 @@ function ExamEditor({
               )}
               {["topic_test", "subtopic_test"].includes(values.test_type) && (
                 <QuestionChoiceField
+                  central={central}
                   org={org}
                   kind="topics"
                   label="Test topic"
@@ -437,6 +454,7 @@ function ExamEditor({
               )}
               {values.test_type === "subtopic_test" && (
                 <QuestionChoiceField
+                  central={central}
                   org={org}
                   kind="subtopics"
                   label="Test subtopic"
@@ -472,6 +490,7 @@ function ExamEditor({
               )}
             </fieldset>
             <QuestionChoiceField
+              central={central}
               org={org}
               kind="groups"
               label="Exam groups"
@@ -481,6 +500,7 @@ function ExamEditor({
               onChange={(v) => set("groups", v)}
             />
             <QuestionChoiceField
+              central={central}
               org={org}
               kind="packages"
               label="Exam packages"
@@ -490,6 +510,7 @@ function ExamEditor({
               onChange={(v) => set("packages", v)}
             />
             <QuestionChoiceField
+              central={central}
               org={org}
               kind="categories"
               label="Category"
@@ -501,6 +522,7 @@ function ExamEditor({
               }}
             />
             <QuestionChoiceField
+              central={central}
               org={org}
               kind="subcategories"
               label="Subcategory"
@@ -521,6 +543,7 @@ function ExamEditor({
               those packages.
             </p>
             <QuestionChoiceField
+              central={central}
               org={org}
               kind="languages"
               label="Exam languages"
@@ -645,7 +668,7 @@ function ExamEditor({
               Reload saved exam
             </button>
           </DraftForm>
-          {record.id > 0 && (
+          {!central && record.id > 0 && (
             <ExamDocuments
               key={`${org}-${record.id}-${record.revision}`}
               org={org}
@@ -654,7 +677,7 @@ function ExamEditor({
               disabled={busy || Object.keys(changes).length > 0}
             />
           )}
-          {record.id > 0 && (
+          {!central && record.id > 0 && (
             <ExamTranslationReview
               key={`translation-${org}-${record.id}-${record.revision}`}
               org={org}
@@ -664,6 +687,7 @@ function ExamEditor({
           )}
           {record.id > 0 && (
             <ExamPaperControls
+              central={central}
               org={org}
               record={record}
               onSaved={setRecord}
@@ -672,6 +696,7 @@ function ExamEditor({
           )}
           {record.id > 0 && (
             <ExamQuestionsEditor
+              central={central}
               org={org}
               record={record}
               onSaved={(r) => {
@@ -686,7 +711,16 @@ function ExamEditor({
     </section>
   );
 }
-export function ExamBuilder({ org }: { org: string }) {
+export function ExamBuilder({
+  org,
+  central = false,
+}: {
+  org: string;
+  central?: boolean;
+}) {
+  const base = central
+    ? `/platform/exam-content/${org}/central`
+    : `/organisations/${org}/exam-content`;
   const [items, setItems] = useState<QuestionChoice[]>([]),
     [next, setNext] = useState<number | null>(null),
     [search, setSearch] = useState(""),
@@ -698,11 +732,10 @@ export function ExamBuilder({ org }: { org: string }) {
     setBusy(true);
     setError("");
     try {
-      if (!after)
-        await api(`/organisations/${org}/exam-content/taxonomy/exams/new`);
+      if (!after) await api(`${base}/taxonomy/exams/new`);
       const term = after ? loaded : search;
       const r = await api<{ items: QuestionChoice[]; next: number | null }>(
-        `/organisations/${org}/exam-content/choices/exams?search=${encodeURIComponent(term)}&after=${after}`,
+        `${base}/choices/exams?search=${encodeURIComponent(term)}&after=${after}`,
       );
       setItems((old) => (after ? [...old, ...r.items] : r.items));
       setNext(r.next);
@@ -716,7 +749,8 @@ export function ExamBuilder({ org }: { org: string }) {
   if (editing !== null)
     return (
       <ExamEditor
-        key={editing}
+        key={`${central}-${org}-${editing}`}
+        central={central}
         org={org}
         id={editing}
         onClose={() => {
@@ -728,7 +762,18 @@ export function ExamBuilder({ org }: { org: string }) {
     );
   return (
     <section className="panel">
-      <h3>Create and manage exams</h3>
+      <h3>
+        {central
+          ? "Create and manage central exams"
+          : "Create and manage exams"}
+      </h3>
+      {central && (
+        <p>
+          Superadmin edits the shared originals here. Organisation changes use
+          their own copies. Central PDF generation and translation editing are
+          not yet available on this screen.
+        </p>
+      )}
       <button disabled={busy} onClick={() => setEditing("new")}>
         Create exam
       </button>

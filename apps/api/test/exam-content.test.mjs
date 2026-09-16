@@ -115,6 +115,11 @@ test("central question sharing requires superadmin; organisation reads respect m
         },
       };
     }
+    const centralExamAction = /^central\/exams\/([1-9][0-9]*)\/actions\//.exec(
+      path,
+    );
+    if (centralExamAction)
+      path = `central/taxonomy/exams/${centralExamAction[1]}`;
     if (path.startsWith("central/taxonomy/")) {
       if (centralTaxMode === "revoked")
         await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
@@ -134,6 +139,20 @@ test("central question sharing requires superadmin; organisation reads respect m
         saved: body ? true : undefined,
         kind: centralTaxMode === "kind" ? "other" : parts[2],
         record: {
+          ...(parts[2] === "exams"
+            ? {
+                test_types: { full_length: "Full-Length Tests" },
+                timezone: "Asia/Kolkata",
+                ...(isNew && !body
+                  ? {}
+                  : {
+                      status: "Inactive",
+                      sections: [],
+                      subject_durations: [],
+                      paper_subjects: [],
+                    }),
+              }
+            : {}),
           ...(parts[2] === "packages"
             ? {
                 photo_asset:
@@ -168,7 +187,9 @@ test("central question sharing requires superadmin; organisation reads respect m
                       ? { name: "Synthetic central package" }
                       : (body?.fields ?? {})),
                   }
-                : (body?.fields ?? {}),
+                : centralExamAction
+                  ? { name: "Synthetic central exam" }
+                  : (body?.fields ?? {}),
         },
       };
     }
@@ -2126,6 +2147,84 @@ test("central question sharing requires superadmin; organisation reads respect m
         201,
       );
     centralTaxMode = "ok";
+    {
+      const examPath = platform + "/central/taxonomy/exams/7";
+      const newExamPath = platform + "/central/taxonomy/exams/new";
+      const settings = {
+        ...taxBody,
+        fields: {
+          name: "Synthetic exam",
+          passing_percentage: 37.5,
+          groups: [2],
+          language_ids: [1],
+        },
+      };
+      assert.equal((await call(examPath, undefined, member)).status, 403);
+      assert.equal((await call(examPath, settings, member)).status, 403);
+      const draft = await call(newExamPath);
+      assert.equal(draft.status, 200);
+      assert.equal((await draft.json()).timezone, "Asia/Kolkata");
+      assert.equal(
+        (await call(newExamPath, { ...settings, revision: "new" })).status,
+        201,
+      );
+      assert.equal((await call(examPath, settings)).status, 201);
+      assert.deepEqual(requests.at(-1).body, { ...settings, actor_id: admin });
+      for (const [action, fields] of Object.entries({
+        "add-questions": { question_ids: [7] },
+        "remove-questions": { question_ids: [7] },
+        "create-section": { name: "Paper section", duration: 10 },
+        "update-section": { section_id: 2, name: "Edited" },
+        "remove-section": { section_id: 2 },
+        "assign-section": { question_ids: [7], question_section_id: 3 },
+        "subject-timers": { subject_ids: [1], durations: [10] },
+        "set-status": { status: "Active" },
+        "set-result-status": { result_after_finish: true },
+      })) {
+        const path = platform + `/central/exams/7/actions/${action}`;
+        const body = { ...taxBody, fields };
+        assert.equal((await call(path, body, member)).status, 403);
+        assert.equal((await call(path, body)).status, 201, action);
+        assert.equal(requests.at(-1).path, `central/exams/7/actions/${action}`);
+        assert.deepEqual(requests.at(-1).body, { ...body, actor_id: admin });
+      }
+      const actionPath = platform + "/central/exams/7/actions/set-status";
+      const actionBody = { ...taxBody, fields: { status: "Active" } };
+      assert.equal((await call(actionPath, actionBody)).status, 201);
+      assert.equal((await call(actionPath, actionBody)).status, 201);
+      for (const [path, body] of [
+        [actionPath, { ...actionBody, actor_id: member }],
+        [actionPath, { ...actionBody, fields: { organization_id: 2 } }],
+        [actionPath + "?owner=2", actionBody],
+        [platform + "/central/exams/new/actions/set-status", actionBody],
+        [platform + "/central/exams/7/actions/generate-document", actionBody],
+        [
+          platform + "/central/exams/7/actions/save-exam-translation",
+          actionBody,
+        ],
+      ]) {
+        const before = requests.length;
+        assert.equal((await call(path, body)).status, 400);
+        assert.equal(requests.length, before);
+      }
+      for (const [mode, status] of [
+        ["conflict", 409],
+        ["validation", 400],
+        ["malformed", 503],
+        ["kind", 503],
+        ["id", 503],
+        ["revision", 503],
+        ["fields", 503],
+        ["revoked", 403],
+      ]) {
+        centralTaxMode = mode;
+        assert.equal((await call(actionPath, actionBody)).status, status, mode);
+      }
+      await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+        admin,
+      ]);
+      centralTaxMode = "ok";
+    }
     const packagePath = platform + "/central/taxonomy/packages/7";
     const packageBody = { ...taxBody, fields: { name: "Central package" } };
     assert.equal((await call(packagePath, undefined, member)).status, 403);

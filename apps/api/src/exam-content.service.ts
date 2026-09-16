@@ -13,6 +13,7 @@ import { ExamEliteService } from "./examelite.service.js";
 import { ExamWorkspaceService } from "./exam-workspace.service.js";
 import type { Account } from "./identity.service.js";
 import { translationReview } from "./exam-translation-review.js";
+import { centralExamMetadata } from "./central-exam-metadata.js";
 
 @Injectable()
 export class ExamContentService {
@@ -40,12 +41,33 @@ export class ExamContentService {
     query: Record<string, unknown>,
     body?: Record<string, unknown>,
     imageAction = false,
+    examAction?: string,
   ) {
     if (
       imageAction &&
       (kind !== "packages" || id === "new" || body === undefined)
     )
       throw new BadRequestException("Save the package before adding an image.");
+    const actions: Record<string, string[]> = {
+      "add-questions": ["question_ids"],
+      "remove-questions": ["question_ids"],
+      "create-section": ["name", "display_order", "duration"],
+      "update-section": ["section_id", "name", "display_order", "duration"],
+      "remove-section": ["section_id"],
+      "assign-section": ["question_ids", "question_section_id"],
+      "subject-timers": ["subject_ids", "durations"],
+      "set-status": ["status"],
+      "set-result-status": ["result_after_finish"],
+    };
+    if (
+      examAction !== undefined &&
+      (kind !== "exams" ||
+        imageAction ||
+        id === "new" ||
+        body === undefined ||
+        !Object.hasOwn(actions, examAction))
+    )
+      throw new BadRequestException("Invalid central exam action.");
     await this.centralAccess(user, org, id, true);
     const definitions: Record<string, string[]> = {
       groups: ["group_name", "display_order"],
@@ -123,6 +145,46 @@ export class ExamContentService {
       "robots_meta",
       "seo_schema",
     ];
+    definitions.exams = [
+      "name",
+      "test_type",
+      "test_subject_id",
+      "test_topic_id",
+      "test_stopic_id",
+      "exam_year",
+      "exam_session",
+      "duration",
+      "attempt_count",
+      "passing_percentage",
+      "display_order",
+      "instruction",
+      "show_instruction",
+      "syllabus",
+      "start_date",
+      "end_date",
+      "groups",
+      "packages",
+      "language_ids",
+      "category_level_1",
+      "category_level_2",
+      "offline_enabled",
+      "online_attempt_enabled",
+      "frontend_visible",
+      "omr_enabled",
+      "browser_tolerance",
+      "random_question",
+      "result_after_finish",
+      "option_shuffle",
+      "allow_answer_change",
+      "grouping_mode",
+      "use_group_timer",
+      "timer_mode",
+      "is_subject_timer",
+      "negative_marking",
+      "proctor",
+      "calculator_allowed",
+      "tolerance_count",
+    ];
     if (!Object.hasOwn(definitions, kind) || Object.keys(query).length)
       throw new BadRequestException("Invalid central classification.");
     let payload: Record<string, unknown> | undefined;
@@ -139,7 +201,11 @@ export class ExamContentService {
         Object.keys(fields).some(
           (key) =>
             !(
-              imageAction ? ["image", "asset", "remove"] : definitions[kind]
+              imageAction
+                ? ["image", "asset", "remove"]
+                : examAction !== undefined
+                  ? actions[examAction]
+                  : definitions[kind]
             ).includes(key),
         ) ||
         Buffer.byteLength(JSON.stringify(fields), "utf8") >
@@ -191,7 +257,9 @@ export class ExamContentService {
       org,
       imageAction
         ? `central/packages/${id}/image`
-        : `central/taxonomy/${kind}/${id}`,
+        : examAction !== undefined
+          ? `central/exams/${id}/actions/${examAction}`
+          : `central/taxonomy/${kind}/${id}`,
       payload,
       4000000,
       30000,
@@ -250,6 +318,8 @@ export class ExamContentService {
       throw new ServiceUnavailableException(
         "Unable to verify the central classification. Retry the same request or reload.",
       );
+    const examMetadata =
+      kind === "exams" ? centralExamMetadata(record, newDraft) : {};
     await this.access.audit(
       this.db,
       user,
@@ -257,6 +327,7 @@ export class ExamContentService {
       `exams.central.classification.${body === undefined ? "viewed" : id === "new" ? "created" : "updated"}`,
       {
         kind,
+        ...(examAction === undefined ? {} : { action: examAction }),
         recordId: record.id,
         ...(body === undefined ? {} : { requestId: body.request_id }),
       },
@@ -265,6 +336,7 @@ export class ExamContentService {
       id: record.id,
       revision: record.revision,
       fields: record.fields,
+      ...examMetadata,
       ...(kind === "packages"
         ? { photo_asset: record.photo_asset ?? null }
         : {}),

@@ -6,11 +6,13 @@ import type { Exam } from "./ExamBuilder";
 
 export function ExamPaperControls({
   org,
+  central = false,
   record,
   onSaved,
   disabled,
 }: {
   org: string;
+  central?: boolean;
   record: Exam;
   onSaved: (r: Exam) => void;
   disabled: boolean;
@@ -27,7 +29,7 @@ export function ExamPaperControls({
   const [durations, setDurations] = useState<Record<string, string>>({});
   const [retry, setRetry] = useState<{ key: string; id: string } | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const base = `/organisations/${org}/exam-content/exams/${record.id}/actions`;
+  const base = `${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/exams/${record.id}/actions`;
   async function save(action: string, values: Record<string, unknown>) {
     setBusy(true);
     setError("");
@@ -146,7 +148,7 @@ export function ExamPaperControls({
       </SmartTable>
       <DraftForm
         key={`${record.id}-${section}`}
-        draftKey={`exam-section-${record.id}-${section}`}
+        draftKey={`${central ? `central-exam-${org}` : "exam"}-section-${record.id}-${section}`}
         draftState={{ revision: record.revision, fields, retry }}
         restoreState={(s: any) => {
           if (s?.revision === record.revision && s?.fields) {
@@ -258,7 +260,7 @@ export function ExamPaperControls({
       )}
       {subjects.length > 0 && (
         <DraftForm
-          draftKey={`exam-subject-timers-${record.id}`}
+          draftKey={`${central ? `central-exam-${org}` : "exam"}-subject-timers-${record.id}`}
           draftState={{ revision: record.revision, durations, retry }}
           restoreState={(s: any) => {
             if (s?.revision === record.revision && s?.durations) {

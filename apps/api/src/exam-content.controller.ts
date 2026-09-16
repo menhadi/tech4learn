@@ -631,6 +631,28 @@ export class ExamContentController {
       body ?? {},
     );
   }
+  @Post("platform/exam-content/:org/central/exams/:id/actions/:action")
+  async centralExamAction(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("action") action: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-central-paper-write:${account.id}`, 30, 60);
+    return this.content.centralTaxonomy(
+      account,
+      org,
+      "exams",
+      id,
+      query,
+      body ?? {},
+      false,
+      action,
+    );
+  }
   @Get("platform/exam-content/:org/central/exams/:id/questions")
   async centralExamQuestions(
     @Param("org") org: string,
