@@ -19,6 +19,17 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
     }
     public function choices(Request $r,string $org,string $kind){
         [$central,$owner]=$this->workspace($r,$org,$kind==='exams'?'exams':null);
+        return $this->ownerChoices($r,$central,$owner,$kind);
+    }
+    public function centralChoices(Request $r,string $kind){
+        $central=(int)$this->configuration($r)['_platform']['organization_id'];
+        \App\Models\Organization::where('status','active')->findOrFail($central);
+        abort_unless(in_array($kind,['groups','subjects','sections','topics','subtopics','languages','types','difficulties'],true),404);
+        abort_unless(!array_diff(array_keys($r->query()),['search','after']),422);
+        return $this->ownerChoices($r,$central,$central,$kind);
+    }
+    /** Internal owner scope comes only from a credential or an authorised workspace. */
+    private function ownerChoices(Request $r,int $central,int $owner,string $kind){
         $search=$r->query('search','');$after=$r->query('after','0');
         $parent=$r->query('parent_id','');
         abort_unless(is_string($parent)&&($parent===''||($kind==='subcategories'&&preg_match('/^[1-9][0-9]{0,14}$/D',$parent))),422);

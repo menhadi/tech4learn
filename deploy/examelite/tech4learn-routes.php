@@ -28,6 +28,7 @@ Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('t
     Route::get('/authoring/{org}/packages/{id}/media/{asset}', [Tech4LearnAuthoringController::class, 'packageMedia']);
 });
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
+    Route::get('/central/choices/{kind}', [Tech4LearnAuthoringController::class, 'centralChoices']);
     Route::get('/central/questions/{id}', [Tech4LearnContentController::class, 'centralDetail']);
     Route::post('/central/questions', [Tech4LearnContentController::class, 'centralWrite']);
     Route::post('/central/questions/{id}', [Tech4LearnContentController::class, 'centralWrite']);
