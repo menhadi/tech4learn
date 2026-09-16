@@ -5,6 +5,7 @@ import type { Snapshot } from "./ExamQuestionEditor";
 
 export function QuestionImageUpload({
   base,
+  kind = "question",
   record,
   disabled,
   onPending,
@@ -12,14 +13,17 @@ export function QuestionImageUpload({
   onReload,
 }: {
   base: string;
-  record: Snapshot;
+  kind?: "question" | "package";
+  record: Snapshot & { photo_asset?: string | null };
   disabled: boolean;
   onPending: (pending: boolean) => void;
-  onSaved: (record: Snapshot) => void;
+  onSaved: (record: Snapshot & { photo_asset?: string | null }) => void;
   onReload: () => void;
 }) {
-  const [field, setField] = useState("question"),
-    [asset, setAsset] = useState("");
+  const [field, setField] = useState(kind === "package" ? "photo" : "question"),
+    [asset, setAsset] = useState(
+      kind === "package" ? (record.photo_asset ?? "") : "",
+    );
   const [image, setImage] = useState(""),
     [preview, setPreview] = useState(""),
     [busy, setBusy] = useState(false),
@@ -27,32 +31,40 @@ export function QuestionImageUpload({
   const [pending, setPending] = useState<{
     request_id: string;
     revision: string;
-    fields: { field: string; image?: string; asset?: string; remove?: true };
+    fields: { field?: string; image?: string; asset?: string; remove?: true };
   } | null>(null);
   const choosing = useRef(0);
   const removing = asset.startsWith("remove:");
-  const fields = [
-    ["question", "Question"],
-    ["hint", "Hint"],
-    ["explanation", "Explanation"],
-    ...(record.type === "S" ? [["si_answer1", "Model answer"]] : []),
-    ...(record.type === "M"
-      ? [1, 2, 3, 4, 5, 6].map((n) => ["option" + n, "Option " + n])
-      : []),
-  ];
-  const assets = [
-    ...new Set(
-      [
-        ...(record.preview_fields?.[field] ?? "").matchAll(
-          /t4l-media:([a-f0-9]{64})/g,
-        ),
-      ].map((m) => m[1]),
-    ),
-  ];
+  const fields =
+    kind === "package"
+      ? [["photo", "Package image"]]
+      : [
+          ["question", "Question"],
+          ["hint", "Hint"],
+          ["explanation", "Explanation"],
+          ...(record.type === "S" ? [["si_answer1", "Model answer"]] : []),
+          ...(record.type === "M"
+            ? [1, 2, 3, 4, 5, 6].map((n) => ["option" + n, "Option " + n])
+            : []),
+        ];
+  const assets =
+    kind === "package"
+      ? record.photo_asset
+        ? [record.photo_asset]
+        : []
+      : [
+          ...new Set(
+            [
+              ...(record.preview_fields?.[field] ?? "").matchAll(
+                /t4l-media:([a-f0-9]{64})/g,
+              ),
+            ].map((m) => m[1]),
+          ),
+        ];
   return (
     <DraftForm
-      draftKey={`question-image-${record.id}-${record.revision}`}
-      title="Question image"
+      draftKey={`${kind}-image-${record.id}-${record.revision}`}
+      title={kind === "package" ? "Package image" : "Question image"}
       draftState={{ field, asset }}
       restoreState={(state) => {
         if (pending) return;
@@ -68,8 +80,16 @@ export function QuestionImageUpload({
           request_id: crypto.randomUUID(),
           revision: record.revision,
           fields: removing
-            ? { field, asset: asset.slice(7), remove: true }
-            : { field, image, ...(asset ? { asset } : {}) },
+            ? {
+                ...(kind === "question" ? { field } : {}),
+                asset: asset.slice(7),
+                remove: true,
+              }
+            : {
+                ...(kind === "question" ? { field } : {}),
+                image,
+                ...(asset ? { asset } : {}),
+              },
         };
         setPending(request);
         onPending(true);
@@ -92,7 +112,7 @@ export function QuestionImageUpload({
             (cause instanceof Error
               ? cause.message
               : "Image could not be saved.") +
-              " Retry the same upload or reload the saved question before changing it.",
+              ` Retry the same upload or reload the saved ${kind} before changing it.`,
           );
           throw cause;
         } finally {
@@ -101,7 +121,7 @@ export function QuestionImageUpload({
       }}
     >
       <p>
-        PNG, JPEG or WebP, up to 512 KB. Save other question changes first. The
+        PNG, JPEG or WebP, up to 512 KB. Save other {kind} changes first. The
         selected file stays in this tab and is not stored in a recovered draft.
       </p>
       {error && (
@@ -111,26 +131,32 @@ export function QuestionImageUpload({
       )}
       <fieldset disabled={disabled || busy || !!pending}>
         <legend>Image destination</legend>
-        <label>
-          Field
-          <select
-            value={field}
-            onChange={(e) => {
-              setField(e.target.value);
-              setAsset("");
-            }}
-          >
-            {fields.map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {kind === "question" && (
+          <label>
+            Field
+            <select
+              value={field}
+              onChange={(e) => {
+                setField(e.target.value);
+                setAsset("");
+              }}
+            >
+              {fields.map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           Action
           <select value={asset} onChange={(e) => setAsset(e.target.value)}>
-            <option value="">Append new image</option>
+            {(kind === "question" || !assets.length) && (
+              <option value="">
+                {kind === "package" ? "Add package image" : "Append new image"}
+              </option>
+            )}
             {assets.map((key, i) => (
               <option key={key} value={key}>
                 Replace image {i + 1}
@@ -188,14 +214,14 @@ export function QuestionImageUpload({
       </fieldset>
       {removing && (
         <p>
-          The selected image will be removed from this field. Other questions
-          using the stored file are unchanged.
+          The selected image reference will be removed. Other records using the
+          stored file are unchanged.
         </p>
       )}
       {preview && !removing && (
         <img
           src={preview}
-          alt="Selected question image"
+          alt={`Selected ${kind} image`}
           style={{ maxWidth: "100%", maxHeight: 240 }}
         />
       )}
@@ -212,7 +238,7 @@ export function QuestionImageUpload({
       </button>
       {pending && (
         <button type="button" disabled={busy} onClick={onReload}>
-          Reload saved question
+          Reload saved {kind}
         </button>
       )}
     </DraftForm>

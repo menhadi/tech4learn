@@ -382,6 +382,28 @@ export class ExamContentController {
       parent,
     );
   }
+  @Post("organisations/:org/exam-content/packages/:id/image")
+  async uploadPackageImage(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-package-image-write:${account.id}:${org}`,
+      30,
+      60,
+    );
+    return this.content.saveQuestion(
+      account,
+      org,
+      id,
+      body ?? {},
+      "packages",
+      "set-image",
+    );
+  }
   @Post("organisations/:org/exam-content/questions/:id/image")
   async uploadQuestionImage(
     @Param("org") org: string,

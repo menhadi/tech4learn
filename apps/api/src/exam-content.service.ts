@@ -840,7 +840,9 @@ export class ExamContentService {
     action?: string,
   ) {
     const imageAction =
-      kind === "questions" && action === "set-image" && id !== "new";
+      ["questions", "packages"].includes(kind) &&
+      action === "set-image" &&
+      id !== "new";
     const languageDisable =
       kind === "languages" && action === "disable-language" && id !== "new";
     if (
@@ -997,21 +999,27 @@ export class ExamContentService {
           (key) => !["fields", "revision", "request_id"].includes(key),
         ) ||
         Object.keys(fields).some(
-          (key) => !["field", "image", "asset", "remove"].includes(key),
+          (key) =>
+            !(
+              kind === "packages"
+                ? ["image", "asset", "remove"]
+                : ["field", "image", "asset", "remove"]
+            ).includes(key),
         ) ||
-        typeof fields.field !== "string" ||
-        ![
-          "question",
-          "option1",
-          "option2",
-          "option3",
-          "option4",
-          "option5",
-          "option6",
-          "hint",
-          "explanation",
-          "si_answer1",
-        ].includes(fields.field) ||
+        (kind === "questions" &&
+          (typeof fields.field !== "string" ||
+            ![
+              "question",
+              "option1",
+              "option2",
+              "option3",
+              "option4",
+              "option5",
+              "option6",
+              "hint",
+              "explanation",
+              "si_answer1",
+            ].includes(fields.field))) ||
         (fields.remove !== undefined && fields.remove !== true) ||
         (fields.remove === true
           ? fields.image !== undefined || fields.asset === undefined
@@ -1023,7 +1031,7 @@ export class ExamContentService {
             !/^[a-f0-9]{64}$/.test(fields.asset)))
       )
         throw new BadRequestException(
-          "Invalid question image. Use PNG, JPEG or WebP up to 512 KB.",
+          "Invalid image. Use PNG, JPEG or WebP up to 512 KB.",
         );
     }
     await this.workspace.launch(user, org, { feature }, true);
@@ -1031,7 +1039,7 @@ export class ExamContentService {
       await this.config(),
       org,
       imageAction
-        ? `authoring/${org}/questions/${id}/image`
+        ? `authoring/${org}/${kind}/${id}/image`
         : languageDisable
           ? `authoring/${org}/taxonomy/languages/${id}/disable`
           : action
@@ -1062,6 +1070,23 @@ export class ExamContentService {
         messages.join(" ") || "ExamElite could not save this question.",
       );
     }
+    if (
+      imageAction &&
+      kind === "packages" &&
+      (response.question?.id !== Number(id) ||
+        typeof response.question?.revision !== "string" ||
+        !/^[a-f0-9]{64}$/.test(response.question.revision) ||
+        !response.question?.fields ||
+        typeof response.question.fields !== "object" ||
+        Array.isArray(response.question.fields) ||
+        ((b.fields as Record<string, unknown>).remove === true
+          ? response.question.photo_asset !== null
+          : typeof response.question.photo_asset !== "string" ||
+            !/^[a-f0-9]{64}$/.test(response.question.photo_asset)))
+    )
+      throw new ServiceUnavailableException(
+        "Unable to verify the saved package image. Retry or reload the package.",
+      );
     if (
       languageDisable &&
       (response.question?.id !== Number(id) ||

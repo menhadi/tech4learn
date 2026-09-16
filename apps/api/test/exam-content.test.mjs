@@ -88,6 +88,7 @@ test("central question sharing requires superadmin; organisation reads respect m
       "si_answer1",
     ].map((key) => [key, key === "question" ? "Synthetic wording" : null]),
   );
+  let packageWriteMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
     if (path.startsWith("translations/")) {
@@ -207,6 +208,27 @@ test("central question sharing requires superadmin; organisation reads respect m
             mediaMode === "base64"
               ? "!!!"
               : Buffer.from("synthetic image bytes").toString("base64"),
+        },
+      };
+    }
+    if (/packages\/9\/image$/.test(path)) {
+      if (packageWriteMode === "revoked")
+        await pg.query(
+          "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
+          [member, org],
+        );
+      return {
+        saved: true,
+        question: {
+          id: packageWriteMode === "wrong" ? 10 : 9,
+          revision: packageWriteMode === "revision" ? "bad" : "b".repeat(64),
+          fields: { name: "Saved package" },
+          photo_asset:
+            packageWriteMode === "asset"
+              ? "not-a-hash"
+              : body.fields.remove
+                ? null
+                : "c".repeat(64),
         },
       };
     }
@@ -542,6 +564,62 @@ test("central question sharing requires superadmin; organisation reads respect m
       201,
     );
     assert.match(requests.at(-1).path, /questions\/9\/image$/);
+    const packageWritePath = `/organisations/${org}/exam-content/packages/9/image`;
+    const packageWrite = {
+      ...imageWrite,
+      fields: { image: imageWrite.fields.image },
+    };
+    assert.equal(
+      (await call(packageWritePath, packageWrite, member)).status,
+      201,
+    );
+    assert.equal(requests.at(-1).body.actor_id, member);
+    assert.equal(requests.at(-1).path, `authoring/${org}/packages/9/image`);
+    assert.equal("field" in requests.at(-1).body.fields, false);
+    const packageRemove = {
+      ...packageWrite,
+      fields: { remove: true, asset: "c".repeat(64) },
+    };
+    assert.equal(
+      (await call(packageWritePath, packageRemove, member)).status,
+      201,
+    );
+    assert.equal(requests.at(-1).body.fields.remove, true);
+    assert.equal(
+      (await call(packageWritePath.replace(org, other), packageWrite, member))
+        .status,
+      404,
+    );
+    for (const body of [
+      { ...packageWrite, actor_id: admin },
+      { ...packageWrite, fields: { ...packageWrite.fields, field: "photo" } },
+      { ...packageRemove, fields: { ...packageRemove.fields, image: "AAAA" } },
+      { ...packageWrite, fields: { remove: true } },
+      { ...packageWrite, fields: { image: "" } },
+      { ...packageWrite, fields: { image: "AAAA", asset: "old" } },
+      { ...packageWrite, fields: { photo: "/some/path" } },
+    ]) {
+      const before = requests.length;
+      assert.equal((await call(packageWritePath, body, member)).status, 400);
+      assert.equal(requests.length, before);
+    }
+    for (const mode of ["wrong", "revision", "asset"]) {
+      packageWriteMode = mode;
+      assert.equal(
+        (await call(packageWritePath, packageWrite, member)).status,
+        503,
+      );
+    }
+    packageWriteMode = "revoked";
+    assert.equal(
+      (await call(packageWritePath, packageWrite, member)).status,
+      404,
+    );
+    await pg.query(
+      "UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2",
+      [member, org],
+    );
+    packageWriteMode = "ok";
     const removeWrite = {
       ...imageWrite,
       request_id: randomUUID(),
@@ -1520,6 +1598,10 @@ test("central question sharing requires superadmin; organisation reads respect m
     );
     assert.equal((await call(documentPath, undefined, member)).status, 403);
     assert.equal((await call(packageImagePath, undefined, member)).status, 403);
+    assert.equal(
+      (await call(packageWritePath, packageWrite, member)).status,
+      403,
+    );
     assert.equal(
       (
         await call(

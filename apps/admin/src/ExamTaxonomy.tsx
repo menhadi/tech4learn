@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, apiBase } from "./api";
+import { QuestionImageUpload } from "./QuestionImageUpload";
 import { DraftForm } from "./DraftForm";
 import { SmartTable } from "./DirectoryTable";
 import {
@@ -80,7 +81,9 @@ function TaxonomyEditor({
       request_id: string;
     } | null>(null),
     [notice, setNotice] = useState(""),
-    [newTag, setNewTag] = useState("");
+    [newTag, setNewTag] = useState(""),
+    [imagePending, setImagePending] = useState(false),
+    [imageVersion, setImageVersion] = useState(0);
   const base = `/organisations/${org}/exam-content/taxonomy/${kind}`;
   async function load() {
     setBusy(true);
@@ -91,6 +94,8 @@ function TaxonomyEditor({
       setNewTag("");
       setRequest(null);
       setPendingDisable(null);
+      setImagePending(false);
+      setImageVersion((v) => v + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load record.");
     } finally {
@@ -101,7 +106,7 @@ function TaxonomyEditor({
     void load();
   }, [org, kind, id]);
   const set = (key: string, value: any) => {
-    if (pendingDisable) return;
+    if (pendingDisable || imagePending) return;
     setChanges((old) => ({ ...old, [key]: value }));
     setRequest(null);
     setNotice("");
@@ -126,7 +131,7 @@ function TaxonomyEditor({
       </h3>
       <button
         className="secondary"
-        disabled={busy || Boolean(pendingDisable)}
+        disabled={busy || Boolean(pendingDisable) || imagePending}
         onClick={onClose}
       >
         Back to classification
@@ -144,7 +149,7 @@ function TaxonomyEditor({
           title="Details"
           draftState={{ revision: record.revision, changes, request, newTag }}
           restoreState={(s) => {
-            if (pendingDisable) return;
+            if (pendingDisable || imagePending) return;
             if (
               s?.revision === record.revision &&
               s.changes &&
@@ -165,7 +170,7 @@ function TaxonomyEditor({
           }}
           onSubmit={async (e) => {
             e.preventDefault();
-            if (pendingDisable)
+            if (pendingDisable || imagePending)
               throw new Error(
                 "Resolve the language disable request before editing.",
               );
@@ -203,7 +208,7 @@ function TaxonomyEditor({
         >
           <fieldset
             data-no-draft="true"
-            disabled={busy || Boolean(pendingDisable)}
+            disabled={busy || Boolean(pendingDisable) || imagePending}
             aria-label="Classification fields"
           >
             {kind !== "languages" && (
@@ -577,6 +582,30 @@ function TaxonomyEditor({
           </button>
         </DraftForm>
       )}
+      {kind === "packages" &&
+        record &&
+        record.id > 0 &&
+        record.fields.package_type === "free" && (
+          <QuestionImageUpload
+            key={`${record.revision}-${imageVersion}`}
+            kind="package"
+            base={`/organisations/${org}/exam-content/packages/${record.id}`}
+            record={record}
+            disabled={
+              busy ||
+              Object.keys(changes).length > 0 ||
+              Boolean(request) ||
+              Boolean(newTag.trim())
+            }
+            onPending={setImagePending}
+            onReload={() => void load()}
+            onSaved={(saved) => {
+              setRecord(saved);
+              setImagePending(false);
+              setNotice("Package image saved.");
+            }}
+          />
+        )}
       {kind === "languages" && Boolean(record?.id) && (
         <div>
           <p>
