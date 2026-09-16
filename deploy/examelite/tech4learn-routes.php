@@ -36,6 +36,7 @@ Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::get('/review/{org}/learners/{learner}/attempts', [Tech4LearnProctorController::class, 'attempts']);
     Route::get('/review/{org}/learners/{learner}/attempts/{attempt}/captures/{capture?}', [Tech4LearnProctorController::class, 'captures']);
     Route::get('/authoring/{org}/exams/{id}/questions', [Tech4LearnAuthoringController::class, 'examQuestions']);
+    Route::post('/authoring/{org}/packages/{id}/image', [Tech4LearnAuthoringController::class, 'packageImageWrite']);
     Route::post('/authoring/{org}/exams/{id}/actions/{action}', [Tech4LearnAuthoringController::class, 'examAction']);
     Route::get('/authoring/{org}/taxonomy/{kind}/{id}', [Tech4LearnAuthoringController::class, 'taxonomy']);
     Route::post('/authoring/{org}/taxonomy/{kind}/{id}', [Tech4LearnAuthoringController::class, 'saveTaxonomy']);

@@ -2,6 +2,7 @@
 require '/home/examelite/public_html/vendor/autoload.php';
 $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+foreach([\App\Services\Tech4LearnPackageImageUpload::class,\App\Services\Tech4LearnQuestionImageUpload::class] as $service)if(!class_exists($service))throw new RuntimeException('Native image adapter is missing.');
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');
 foreach([\App\Services\Tech4LearnExamTranslations::class,\App\Services\ExamTranslationService::class,\App\Http\Controllers\Tech4LearnTranslationController::class] as $service)if(!class_exists($service))throw new RuntimeException('Native translation review adapter is missing.');
 foreach(['exam_language_translations','question_langs'] as $table)if(!\Illuminate\Support\Facades\Schema::hasColumns($table,['source_fingerprint','source_field_fingerprints']))throw new RuntimeException('Native translation fingerprints are missing.');
@@ -47,6 +48,7 @@ foreach([
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions','Tech4LearnAuthoringController@create'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1/image','Tech4LearnAuthoringController@questionImageWrite'],
  ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1/media/'.str_repeat('a',64),'Tech4LearnAuthoringController@questionMedia'],
+ ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/packages/1/image','Tech4LearnAuthoringController@packageImageWrite'],
  ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/packages/1/media/'.str_repeat('a',64),'Tech4LearnAuthoringController@packageMedia'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/taxonomy/subjects/new','Tech4LearnAuthoringController@saveTaxonomy'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/taxonomy/languages/1/disable','Tech4LearnAuthoringController@disableLanguage'],

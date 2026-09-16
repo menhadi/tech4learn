@@ -15,11 +15,7 @@ final class Tech4LearnQuestionImageUpload
   abort_unless(is_string($field)&&in_array($field,Tech4LearnQuestionMedia::AUTHORING_FIELDS,true),422);
   if($remove)abort_unless(!array_key_exists('image',$input)&&$replace!==null,422);
   else {
-  abort_unless(is_string($encoded)&&strlen($encoded)<=699052,422);
-  $bytes=base64_decode($encoded,true);
-  abort_unless(is_string($bytes)&&strlen($bytes)>0&&strlen($bytes)<=self::MAX_BYTES&&base64_encode($bytes)===$encoded,422);
-  $info=@getimagesizefromstring($bytes);$extensions=['image/png'=>'png','image/jpeg'=>'jpg','image/webp'=>'webp'];
-  abort_unless(isset($extensions[$info['mime']??''])&&($info[0]??0)>0&&($info[1]??0)>0&&$info[0]*$info[1]<=20000000,422);
+  [$bytes,$extension]=self::decode($encoded);
   }
   abort_unless($replace===null||(is_string($replace)&&preg_match('/^[a-f0-9]{64}$/D',$replace)),422);
   $html=(string)($question->$field??'');abort_unless(strlen($html)<=2000000,422);
@@ -35,7 +31,7 @@ final class Tech4LearnQuestionImageUpload
    abort_unless(strlen($updated)<=2000000,422);
    return [$field=>$updated];
   }
-  $path='images/upload/t4l/'.(int)$question->organization_id.'/'.bin2hex(random_bytes(20)).'.'.$extensions[$info['mime']];
+  $path='images/upload/t4l/'.(int)$question->organization_id.'/'.bin2hex(random_bytes(20)).'.'.$extension;
   $image=$document->createElement('img');$image->setAttribute('src','/storage/'.$path);$image->setAttribute('alt','Question image');
   if($replace!==null)$matches[0]->parentNode->replaceChild($image,$matches[0]);else $body->appendChild($image);
   $updated='';foreach($body->childNodes as $node)$updated.=$document->saveHTML($node);
@@ -43,6 +39,14 @@ final class Tech4LearnQuestionImageUpload
   // Assign before writing so a failed write/transaction also removes a partial file.
   $stored=$path;abort_unless(Storage::disk('public')->put($path,$bytes),503);
   return [$field=>$updated];
+ }
+ public static function decode(mixed $encoded):array {
+  abort_unless(is_string($encoded)&&strlen($encoded)<=699052,422);
+  $bytes=base64_decode($encoded,true);
+  abort_unless(is_string($bytes)&&strlen($bytes)>0&&strlen($bytes)<=self::MAX_BYTES&&base64_encode($bytes)===$encoded,422);
+  $info=@getimagesizefromstring($bytes);$extensions=['image/png'=>'png','image/jpeg'=>'jpg','image/webp'=>'webp'];
+  abort_unless(isset($extensions[$info['mime']??''])&&($info[0]??0)>0&&($info[1]??0)>0&&$info[0]*$info[1]<=20000000,422);
+  return [$bytes,$extensions[$info['mime']]];
  }
  public function discard(string $path):void {
   abort_unless(preg_match('#^images/upload/t4l/[1-9][0-9]*/[a-f0-9]{40}\.(png|jpg|webp)$#D',$path),422);

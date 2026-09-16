@@ -110,10 +110,10 @@ final class Tech4LearnQuestionAuthoring
     public function save(string $workspace,int $tenant,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind='questions',?string $action=null):array {
         [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
         abort_unless($id>=0,422);
-        $imageAction=$kind==='questions'&&$action==='set-image'&&$id>0;
+        $imageAction=in_array($kind,['questions','packages'],true)&&$action==='set-image'&&$id>0;
         $languageDisable=$kind==='languages'&&$action==='disable-language'&&$id>0;
         if($languageDisable)$allowedFields=[];
-        elseif($imageAction)$allowedFields=['field','image','asset','remove'];
+        elseif($imageAction)$allowedFields=$kind==='packages'?['image','asset','remove']:['field','image','asset','remove'];
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
@@ -149,7 +149,7 @@ final class Tech4LearnQuestionAuthoring
             $question=$id?$this->owned($kind,$tenant)->lockForUpdate()->findOrFail($id):null;
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Question changed. Reload before saving.');
             else abort_unless($revision==='new',422);
-            if($imageAction)$fields=app(Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
+            if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             if(in_array($action,['add-questions','remove-questions','assign-section'],true)){
                 $ids=$fields['question_ids']??null;
                 if(!is_array($ids)||count($ids)<1||count($ids)>100||count(array_filter($ids,fn($v)=>is_int($v)&&$v>0))!==count($ids))throw ValidationException::withMessages(['question_ids'=>'Select between 1 and 100 questions.']);
@@ -199,10 +199,10 @@ final class Tech4LearnQuestionAuthoring
             }
             // The native controller accepts its web form. Give it a private request/session,
             // and translate its redirect feedback into an atomic API outcome.
-            $result=$this->invoke($tenant,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?null:$action);
+            $result=$this->invoke($tenant,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action);
             DB::table('tech4learn_authoring_requests')->insert(['workspace_id'=>$workspace,'request_id'=>$requestId,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
-        });}catch(\Throwable $error){if($storedImage!==null)app(Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
+        });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
     }
     private function formattedText(string $html,string $key):string {
         // Only the basic editor's formatting is accepted here. Existing media and
@@ -242,6 +242,10 @@ final class Tech4LearnQuestionAuthoring
         try {
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
             if(in_array($kind,['languages','packages'],true)||in_array($action,['generate-document','approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
+            if($action==='set-package-image'){
+                $question->photo=$fields['photo'];$question->save();
+                return $this->record($kind,$question->fresh());
+            }
             if($action==='save-exam-translation'){
                 app(Tech4LearnTranslationEdits::class)->applyExam($question,$fields);
                 return $this->record($kind,$question->fresh());
