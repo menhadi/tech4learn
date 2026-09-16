@@ -68,6 +68,7 @@ test("central question sharing requires superadmin; organisation reads respect m
     organization_id: 1,
     token: "private",
   });
+  let centralPaperMode = "ok";
   let saveOutcome = "success";
   let disableOutcome = "success";
   let mediaMode = "ok";
@@ -170,6 +171,33 @@ test("central question sharing requires superadmin; organisation reads respect m
                 : (body?.fields ?? {}),
         },
       };
+    }
+    if (path.startsWith("central/exams/")) {
+      if (centralPaperMode === "revoked")
+        await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+          admin,
+        ]);
+      let items = [
+        { id: 7, question: "Synthetic attached question", secret: "excluded" },
+      ];
+      let next = null;
+      if (centralPaperMode === "null") items = null;
+      if (centralPaperMode === "id") items[0].id = "7";
+      if (centralPaperMode === "duplicate") items.push({ ...items[0] });
+      if (centralPaperMode === "wording") items[0].question = {};
+      if (centralPaperMode === "long") items[0].question = "x".repeat(501);
+      if (centralPaperMode === "unicode")
+        items[0].question = "\u{1f600}".repeat(500);
+      if (["page", "oversize"].includes(centralPaperMode)) {
+        items = Array.from(
+          { length: centralPaperMode === "page" ? 100 : 101 },
+          (_, i) => ({ id: i + 1, question: "Synthetic" }),
+        );
+        next = items.length;
+      }
+      if (centralPaperMode === "cursor") next = 7;
+      if (centralPaperMode === "missing-cursor") return { items };
+      return { items, next };
     }
     if (path.startsWith("central/choices/")) {
       if (centralChoiceMode === "revoked")
@@ -1920,6 +1948,64 @@ test("central question sharing requires superadmin; organisation reads respect m
         admin,
       ]);
     }
+    {
+      const paperPath = platform + "/central/exams/9/questions";
+      let before = requests.length;
+      assert.equal((await call(paperPath, undefined, member)).status, 403);
+      assert.equal(requests.length, before);
+      const response = await call(paperPath);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        items: [{ id: 7, question: "Synthetic attached question" }],
+        next: null,
+      });
+      assert.equal(requests.at(-1).path, "central/exams/9/questions?after=0");
+      for (const suffix of [
+        "?after=-1",
+        "?after=1000000000000000",
+        "?owner=1",
+        "?after=0&after=2",
+      ]) {
+        before = requests.length;
+        assert.equal((await call(paperPath + suffix)).status, 400);
+        assert.equal(requests.length, before);
+      }
+      for (const id of ["0", "new", "1000000000000000"]) {
+        before = requests.length;
+        assert.equal(
+          (await call(platform + `/central/exams/${id}/questions`)).status,
+          400,
+        );
+        assert.equal(requests.length, before);
+      }
+      for (const mode of [
+        "null",
+        "id",
+        "duplicate",
+        "wording",
+        "long",
+        "oversize",
+        "cursor",
+        "missing-cursor",
+      ]) {
+        centralPaperMode = mode;
+        assert.equal((await call(paperPath)).status, 503, mode);
+      }
+      centralPaperMode = "ok";
+      assert.equal((await call(paperPath + "?after=7")).status, 503);
+      centralPaperMode = "page";
+      const page = await call(paperPath);
+      assert.equal(page.status, 200);
+      assert.equal((await page.json()).next, 100);
+      centralPaperMode = "unicode";
+      assert.equal((await call(paperPath)).status, 200);
+      centralPaperMode = "revoked";
+      assert.equal((await call(paperPath)).status, 403);
+      await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+        admin,
+      ]);
+      centralPaperMode = "ok";
+    }
     const choicesPath = platform + "/central/choices/groups";
     assert.equal((await call(choicesPath, undefined, member)).status, 403);
     const choicesResult = await call(choicesPath + "?search=a%26b&after=0");
@@ -1936,7 +2022,7 @@ test("central question sharing requires superadmin; organisation reads respect m
       choicesPath + "?organization_id=20",
       choicesPath + "?after=-1",
       choicesPath + "?search=" + "x".repeat(121),
-      platform + "/central/choices/exams",
+      platform + "/central/choices/unsupported",
     ]) {
       const before = requests.length;
       assert.equal((await call(path)).status, 400);
@@ -1960,6 +2046,7 @@ test("central question sharing requires superadmin; organisation reads respect m
     await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
     centralChoiceMode = "ok";
     for (const kind of [
+      "exams",
       "categories",
       "subcategories",
       "packages",

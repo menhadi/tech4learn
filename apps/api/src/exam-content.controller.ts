@@ -631,6 +631,17 @@ export class ExamContentController {
       body ?? {},
     );
   }
+  @Get("platform/exam-content/:org/central/exams/:id/questions")
+  async centralExamQuestions(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-central-paper-read:${account.id}`, 120, 60);
+    return this.content.centralExamQuestions(account, org, id, query);
+  }
   @Get("platform/exam-content/:org/central/choices/:kind")
   async centralChoices(
     @Param("org") org: string,

@@ -270,6 +270,56 @@ export class ExamContentService {
         : {}),
     };
   }
+  async centralExamQuestions(
+    user: Account,
+    org: string,
+    id: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.centralAccess(user, org, id);
+    const after = query.after ?? "0";
+    if (
+      Object.keys(query).some((key) => key !== "after") ||
+      typeof after !== "string" ||
+      !/^[0-9]{1,15}$/.test(after)
+    )
+      throw new BadRequestException("Invalid central exam question lookup.");
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `central/exams/${id}/questions?after=${after}`,
+    );
+    await this.centralAccess(user, org, id);
+    const invalid = () =>
+      new ServiceUnavailableException(
+        "Unable to verify the central exam questions.",
+      );
+    if (!Array.isArray(response.items) || response.items.length > 100)
+      throw invalid();
+    let previous = Number(after);
+    const items = response.items.map((item: any) => {
+      if (
+        !item ||
+        !Number.isSafeInteger(item.id) ||
+        item.id <= previous ||
+        item.id >= 1e15 ||
+        typeof item.question !== "string" ||
+        Array.from(item.question).length > 500
+      )
+        throw invalid();
+      previous = item.id;
+      return { id: item.id, question: item.question };
+    });
+    if (
+      response.next !== null &&
+      (items.length !== 100 || response.next !== previous)
+    )
+      throw invalid();
+    await this.access.audit(this.db, user, org, "exams.central.paper.viewed", {
+      examId: Number(id),
+    });
+    return { items, next: response.next };
+  }
   async centralChoices(
     user: Account,
     org: string,
@@ -282,6 +332,7 @@ export class ExamContentService {
     const parent = query.parent_id;
     if (
       ![
+        "exams",
         "packages",
         "package-tags",
         "categories",
