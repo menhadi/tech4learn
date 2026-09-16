@@ -1882,6 +1882,26 @@ test("central question sharing requires superadmin; organisation reads respect m
     assert.equal((await call(choicesPath)).status, 403);
     await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
     const centralCreate = platform + "/central/questions";
+    const beforeNew = requests.length;
+    assert.equal(
+      (await call(centralCreate + "/new", undefined, member)).status,
+      403,
+    );
+    assert.equal(
+      (await call(centralCreate + "/new?organization_id=20")).status,
+      400,
+    );
+    const emptyCentral = await call(centralCreate + "/new");
+    assert.equal(emptyCentral.status, 200);
+    const emptyCentralBody = await emptyCentral.json();
+    assert.equal(emptyCentralBody.id, 0);
+    assert.equal(emptyCentralBody.revision, "new");
+    assert.deepEqual(emptyCentralBody.fields.group_ids, []);
+    assert.equal(
+      requests.length,
+      beforeNew,
+      "Opening a central draft does not provision an organisation workspace",
+    );
     const newCentral = {
       fields: {
         question: "Created central original",

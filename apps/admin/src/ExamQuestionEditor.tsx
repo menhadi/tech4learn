@@ -219,8 +219,9 @@ export function ExamQuestionEditor({
       </h3>
       {central && (
         <p>
-          Editing the shared central original. Existing organisation copies keep
-          their own changes.
+          {activeId === "new"
+            ? "Creating a question in the shared central bank."
+            : "Editing the shared central original. Existing organisation copies keep their own changes."}
         </p>
       )}
       <button

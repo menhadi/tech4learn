@@ -262,9 +262,10 @@ export class ExamContentService {
     id: string,
     query: Record<string, unknown>,
   ) {
-    await this.centralAccess(user, org, id);
+    await this.centralAccess(user, org, id, true);
     if (Object.keys(query).length)
       throw new BadRequestException("Invalid central preview.");
+    if (id === "new") return this.newQuestion();
     const data = await this.remote.request(
       await this.config(),
       org,
@@ -1099,27 +1100,30 @@ export class ExamContentService {
     await this.questionAccess(user, org, id);
     if (id === "new") {
       await this.workspace.launch(user, org, { feature: "questions" }, true);
-      return {
-        id: 0,
-        revision: "new",
-        fields: {
-          question: "",
-          marks: 1,
-          negative_marks: 0,
-          status: "Yes",
-          group_ids: [],
-          tag_ids: [],
-          correct_answers: [],
-          nat_mode: "exact",
-          fill_blank_answers: [{ accepted_answers: "" }],
-        },
-      };
+      return this.newQuestion();
     }
     return this.remote.request(
       await this.config(),
       org,
       `authoring/${org}/questions/${id}`,
     );
+  }
+  private newQuestion() {
+    return {
+      id: 0,
+      revision: "new",
+      fields: {
+        question: "",
+        marks: 1,
+        negative_marks: 0,
+        status: "Yes",
+        group_ids: [],
+        tag_ids: [],
+        correct_answers: [],
+        nat_mode: "exact",
+        fill_blank_answers: [{ accepted_answers: "" }],
+      },
+    };
   }
   async examQuestions(user: Account, org: string, id: string, after: string) {
     await this.questionAccess(user, org, id, "exams");
