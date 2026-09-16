@@ -47,6 +47,7 @@ foreach([
  ['GET','api/tech4learn/v1/central/questions/1','Tech4LearnContentController@centralDetail'],
  ['POST','api/tech4learn/v1/central/questions','Tech4LearnContentController@centralWrite'],
  ['POST','api/tech4learn/v1/central/questions/1','Tech4LearnContentController@centralWrite'],
+ ['POST','api/tech4learn/v1/central/questions/1/image','Tech4LearnContentController@centralImageWrite'],
  ['GET','api/tech4learn/v1/central/questions/1/media/'.str_repeat('a',64),'Tech4LearnContentController@centralMedia'],
  ['POST','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/transfer','Tech4LearnContentController@transfer'],
  ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/choices/groups','Tech4LearnAuthoringController@choices'],

@@ -9,14 +9,15 @@ use App\Services\Tech4LearnContentCopies;
 /** Server-credential API. T4L authorises its authenticated superadmin before transfers. */
 class Tech4LearnContentController extends Tech4LearnPlatformController
 {
-    public function centralWrite(Request $r,string $id='new') {
+    public function centralImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image');}
+    public function centralWrite(Request $r,string $id='new',?string $action=null) {
         $central=$this->configuration($r)['_platform']['organization_id'];
         abort_unless($r->query()===[]&&!array_diff(array_keys($r->all()),['actor_id','fields','revision','request_id']),422);
         abort_unless($id==='new'||preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
         foreach(['actor_id','revision','request_id'] as $key)abort_unless(is_string($r->input($key)),422);
         abort_unless(is_array($r->input('fields')),422);
         try {
-            $result=app(\App\Services\Tech4LearnQuestionAuthoring::class)->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'));
+            $result=app(\App\Services\Tech4LearnQuestionAuthoring::class)->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action);
             return $this->reply($central,['saved'=>true,'question'=>$result]);
         }catch(\Illuminate\Validation\ValidationException $e){return $this->reply($central,['saved'=>false,'errors'=>$e->errors()]);}
         catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){

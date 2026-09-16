@@ -108,15 +108,19 @@ final class Tech4LearnQuestionAuthoring
         return hash('sha256',json_encode([$attributes,$question->groups()->orderBy('groups.id')->pluck('groups.id')->all(),$question->tags()->orderBy('question_tags.id')->pluck('question_tags.id')->all()],JSON_THROW_ON_ERROR));
     }
     /** Dedicated-credential caller supplies the configured central owner, never a browser organisation ID. */
-    public function saveCentralQuestion(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
+    public function saveCentralQuestion(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,?string $action=null):array {
         abort_unless($central>0&&$id>=0&&count($fields)>0,422);
+        abort_unless($action===null||($action==='set-image'&&$id>0),422);
+        $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        if(array_diff(array_keys($fields),self::FIELDS)||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>250000)
+        if(array_diff(array_keys($fields),$imageAction?['field','image','asset','remove']:self::FIELDS)||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
-        $fingerprint=hash('sha256',json_encode([$actor,$id,$fields,$revision],JSON_THROW_ON_ERROR));
-        return DB::transaction(function()use($central,$actor,$id,$fields,$revision,$requestId,$fingerprint){
+        $identity=[$actor,$id,$fields,$revision];if($imageAction)$identity[]=$action;
+        $fingerprint=hash('sha256',json_encode($identity,JSON_THROW_ON_ERROR));
+        $storedImage=null;
+        try{return DB::transaction(function()use($central,$actor,$id,$fields,$revision,$requestId,$fingerprint,$imageAction,&$storedImage){
             // Serialise provisioning and retries within this actual central organisation.
             Organization::where('status','active')->lockForUpdate()->findOrFail($central);
             $prior=DB::table('tech4learn_central_requests')->where('organization_id',$central)->where('request_id',$requestId)->first();
@@ -133,11 +137,12 @@ final class Tech4LearnQuestionAuthoring
             $question=$id?$this->owned('questions',$central)->lockForUpdate()->findOrFail($id):null;
             if($question)abort_unless(hash_equals($this->snapshot($question)['revision'],$revision),409,'Central question changed. Reload before saving.');
             else abort_unless($revision==='new',422);
+            if($imageAction)$fields=app(Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             $values=$question?array_replace($this->snapshot($question)['fields'],$fields):$fields;
             $result=$this->invoke($central,$user,$values,$question,'questions');
             DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
-        });
+        });}catch(\Throwable $error){if($storedImage!==null)app(Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
     }
     public function save(string $workspace,int $tenant,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind='questions',?string $action=null):array {
         [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
