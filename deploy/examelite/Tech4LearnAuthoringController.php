@@ -87,6 +87,20 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         $question=Question::where('organization_id',$owner)->findOrFail($id);
         return $this->reply($central,app(\App\Services\Tech4LearnQuestionMedia::class)->readAuthoring($question,$owner,$asset));
     }
+    public function packageMedia(Request $r,string $org,string $id,string $asset){
+        abort_unless(count($r->query())===0&&preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
+        [$central,$owner]=$this->workspace($r,$org,'subjects');
+        \App\Models\Organization::where('status','active')->findOrFail($owner);
+        $package=\App\Models\Package::where('organization_id',$owner)->findOrFail($id);
+        $data=app(\App\Services\Tech4LearnQuestionMedia::class)->readPackage($package,$owner,$asset);
+        // Do not release bytes after a workspace restriction or photo change.
+        [$againCentral,$againOwner]=$this->workspace($r,$org,'subjects');
+        abort_unless($againCentral===$central&&$againOwner===$owner,403);
+        \App\Models\Organization::where('status','active')->findOrFail($owner);
+        $current=\App\Models\Package::where('organization_id',$owner)->findOrFail($id);
+        abort_unless(hash_equals($asset,hash('sha256',trim((string)$current->photo))),409);
+        return $this->reply($central,$data);
+    }
     public function examAction(Request $r,string $org,string $id,string $action){return $this->save($r,$org,$id,'exams',$action);}
     public function disableLanguage(Request $r,string $org,string $id){return $this->save($r,$org,$id,'languages','disable-language');}
     public function questionImageWrite(Request $r,string $org,string $id){return $this->save($r,$org,$id,'questions','set-image');}

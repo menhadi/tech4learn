@@ -9,6 +9,15 @@ class Tech4LearnQuestionMedia
 {
  public const AUTHORING_FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'];
  public const MAX_BYTES=10485760;
+ /** Read only the current, owned native package photo; never a caller-supplied path. */
+ public function readPackage(\App\Models\Package $package,int $owner,string $key):array {
+  abort_unless($owner>0&&(int)$package->organization_id===$owner,403);
+  abort_unless(preg_match('/^[a-f0-9]{64}$/D',$key),422);
+  $source=trim((string)$package->photo);
+  abort_unless($source!==''&&hash_equals(hash('sha256',$source),$key),404);
+  abort_unless(preg_match('#^/?uploads/package/[a-zA-Z0-9_.-]+$#D',$source),422);
+  return $this->rasterBytes($this->file(public_path(ltrim($source,'/')),public_path('uploads/package')))+['asset'=>$key,'package_id'=>(int)$package->id];
+ }
  /** Caller supplies only wording from an already authorised, revision-checked review. */
  public function readReferenced(array $wording,string $key):array {
   abort_unless(preg_match('/^[a-f0-9]{64}$/D',$key),422);
@@ -79,7 +88,9 @@ class Tech4LearnQuestionMedia
   return $this->raster($sources[$key])+['asset'=>$key,'question_id'=>(int)$question->id,'attempt_id'=>(int)$attempt->id];
  }
  private function raster(string $source):array {
-  $bytes=$this->bytes($source);
+  return $this->rasterBytes($this->bytes($source));
+ }
+ private function rasterBytes(string $bytes):array {
   abort_unless(strlen($bytes)>0&&strlen($bytes)<=self::MAX_BYTES,422);
   $details=@getimagesizefromstring($bytes);$mime=$details['mime']??'';
   abort_unless(in_array($mime,['image/png','image/jpeg','image/gif','image/webp','image/avif'],true)&&($details[0]??0)*($details[1]??0)<=40000000,422);

@@ -47,6 +47,7 @@ foreach([
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions','Tech4LearnAuthoringController@create'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1/image','Tech4LearnAuthoringController@questionImageWrite'],
  ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1/media/'.str_repeat('a',64),'Tech4LearnAuthoringController@questionMedia'],
+ ['GET','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/packages/1/media/'.str_repeat('a',64),'Tech4LearnAuthoringController@packageMedia'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/taxonomy/subjects/new','Tech4LearnAuthoringController@saveTaxonomy'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/taxonomy/languages/1/disable','Tech4LearnAuthoringController@disableLanguage'],
  ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/questions/1','Tech4LearnAuthoringController@save'],
