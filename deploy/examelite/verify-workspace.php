@@ -43,6 +43,8 @@ foreach([
  ['POST','tech4learn/library/exam/1/copy','Tech4LearnLibraryController@copy'],
  ['GET','api/tech4learn/v1/workspace/status','Tech4LearnWorkspaceController@health'],
  ['GET','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/questions','Tech4LearnContentController@questions'],
+ ['GET','api/tech4learn/v1/central/packages/1/media/'.str_repeat('a',64),'Tech4LearnContentController@centralPackageMedia'],
+ ['POST','api/tech4learn/v1/central/packages/1/image','Tech4LearnContentController@centralPackageImageWrite'],
  ['GET','api/tech4learn/v1/central/choices/groups','Tech4LearnAuthoringController@centralChoices'],
  ['GET','api/tech4learn/v1/central/taxonomy/groups/new','Tech4LearnContentController@centralTaxonomy'],
  ['POST','api/tech4learn/v1/central/taxonomy/groups/new','Tech4LearnContentController@centralTaxonomyWrite'],

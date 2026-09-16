@@ -115,13 +115,16 @@ final class Tech4LearnQuestionAuthoring
         abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages'],true),422);
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,$kind);
     }
+    public function saveCentralPackageImage(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
+        return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'packages','set-image');
+    }
     private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {
         abort_unless($central>0&&$id>=0&&count($fields)>0,422);
         abort_unless($action===null||($action==='set-image'&&$id>0),422);
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        if(array_diff(array_keys($fields),$imageAction?['field','image','asset','remove']:$this->definition($kind)[2])||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
+        if(array_diff(array_keys($fields),$imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):$this->definition($kind)[2])||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
@@ -145,16 +148,16 @@ final class Tech4LearnQuestionAuthoring
             $question=$id?$this->owned($kind,$central)->lockForUpdate()->findOrFail($id):null;
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Central record changed. Reload before saving.');
             else abort_unless($revision==='new',422);
-            if($imageAction)$fields=app(Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
+            if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             if($kind==='packages'){
                 abort_unless(($values['package_type']??null)==='free'&&(!$question||$question->package_type==='free'),422,'Central paid package authoring is not available through this adapter.');
                 $this->validatePackageTags($central,$values);
             }
-            $result=$this->invoke($central,$user,$values,$question,$kind);
+            $result=$this->invoke($central,$user,$values,$question,$kind,$imageAction&&$kind==='packages'?'set-package-image':null);
             DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
-        });}catch(\Throwable $error){if($storedImage!==null)app(Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
+        });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
     }
     private function validatePackageTags(int $owner,array $values):void {
         abort_unless(!isset($values['tag_ids'])||is_array($values['tag_ids']),422);

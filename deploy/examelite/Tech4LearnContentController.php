@@ -10,6 +10,7 @@ use App\Services\Tech4LearnContentCopies;
 class Tech4LearnContentController extends Tech4LearnPlatformController
 {
     public function centralImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image');}
+    public function centralPackageImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image','packages');}
     private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages'],true),404);}
     public function centralTaxonomy(Request $r,string $kind,string $id) {
         $central=(int)$this->configuration($r)['_platform']['organization_id'];
@@ -36,7 +37,7 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         abort_unless(is_array($r->input('fields')),422);
         try {
             $service=app(\App\Services\Tech4LearnQuestionAuthoring::class);
-            $result=$kind==='questions'?$service->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):$service->saveCentralTaxonomy($central,$r->input('actor_id'),$kind,$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'));
+            $result=$kind==='questions'?$service->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):($kind==='packages'&&$action==='set-image'?$service->saveCentralPackageImage($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id')):$service->saveCentralTaxonomy($central,$r->input('actor_id'),$kind,$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id')));
             return $this->reply($central,$kind==='questions'?['saved'=>true,'question'=>$result]:['saved'=>true,'kind'=>$kind,'record'=>$result]);
         }catch(\Illuminate\Validation\ValidationException $e){return $this->reply($central,['saved'=>false,'errors'=>$e->errors()]);}
         catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){
@@ -71,6 +72,19 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         [$currentTenant,$current]=$this->centralQuestion($r,$id);
         abort_unless($tenant===$currentTenant&&hash_equals($authoring->snapshot($current)['revision'],$revision),409,'Question changed. Reload its preview.');
         return $this->reply($tenant,$result+['revision'=>$revision]);
+    }
+    public function centralPackageMedia(Request $r,string $id,string $asset) {
+        abort_unless($r->query()===[]&&preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
+        $owner=(int)$this->configuration($r)['_platform']['organization_id'];
+        \App\Models\Organization::where('status','active')->findOrFail($owner);
+        $package=\App\Models\Package::where('organization_id',$owner)->where('package_type','free')->findOrFail((int)$id);
+        $data=app(\App\Services\Tech4LearnQuestionMedia::class)->readPackage($package,$owner,$asset);
+        $again=(int)$this->configuration($r)['_platform']['organization_id'];
+        abort_unless($again===$owner,403);
+        \App\Models\Organization::where('status','active')->findOrFail($owner);
+        $current=\App\Models\Package::where('organization_id',$owner)->where('package_type','free')->findOrFail((int)$id);
+        abort_unless(hash_equals($asset,hash('sha256',trim((string)$current->photo))),409);
+        return $this->reply($owner,$data);
     }
     public function history(Request $r,string $org) {
         $tenant=$this->configuration($r)['_platform']['organization_id'];$this->uuid($org);
