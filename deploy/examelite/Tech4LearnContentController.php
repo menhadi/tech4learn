@@ -15,8 +15,15 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         abort_unless($id==='new'||preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
         foreach(['actor_id','revision','request_id'] as $key)abort_unless(is_string($r->input($key)),422);
         abort_unless(is_array($r->input('fields')),422);
-        $result=app(\App\Services\Tech4LearnQuestionAuthoring::class)->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'));
-        return $this->reply($central,$result);
+        try {
+            $result=app(\App\Services\Tech4LearnQuestionAuthoring::class)->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'));
+            return $this->reply($central,['saved'=>true,'question'=>$result]);
+        }catch(\Illuminate\Validation\ValidationException $e){return $this->reply($central,['saved'=>false,'errors'=>$e->errors()]);}
+        catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){
+            if($e->getStatusCode()===409)return $this->reply($central,['saved'=>false,'conflict'=>true]);
+            if(in_array($e->getStatusCode(),[404,422],true))return $this->reply($central,['saved'=>false,'errors'=>['record'=>['Check that the selected records belong to the central bank and exam group.']]]);
+            throw $e;
+        }
     }
     /** Separate central-bank reads: an organisation ID can never select this owner. */
     private function centralQuestion(Request $r,string $id):array {

@@ -16,16 +16,149 @@ import { translationReview } from "./exam-translation-review.js";
 
 @Injectable()
 export class ExamContentService {
-  private async centralAccess(user: Account, org: string, id: string) {
+  private async centralAccess(
+    user: Account,
+    org: string,
+    id: string,
+    allowCreate = false,
+  ) {
     this.admin(user);
     await this.organisation(org);
-    if (!/^[1-9][0-9]{0,14}$/.test(id))
+    if (!(allowCreate && id === "new") && !/^[1-9][0-9]{0,14}$/.test(id))
       throw new BadRequestException("Invalid central question.");
     const current = await this.db.query<{ is_superadmin: boolean }>(
       "SELECT is_superadmin FROM users WHERE id=$1",
       [user.id],
     );
     if (current.rows[0]?.is_superadmin !== true) throw new ForbiddenException();
+  }
+  async saveCentralQuestion(
+    user: Account,
+    org: string,
+    id: string,
+    body: Record<string, unknown>,
+    query: Record<string, unknown>,
+  ) {
+    await this.centralAccess(user, org, id, true);
+    const fields = body.fields;
+    const allowed = [
+      "qtype_id",
+      "subject_id",
+      "question_section_id",
+      "topic_id",
+      "stopic_id",
+      "diff_id",
+      "passage_id",
+      "language_id",
+      "question",
+      "option1",
+      "option2",
+      "option3",
+      "option4",
+      "option5",
+      "option6",
+      "marks",
+      "negative_marks",
+      "scoring_policy",
+      "hint",
+      "explanation",
+      "answer",
+      "true_false",
+      "fill_blank",
+      "fill_blank_answers",
+      "nat_mode",
+      "nat_value",
+      "nat_min",
+      "nat_max",
+      "nat_tolerance",
+      "status",
+      "correct_answers",
+      "si_answer1",
+      "group_ids",
+      "tag_ids",
+    ];
+    if (
+      Object.keys(query).length ||
+      Object.keys(body).some(
+        (key) => !["fields", "revision", "request_id"].includes(key),
+      ) ||
+      !fields ||
+      typeof fields !== "object" ||
+      Array.isArray(fields) ||
+      !Object.keys(fields).length ||
+      Object.keys(fields).some((key) => !allowed.includes(key)) ||
+      Buffer.byteLength(JSON.stringify(fields), "utf8") > 250000 ||
+      typeof body.revision !== "string" ||
+      (id === "new"
+        ? body.revision !== "new"
+        : !/^[a-f0-9]{64}$/.test(body.revision)) ||
+      typeof body.request_id !== "string" ||
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(
+        body.request_id,
+      )
+    )
+      throw new BadRequestException("Invalid central question changes.");
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `central/questions${id === "new" ? "" : "/" + id}`,
+      {
+        actor_id: user.id,
+        fields,
+        revision: body.revision,
+        request_id: body.request_id,
+      },
+      4000000,
+      30000,
+    );
+    await this.centralAccess(user, org, id, true);
+    if (response.saved === false && response.conflict === true)
+      throw new ConflictException(
+        "The central question or request changed. Reload before saving again.",
+      );
+    if (
+      response.saved === false &&
+      response.errors &&
+      typeof response.errors === "object" &&
+      !Array.isArray(response.errors)
+    ) {
+      const messages = Object.values(response.errors)
+        .flat()
+        .filter((value): value is string => typeof value === "string")
+        .slice(0, 12)
+        .map((value) => value.slice(0, 300));
+      throw new BadRequestException(
+        messages.join(" ") || "Check the central question fields.",
+      );
+    }
+    const record = response.question;
+    if (
+      response.saved !== true ||
+      !record ||
+      !Number.isSafeInteger(record.id) ||
+      record.id <= 0 ||
+      record.id >= 1e15 ||
+      (id !== "new" && record.id !== Number(id)) ||
+      typeof record.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(record.revision) ||
+      !record.fields ||
+      typeof record.fields !== "object" ||
+      Array.isArray(record.fields) ||
+      !record.preview_fields ||
+      typeof record.preview_fields !== "object" ||
+      Array.isArray(record.preview_fields)
+    )
+      throw new ServiceUnavailableException(
+        "Unable to verify the saved central question. Retry the same request or reload.",
+      );
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      `exams.central.question.${id === "new" ? "created" : "updated"}`,
+      { questionId: record.id, requestId: body.request_id },
+    );
+    return record;
   }
   async centralDetail(
     user: Account,

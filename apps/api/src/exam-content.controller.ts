@@ -493,6 +493,33 @@ export class ExamContentController {
       body ?? {},
     );
   }
+  @Post("platform/exam-content/:org/central/questions")
+  async centralCreate(
+    @Param("org") org: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    return this.centralSave(org, "new", body, query, cookie);
+  }
+  @Post("platform/exam-content/:org/central/questions/:id")
+  async centralSave(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-central-write:${account.id}`, 30, 60);
+    return this.content.saveCentralQuestion(
+      account,
+      org,
+      id,
+      body ?? {},
+      query,
+    );
+  }
   @Get("platform/exam-content/:org/central/questions/:id")
   async centralDetail(
     @Param("org") org: string,

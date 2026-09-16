@@ -90,9 +90,42 @@ test("central question sharing requires superadmin; organisation reads respect m
   );
   let packageWriteMode = "ok";
   let centralMode = "ok";
+  let centralWriteMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
-    if (path.startsWith("central/questions/")) {
+    if (path === "central/questions" || path.startsWith("central/questions/")) {
+      if (body) {
+        if (centralWriteMode === "revoked")
+          await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+            admin,
+          ]);
+        if (centralWriteMode === "conflict")
+          return { saved: false, conflict: true };
+        if (centralWriteMode === "validation")
+          return {
+            saved: false,
+            errors: { question: ["A question is required."] },
+          };
+        if (centralWriteMode === "malformed") return {};
+        return {
+          saved: true,
+          question: {
+            id:
+              centralWriteMode === "wrong"
+                ? -1
+                : path === "central/questions"
+                  ? 77
+                  : 7,
+            revision:
+              centralWriteMode === "revision" ? "invalid" : "a".repeat(64),
+            fields: centralWriteMode === "fields" ? null : body.fields,
+            preview_fields:
+              centralWriteMode === "preview"
+                ? null
+                : { question: "Central question" },
+          },
+        };
+      }
       if (centralMode === "revoked")
         await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
           admin,
@@ -1787,6 +1820,78 @@ test("central question sharing requires superadmin; organisation reads respect m
         admin,
       ]);
     }
+    const centralCreate = platform + "/central/questions";
+    const newCentral = {
+      fields: {
+        question: "Created central original",
+        qtype_id: 2,
+        nat_value: 12,
+      },
+      revision: "new",
+      request_id: randomUUID(),
+    };
+    const editCentral = {
+      fields: { question: "Edited central original" },
+      revision: "a".repeat(64),
+      request_id: randomUUID(),
+    };
+    assert.equal((await call(centralCreate, newCentral, member)).status, 403);
+    assert.equal((await call(centralPath, editCentral, member)).status, 403);
+    const createdCentral = await call(centralCreate, newCentral);
+    assert.equal(createdCentral.status, 201);
+    assert.equal((await createdCentral.json()).id, 77);
+    assert.equal(requests.at(-1).path, "central/questions");
+    assert.deepEqual(requests.at(-1).body, { ...newCentral, actor_id: admin });
+    assert.equal((await call(centralCreate, newCentral)).status, 201);
+    assert.deepEqual(
+      requests.at(-1).body,
+      { ...newCentral, actor_id: admin },
+      "Retry preserves actor, revision and request identity",
+    );
+    assert.equal((await call(centralPath, editCentral)).status, 201);
+    assert.equal(requests.at(-1).path, "central/questions/7");
+    for (const invalid of [
+      { ...editCentral, actor_id: member },
+      { ...editCentral, organization_id: 2 },
+      { ...editCentral, fields: {} },
+      { ...editCentral, fields: [] },
+      { ...editCentral, fields: { organization_id: 2 } },
+      { ...editCentral, fields: { is_platform_admin: true } },
+      { ...editCentral, fields: { question: "छ".repeat(90000) } },
+      { ...editCentral, revision: "new" },
+      { ...editCentral, request_id: "invalid" },
+    ]) {
+      const before = requests.length;
+      assert.equal((await call(centralPath, invalid)).status, 400);
+      assert.equal(requests.length, before);
+    }
+    assert.equal((await call(centralCreate, editCentral)).status, 400);
+    assert.equal(
+      (await call(centralPath + "?actor_id=" + member, editCentral)).status,
+      400,
+    );
+    centralWriteMode = "conflict";
+    assert.equal((await call(centralPath, editCentral)).status, 409);
+    centralWriteMode = "validation";
+    const invalidCentral = await call(centralPath, editCentral);
+    assert.equal(invalidCentral.status, 400);
+    assert.match(
+      (await invalidCentral.json()).message,
+      /A question is required/,
+    );
+    for (const mode of [
+      "wrong",
+      "revision",
+      "fields",
+      "preview",
+      "malformed",
+    ]) {
+      centralWriteMode = mode;
+      assert.equal((await call(centralPath, editCentral)).status, 503);
+    }
+    centralWriteMode = "revoked";
+    assert.equal((await call(centralPath, editCentral)).status, 403);
+    await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
   } finally {
     await app.close();
     await pg.close();
