@@ -116,7 +116,19 @@ $removedCentral=$imageSend($remove,$replacedCentral['revision'],$removeRequest);
 check(!str_contains($removedCentral['fields']['explanation'],'<img')&&count($imageDisk->files)===$fileCount+2,'Central image removal only removes the reference');
 check($imageSend($remove,$replacedCentral['revision'],$removeRequest)===$removedCentral,'Central removal replay is stable');
 $taxActor='cccccccc-1111-1111-1111-111111111111';
-$taxSave=fn($kind,$id,$fields,$revision,$request)=>$service->saveCentralTaxonomy(10,$taxActor,$kind,$id,$fields,$revision,$request);
+$taxSave=function($kind,$id,$fields,$revision,$request)use($taxActor,$centralController){
+ $response=$centralController->centralTaxonomyWrite(Request::create('/','POST',['actor_id'=>$taxActor,'fields'=>$fields,'revision'=>$revision,'request_id'=>$request]),$kind,$id?(string)$id:'new');
+ if($response['conflict']??false)abort(409);
+ if(!$response['saved'])throw Illuminate\Validation\ValidationException::withMessages($response['errors']);
+ check($response['kind']===$kind,'Central write response identifies classification kind');
+ return $response['record'];
+};
+$mappingsBefore=DB::table('tech4learn_central_users')->count();
+foreach(['groups','subjects','topics','subtopics','sections'] as $kind){
+ $empty=$centralController->centralTaxonomy(Request::create('/','GET'),$kind,'new');
+ check($empty['kind']===$kind&&$empty['record']['id']===0&&$empty['record']['revision']==='new','Empty central classification draft: '.$kind);
+}
+check(DB::table('tech4learn_central_users')->count()===$mappingsBefore,'Reading central draft defaults creates no author');
 $groupRequest=$nextId();$groupFields=['group_name'=>'Central authoring group','display_order'=>0];
 $taxGroup=$taxSave('groups',0,$groupFields,'new',$groupRequest);
 check($taxSave('groups',0,$groupFields,'new',$groupRequest)===$taxGroup,'Central group create replay is stable');
@@ -126,6 +138,14 @@ $taxSubtopic=$taxSave('subtopics',0,['name'=>'Central subtopic','group_id'=>$tax
 $taxSection=$taxSave('sections',0,['name'=>'Central section','group_ids'=>[$taxGroup['id']],'status'=>true],'new',$nextId());
 foreach(['groups'=>$taxGroup,'subjects'=>$taxSubject,'topics'=>$taxTopic,'subtopics'=>$taxSubtopic,'sections'=>$taxSection] as $kind=>$record)check($service->owned($kind,10)->whereKey($record['id'])->exists()&&!$service->owned($kind,20)->whereKey($record['id'])->exists(),'Native central classification ownership: '.$kind);
 $renamedGroup=$taxSave('groups',$taxGroup['id'],['group_name'=>'Renamed central group'],$taxGroup['revision'],$nextId());
+check($centralController->centralTaxonomy(Request::create('/','GET'),'groups',(string)$taxGroup['id'])['record']===$renamedGroup,'Central classification read returns current native revision');
+$reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET'),'groups',(string)$group->id));
+$reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET',['organization_id'=>20]),'groups',(string)$taxGroup['id']));
+$reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET'),'languages','new'));
+$reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET'),'groups','0'));
+DB::table('organizations')->where('id',10)->update(['status'=>'inactive']);
+$reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET'),'groups',(string)$taxGroup['id']));
+DB::table('organizations')->where('id',10)->update(['status'=>'active']);
 check($renamedGroup['fields']['group_name']==='Renamed central group'&&$renamedGroup['fields']['display_order']===0,'Central classification edit preserves other settings');
 $reject(fn()=>$taxSave('groups',$taxGroup['id'],['group_name'=>'Stale'],$taxGroup['revision'],$nextId()));
 $reject(fn()=>$taxSave('groups',$group->id,['group_name'=>'Foreign'],$service->record('groups',$group->fresh())['revision'],$nextId()));

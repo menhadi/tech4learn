@@ -29,6 +29,8 @@ Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('t
 });
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::get('/central/choices/{kind}', [Tech4LearnAuthoringController::class, 'centralChoices']);
+    Route::get('/central/taxonomy/{kind}/{id}', [Tech4LearnContentController::class, 'centralTaxonomy']);
+    Route::post('/central/taxonomy/{kind}/{id}', [Tech4LearnContentController::class, 'centralTaxonomyWrite']);
     Route::get('/central/questions/{id}', [Tech4LearnContentController::class, 'centralDetail']);
     Route::post('/central/questions', [Tech4LearnContentController::class, 'centralWrite']);
     Route::post('/central/questions/{id}', [Tech4LearnContentController::class, 'centralWrite']);

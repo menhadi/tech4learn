@@ -10,15 +10,30 @@ use App\Services\Tech4LearnContentCopies;
 class Tech4LearnContentController extends Tech4LearnPlatformController
 {
     public function centralImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image');}
-    public function centralWrite(Request $r,string $id='new',?string $action=null) {
+    private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections'],true),404);}
+    public function centralTaxonomy(Request $r,string $kind,string $id) {
+        $central=(int)$this->configuration($r)['_platform']['organization_id'];
+        $this->centralTaxonomyKind($kind);
+        abort_unless($r->query()===[]&&($id==='new'||preg_match('/^[1-9][0-9]{0,14}$/D',$id)),422);
+        \App\Models\Organization::where('status','active')->findOrFail($central);
+        $service=app(\App\Services\Tech4LearnQuestionAuthoring::class);
+        $record=$id==='new'?['id'=>0,'revision'=>'new','fields'=>array_intersect_key(['display_order'=>0,'group_ids'=>[],'category_ids'=>[],'status'=>true],array_flip($service->definition($kind)[2]))]:$service->record($kind,$service->owned($kind,$central)->findOrFail((int)$id));
+        return $this->reply($central,['kind'=>$kind,'record'=>$record]);
+    }
+    public function centralTaxonomyWrite(Request $r,string $kind,string $id='new') {
+        $this->centralTaxonomyKind($kind);
+        return $this->centralWrite($r,$id,null,$kind);
+    }
+    public function centralWrite(Request $r,string $id='new',?string $action=null,string $kind='questions') {
         $central=$this->configuration($r)['_platform']['organization_id'];
         abort_unless($r->query()===[]&&!array_diff(array_keys($r->all()),['actor_id','fields','revision','request_id']),422);
         abort_unless($id==='new'||preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
         foreach(['actor_id','revision','request_id'] as $key)abort_unless(is_string($r->input($key)),422);
         abort_unless(is_array($r->input('fields')),422);
         try {
-            $result=app(\App\Services\Tech4LearnQuestionAuthoring::class)->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action);
-            return $this->reply($central,['saved'=>true,'question'=>$result]);
+            $service=app(\App\Services\Tech4LearnQuestionAuthoring::class);
+            $result=$kind==='questions'?$service->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):$service->saveCentralTaxonomy($central,$r->input('actor_id'),$kind,$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'));
+            return $this->reply($central,$kind==='questions'?['saved'=>true,'question'=>$result]:['saved'=>true,'kind'=>$kind,'record'=>$result]);
         }catch(\Illuminate\Validation\ValidationException $e){return $this->reply($central,['saved'=>false,'errors'=>$e->errors()]);}
         catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){
             if($e->getStatusCode()===409)return $this->reply($central,['saved'=>false,'conflict'=>true]);
