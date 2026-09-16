@@ -589,6 +589,10 @@ test("central question sharing requires superadmin; organisation reads respect m
         language_id: 5,
         translation_revision: "a".repeat(64),
       },
+      "refresh-translation": {
+        language_id: 5,
+        translation_revision: "a".repeat(64),
+      },
       "generate-document": {
         package_id: 4,
         language_id: 5,
@@ -633,6 +637,16 @@ test("central question sharing requires superadmin; organisation reads respect m
       },
     ]) {
       const before = requests.length;
+      assert.equal(
+        (
+          await call(
+            `/organisations/${org}/exam-content/exams/9/actions/refresh-translation`,
+            { ...edit, fields },
+            member,
+          )
+        ).status,
+        400,
+      );
       assert.equal(
         (
           await call(

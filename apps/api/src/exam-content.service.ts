@@ -825,6 +825,7 @@ export class ExamContentService {
           "set-result-status",
           "generate-document",
           "approve-translation",
+          "refresh-translation",
         ].includes(action))
     )
       throw new BadRequestException("Invalid exam action.");
@@ -851,7 +852,7 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid question changes.");
-    if (action === "approve-translation") {
+    if (action === "approve-translation" || action === "refresh-translation") {
       const fields = b.fields as Record<string, unknown>;
       if (
         Object.keys(fields).some(

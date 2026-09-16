@@ -127,6 +127,7 @@ $reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,['language_
 check(App\Services\ExamDocumentLifecycleService::$queued===1,'Approval cannot enqueue a foreign package PDF');
 $approvalPaper->packages()->detach($foreignPdfPackage->id);
 $approvalQuestion->question='Source needs another translation';$approvalQuestion->save();
+$approvalPaper->languages()->updateExistingPivot($target->id,['translation_status'=>'failed','last_error'=>'Synthetic provider failure']);
 $refreshReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$target->id);
 $refreshRecord=$service->record('exams',$approvalPaper->fresh());
 $refreshFields=['language_id'=>$target->id,'translation_revision'=>$refreshReview['revision']];
@@ -136,8 +137,14 @@ check(App\Jobs\TranslateExamLanguageJob::$queued===0,'Plan restriction blocks di
 $GLOBALS['t4lTestAiTranslation']=true;
 $refresh=$service->save($workspace,20,$actor,$approvalPaper->id,$refreshFields,$refreshRecord['revision'],'translation-refresh','exams','refresh-translation');
 check($refresh['translation_requested']&&App\Jobs\TranslateExamLanguageJob::$queued===1,'Native bulk service queues one selected translation');
+$retryPivot=$approvalPaper->languages()->first()->pivot;
+check($retryPivot->translation_status==='pending'&&!$retryPivot->last_error&&!$retryPivot->translation_approved_at,'Explicit retry resets native failed stop state and prior approval');
 check($service->save($workspace,20,$actor,$approvalPaper->id,$refreshFields,$refreshRecord['revision'],'translation-refresh','exams','refresh-translation')===$refresh&&App\Jobs\TranslateExamLanguageJob::$queued===1,'Translation refresh replay does not dispatch again');
 $reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$target->id,'translation_revision'=>str_repeat('0',64)],$refreshRecord['revision'],'translation-refresh-stale','exams','refresh-translation'));
 check(App\Jobs\TranslateExamLanguageJob::$queued===1,'Stale refresh cannot dispatch');
+$approvalPaper->languages()->updateExistingPivot($target->id,['translation_status'=>'processing']);
+$processingReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$target->id);
+$reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$target->id,'translation_revision'=>$processingReview['revision']],$service->record('exams',$approvalPaper->fresh())['revision'],'translation-already-processing','exams','refresh-translation'));
+check(App\Jobs\TranslateExamLanguageJob::$queued===1,'Processing refresh cannot dispatch another job');
 echo "Native translation review and approval: fingerprints, pagination, media, scope and retry passed.\n";
 }

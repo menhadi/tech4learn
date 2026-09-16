@@ -110,6 +110,7 @@ export function ExamTranslationReview({
   const [message, setMessage] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [pending, setPending] = useState<{
+    action: "approve-translation" | "refresh-translation";
     fields: { language_id: number; translation_revision: string };
     revision: string;
     request_id: string;
@@ -130,19 +131,26 @@ export function ExamTranslationReview({
     }
   }, [disabled]);
   const base = `/organisations/${org}/exam-content/exams/${record.id}/translations/${language}`;
-  async function approve() {
+  async function approve(
+    requestedAction:
+      | "approve-translation"
+      | "refresh-translation" = "approve-translation",
+  ) {
+    const action = pending?.action ?? requestedAction;
+    const complete =
+      review?.progress.remaining === 0 && review.progress.exam_content_ready;
     if (
       disabled ||
       busy ||
       (!pending &&
         (!review ||
-          !confirmed ||
-          review.approved ||
-          review.progress.remaining !== 0 ||
-          !review.progress.exam_content_ready))
+          (action === "approve-translation"
+            ? !confirmed || review.approved || !complete
+            : complete || review.progress.status === "processing")))
     )
       return;
     const payload = pending ?? {
+      action,
       fields: {
         language_id: review!.language_id,
         translation_revision: review!.revision,
@@ -155,10 +163,11 @@ export function ExamTranslationReview({
     setBusy(true);
     setMessage("");
     try {
+      const { action: _action, ...body } = payload;
       await api(
-        `/organisations/${org}/exam-content/exams/${record.id}/actions/approve-translation`,
+        `/organisations/${org}/exam-content/exams/${record.id}/actions/${action}`,
         "POST",
-        payload,
+        body,
         35000,
       );
       if (version !== request.current) return;
@@ -166,7 +175,9 @@ export function ExamTranslationReview({
       setReview(null);
       setConfirmed(false);
       setMessage(
-        "Translation approved. Reload the review to see its current status. Automatic PDFs follow the saved exam settings.",
+        action === "approve-translation"
+          ? "Translation approved. Reload the review to see its current status. Automatic PDFs follow the saved exam settings."
+          : "Translation refresh requested. The ExamElite worker must finish before the new wording can be reviewed. Reload to check progress.",
       );
     } catch (error) {
       if (version !== request.current) return;
@@ -181,7 +192,7 @@ export function ExamTranslationReview({
       setMessage(
         error instanceof Error
           ? error.message
-          : "Approval could not be confirmed. Retry the same request or reload the review.",
+          : "The translation request could not be confirmed. Retry the same request or reload the review.",
       );
     } finally {
       if (version === request.current) setBusy(false);
@@ -272,21 +283,45 @@ export function ExamTranslationReview({
       {pending && (
         <div role="status">
           <p>
-            Approval has not been confirmed. Retry preserves the same reviewed
-            version and request. Reloading checks the saved status before
-            starting another approval.
+            The translation request has not been confirmed. Retry preserves the
+            same action, reviewed version and request. Reloading checks the
+            saved status before starting another request.
           </p>
           <button
             type="button"
             disabled={disabled || busy}
             onClick={() => void approve()}
           >
-            Retry translation approval
+            {pending.action === "approve-translation"
+              ? "Retry translation approval"
+              : "Retry translation refresh"}
           </button>
         </div>
       )}
       {review && (
         <>
+          {(review.progress.remaining > 0 ||
+            !review.progress.exam_content_ready) &&
+            !pending && (
+              <div>
+                <p>
+                  Refresh uses the organisation's ExamElite AI translation
+                  service. Automatic approval and PDFs follow its saved
+                  automation settings.
+                </p>
+                <button
+                  type="button"
+                  disabled={
+                    disabled || busy || review.progress.status === "processing"
+                  }
+                  onClick={() => void approve("refresh-translation")}
+                >
+                  {review.progress.status === "processing"
+                    ? "Translation is processing"
+                    : "Refresh missing or outdated translations"}
+                </button>
+              </div>
+            )}
           <p>
             {review.progress.translated} of {review.progress.total} questions
             have current translations; {review.progress.remaining} need

@@ -175,7 +175,7 @@ final class Tech4LearnQuestionAuthoring
                 $review=app(Tech4LearnExamTranslations::class)->review($workspace,(int)$w->source_organization_id,$actor,$id,$fields['language_id'],0,$fields['translation_revision']);
                 $complete=$review['progress']['remaining']===0&&$review['progress']['exam_content_ready'];
                 if($action==='approve-translation')abort_unless($complete,409,'Complete and review the current translation before approving it.');
-                else abort_unless(!$complete,409,'This translation is already current. Reload its review.');
+                else {abort_unless(!$complete,409,'This translation is already current. Reload its review.');abort_unless($review['progress']['status']!=='processing',409,'Translation is already processing. Reload its review later.');}
                 abort_unless($question->packages()->where('packages.organization_id',$tenant)->count()===$question->packages()->count(),403);
             }
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
@@ -230,6 +230,9 @@ final class Tech4LearnQuestionAuthoring
             if(in_array($kind,['languages','packages'],true)||in_array($action,['generate-document','approve-translation','refresh-translation'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
             if($action==='refresh-translation'){
                 abort_unless(\App\Support\SaasAccess::featureEnabled('ai_translation',$organisation),403,'AI translation is not enabled for this organisation plan.');
+                // The native worker intentionally ignores failed rows. An explicit
+                // staff retry resets that stop state and the old approval first.
+                $question->languages()->updateExistingPivot($fields['language_id'],['translation_status'=>'pending','last_error'=>null,'translating_at'=>null,'translation_failed_source_fingerprint'=>null,'translation_approved_at'=>null,'translation_approved_by'=>null]);
                 $result=app(ExamDocumentBulkActionService::class)->process([$question->id.':0:'.$fields['language_id']],$tenant,(int)$user->id,'translate',true);
                 abort_unless($result['processed']===1,409,'This translation could not be queued.');
                 return $this->record($kind,$question)+['translation_requested'=>true];
