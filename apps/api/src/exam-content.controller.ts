@@ -493,6 +493,44 @@ export class ExamContentController {
       body ?? {},
     );
   }
+  @Get("platform/exam-content/:org/central/questions/:id")
+  async centralDetail(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-central-preview:${account.id}`, 60, 60);
+    return this.content.centralDetail(account, org, id, query);
+  }
+  @Get(
+    "platform/exam-content/:org/central/questions/:id/:revision/media/:asset",
+  )
+  async centralMedia(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("revision") revision: string,
+    @Param("asset") asset: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-central-media:${account.id}`, 180, 60);
+    const image = await this.content.centralMedia(
+      account,
+      org,
+      id,
+      revision,
+      asset,
+      query,
+    );
+    response.setHeader("Content-Type", image.mime);
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(image.buffer);
+  }
   @Get("platform/exam-content/:org/questions") async central(
     @Param("org") org: string,
     @Query("source") source = "central",

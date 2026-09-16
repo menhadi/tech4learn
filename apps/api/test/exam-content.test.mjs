@@ -89,8 +89,33 @@ test("central question sharing requires superadmin; organisation reads respect m
     ].map((key) => [key, key === "question" ? "Synthetic wording" : null]),
   );
   let packageWriteMode = "ok";
+  let centralMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    if (path.startsWith("central/questions/")) {
+      if (centralMode === "revoked")
+        await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+          admin,
+        ]);
+      if (path.includes("/media/"))
+        return {
+          question_id: centralMode === "wrong" ? 8 : 7,
+          revision:
+            centralMode === "revision" ? "b".repeat(64) : "a".repeat(64),
+          asset: "c".repeat(64),
+          mime: centralMode === "mime" ? "image/svg+xml" : "image/png",
+          base64:
+            centralMode === "base64"
+              ? "!"
+              : Buffer.from("synthetic raster").toString("base64"),
+        };
+      return {
+        id: centralMode === "wrong" ? 8 : 7,
+        revision: centralMode === "revision" ? "invalid" : "a".repeat(64),
+        fields: { question: "Central original" },
+        preview_fields: { question: "Central original" },
+      };
+    }
     if (path.startsWith("translations/")) {
       if (translationMode === "revoked")
         await pg.query(
@@ -1710,6 +1735,58 @@ test("central question sharing requires superadmin; organisation reads respect m
       (await call(platform + "/questions?source=central")).status,
       200,
     );
+    const centralPath = platform + "/central/questions/7";
+    const centralImage =
+      centralPath + "/" + "a".repeat(64) + "/media/" + "c".repeat(64);
+    assert.equal((await call(centralPath, undefined, member)).status, 403);
+    assert.equal((await call(centralImage, undefined, member)).status, 403);
+    const centralResult = await call(centralPath);
+    assert.equal(centralResult.status, 200);
+    assert.equal(
+      (await centralResult.json()).fields.question,
+      "Central original",
+    );
+    assert.equal(requests.at(-1).path, "central/questions/7");
+    const centralRaster = await call(centralImage);
+    assert.equal(centralRaster.status, 200);
+    assert.equal(centralRaster.headers.get("content-type"), "image/png");
+    assert.equal(centralRaster.headers.get("cache-control"), "no-store");
+    assert.equal(
+      centralRaster.headers.get("x-content-type-options"),
+      "nosniff",
+    );
+    assert.equal(await centralRaster.text(), "synthetic raster");
+    assert.equal(
+      requests.at(-1).path,
+      "central/questions/7/media/" +
+        "c".repeat(64) +
+        "?revision=" +
+        "a".repeat(64),
+    );
+    for (const path of [
+      centralPath + "?organization_id=2",
+      centralImage + "?path=secret",
+      platform + "/central/questions/0",
+    ]) {
+      const before = requests.length;
+      assert.equal((await call(path)).status, 400);
+      assert.equal(requests.length, before);
+    }
+    for (const mode of ["wrong", "revision"]) {
+      centralMode = mode;
+      assert.equal((await call(centralPath)).status, 503);
+    }
+    for (const mode of ["wrong", "revision", "mime", "base64"]) {
+      centralMode = mode;
+      assert.equal((await call(centralImage)).status, 503);
+    }
+    for (const path of [centralPath, centralImage]) {
+      centralMode = "revoked";
+      assert.equal((await call(path)).status, 403);
+      await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+        admin,
+      ]);
+    }
   } finally {
     await app.close();
     await pg.close();

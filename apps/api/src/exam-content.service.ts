@@ -16,6 +16,115 @@ import { translationReview } from "./exam-translation-review.js";
 
 @Injectable()
 export class ExamContentService {
+  private async centralAccess(user: Account, org: string, id: string) {
+    this.admin(user);
+    await this.organisation(org);
+    if (!/^[1-9][0-9]{0,14}$/.test(id))
+      throw new BadRequestException("Invalid central question.");
+    const current = await this.db.query<{ is_superadmin: boolean }>(
+      "SELECT is_superadmin FROM users WHERE id=$1",
+      [user.id],
+    );
+    if (current.rows[0]?.is_superadmin !== true) throw new ForbiddenException();
+  }
+  async centralDetail(
+    user: Account,
+    org: string,
+    id: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.centralAccess(user, org, id);
+    if (Object.keys(query).length)
+      throw new BadRequestException("Invalid central preview.");
+    const data = await this.remote.request(
+      await this.config(),
+      org,
+      `central/questions/${id}`,
+      undefined,
+      4000000,
+      30000,
+    );
+    await this.centralAccess(user, org, id);
+    if (
+      data.id !== Number(id) ||
+      typeof data.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(data.revision) ||
+      !data.fields ||
+      typeof data.fields !== "object" ||
+      Array.isArray(data.fields) ||
+      !data.preview_fields ||
+      typeof data.preview_fields !== "object" ||
+      Array.isArray(data.preview_fields)
+    )
+      throw new ServiceUnavailableException(
+        "The central question could not be loaded.",
+      );
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      "exams.central.question.viewed",
+      { questionId: Number(id) },
+    );
+    return data;
+  }
+  async centralMedia(
+    user: Account,
+    org: string,
+    id: string,
+    revision: string,
+    asset: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.centralAccess(user, org, id);
+    if (
+      Object.keys(query).length ||
+      !/^[a-f0-9]{64}$/.test(revision) ||
+      !/^[a-f0-9]{64}$/.test(asset)
+    )
+      throw new BadRequestException("Invalid central image.");
+    const data = await this.remote.request(
+      await this.config(),
+      org,
+      `central/questions/${id}/media/${asset}?revision=${revision}`,
+      undefined,
+      14000000,
+      30000,
+    );
+    await this.centralAccess(user, org, id);
+    const invalid = () =>
+      new ServiceUnavailableException("The central image could not be loaded.");
+    if (
+      data.question_id !== Number(id) ||
+      data.revision !== revision ||
+      data.asset !== asset ||
+      ![
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/avif",
+      ].includes(data.mime) ||
+      typeof data.base64 !== "string" ||
+      data.base64.length > 13981016
+    )
+      throw invalid();
+    const buffer = Buffer.from(data.base64, "base64");
+    if (
+      !buffer.length ||
+      buffer.length > 10485760 ||
+      buffer.toString("base64") !== data.base64
+    )
+      throw invalid();
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      "exams.central.question.image.viewed",
+      { questionId: Number(id), asset },
+    );
+    return { buffer, mime: data.mime };
+  }
   async translationMedia(
     user: Account,
     org: string,

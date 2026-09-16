@@ -3,6 +3,7 @@ import { api } from "./api";
 import { DraftForm } from "./DraftForm";
 import { SmartTable } from "./DirectoryTable";
 import { ExamQuestionEditor } from "./ExamQuestionEditor";
+import { ExamCentralQuestionPreview } from "./ExamCentralQuestionPreview";
 
 type Modules = { enabled_modules: Record<string, boolean>; version: number };
 type Question = {
@@ -127,6 +128,7 @@ export function ExamQuestions({
     [loadedSearch, setLoadedSearch] = useState("");
   const [request, setRequest] = useState<string | null>(null);
   const [editing, setEditing] = useState<number | "new" | null>(null);
+  const [previewing, setPreviewing] = useState<number | null>(null);
   const [history, setHistory] = useState<
     {
       request_id: string;
@@ -183,6 +185,14 @@ export function ExamQuestions({
       setBusy(false);
     }
   }
+  if (previewing !== null)
+    return (
+      <ExamCentralQuestionPreview
+        org={org}
+        id={previewing}
+        onClose={() => setPreviewing(null)}
+      />
+    );
   if (editing !== null)
     return (
       <ExamQuestionEditor
@@ -303,7 +313,7 @@ export function ExamQuestions({
             <th>Question</th>
             <th>ID</th>
             {central && <th>Select</th>}
-            {(!central || source === "organisation") && <th>Actions</th>}
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -332,7 +342,13 @@ export function ExamQuestions({
                   />
                 </td>
               )}
-              {(!central || source === "organisation") && (
+              {central && source === "central" ? (
+                <td>
+                  <button disabled={busy} onClick={() => setPreviewing(q.id)}>
+                    Preview original
+                  </button>
+                </td>
+              ) : (
                 <td>
                   <button disabled={busy} onClick={() => setEditing(q.id)}>
                     Edit question

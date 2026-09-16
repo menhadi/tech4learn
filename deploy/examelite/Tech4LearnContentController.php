@@ -9,6 +9,33 @@ use App\Services\Tech4LearnContentCopies;
 /** Server-credential API. T4L authorises its authenticated superadmin before transfers. */
 class Tech4LearnContentController extends Tech4LearnPlatformController
 {
+    /** Separate central-bank reads: an organisation ID can never select this owner. */
+    private function centralQuestion(Request $r,string $id):array {
+        $tenant=$this->configuration($r)['_platform']['organization_id'];
+        abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
+        \App\Models\Organization::where('status','active')->findOrFail($tenant);
+        return [$tenant,Question::where('organization_id',$tenant)->findOrFail((int)$id)];
+    }
+    public function centralDetail(Request $r,string $id) {
+        abort_unless($r->query()===[],422);
+        [$tenant,$question]=$this->centralQuestion($r,$id);
+        $record=app(\App\Services\Tech4LearnQuestionAuthoring::class)->snapshot($question);
+        // A preview exposes opaque image references, never native storage locations.
+        foreach($record['preview_fields'] as $field=>$value)$record['fields'][$field]=$value;
+        return $this->reply($tenant,$record);
+    }
+    public function centralMedia(Request $r,string $id,string $asset) {
+        abort_unless(array_keys($r->query())===['revision']&&is_string($r->query('revision'))&&preg_match('/^[a-f0-9]{64}$/D',$r->query('revision')),422);
+        [$tenant,$question]=$this->centralQuestion($r,$id);
+        $authoring=app(\App\Services\Tech4LearnQuestionAuthoring::class);
+        $revision=$r->query('revision');
+        abort_unless(hash_equals($authoring->snapshot($question)['revision'],$revision),409,'Question changed. Reload its preview.');
+        $result=app(\App\Services\Tech4LearnQuestionMedia::class)->readAuthoring($question,$tenant,$asset);
+        // Revalidate the credential, active owner and question version before releasing bytes.
+        [$currentTenant,$current]=$this->centralQuestion($r,$id);
+        abort_unless($tenant===$currentTenant&&hash_equals($authoring->snapshot($current)['revision'],$revision),409,'Question changed. Reload its preview.');
+        return $this->reply($tenant,$result+['revision'=>$revision]);
+    }
     public function history(Request $r,string $org) {
         $tenant=$this->configuration($r)['_platform']['organization_id'];$this->uuid($org);
         $workspace=DB::table('tech4learn_workspaces')->where('id',$org)->where('source_organization_id',$tenant)->exists();
