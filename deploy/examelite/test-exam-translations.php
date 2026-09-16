@@ -206,5 +206,12 @@ $beforeExam=$newExamTarget->getAttributes();
 try{$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$newLanguage->id,'translation_revision'=>$badExamReview['revision'],'wording'=>['name'=>'']],$service->record('exams',$approvalPaper->fresh())['revision'],'exam-wording-invalid','exams','save-exam-translation');throw new RuntimeException('Expected exam translation validation');}catch(Illuminate\Validation\ValidationException $e){}
 check($newExamTarget->fresh()->getAttributes()===$beforeExam,'Invalid exam title rolls back without changing translation');
 $reject(fn()=>$service->save($workspace,20,$actor,$approvalPaper->id,['language_id'=>$newLanguage->id,'translation_revision'=>$badExamReview['revision'],'wording'=>['organization_id'=>30]],$service->record('exams',$approvalPaper->fresh())['revision'],'exam-wording-override','exams','save-exam-translation'));
-echo "Native translation review and approval: fingerprints, pagination, media, scope and retry passed.\n";
+$formulaReview=$reader->review($workspace,10,$actor,$approvalPaper->id,$newLanguage->id);
+$formulaRecord=$service->record('exams',$approvalPaper->fresh());
+$formulaWording='<p>Translated \\(x^{2}\\) and <math><mfrac><mi>y</mi><mn>2</mn></mfrac></math>.</p>';
+$formulaFields=array_replace($newFields,['translation_revision'=>$formulaReview['revision'],'wording'=>['question'=>$formulaWording]]);
+$formulaSaved=$service->save($workspace,20,$actor,$approvalPaper->id,$formulaFields,$formulaRecord['revision'],'translated-formula-replacement','exams','save-question-translation');
+check($newTarget->fresh()->question===$formulaWording,'Translated checked TeX and retained MathML survive native save');
+check($service->save($workspace,20,$actor,$approvalPaper->id,$formulaFields,$formulaRecord['revision'],'translated-formula-replacement','exams','save-question-translation')===$formulaSaved,'Translated formula replay retains the outcome');
+echo "Native translation review and approval: fingerprints, pagination, media, formula replacement, scope and retry passed.\n";
 }

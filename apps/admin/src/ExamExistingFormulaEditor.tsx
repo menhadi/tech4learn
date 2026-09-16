@@ -39,6 +39,10 @@ function parse(value: string) {
   return formulas.length ? { root, formulas } : null;
 }
 
+export function canReplaceExistingFormula(value: string) {
+  return parse(value) !== null;
+}
+
 export function ExamExistingFormulaEditor({
   value,
   disabled,

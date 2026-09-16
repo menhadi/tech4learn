@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { canReplaceExistingFormula } from "./ExamExistingFormulaEditor";
 import { api, ApiError } from "./api";
 import { DraftForm } from "./DraftForm";
 import { FormattedField } from "./ExamQuestionEditor";
@@ -66,9 +67,10 @@ export function ExamTranslationEditor({
       ([key, text]) =>
         fields.includes(key) &&
         (text === null || typeof text === "string") &&
-        !/<(?:img|svg|math|math-field)\b/i.test(
+        (!/<(?:img|svg|math|math-field)\b/i.test(
           question.translation?.[key] ?? "",
-        ),
+        ) ||
+          canReplaceExistingFormula(question.translation?.[key] ?? "")),
     );
   return (
     <section className="panel">
@@ -76,8 +78,9 @@ export function ExamTranslationEditor({
       <p>
         Changes apply to this organisation's translated{" "}
         {mode === "exam" ? "exam wording" : "question wherever it is used"}.
-        Affected papers need translation approval again. Image and
-        visual-formula fields remain read-only.
+        Affected papers need translation approval again. Supported MathML
+        formulas can be replaced using checked TeX. Images and unsupported
+        formula markup are preserved.
       </p>
       <button type="button" disabled={busy} onClick={onClose}>
         Close translation editor
