@@ -98,7 +98,7 @@ DB::statement('CREATE TABLE package_tags(id INTEGER PRIMARY KEY,organization_id 
 DB::statement('CREATE TABLE package_tag_package(package_id INTEGER,package_tag_id INTEGER,created_at TEXT,updated_at TEXT)');
 $routes->add((new Illuminate\Routing\Route(['GET'],'packages',fn()=>null))->name('packages.index'));
 $packageTag=App\Models\PackageTag::create(['organization_id'=>20,'name'=>'Synthetic tag','slug'=>'synthetic','status'=>true]);
-$foreignPackageTag=App\Models\PackageTag::create(['organization_id'=>30,'name'=>'Foreign tag','slug'=>'foreign','status'=>true]);
+$foreignPackageTag=App\Models\PackageTag::create(['organization_id'=>30,'name'=>'Foreign tag','slug'=>'foreign-tag','status'=>true]);
 $packageTagChoices=$controller->choices(Illuminate\Http\Request::create('/','GET'),$workspace,'package-tags');
 check(in_array($packageTag->id,array_column($packageTagChoices['items'],'id'),true)&&!in_array($foreignPackageTag->id,array_column($packageTagChoices['items'],'id'),true),'Package tag choices stay scoped');
 $packageFields=['name'=>'Synthetic package','package_type'=>'free','status'=>true,'group_ids'=>[$group->id],'tag_ids'=>[(string)$packageTag->id],'category_level_1'=>$category['id'],'category_level_2'=>$subcategory['id'],'pdf_title_text'=>'Preserve PDF title','show_pdf_download'=>true,'show_solution_pdf_download'=>false,'expiry_days'=>30];
@@ -122,6 +122,18 @@ foreach($documentFields as $key=>$value)check($documents['fields'][$key]===$valu
 check($service->save($workspace,20,$actor,$packageSaved['id'],$documentFields,$packageEdited['revision'],'package-documents','packages')===$documents,'Package document settings replay');
 try{$service->save($workspace,20,$actor,$packageSaved['id'],['pdf_footer_text'=>str_repeat('x',501)],$documents['revision'],'package-document-invalid','packages');throw new RuntimeException('Expected document text validation');}catch(Illuminate\Validation\ValidationException $e){}
 check($service->record('packages',$packageModel->fresh())===$documents,'Invalid package document settings leave native record unchanged');
+$tagFields=['tag_ids'=>[(string)$packageTag->id,'Foreign tag','Foreign tag']];
+$tagged=$service->save($workspace,20,$actor,$packageSaved['id'],$tagFields,$documents['revision'],'package-new-tags','packages');
+$localTag=App\Models\PackageTag::where('organization_id',20)->where('slug','foreign-tag')->sole();
+check(in_array((string)$localTag->id,$tagged['fields']['tag_ids'],true)&&in_array((string)$packageTag->id,$tagged['fields']['tag_ids'],true),'Native tag creation retains existing selection and creates organisation-owned tag');
+check($foreignPackageTag->fresh()->organization_id===30&&$foreignPackageTag->fresh()->name==='Foreign tag','New tags do not modify another organisation');
+$tagCount=App\Models\PackageTag::count();
+check($service->save($workspace,20,$actor,$packageSaved['id'],$tagFields,$documents['revision'],'package-new-tags','packages')===$tagged&&App\Models\PackageTag::count()===$tagCount,'New tag retry does not duplicate or reattach');
+App\Models\PackageTag::create(['organization_id'=>20,'name'=>'Disabled tag','slug'=>'disabled-tag','status'=>false]);
+foreach(['Disabled tag','<b>Hidden</b>','!!!',str_repeat('x',61)] as $invalidTag){
+ try{$service->save($workspace,20,$actor,$packageSaved['id'],['tag_ids'=>[$invalidTag]],$tagged['revision'],'bad-new-tag-'.md5($invalidTag),'packages');throw new RuntimeException('Expected invalid new tag rejection');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){}
+ check($service->record('packages',$packageModel->fresh())===$tagged,'Rejected new tag leaves package selection unchanged');
+}
 DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>$packageRestrictions]);
 
 echo "Native exam adapter: create, scope, languages, exact pass threshold, update and replay passed.\n";

@@ -40,7 +40,8 @@ function TaxonomyEditor({
       revision: string;
       request_id: string;
     } | null>(null),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [newTag, setNewTag] = useState("");
   const base = `/organisations/${org}/exam-content/taxonomy/${kind}`;
   async function load() {
     setBusy(true);
@@ -48,6 +49,7 @@ function TaxonomyEditor({
     try {
       setRecord(await api<RecordData>(`${base}/${record?.id || id}`));
       setChanges({});
+      setNewTag("");
       setRequest(null);
       setPendingDisable(null);
     } catch (e) {
@@ -101,7 +103,7 @@ function TaxonomyEditor({
           key={`${kind}-${record.id || "new"}`}
           draftKey={`exam-taxonomy-${kind}-${record.id || "new"}`}
           title="Details"
-          draftState={{ revision: record.revision, changes, request }}
+          draftState={{ revision: record.revision, changes, request, newTag }}
           restoreState={(s) => {
             if (pendingDisable) return;
             if (
@@ -111,6 +113,11 @@ function TaxonomyEditor({
               !Array.isArray(s.changes)
             ) {
               setChanges(s.changes);
+              setNewTag(
+                kind === "packages" && typeof s.newTag === "string"
+                  ? s.newTag
+                  : "",
+              );
               setRequest(typeof s.request === "string" ? s.request : null);
             } else
               setError(
@@ -123,6 +130,12 @@ function TaxonomyEditor({
               throw new Error(
                 "Resolve the language disable request before editing.",
               );
+            if (kind === "packages" && newTag.trim()) {
+              setError(
+                "Add the new tag to the selection, or clear its name before saving.",
+              );
+              return;
+            }
             setBusy(true);
             setError("");
             const requestId = request ?? crypto.randomUUID();
@@ -349,10 +362,76 @@ function TaxonomyEditor({
                   kind="package-tags"
                   label="Package tags"
                   multiple
-                  value={(values.tag_ids ?? []).map(Number)}
+                  value={(values.tag_ids ?? [])
+                    .filter((tag: string) => /^\d+$/.test(String(tag)))
+                    .map(Number)}
                   disabled={busy}
-                  onChange={(v: number[]) => set("tag_ids", v.map(String))}
+                  onChange={(v: number[]) =>
+                    set("tag_ids", [
+                      ...v.map(String),
+                      ...(values.tag_ids ?? []).filter(
+                        (tag: string) => !/^\d+$/.test(String(tag)),
+                      ),
+                    ])
+                  }
                 />
+                <label>
+                  New package tag
+                  <input
+                    maxLength={60}
+                    value={newTag}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setNewTag(event.target.value);
+                      setRequest(null);
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={busy || !newTag.trim()}
+                  onClick={() => {
+                    const tag = newTag.trim();
+                    if (!Number.isNaN(Number(tag)) || /[<>]/.test(tag)) {
+                      setError(
+                        "Use a tag name containing words, without HTML.",
+                      );
+                      return;
+                    }
+                    set("tag_ids", [
+                      ...new Set([...(values.tag_ids ?? []), tag]),
+                    ]);
+                    setNewTag("");
+                    setError("");
+                  }}
+                >
+                  Add tag to selection
+                </button>
+                <p>
+                  New tags are created in your organisation when you save this
+                  package.
+                </p>
+                {(values.tag_ids ?? [])
+                  .filter((tag: string) => !/^\d+$/.test(String(tag)))
+                  .map((tag: string) => (
+                    <p key={tag}>
+                      {tag}{" "}
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          set(
+                            "tag_ids",
+                            values.tag_ids.filter(
+                              (item: string) => item !== tag,
+                            ),
+                          )
+                        }
+                      >
+                        Remove new tag {tag}
+                      </button>
+                    </p>
+                  ))}
                 <label>
                   Access duration (days; blank means no expiry)
                   <input

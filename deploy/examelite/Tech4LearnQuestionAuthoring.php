@@ -191,6 +191,11 @@ final class Tech4LearnQuestionAuthoring
             if($kind==='packages')abort_unless(!isset($values['tag_ids'])||is_array($values['tag_ids']),422);
             if($kind==='packages')foreach(($values['tag_ids']??[]) as $tag){
                 if(is_numeric($tag))abort_unless(\App\Models\PackageTag::where('status',1)->where(fn($q)=>$q->whereNull('organization_id')->orWhere('organization_id',$tenant))->whereKey((int)$tag)->exists(),422,'A package tag is unavailable. Review the selected tags.');
+                else {
+                    abort_unless(is_string($tag)&&mb_strlen($tag)<=60&&trim($tag)!==''&&strip_tags($tag)===$tag,422,'Use a plain package tag name of up to 60 characters.');
+                    $slug=\Illuminate\Support\Str::slug(trim($tag));
+                    abort_unless($slug!==''&&!\App\Models\PackageTag::where('organization_id',$tenant)->where('slug',$slug)->where(fn($q)=>$q->whereNull('status')->orWhere('status','<>',1))->exists(),422,'This tag is empty or disabled. Choose another tag.');
+                }
             }
             // The native controller accepts its web form. Give it a private request/session,
             // and translate its redirect feedback into an atomic API outcome.
