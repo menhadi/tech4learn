@@ -242,17 +242,29 @@ final class Tech4LearnQuestionAuthoring
         });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
     }
     private function formattedText(string $html,string $key):string {
-        // Only the basic editor's formatting is accepted here. Existing media and
-        // formula fields remain untouched unless a supported editor explicitly changes them.
+        // Accept bounded presentation MathML as well as basic text formatting.
+        // Images still use the separately scoped upload/reference action.
         $dom=new \DOMDocument();$previous=libxml_use_internal_errors(true);
         try{$dom->loadHTML('<?xml encoding="UTF-8"><html><body>'.$html.'</body></html>',LIBXML_NONET);}
         finally{libxml_clear_errors();libxml_use_internal_errors($previous);}
         $body=$dom->getElementsByTagName('body')->item(0);if(!$body)return '';
         $allowed=['p','div','br','b','strong','i','em','u','s','sub','sup','ul','ol','li','span','table','thead','tbody','tr','td','th'];
+        $mathTags=['math','mrow','mi','mn','mo','mtext','mspace','msup','msub','msubsup','mfrac','msqrt','mroot','mover','munder','munderover','mtable','mtr','mtd','mlabeledtr','mstyle','mpadded','mphantom','menclose','mmultiscripts','mprescripts','none','semantics'];
+        $mathAttributes=['display','mathvariant','displaystyle','scriptlevel','stretchy','fence','separator','lspace','rspace','width','height','depth','accent','accentunder','columnalign','rowalign','columnspacing','rowspacing','linethickness','notation'];
+        if($body->getElementsByTagName('*')->length>2000)throw ValidationException::withMessages([$key=>'Formatting is too complex. Split this content into smaller fields.']);
         foreach($body->getElementsByTagName('*') as $element){
-            if(!in_array(strtolower($element->tagName),$allowed,true))throw ValidationException::withMessages([$key=>'This content requires the native media or formula editor.']);
+            $tag=strtolower($element->tagName);$math=in_array($tag,$mathTags,true);
+            if(!$math&&!in_array($tag,$allowed,true))throw ValidationException::withMessages([$key=>'This content requires the native media or formula editor.']);
+            if($math&&$tag!=='math'){
+                $parent=$element->parentNode;$inside=false;
+                while($parent instanceof \DOMElement){if(strtolower($parent->tagName)==='math'){$inside=true;break;}$parent=$parent->parentNode;}
+                if(!$inside)throw ValidationException::withMessages([$key=>'MathML elements must be inside a math formula.']);
+            }
             foreach($element->attributes as $attribute){
-                if(!in_array($attribute->name,['colspan','rowspan'],true)||!preg_match('/^[1-9][0-9]{0,2}$/D',$attribute->value))throw ValidationException::withMessages([$key=>'Unsupported formatting. Paste plain text or use the question editor.']);
+                $valid=$math
+                    ? (($attribute->name==='xmlns'&&$tag==='math'&&$attribute->value==='http://www.w3.org/1998/Math/MathML')||(in_array($attribute->name,$mathAttributes,true)&&strlen($attribute->value)<=160&&preg_match('/^[a-zA-Z0-9 .,%+_\-]*$/D',$attribute->value)))
+                    : (in_array($attribute->name,['colspan','rowspan'],true)&&preg_match('/^[1-9][0-9]{0,2}$/D',$attribute->value));
+                if(!$valid)throw ValidationException::withMessages([$key=>'Unsupported formatting. Paste plain text or use the question editor.']);
             }
         }
         $clean='';foreach($body->childNodes as $node){if($node instanceof \DOMElement||$node instanceof \DOMText)$clean.=$dom->saveHTML($node);}

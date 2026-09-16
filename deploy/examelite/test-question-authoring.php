@@ -269,6 +269,16 @@ DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restriction
 try{$service->save($workspace,20,$actor,$subject['id'],['subject_name'=>'Blocked'],$renamed['revision'],'blocked','subjects');throw new RuntimeException('Expected taxonomy restriction');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===403,'Taxonomy feature restriction');}
 check(DB::table('tech4learn_authoring_requests')->count()===$beforeRequests,'Denied taxonomy save has no ledger entry');
 
-echo "Native question adapter: native validation, unchanged answers, scope, stale edits, replay and context restoration passed.\n";
+$mathBefore=$service->snapshot($q->fresh());
+$mathText='<p>Evaluate <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mfrac><mi>x</mi><msup><mn>2</mn><mn>3</mn></msup></mfrac></math>.</p>';
+$mathSaved=$service->save($workspace,20,$actor,$q->id,['question'=>$mathText],$mathBefore['revision'],'presentation-math');
+check(str_contains($mathSaved['fields']['question'],'<mfrac>')&&str_contains($mathSaved['fields']['question'],'<msup>')&&$mathSaved['fields']['nat_value']===$mathBefore['fields']['nat_value'],'Presentation MathML survives the native save without altering the answer');
+check($service->save($workspace,20,$actor,$q->id,['question'=>$mathText],$mathBefore['revision'],'presentation-math')===$mathSaved,'MathML replay is unchanged');
+foreach(['<math href="https://example.invalid"><mi>x</mi></math>','<math><mi onclick="alert(1)">x</mi></math>','<math xmlns="https://example.invalid"><mi>x</mi></math>','<math><annotation-xml><img src="x"></annotation-xml></math>','<math style="background:url(x)"><mi>x</mi></math>','<mi>x</mi>','<math width="url(x)"><mi>x</mi></math>','<math>'.str_repeat('<mi>x</mi>',2001).'</math>'] as $badMath){
+ try{$service->save($workspace,20,$actor,$q->id,['question'=>$badMath],$mathSaved['revision'],'bad-math-'.hash('sha256',$badMath));throw new RuntimeException('Expected unsafe MathML denial');}
+ catch(Illuminate\Validation\ValidationException $e){}
+}
+check($service->snapshot($q->fresh())===$mathSaved,'Rejected MathML never changes the question');
+echo "Native question adapter: validation, answers, scope, retries, bounded presentation MathML and context restoration passed.\n";
 }
 
