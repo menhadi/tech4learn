@@ -91,8 +91,31 @@ test("central question sharing requires superadmin; organisation reads respect m
   let packageWriteMode = "ok";
   let centralMode = "ok";
   let centralWriteMode = "ok";
+  let centralChoiceMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    if (path.startsWith("central/choices/")) {
+      if (centralChoiceMode === "revoked")
+        await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+          admin,
+        ]);
+      if (centralChoiceMode === "malformed") return { items: null, next: null };
+      const items = [
+        { id: 7, label: "Central group", secret: "must not escape" },
+      ];
+      if (centralChoiceMode === "wrong") items[0].id = -1;
+      if (centralChoiceMode === "label") items[0].label = {};
+      if (centralChoiceMode === "duplicate") items.push({ ...items[0] });
+      if (centralChoiceMode === "oversize")
+        return {
+          items: Array.from({ length: 101 }, (_, i) => ({
+            id: i + 1,
+            label: "group",
+          })),
+          next: null,
+        };
+      return { items, next: centralChoiceMode === "cursor" ? 8 : null };
+    }
     if (path === "central/questions" || path.startsWith("central/questions/")) {
       if (body) {
         if (centralWriteMode === "revoked")
@@ -1820,6 +1843,44 @@ test("central question sharing requires superadmin; organisation reads respect m
         admin,
       ]);
     }
+    const choicesPath = platform + "/central/choices/groups";
+    assert.equal((await call(choicesPath, undefined, member)).status, 403);
+    const choicesResult = await call(choicesPath + "?search=a%26b&after=0");
+    assert.equal(choicesResult.status, 200);
+    assert.deepEqual(await choicesResult.json(), {
+      items: [{ id: 7, label: "Central group" }],
+      next: null,
+    });
+    assert.equal(
+      requests.at(-1).path,
+      "central/choices/groups?search=a%26b&after=0",
+    );
+    for (const path of [
+      choicesPath + "?organization_id=20",
+      choicesPath + "?after=-1",
+      choicesPath + "?search=" + "x".repeat(121),
+      platform + "/central/choices/packages",
+    ]) {
+      const before = requests.length;
+      assert.equal((await call(path)).status, 400);
+      assert.equal(requests.length, before);
+    }
+    for (const mode of [
+      "malformed",
+      "wrong",
+      "label",
+      "duplicate",
+      "oversize",
+      "cursor",
+    ]) {
+      centralChoiceMode = mode;
+      assert.equal((await call(choicesPath)).status, 503);
+    }
+    centralChoiceMode = "ok";
+    assert.equal((await call(choicesPath + "?after=7")).status, 503);
+    centralChoiceMode = "revoked";
+    assert.equal((await call(choicesPath)).status, 403);
+    await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
     const centralCreate = platform + "/central/questions";
     const newCentral = {
       fields: {

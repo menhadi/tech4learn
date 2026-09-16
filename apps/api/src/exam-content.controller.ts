@@ -520,6 +520,17 @@ export class ExamContentController {
       query,
     );
   }
+  @Get("platform/exam-content/:org/central/choices/:kind")
+  async centralChoices(
+    @Param("org") org: string,
+    @Param("kind") kind: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-central-choices:${account.id}`, 120, 60);
+    return this.content.centralChoices(account, org, kind, query);
+  }
   @Get("platform/exam-content/:org/central/questions/:id")
   async centralDetail(
     @Param("org") org: string,

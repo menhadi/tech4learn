@@ -32,6 +32,102 @@ export class ExamContentService {
     );
     if (current.rows[0]?.is_superadmin !== true) throw new ForbiddenException();
   }
+  async centralChoices(
+    user: Account,
+    org: string,
+    kind: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.centralAccess(user, org, "new", true);
+    const search = query.search ?? "";
+    const after = query.after ?? "0";
+    if (
+      ![
+        "groups",
+        "subjects",
+        "sections",
+        "topics",
+        "subtopics",
+        "languages",
+        "types",
+        "difficulties",
+      ].includes(kind) ||
+      Object.keys(query).some((key) => !["search", "after"].includes(key)) ||
+      typeof search !== "string" ||
+      search.length > 120 ||
+      typeof after !== "string" ||
+      !/^[0-9]{1,15}$/.test(after)
+    )
+      throw new BadRequestException("Invalid central classification lookup.");
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `central/choices/${kind}?search=${encodeURIComponent(search)}&after=${after}`,
+    );
+    await this.centralAccess(user, org, "new", true);
+    const invalid = () =>
+      new ServiceUnavailableException(
+        "Unable to verify central classification choices.",
+      );
+    const items = response.items;
+    if (!Array.isArray(items) || items.length > 100) throw invalid();
+    let previous = Number(after);
+    const checked = items.map((item: any) => {
+      if (
+        !item ||
+        !Number.isSafeInteger(item.id) ||
+        item.id <= previous ||
+        item.id >= 1e15 ||
+        typeof item.label !== "string" ||
+        item.label.length > 1000
+      )
+        throw invalid();
+      previous = item.id;
+      const result: Record<string, unknown> = {
+        id: item.id,
+        label: item.label,
+      };
+      if (kind === "types" && item.type !== undefined) {
+        if (typeof item.type !== "string" || item.type.length > 100)
+          throw invalid();
+        result.type = item.type;
+      }
+      for (const key of kind === "subtopics"
+        ? ["subject_id", "group_id", "topic_id"]
+        : kind === "topics"
+          ? ["subject_id", "group_id"]
+          : []) {
+        if (item[key] !== undefined) {
+          const value = item[key];
+          if (
+            !(
+              typeof value === "number" ||
+              (typeof value === "string" && /^[1-9][0-9]{0,14}$/.test(value))
+            ) ||
+            !Number.isSafeInteger(Number(value)) ||
+            Number(value) <= 0 ||
+            Number(value) >= 1e15
+          )
+            throw invalid();
+          result[key] = Number(value);
+        }
+      }
+      return result;
+    });
+    if (
+      response.next !== null &&
+      (items.length !== 100 || response.next !== previous)
+    )
+      throw invalid();
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      "exams.central.choices.viewed",
+      { kind },
+    );
+    return { items: checked, next: response.next };
+  }
   async saveCentralQuestion(
     user: Account,
     org: string,
