@@ -574,10 +574,11 @@ export function ExamQuestionEditor({
           </button>
         </DraftForm>
       )}
-      {!central && record && activeId !== "new" && (
+      {record && activeId !== "new" && (
         <QuestionImageUpload
           key={`${base}-${record.revision}-${reload}`}
           base={base}
+          central={central}
           record={record}
           disabled={busy || Object.keys(changes).length > 0}
           onPending={setImagePending}

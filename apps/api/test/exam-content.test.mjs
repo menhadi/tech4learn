@@ -1882,6 +1882,78 @@ test("central question sharing requires superadmin; organisation reads respect m
     assert.equal((await call(choicesPath)).status, 403);
     await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
     const centralCreate = platform + "/central/questions";
+    const imageWritePath = centralPath + "/image";
+    const centralUpload = {
+      fields: {
+        field: "explanation",
+        image: Buffer.from("synthetic image").toString("base64"),
+      },
+      revision: "a".repeat(64),
+      request_id: randomUUID(),
+    };
+    assert.equal(
+      (await call(imageWritePath, centralUpload, member)).status,
+      403,
+    );
+    assert.equal((await call(imageWritePath, centralUpload)).status, 201);
+    assert.equal(requests.at(-1).path, "central/questions/7/image");
+    assert.deepEqual(requests.at(-1).body, {
+      ...centralUpload,
+      actor_id: admin,
+    });
+    assert.equal((await call(imageWritePath, centralUpload)).status, 201);
+    assert.deepEqual(requests.at(-1).body, {
+      ...centralUpload,
+      actor_id: admin,
+    });
+    const centralRemoval = {
+      ...centralUpload,
+      fields: { field: "explanation", asset: "c".repeat(64), remove: true },
+      request_id: randomUUID(),
+    };
+    assert.equal((await call(imageWritePath, centralRemoval)).status, 201);
+    for (const fields of [
+      { field: "organization_id", image: "abc" },
+      { ...centralUpload.fields, organization_id: 20 },
+      { field: "question", remove: true },
+      { field: "question", remove: true, asset: "c".repeat(64), image: "abc" },
+      { field: "question", image: "x".repeat(699053) },
+      { field: "question", image: "abc", asset: "invalid" },
+    ]) {
+      const before = requests.length;
+      assert.equal(
+        (await call(imageWritePath, { ...centralUpload, fields })).status,
+        400,
+      );
+      assert.equal(requests.length, before);
+    }
+    assert.equal(
+      (await call(imageWritePath + "?actor_id=other", centralUpload)).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(platform + "/central/questions/new/image", {
+          ...centralUpload,
+          revision: "new",
+        })
+      ).status,
+      400,
+    );
+    for (const mode of [
+      "wrong",
+      "revision",
+      "fields",
+      "preview",
+      "malformed",
+    ]) {
+      centralWriteMode = mode;
+      assert.equal((await call(imageWritePath, centralUpload)).status, 503);
+    }
+    centralWriteMode = "revoked";
+    assert.equal((await call(imageWritePath, centralUpload)).status, 403);
+    await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
+    centralWriteMode = "ok";
     const beforeNew = requests.length;
     assert.equal(
       (await call(centralCreate + "/new", undefined, member)).status,

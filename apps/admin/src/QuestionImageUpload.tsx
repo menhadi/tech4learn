@@ -6,6 +6,7 @@ import type { Snapshot } from "./ExamQuestionEditor";
 export function QuestionImageUpload({
   base,
   kind = "question",
+  central = false,
   record,
   disabled,
   onPending,
@@ -14,6 +15,7 @@ export function QuestionImageUpload({
 }: {
   base: string;
   kind?: "question" | "package";
+  central?: boolean;
   record: Snapshot & { photo_asset?: string | null };
   disabled: boolean;
   onPending: (pending: boolean) => void;
@@ -63,7 +65,7 @@ export function QuestionImageUpload({
         ];
   return (
     <DraftForm
-      draftKey={`${kind}-image-${record.id}-${record.revision}`}
+      draftKey={`${central ? "central-" : ""}${kind}-image-${record.id}-${record.revision}`}
       title={kind === "package" ? "Package image" : "Question image"}
       draftState={{ field, asset }}
       restoreState={(state) => {

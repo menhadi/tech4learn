@@ -134,45 +134,50 @@ export class ExamContentService {
     id: string,
     body: Record<string, unknown>,
     query: Record<string, unknown>,
+    imageAction = false,
   ) {
     await this.centralAccess(user, org, id, true);
+    if (imageAction && id === "new")
+      throw new BadRequestException("Save the question before adding images.");
     const fields = body.fields;
-    const allowed = [
-      "qtype_id",
-      "subject_id",
-      "question_section_id",
-      "topic_id",
-      "stopic_id",
-      "diff_id",
-      "passage_id",
-      "language_id",
-      "question",
-      "option1",
-      "option2",
-      "option3",
-      "option4",
-      "option5",
-      "option6",
-      "marks",
-      "negative_marks",
-      "scoring_policy",
-      "hint",
-      "explanation",
-      "answer",
-      "true_false",
-      "fill_blank",
-      "fill_blank_answers",
-      "nat_mode",
-      "nat_value",
-      "nat_min",
-      "nat_max",
-      "nat_tolerance",
-      "status",
-      "correct_answers",
-      "si_answer1",
-      "group_ids",
-      "tag_ids",
-    ];
+    const allowed = imageAction
+      ? ["field", "image", "asset", "remove"]
+      : [
+          "qtype_id",
+          "subject_id",
+          "question_section_id",
+          "topic_id",
+          "stopic_id",
+          "diff_id",
+          "passage_id",
+          "language_id",
+          "question",
+          "option1",
+          "option2",
+          "option3",
+          "option4",
+          "option5",
+          "option6",
+          "marks",
+          "negative_marks",
+          "scoring_policy",
+          "hint",
+          "explanation",
+          "answer",
+          "true_false",
+          "fill_blank",
+          "fill_blank_answers",
+          "nat_mode",
+          "nat_value",
+          "nat_min",
+          "nat_max",
+          "nat_tolerance",
+          "status",
+          "correct_answers",
+          "si_answer1",
+          "group_ids",
+          "tag_ids",
+        ];
     if (
       Object.keys(query).length ||
       Object.keys(body).some(
@@ -183,7 +188,8 @@ export class ExamContentService {
       Array.isArray(fields) ||
       !Object.keys(fields).length ||
       Object.keys(fields).some((key) => !allowed.includes(key)) ||
-      Buffer.byteLength(JSON.stringify(fields), "utf8") > 250000 ||
+      Buffer.byteLength(JSON.stringify(fields), "utf8") >
+        (imageAction ? 710000 : 250000) ||
       typeof body.revision !== "string" ||
       (id === "new"
         ? body.revision !== "new"
@@ -194,10 +200,40 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid central question changes.");
+    if (imageAction) {
+      const image = fields as Record<string, unknown>;
+      if (
+        typeof image.field !== "string" ||
+        ![
+          "question",
+          "option1",
+          "option2",
+          "option3",
+          "option4",
+          "option5",
+          "option6",
+          "hint",
+          "explanation",
+          "si_answer1",
+        ].includes(image.field) ||
+        (image.remove !== undefined && image.remove !== true) ||
+        (image.remove === true
+          ? image.image !== undefined || image.asset === undefined
+          : typeof image.image !== "string" ||
+            !image.image.length ||
+            image.image.length > 699052) ||
+        (image.asset !== undefined &&
+          (typeof image.asset !== "string" ||
+            !/^[a-f0-9]{64}$/.test(image.asset)))
+      )
+        throw new BadRequestException(
+          "Invalid image. Use PNG, JPEG or WebP up to 512 KB.",
+        );
+    }
     const response = await this.remote.request(
       await this.config(),
       org,
-      `central/questions${id === "new" ? "" : "/" + id}`,
+      `central/questions${id === "new" ? "" : "/" + id}${imageAction ? "/image" : ""}`,
       {
         actor_id: user.id,
         fields,
@@ -251,7 +287,7 @@ export class ExamContentService {
       this.db,
       user,
       org,
-      `exams.central.question.${id === "new" ? "created" : "updated"}`,
+      `exams.central.question.${imageAction ? "image.updated" : id === "new" ? "created" : "updated"}`,
       { questionId: record.id, requestId: body.request_id },
     );
     return record;
