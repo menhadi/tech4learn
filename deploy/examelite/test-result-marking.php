@@ -84,6 +84,10 @@ $review=$marking->review($workspace,10,$actor,$newLearner,$manual->id);
 DB::table('organization_users')->where('user_id',1)->update(['status'=>0]);
 rejectAnswer(fn()=>$marking->review($workspace,10,$actor,$newLearner,$manual->id),'Inactive marker membership');
 DB::table('organization_users')->where('user_id',1)->update(['status'=>1]);
+DB::table('users')->where('id',1)->update(['status'=>0]);
+rejectAnswer(fn()=>$marking->review($workspace,10,$actor,$newLearner,$manual->id),'Disabled native marker cannot review despite active membership');
+rejectAnswer(fn()=>$marking->save($workspace,10,$actor,$newLearner,$manual->id,[$pending->id=>5],$review['revision'],$next()),'Disabled native marker cannot submit marks');
+DB::table('users')->where('id',1)->update(['status'=>1]);
 $app->instance(App\Http\Controllers\ResultController::class,new class extends App\Http\Controllers\ResultController {
  public function saveEvaluation(Illuminate\Http\Request $request,$id){ExamResult::where('id',$id)->update(['percent'=>99]);throw new RuntimeException('Synthetic native failure');}
 });
@@ -98,6 +102,9 @@ check($graded['score_percent']===50.0&&$graded['obtained_marks']===5.0&&$pending
 rejectAnswer(fn()=>$marking->media($workspace,10,$actor,$newLearner,$manual->id,$pending->id,$reviewAsset),'Graded answers no longer expose pending-review images');
 check(DB::table('exam_result_details')->where('organization_id',20)->count()===0&&DB::table('exam_result_details')->where('organization_id',99)->count()===1,'Native report invalidation stays scoped');
 check($marking->save($workspace,10,$actor,$newLearner,$manual->id,$marks,$review['revision'],$request)===$graded,'Lost response retry returns saved grading');
+DB::table('users')->where('id',1)->update(['status'=>0]);
+rejectAnswer(fn()=>$marking->save($workspace,10,$actor,$newLearner,$manual->id,$marks,$review['revision'],$request),'Disabled native marker cannot replay successful grading');
+DB::table('users')->where('id',1)->update(['status'=>1]);
 rejectAnswer(fn()=>$marking->save($workspace,10,$actor,$newLearner,$manual->id,[$pending->id=>6],$review['revision'],$request),'Request cannot be reused with changed marks');
 DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'["results"]']);
 rejectAnswer(fn()=>$marking->save($workspace,10,$actor,$newLearner,$manual->id,$marks,$review['revision'],$request),'Revocation rejects even successful retries');

@@ -39,7 +39,7 @@ final class Tech4LearnExamTranslations
             Organization::where('status','active')->lockForUpdate()->findOrFail($owner);
             abort_unless(!in_array('exams',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
             $userId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$actor)->where('kind','staff')->value('external_id');
-            User::findOrFail($userId);
+            User::where('status',1)->lockForUpdate()->findOrFail($userId);
             abort_unless(DB::table('organization_users')->where('organization_id',$owner)->where('user_id',$userId)->where('status',1)->lockForUpdate()->first()!==null,403);
             $exam=Exam::where('organization_id',$owner)->lockForUpdate()->findOrFail($examId);
             $language=Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->lockForUpdate()->findOrFail($languageId);

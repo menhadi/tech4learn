@@ -33,6 +33,10 @@ try {
     $result=$read();check(base64_decode($result['base64'],true)===$pdf&&$result['build_id']===$build->id&&!isset($result['path']),'Approved native document returns only bounded bytes and IDs');
     $status=fn()=>$documents->status($workspace,10,$actor,$packageLinkedExam->id,$packageSaved['id'],null,'questions');
     check($status()['status']==='ready'&&$status()['approved_available']===true&&!array_key_exists('current_path',$status()),'Document status returns readiness without storage paths');
+    DB::table('users')->where('id',1)->update(['status'=>0]);
+    $reject($read,'Disabled native staff cannot download an approved document');
+    $reject($status,'Disabled native staff cannot read document status');
+    DB::table('users')->where('id',1)->update(['status'=>1]);
     $missing=$documents->status($workspace,10,$actor,$packageLinkedExam->id,$packageSaved['id'],null,'solutions');
     check($missing['status']==='not_built'&&$missing['build_id']===null&&!$missing['approved_available'],'Unbuilt document has explicit state');
     // The engine intentionally serves the previous approved artifact while rebuilding.

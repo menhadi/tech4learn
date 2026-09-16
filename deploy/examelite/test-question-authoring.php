@@ -40,7 +40,7 @@ DB::statement('CREATE TABLE tech4learn_workspaces(id TEXT PRIMARY KEY,source_org
 DB::statement('CREATE TABLE tech4learn_workspace_users(workspace_id TEXT,local_id TEXT,kind TEXT,external_id INTEGER)');
 DB::statement('CREATE TABLE tech4learn_authoring_requests(workspace_id TEXT,request_id TEXT,fingerprint TEXT,result TEXT,created_at TEXT,PRIMARY KEY(workspace_id,request_id))');
 DB::statement('CREATE TABLE organizations(id INTEGER PRIMARY KEY,domain TEXT,status TEXT)');
-DB::statement('CREATE TABLE users(id INTEGER PRIMARY KEY,name TEXT)');
+DB::statement('CREATE TABLE users(id INTEGER PRIMARY KEY,name TEXT,status INTEGER DEFAULT 1)');
 DB::statement('CREATE TABLE organization_users(organization_id INTEGER,user_id INTEGER,status INTEGER)');
 DB::statement('CREATE TABLE qtypes(id INTEGER PRIMARY KEY,question_type TEXT,type TEXT)');
 DB::statement('CREATE TABLE diffs(id INTEGER PRIMARY KEY,diff_level TEXT)');
@@ -58,6 +58,13 @@ $service=new App\Services\Tech4LearnQuestionAuthoring();$before=$service->snapsh
 $saved=$service->save($workspace,20,$actor,$q->id,['question'=>'Edited numerical question'],$before['revision'],'first');
 check($saved['fields']['question']==='Edited numerical question' && $saved['fields']['nat_value']===7,'Native update preserves numerical answer configuration');
 check($service->save($workspace,20,$actor,$q->id,['question'=>'Edited numerical question'],$before['revision'],'first')===$saved,'Successful update replay is stable');
+DB::table('users')->where('id',1)->update(['status'=>0]);
+foreach([['first',$before['revision']],['disabled-native-user',$saved['revision']]] as [$requestId,$expectedRevision]){
+ try{$service->save($workspace,20,$actor,$q->id,['question'=>'Edited numerical question'],$expectedRevision,$requestId);throw new RuntimeException('Expected disabled native staff denial');}
+ catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
+}
+check($service->snapshot($q->fresh())===$saved&&!DB::table('tech4learn_authoring_requests')->where('request_id','disabled-native-user')->exists(),'Disabled native staff cannot write or replay, even with active organisation membership');
+DB::table('users')->where('id',1)->update(['status'=>1]);
 $retryLedgerCount=DB::table('tech4learn_authoring_requests')->count();
 DB::table('organization_users')->where('organization_id',20)->where('user_id',1)->update(['status'=>0]);
 try{$service->save($workspace,20,$actor,$q->id,['question'=>'Edited numerical question'],$before['revision'],'first');throw new RuntimeException('Expected revoked replay denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===403,'Revoked staff cannot replay a saved response');}

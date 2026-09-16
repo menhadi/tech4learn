@@ -32,6 +32,9 @@ $reader=new App\Services\Tech4LearnExamTranslations();
 $native=new App\Services\ExamTranslationService();
 $read=fn()=>$reader->review($workspace,10,$actor,$paper->id,$target->id);
 $missing=$read();
+DB::table('users')->where('id',1)->update(['status'=>0]);
+try{$read();throw new RuntimeException('Expected disabled native translation reviewer denial');}catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
+DB::table('users')->where('id',1)->update(['status'=>1]);
 check($missing['progress']['remaining']===1&&!$missing['progress']['exam_content_ready']&&!$missing['approved'],'Missing native translations remain incomplete and unapproved');
 check($missing['items'][0]['translation']===null&&in_array('question',$missing['items'][0]['stale_fields'],true),'Missing translation exposes source and native stale fields');
 $translated=QuestionLang::create(array_merge($question->only(['question','option1','option2']),['question_id'=>$question->id,'language_id'=>$target->id,'source_fingerprint'=>$native->questionFingerprint($question),'source_field_fingerprints'=>$native->questionFieldFingerprints($question)]));

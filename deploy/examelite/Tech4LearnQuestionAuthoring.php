@@ -142,7 +142,7 @@ final class Tech4LearnQuestionAuthoring
             abort_unless(!in_array($this->feature($kind),json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
             Organization::where('status','active')->findOrFail($tenant);
             $nativeId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$actor)->where('kind','staff')->value('external_id');
-            $user=User::findOrFail($nativeId);
+            $user=User::where('status',1)->lockForUpdate()->findOrFail($nativeId);
             abort_unless(DB::table('organization_users')->where('organization_id',$tenant)->where('user_id',$user->id)->where('status',1)->exists(),403);
             $prior=DB::table('tech4learn_authoring_requests')->where('workspace_id',$workspace)->where('request_id',$requestId)->first();
             if($prior){abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);}

@@ -18,7 +18,7 @@ final class Tech4LearnResultMarking
   Organization::where('status','active')->findOrFail($owner);
   abort_unless(!in_array('results',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
   $mapping=fn($id,$kind)=>DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$id)->where('kind',$kind)->value('external_id');
-  $user=User::findOrFail($mapping($actor,'staff'));
+  $user=User::where('status',1)->lockForUpdate()->findOrFail($mapping($actor,'staff'));
   abort_unless(DB::table('organization_users')->where('organization_id',$owner)->where('user_id',$user->id)->where('status',1)->exists(),403);
   $studentId=$mapping($learner,'student');
   if($studentId===null&&$allowUnmapped)return [$owner,$user,0];
