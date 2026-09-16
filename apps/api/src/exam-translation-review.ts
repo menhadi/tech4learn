@@ -57,6 +57,7 @@ export function translationReview(
     !/^[a-f0-9]{64}$/.test(value.revision) ||
     (revision !== undefined && revision !== value.revision) ||
     typeof value.approved !== "boolean" ||
+    typeof value.is_source_language !== "boolean" ||
     !Array.isArray(value.items) ||
     value.items.length > 50
   )
@@ -108,6 +109,7 @@ export function translationReview(
     language_name: value.language_name as string,
     revision: value.revision as string,
     approved: value.approved as boolean,
+    is_source_language: value.is_source_language as boolean,
     progress: {
       status: p.status as string,
       translated: p.translated as number,

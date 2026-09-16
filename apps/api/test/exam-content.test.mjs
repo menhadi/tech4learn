@@ -117,6 +117,7 @@ test("central question sharing requires superadmin; organisation reads respect m
           exam_id: translationMode === "wrong" ? 10 : 9,
           language_id: 5,
           language_name: "Synthetic language",
+          is_source_language: false,
           revision: "a".repeat(64),
           approved: false,
           progress: {

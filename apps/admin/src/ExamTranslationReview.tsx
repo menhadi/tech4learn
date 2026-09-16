@@ -3,6 +3,7 @@ import { api, apiBase, ApiError } from "./api";
 import { QuestionChoiceField } from "./QuestionChoiceField";
 import { ExamRichContent } from "./ExamRichContent";
 import type { Exam } from "./ExamBuilder";
+import { ExamTranslationEditor } from "./ExamTranslationEditor";
 
 type Wording = Record<string, string | null>;
 type Review = {
@@ -11,6 +12,7 @@ type Review = {
   language_name: string;
   revision: string;
   approved: boolean;
+  is_source_language: boolean;
   progress: {
     status: string;
     translated: number;
@@ -108,6 +110,7 @@ export function ExamTranslationReview({
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [editing, setEditing] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [pending, setPending] = useState<{
     action: "approve-translation" | "refresh-translation";
@@ -126,6 +129,7 @@ export function ExamTranslationReview({
     if (disabled) {
       request.current++;
       setReview(null);
+      setEditing(false);
       setConfirmed(false);
       setBusy(false);
     }
@@ -141,6 +145,7 @@ export function ExamTranslationReview({
       review?.progress.remaining === 0 && review.progress.exam_content_ready;
     if (
       disabled ||
+      editing ||
       busy ||
       (!pending &&
         (!review ||
@@ -199,7 +204,7 @@ export function ExamTranslationReview({
     }
   }
   async function load(nextPage = 0, restart = false) {
-    if (disabled || busy || language === null) return;
+    if (disabled || editing || busy || language === null) return;
     const version = ++request.current;
     setBusy(true);
     setMessage("");
@@ -249,8 +254,8 @@ export function ExamTranslationReview({
     <details className="card">
       <summary>Review translations</summary>
       <p>
-        Compare saved source and translated wording before approval. Translation
-        editing is not yet available here.
+        Compare saved source and translated wording before approval. Basic
+        translated text can be edited below.
       </p>
       <QuestionChoiceField
         org={org}
@@ -258,7 +263,7 @@ export function ExamTranslationReview({
         label="Review language"
         value={language}
         allowedIds={record.fields.language_ids}
-        disabled={disabled || busy || pending !== null}
+        disabled={disabled || busy || pending !== null || editing}
         onChange={(value) => {
           setLanguage(value);
           setReview(null);
@@ -270,7 +275,7 @@ export function ExamTranslationReview({
       />
       <button
         type="button"
-        disabled={disabled || busy || language === null}
+        disabled={disabled || busy || language === null || editing}
         onClick={() => void load(0, true)}
       >
         {busy ? "Loading review…" : "Reload translation review"}
@@ -312,7 +317,10 @@ export function ExamTranslationReview({
                 <button
                   type="button"
                   disabled={
-                    disabled || busy || review.progress.status === "processing"
+                    disabled ||
+                    busy ||
+                    editing ||
+                    review.progress.status === "processing"
                   }
                   onClick={() => void approve("refresh-translation")}
                 >
@@ -351,7 +359,7 @@ export function ExamTranslationReview({
                 Question on this page
                 <select
                   value={selected}
-                  disabled={busy || pending !== null}
+                  disabled={busy || pending !== null || editing}
                   onChange={(event) => setSelected(Number(event.target.value))}
                 >
                   {review.items.map((item, index) => (
@@ -373,6 +381,40 @@ export function ExamTranslationReview({
                   mediaBase={mediaBase(selected)}
                 />
               )}
+              {question &&
+                !review.is_source_language &&
+                !pending &&
+                review.progress.status !== "processing" &&
+                !editing && (
+                  <button
+                    type="button"
+                    disabled={busy || disabled}
+                    onClick={() => setEditing(true)}
+                  >
+                    Edit translated wording
+                  </button>
+                )}
+              {question && editing && (
+                <ExamTranslationEditor
+                  key={`${review.revision}-${selected}`}
+                  org={org}
+                  examId={record.id}
+                  examRevision={record.revision}
+                  languageId={review.language_id}
+                  translationRevision={review.revision}
+                  question={question}
+                  mediaBase={mediaBase(selected)}
+                  onClose={() => setEditing(false)}
+                  onSaved={() => {
+                    setEditing(false);
+                    setReview(null);
+                    setConfirmed(false);
+                    setMessage(
+                      "Translated wording saved. Reload the review before approving it.",
+                    );
+                  }}
+                />
+              )}
             </>
           ) : (
             <p>No questions on this page.</p>
@@ -380,14 +422,16 @@ export function ExamTranslationReview({
           <p>Review page {page + 1}. Up to 50 questions per page.</p>
           <button
             type="button"
-            disabled={busy || pending !== null || page === 0}
+            disabled={busy || pending !== null || page === 0 || editing}
             onClick={() => void load(page - 1)}
           >
             Previous review page
           </button>
           <button
             type="button"
-            disabled={busy || pending !== null || review.next === null}
+            disabled={
+              busy || pending !== null || review.next === null || editing
+            }
             onClick={() => void load(page + 1)}
           >
             Next review page
@@ -396,7 +440,7 @@ export function ExamTranslationReview({
             review.progress.remaining === 0 &&
             review.progress.exam_content_ready &&
             !pending && (
-              <fieldset disabled={disabled || busy}>
+              <fieldset disabled={disabled || busy || editing}>
                 <legend>Approve this translation</legend>
                 <p>
                   Approval may start automatic PDF generation for the exam's

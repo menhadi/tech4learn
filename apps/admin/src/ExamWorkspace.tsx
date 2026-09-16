@@ -40,7 +40,7 @@ const coverage: Record<Feature, [string, string]> = {
   ],
   exams: [
     "Exam settings, paper controls, PDF generation and approved downloads",
-    "Manual translation editing, OMR and generated-file verification",
+    "Exam wording translations, OMR and generated-file verification",
   ],
   taking: [
     "Scoped student links, start, resume, answers and submission",
