@@ -19,6 +19,13 @@ const labels = {
   sections: "Question sections",
 };
 type Kind = keyof typeof labels;
+const centralKinds: Kind[] = [
+  "groups",
+  "subjects",
+  "topics",
+  "subtopics",
+  "sections",
+];
 type RecordData = {
   id: number;
   revision: string;
@@ -61,15 +68,18 @@ function PackagePhoto({
 }
 function TaxonomyEditor({
   org,
+  central = false,
   kind,
   id,
   onClose,
 }: {
   org: string;
+  central?: boolean;
   kind: Kind;
   id: number | "new";
   onClose: () => void;
 }) {
+  const [activeId, setActiveId] = useState<number | "new">(id);
   const [record, setRecord] = useState<RecordData | null>(null),
     [changes, setChanges] = useState<Record<string, any>>({}),
     [busy, setBusy] = useState(false),
@@ -84,12 +94,15 @@ function TaxonomyEditor({
     [newTag, setNewTag] = useState(""),
     [imagePending, setImagePending] = useState(false),
     [imageVersion, setImageVersion] = useState(0);
-  const base = `/organisations/${org}/exam-content/taxonomy/${kind}`;
+  const base = `${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/taxonomy/${kind}`;
   async function load() {
     setBusy(true);
     setError("");
+    setNotice("");
+    const recordId = activeId;
+    setRecord(null);
     try {
-      setRecord(await api<RecordData>(`${base}/${record?.id || id}`));
+      setRecord(await api<RecordData>(`${base}/${recordId}`));
       setChanges({});
       setNewTag("");
       setRequest(null);
@@ -104,7 +117,7 @@ function TaxonomyEditor({
   }
   useEffect(() => {
     void load();
-  }, [org, kind, id]);
+  }, [org, central, kind, id]);
   const set = (key: string, value: any) => {
     if (pendingDisable || imagePending) return;
     setChanges((old) => ({ ...old, [key]: value }));
@@ -142,10 +155,15 @@ function TaxonomyEditor({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {!record && !busy && error && (
+        <button type="button" onClick={() => void load()}>
+          Retry loading classification
+        </button>
+      )}
       {record && (
         <DraftForm
-          key={`${kind}-${record.id || "new"}`}
-          draftKey={`exam-taxonomy-${kind}-${record.id || "new"}`}
+          key={`${central}-${org}-${kind}-${record.id || "new"}`}
+          draftKey={`exam-taxonomy-${central ? `central-${org}-` : ""}${kind}-${record.id || "new"}`}
           title="Details"
           draftState={{ revision: record.revision, changes, request, newTag }}
           restoreState={(s) => {
@@ -195,9 +213,14 @@ function TaxonomyEditor({
                 },
               );
               setRecord(saved);
+              setActiveId(saved.id);
               setChanges({});
               setRequest(null);
-              setNotice("Classification saved in your organisation.");
+              setNotice(
+                central
+                  ? "Shared original classification saved."
+                  : "Classification saved in your organisation.",
+              );
             } catch (e) {
               setError(e instanceof Error ? e.message : "Unable to save.");
               throw e;
@@ -225,6 +248,7 @@ function TaxonomyEditor({
             )}
             {kind === "languages" && !record.id && (
               <QuestionChoiceField
+                central={central}
                 org={org}
                 kind="platform-languages"
                 label="Central language to enable"
@@ -264,6 +288,7 @@ function TaxonomyEditor({
               kind !== "subcategories" &&
               kind !== "languages" && (
                 <QuestionChoiceField
+                  central={central}
                   org={org}
                   kind="groups"
                   label="Exam group"
@@ -299,6 +324,7 @@ function TaxonomyEditor({
               )}
             {["topics", "subtopics"].includes(kind) && (
               <QuestionChoiceField
+                central={central}
                 org={org}
                 kind="subjects"
                 label="Subject"
@@ -310,6 +336,7 @@ function TaxonomyEditor({
             )}
             {kind === "subtopics" && (
               <QuestionChoiceField
+                central={central}
                 org={org}
                 kind="topics"
                 label="Topic"
@@ -334,6 +361,7 @@ function TaxonomyEditor({
             )}
             {kind === "subcategories" && (
               <QuestionChoiceField
+                central={central}
                 org={org}
                 kind="categories"
                 label="Parent category"
@@ -386,6 +414,7 @@ function TaxonomyEditor({
                   existing exam links and ordering are preserved here.
                 </p>
                 <QuestionChoiceField
+                  central={central}
                   org={org}
                   kind="categories"
                   label="Category"
@@ -397,6 +426,7 @@ function TaxonomyEditor({
                   }}
                 />
                 <QuestionChoiceField
+                  central={central}
                   org={org}
                   kind="subcategories"
                   label="Subcategory"
@@ -410,6 +440,7 @@ function TaxonomyEditor({
                   onChange={(v) => set("category_level_2", v)}
                 />
                 <QuestionChoiceField
+                  central={central}
                   org={org}
                   kind="package-tags"
                   label="Package tags"
@@ -659,7 +690,16 @@ function TaxonomyEditor({
     </section>
   );
 }
-export function ExamTaxonomy({ org }: { org: string }) {
+export function ExamTaxonomy({
+  org,
+  central = false,
+}: {
+  org: string;
+  central?: boolean;
+}) {
+  const base = central
+    ? `/platform/exam-content/${org}/central`
+    : `/organisations/${org}/exam-content`;
   const [kind, setKind] = useState<Kind>("groups"),
     [editing, setEditing] = useState<number | "new" | null>(null),
     [items, setItems] = useState<QuestionChoice[]>([]),
@@ -672,11 +712,10 @@ export function ExamTaxonomy({ org }: { org: string }) {
     setBusy(true);
     setError("");
     try {
-      if (!after)
-        await api(`/organisations/${org}/exam-content/taxonomy/${kind}/new`);
+      if (!after) await api(`${base}/taxonomy/${kind}/new`);
       const term = after ? loaded : search;
       const r = await api<{ items: QuestionChoice[]; next: number | null }>(
-        `/organisations/${org}/exam-content/choices/${kind}?search=${encodeURIComponent(term)}&after=${after}`,
+        `${base}/choices/${kind}?search=${encodeURIComponent(term)}&after=${after}`,
       );
       setItems((old) => (after ? [...old, ...r.items] : r.items));
       setNext(r.next);
@@ -692,8 +731,9 @@ export function ExamTaxonomy({ org }: { org: string }) {
   if (editing !== null)
     return (
       <TaxonomyEditor
-        key={`${kind}-${editing}`}
+        key={`${central}-${org}-${kind}-${editing}`}
         org={org}
+        central={central}
         kind={kind}
         id={editing}
         onClose={() => {
@@ -705,7 +745,17 @@ export function ExamTaxonomy({ org }: { org: string }) {
     );
   return (
     <section className="panel">
-      <h3>Subjects, topics and sections</h3>
+      <h3>
+        {central
+          ? "Shared classification originals"
+          : "Subjects, topics and sections"}
+      </h3>
+      {central && (
+        <p>
+          Manage central exam groups, subjects, topics, subtopics and question
+          sections. Organisation-owned copies keep their own versions.
+        </p>
+      )}
       <label>
         Classification
         <select
@@ -718,11 +768,15 @@ export function ExamTaxonomy({ org }: { org: string }) {
             setError("");
           }}
         >
-          {Object.entries(labels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
+          {Object.entries(labels)
+            .filter(
+              ([value]) => !central || centralKinds.includes(value as Kind),
+            )
+            .map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
         </select>
       </label>
       <button disabled={busy} onClick={() => setEditing("new")}>

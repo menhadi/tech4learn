@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { SmartTable } from "./DirectoryTable";
+import { ExamTaxonomy } from "./ExamTaxonomy";
 import { ExamWorkspace } from "./ExamWorkspace";
 import { ExamModuleControl, ExamQuestions } from "./ExamContent";
 
@@ -46,6 +47,7 @@ export function ExamElitePlatform() {
               <ExamModuleControl org={org} />
               <ExamWorkspace org={org} controls />
               <ExamQuestions org={org} central />
+              <ExamTaxonomy org={org} central />
               <details>
                 <summary>Catalogue and pilot student links</summary>
                 <OrganisationSharing org={org} />
