@@ -24,7 +24,7 @@ export const examTextTags = [
   "td",
   "th",
 ];
-const mathTags = [
+export const mathTags = [
   "math",
   "mrow",
   "mi",
@@ -54,7 +54,7 @@ const mathTags = [
   "none",
   "semantics",
 ];
-const mathAttributes = [
+export const mathAttributes = [
   "xmlns",
   "display",
   "mathvariant",

@@ -279,6 +279,9 @@ foreach(['<math href="https://example.invalid"><mi>x</mi></math>','<math><mi onc
  catch(Illuminate\Validation\ValidationException $e){}
 }
 check($service->snapshot($q->fresh())===$mathSaved,'Rejected MathML never changes the question');
+$mixedFormula='<p>Before \\(x^{2}\\) between <math><msup><mi>y</mi><mn>3</mn></msup></math> after.</p>';
+$mixedSaved=$service->save($workspace,20,$actor,$q->id,['question'=>$mixedFormula],$mathSaved['revision'],'replace-selected-formula');
+check($mixedSaved['fields']['question']===$mixedFormula&&$mixedSaved['fields']['nat_value']===$mathSaved['fields']['nat_value'],'Checked TeX replacement preserves the other MathML formula and native answer');
 echo "Native question adapter: validation, answers, scope, retries, bounded presentation MathML and context restoration passed.\n";
 }
 

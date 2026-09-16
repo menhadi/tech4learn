@@ -6,6 +6,7 @@ import { QuestionChoiceField } from "./QuestionChoiceField";
 import { ExamRichContent } from "./ExamRichContent";
 import { QuestionImageUpload } from "./QuestionImageUpload";
 import { ExamFormulaInsert } from "./ExamFormulaInsert";
+import { ExamExistingFormulaEditor } from "./ExamExistingFormulaEditor";
 
 export type Snapshot = {
   id: number;
@@ -33,6 +34,15 @@ export function FormattedField({
   const editor = useRef<HTMLDivElement>(null);
   const [preview, setPreview] = useState(false);
   const media = /<(?:img|svg|math|math-field)\b/i.test(value);
+  const applyFormula = (updated: string) => {
+    if (disabled) return;
+    onChange(updated);
+    // Mark the owning DraftForm dirty even when only template buttons were used.
+    if (editor.current) {
+      if (!media) editor.current.innerHTML = updated;
+      editor.current.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  };
   const clean = DOMPurify.sanitize(value, {
     ALLOWED_TAGS: [
       "p",
@@ -68,8 +78,9 @@ export function FormattedField({
       <legend>{label}</legend>
       {media && (
         <p>
-          This field contains image or formula markup and is read-only. Its
-          original content is preserved when you save other fields.
+          This field contains image or formula markup. Use the available formula
+          or image controls to change it. Saving other fields preserves its
+          content.
         </p>
       )}
       <div
@@ -86,7 +97,8 @@ export function FormattedField({
           padding: 12,
           whiteSpace: "pre-wrap",
         }}
-        onInput={(e) =>
+        onInput={(e) => {
+          if (disabled || media) return;
           onChange(
             DOMPurify.sanitize(e.currentTarget.innerHTML, {
               ALLOWED_TAGS: [
@@ -114,8 +126,8 @@ export function FormattedField({
               ],
               ALLOWED_ATTR: ["colspan", "rowspan"],
             }),
-          )
-        }
+          );
+        }}
         onPaste={(e) => {
           e.preventDefault();
           if (disabled || media) return;
@@ -127,16 +139,28 @@ export function FormattedField({
         }}
         onDrop={(e) => e.preventDefault()}
       />
-      {media && previewValue !== undefined && mediaBase && (
-        <section aria-label={`${label} preview`}>
-          <ExamRichContent value={previewValue} mediaBase={mediaBase} />
-        </section>
+      {media && (
+        <ExamExistingFormulaEditor
+          value={value}
+          disabled={disabled}
+          onChange={applyFormula}
+        />
       )}
+      {media &&
+        ((previewValue !== undefined && mediaBase) ||
+          /<math\b/i.test(value)) && (
+          <section aria-label={`${label} preview`}>
+            <ExamRichContent
+              value={/<img\b/i.test(value) ? (previewValue ?? "") : value}
+              mediaBase={mediaBase}
+            />
+          </section>
+        )}
       {!media && (
         <>
           <ExamFormulaInsert
             disabled={disabled}
-            onInsert={(formula) => onChange(clean + formula)}
+            onInsert={(formula) => applyFormula(clean + formula)}
           />
           <p>
             Write formulas using {"\\(x^2\\)"} within text or {"\\[x^2\\]"} on a

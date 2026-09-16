@@ -15,9 +15,11 @@ const examples: Record<string, string> = {
 export function ExamFormulaInsert({
   disabled,
   onInsert,
+  replace = false,
 }: {
   disabled: boolean;
   onInsert: (html: string) => void;
+  replace?: boolean;
 }) {
   const [source, setSource] = useState("");
   const [display, setDisplay] = useState(false);
@@ -79,11 +81,15 @@ export function ExamFormulaInsert({
   }
   return (
     <details data-no-draft="true">
-      <summary>Insert a formula</summary>
+      <summary>
+        {replace ? "Replace selected formula" : "Insert a formula"}
+      </summary>
       <p>
-        Choose a starting formula and edit its TeX. Check it, then insert it at
-        the end of this field. Inserted formulas become part of the field’s
-        draft.
+        Choose a starting formula and edit its TeX. Check it, then{" "}
+        {replace
+          ? "replace the selected formula"
+          : "insert it at the end of this field"}
+        . Changes become part of the field’s draft.
       </p>
       <div aria-label="Formula examples">
         {Object.entries(examples).map(([label, example]) => (
@@ -142,7 +148,7 @@ export function ExamFormulaInsert({
           setSource("");
         }}
       >
-        Insert formula at end
+        {replace ? "Apply formula replacement" : "Insert formula at end"}
       </button>
       {error && (
         <p role="alert" className="error">
