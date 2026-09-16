@@ -109,18 +109,25 @@ final class Tech4LearnQuestionAuthoring
     }
     /** Dedicated-credential caller supplies the configured central owner, never a browser organisation ID. */
     public function saveCentralQuestion(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,?string $action=null):array {
+        return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'questions',$action);
+    }
+    public function saveCentralTaxonomy(int $central,string $actor,string $kind,int $id,array $fields,string $revision,string $requestId):array {
+        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections'],true),422);
+        return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,$kind);
+    }
+    private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {
         abort_unless($central>0&&$id>=0&&count($fields)>0,422);
         abort_unless($action===null||($action==='set-image'&&$id>0),422);
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        if(array_diff(array_keys($fields),$imageAction?['field','image','asset','remove']:self::FIELDS)||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
+        if(array_diff(array_keys($fields),$imageAction?['field','image','asset','remove']:$this->definition($kind)[2])||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
-        $identity=[$actor,$id,$fields,$revision];if($imageAction)$identity[]=$action;
+        $identity=[$actor,$id,$fields,$revision];if($imageAction)$identity[]=$action;if($kind!=='questions')$identity[]=$kind;
         $fingerprint=hash('sha256',json_encode($identity,JSON_THROW_ON_ERROR));
         $storedImage=null;
-        try{return DB::transaction(function()use($central,$actor,$id,$fields,$revision,$requestId,$fingerprint,$imageAction,&$storedImage){
+        try{return DB::transaction(function()use($central,$actor,$id,$fields,$revision,$requestId,$fingerprint,$imageAction,$kind,&$storedImage){
             // Serialise provisioning and retries within this actual central organisation.
             Organization::where('status','active')->lockForUpdate()->findOrFail($central);
             $prior=DB::table('tech4learn_central_requests')->where('organization_id',$central)->where('request_id',$requestId)->first();
@@ -134,12 +141,12 @@ final class Tech4LearnQuestionAuthoring
             }else $user=User::where('status',1)->where('is_platform_admin',false)->lockForUpdate()->findOrFail($mapping->external_id);
             abort_unless(DB::table('organization_users')->where('organization_id',$central)->where('user_id',$user->id)->where('status',1)->lockForUpdate()->first()!==null,403);
             if($prior){abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);}
-            $question=$id?$this->owned('questions',$central)->lockForUpdate()->findOrFail($id):null;
-            if($question)abort_unless(hash_equals($this->snapshot($question)['revision'],$revision),409,'Central question changed. Reload before saving.');
+            $question=$id?$this->owned($kind,$central)->lockForUpdate()->findOrFail($id):null;
+            if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Central record changed. Reload before saving.');
             else abort_unless($revision==='new',422);
             if($imageAction)$fields=app(Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
-            $values=$question?array_replace($this->snapshot($question)['fields'],$fields):$fields;
-            $result=$this->invoke($central,$user,$values,$question,'questions');
+            $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
+            $result=$this->invoke($central,$user,$values,$question,$kind);
             DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app(Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
