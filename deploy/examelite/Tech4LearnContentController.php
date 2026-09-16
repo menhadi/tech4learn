@@ -11,6 +11,7 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
 {
     public function centralImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image');}
     public function centralPackageImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image','packages');}
+    public function centralExamAction(Request $r,string $id,string $action) {return $this->centralWrite($r,$id,$action,'exams');}
     private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams'],true),404);}
     public function centralTaxonomy(Request $r,string $kind,string $id) {
         $central=(int)$this->configuration($r)['_platform']['organization_id'];
@@ -38,7 +39,7 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         abort_unless(is_array($r->input('fields')),422);
         try {
             $service=app(\App\Services\Tech4LearnQuestionAuthoring::class);
-            $result=$kind==='questions'?$service->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):($kind==='packages'&&$action==='set-image'?$service->saveCentralPackageImage($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id')):$service->saveCentralTaxonomy($central,$r->input('actor_id'),$kind,$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id')));
+            $result=$kind==='exams'&&$action!==null?$service->saveCentralExamAction($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):($kind==='questions'?$service->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):($kind==='packages'&&$action==='set-image'?$service->saveCentralPackageImage($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id')):$service->saveCentralTaxonomy($central,$r->input('actor_id'),$kind,$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'))));
             return $this->reply($central,$kind==='questions'?['saved'=>true,'question'=>$result]:['saved'=>true,'kind'=>$kind,'record'=>$result]);
         }catch(\Illuminate\Validation\ValidationException $e){return $this->reply($central,['saved'=>false,'errors'=>$e->errors()]);}
         catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){

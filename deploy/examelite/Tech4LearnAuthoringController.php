@@ -119,6 +119,15 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
     public function questionImageWrite(Request $r,string $org,string $id){return $this->save($r,$org,$id,'questions','set-image');}
     public function examQuestions(Request $r,string $org,string $id){
         [$central,$owner]=$this->workspace($r,$org,'exams');abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
+        return $this->ownedExamQuestions($r,$central,$owner,$id);
+    }
+    public function centralExamQuestions(Request $r,string $id){
+        $owner=(int)$this->configuration($r)['_platform']['organization_id'];
+        abort_unless(!array_diff(array_keys($r->query()),['after'])&&preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
+        \App\Models\Organization::where('status','active')->findOrFail($owner);
+        return $this->ownedExamQuestions($r,$owner,$owner,$id);
+    }
+    private function ownedExamQuestions(Request $r,int $central,int $owner,string $id){
         $exam=app(Tech4LearnQuestionAuthoring::class)->owned('exams',$owner)->findOrFail($id);
         $after=$r->query('after','0');abort_unless(is_string($after)&&preg_match('/^[0-9]{1,15}$/D',$after),422);
         $rows=$exam->questions()->where('questions.organization_id',$owner)->where('questions.id','>',(int)$after)->orderBy('questions.id')->limit(101)->get(['questions.id','questions.question']);$more=$rows->count()>100;$rows=$rows->take(100);

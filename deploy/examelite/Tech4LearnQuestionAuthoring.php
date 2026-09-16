@@ -118,21 +118,24 @@ final class Tech4LearnQuestionAuthoring
     public function saveCentralPackageImage(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'packages','set-image');
     }
+    public function saveCentralExamAction(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $action):array {
+        return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'exams',$action);
+    }
     private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {
         abort_unless($central>0&&$id>=0&&count($fields)>0,422);
-        abort_unless($action===null||($action==='set-image'&&$id>0),422);
+        abort_unless($action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status'],true)))),422);
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        if(array_diff(array_keys($fields),$imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):$this->definition($kind)[2])||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
+        if(array_diff(array_keys($fields),$imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:$this->definition($kind)[2]))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
-        $identity=[$actor,$id,$fields,$revision];if($imageAction)$identity[]=$action;if($kind!=='questions')$identity[]=$kind;
+        $identity=[$actor,$id,$fields,$revision];if($action!==null)$identity[]=$action;if($kind!=='questions')$identity[]=$kind;
         $fingerprint=hash('sha256',json_encode($identity,JSON_THROW_ON_ERROR));
         $storedImage=null;
-        try{return DB::transaction(function()use($central,$actor,$id,$fields,$revision,$requestId,$fingerprint,$imageAction,$kind,&$storedImage){
+        try{return DB::transaction(function()use($central,$actor,$id,$fields,$revision,$requestId,$fingerprint,$imageAction,$kind,$action,&$storedImage){
             // Serialise provisioning and retries within this actual central organisation.
             Organization::where('status','active')->lockForUpdate()->findOrFail($central);
             $prior=DB::table('tech4learn_central_requests')->where('organization_id',$central)->where('request_id',$requestId)->first();
@@ -155,10 +158,35 @@ final class Tech4LearnQuestionAuthoring
                 abort_unless(($values['package_type']??null)==='free'&&(!$question||$question->package_type==='free'),422,'Central paid package authoring is not available through this adapter.');
                 $this->validatePackageTags($central,$values);
             }
-            $result=$this->invoke($central,$user,$values,$question,$kind,$imageAction&&$kind==='packages'?'set-package-image':null);
+            if($kind==='exams')$this->validateExamAction($central,$question,$fields,$action);
+            $result=$this->invoke($central,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action);
             DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
+    }
+    private function validateExamAction(int $owner,?\Illuminate\Database\Eloquent\Model $question,array &$fields,?string $action):void {
+        if(in_array($action,['add-questions','remove-questions','assign-section'],true)){
+            $ids=$fields['question_ids']??null;
+            if(!is_array($ids)||count($ids)<1||count($ids)>100||count(array_filter($ids,fn($v)=>is_int($v)&&$v>0))!==count($ids))throw ValidationException::withMessages(['question_ids'=>'Select between 1 and 100 questions.']);
+            $ids=array_values(array_unique($ids));
+            abort_unless(Question::where('organization_id',$owner)->whereIn('id',$ids)->count()===count($ids),422);
+            $fields['question_ids']=$ids;
+            if($action!=='add-questions')abort_unless($question->questions()->whereIn('questions.id',$ids)->count()===count($ids),422);
+        }
+        if(in_array($action,['update-section','remove-section'],true)){
+            abort_unless(is_int($fields['section_id']??null)&&$fields['section_id']>0,422);
+            $question->sections()->findOrFail($fields['section_id']);
+        }
+        if($action==='subject-timers'){
+            $ids=$fields['subject_ids']??null;$durations=$fields['durations']??null;
+            abort_unless(is_array($ids)&&array_is_list($ids)&&count($ids)>0&&count($ids)<=100&&is_array($durations)&&array_is_list($durations)&&count($ids)===count($durations),422);
+            abort_unless(count(array_unique($ids))===count($ids)&&count(array_filter($ids,fn($v)=>is_int($v)&&$v>0))===count($ids)&&count(array_filter($durations,fn($v)=>is_int($v)&&$v>=1))===count($durations),422);
+            $paperIds=$question->questions()->whereNotNull('subject_id')->distinct()->pluck('subject_id')->map(fn($v)=>(int)$v)->all();
+            abort_unless(!array_diff($ids,$paperIds)&&!array_diff($paperIds,$ids),422);
+            abort_unless(\App\Models\Subject::where('organization_id',$owner)->whereIn('id',$ids)->count()===count($ids),422);
+        }
+        if($action==='set-result-status')abort_unless(is_bool($fields['result_after_finish']??null),422);
+        if($action==='set-status')abort_unless(in_array($fields['status']??null,['Active','Inactive'],true),422);
     }
     private function validatePackageTags(int $owner,array $values):void {
         abort_unless(!isset($values['tag_ids'])||is_array($values['tag_ids']),422);
@@ -214,28 +242,7 @@ final class Tech4LearnQuestionAuthoring
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Question changed. Reload before saving.');
             else abort_unless($revision==='new',422);
             if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
-            if(in_array($action,['add-questions','remove-questions','assign-section'],true)){
-                $ids=$fields['question_ids']??null;
-                if(!is_array($ids)||count($ids)<1||count($ids)>100||count(array_filter($ids,fn($v)=>is_int($v)&&$v>0))!==count($ids))throw ValidationException::withMessages(['question_ids'=>'Select between 1 and 100 questions.']);
-                $ids=array_values(array_unique($ids));
-                abort_unless(Question::where('organization_id',$tenant)->whereIn('id',$ids)->count()===count($ids),422);
-                $fields['question_ids']=$ids;
-                if($action!=='add-questions')abort_unless($question->questions()->whereIn('questions.id',$ids)->count()===count($ids),422);
-            }
-            if(in_array($action,['update-section','remove-section'],true)){
-                abort_unless(is_int($fields['section_id']??null)&&$fields['section_id']>0,422);
-                $question->sections()->findOrFail($fields['section_id']);
-            }
-            if($action==='subject-timers'){
-                $ids=$fields['subject_ids']??null;$durations=$fields['durations']??null;
-                abort_unless(is_array($ids)&&array_is_list($ids)&&count($ids)>0&&count($ids)<=100&&is_array($durations)&&array_is_list($durations)&&count($ids)===count($durations),422);
-                abort_unless(count(array_unique($ids))===count($ids)&&count(array_filter($ids,fn($v)=>is_int($v)&&$v>0))===count($ids)&&count(array_filter($durations,fn($v)=>is_int($v)&&$v>=1))===count($durations),422);
-                $paperIds=$question->questions()->whereNotNull('subject_id')->distinct()->pluck('subject_id')->map(fn($v)=>(int)$v)->all();
-                abort_unless(!array_diff($ids,$paperIds)&&!array_diff($paperIds,$ids),422);
-                abort_unless(\App\Models\Subject::where('organization_id',$tenant)->whereIn('id',$ids)->count()===count($ids),422);
-            }
-            if($action==='set-result-status')abort_unless(is_bool($fields['result_after_finish']??null),422);
-            if($action==='set-status')abort_unless(in_array($fields['status']??null,['Active','Inactive'],true),422);
+            $this->validateExamAction($tenant,$question,$fields,$action);
             if($action==='generate-document'){
                 foreach(['package_id','language_id'] as $key)abort_unless(is_int($fields[$key]??null)&&$fields[$key]>0,422);
                 abort_unless(in_array($fields['document_type']??null,['questions','solutions'],true),422);
