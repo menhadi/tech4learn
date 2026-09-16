@@ -32,6 +32,128 @@ export class ExamContentService {
     );
     if (current.rows[0]?.is_superadmin !== true) throw new ForbiddenException();
   }
+  async centralTaxonomy(
+    user: Account,
+    org: string,
+    kind: string,
+    id: string,
+    query: Record<string, unknown>,
+    body?: Record<string, unknown>,
+  ) {
+    await this.centralAccess(user, org, id, true);
+    const definitions: Record<string, string[]> = {
+      groups: ["group_name", "display_order"],
+      subjects: ["subject_name", "group_ids", "category_ids"],
+      topics: ["name", "group_id", "subject_id", "display_order"],
+      subtopics: [
+        "name",
+        "group_id",
+        "subject_id",
+        "topic_id",
+        "display_order",
+      ],
+      sections: ["name", "group_ids", "display_order", "status"],
+    };
+    if (!Object.hasOwn(definitions, kind) || Object.keys(query).length)
+      throw new BadRequestException("Invalid central classification.");
+    let payload: Record<string, unknown> | undefined;
+    if (body !== undefined) {
+      const fields = body.fields;
+      if (
+        Object.keys(body).some(
+          (key) => !["fields", "revision", "request_id"].includes(key),
+        ) ||
+        !fields ||
+        typeof fields !== "object" ||
+        Array.isArray(fields) ||
+        !Object.keys(fields).length ||
+        Object.keys(fields).some((key) => !definitions[kind].includes(key)) ||
+        Buffer.byteLength(JSON.stringify(fields), "utf8") > 250000 ||
+        typeof body.revision !== "string" ||
+        (id === "new"
+          ? body.revision !== "new"
+          : !/^[a-f0-9]{64}$/.test(body.revision)) ||
+        typeof body.request_id !== "string" ||
+        !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(
+          body.request_id,
+        )
+      )
+        throw new BadRequestException(
+          "Invalid central classification changes.",
+        );
+      payload = {
+        fields,
+        revision: body.revision,
+        request_id: body.request_id,
+        actor_id: user.id,
+      };
+    }
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `central/taxonomy/${kind}/${id}`,
+      payload,
+      4000000,
+      30000,
+    );
+    await this.centralAccess(user, org, id, true);
+    if (body !== undefined && response.saved === false) {
+      if (response.conflict === true)
+        throw new ConflictException(
+          "The central classification changed. Reload before saving again.",
+        );
+      if (
+        response.errors &&
+        typeof response.errors === "object" &&
+        !Array.isArray(response.errors)
+      ) {
+        const messages = Object.values(response.errors)
+          .flat()
+          .filter((value): value is string => typeof value === "string")
+          .slice(0, 12)
+          .map((value) => value.slice(0, 300));
+        throw new BadRequestException(
+          messages.join(" ") || "Check the central classification fields.",
+        );
+      }
+    }
+    const record = response.record;
+    const newDraft = body === undefined && id === "new";
+    if (
+      (body !== undefined && response.saved !== true) ||
+      response.kind !== kind ||
+      !record ||
+      !Number.isSafeInteger(record.id) ||
+      (newDraft
+        ? record.id !== 0
+        : record.id <= 0 ||
+          record.id >= 1e15 ||
+          (id !== "new" && record.id !== Number(id))) ||
+      typeof record.revision !== "string" ||
+      (newDraft
+        ? record.revision !== "new"
+        : !/^[a-f0-9]{64}$/.test(record.revision)) ||
+      !record.fields ||
+      typeof record.fields !== "object" ||
+      Array.isArray(record.fields) ||
+      Object.keys(record.fields).some((key) => !definitions[kind].includes(key))
+    )
+      throw new ServiceUnavailableException(
+        "Unable to verify the central classification. Retry the same request or reload.",
+      );
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      `exams.central.classification.${body === undefined ? "viewed" : id === "new" ? "created" : "updated"}`,
+      {
+        kind,
+        recordId: record.id,
+        ...(body === undefined ? {} : { requestId: body.request_id }),
+      },
+    );
+    return { id: record.id, revision: record.revision, fields: record.fields };
+  }
   async centralChoices(
     user: Account,
     org: string,

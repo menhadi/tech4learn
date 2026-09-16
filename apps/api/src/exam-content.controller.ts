@@ -539,6 +539,46 @@ export class ExamContentController {
       query,
     );
   }
+  @Get("platform/exam-content/:org/central/taxonomy/:kind/:id")
+  async centralTaxonomy(
+    @Param("org") org: string,
+    @Param("kind") kind: string,
+    @Param("id") id: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-central-classification-read:${account.id}`,
+      120,
+      60,
+    );
+    return this.content.centralTaxonomy(account, org, kind, id, query);
+  }
+  @Post("platform/exam-content/:org/central/taxonomy/:kind/:id")
+  async centralTaxonomySave(
+    @Param("org") org: string,
+    @Param("kind") kind: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-central-classification-write:${account.id}`,
+      30,
+      60,
+    );
+    return this.content.centralTaxonomy(
+      account,
+      org,
+      kind,
+      id,
+      query,
+      body ?? {},
+    );
+  }
   @Get("platform/exam-content/:org/central/choices/:kind")
   async centralChoices(
     @Param("org") org: string,

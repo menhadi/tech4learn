@@ -92,8 +92,49 @@ test("central question sharing requires superadmin; organisation reads respect m
   let centralMode = "ok";
   let centralWriteMode = "ok";
   let centralChoiceMode = "ok";
+  let centralTaxMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    if (path.startsWith("central/taxonomy/")) {
+      if (centralTaxMode === "revoked")
+        await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+          admin,
+        ]);
+      if (centralTaxMode === "conflict")
+        return { saved: false, conflict: true };
+      if (centralTaxMode === "validation")
+        return {
+          saved: false,
+          errors: { name: ["A classification name is required."] },
+        };
+      if (centralTaxMode === "malformed") return {};
+      const parts = path.split("/");
+      const isNew = parts[3] === "new";
+      return {
+        saved: body ? true : undefined,
+        kind: centralTaxMode === "kind" ? "other" : parts[2],
+        record: {
+          id:
+            centralTaxMode === "id"
+              ? -1
+              : isNew
+                ? body
+                  ? 77
+                  : 0
+                : Number(parts[3]),
+          revision:
+            centralTaxMode === "revision"
+              ? "bad"
+              : isNew && !body
+                ? "new"
+                : "a".repeat(64),
+          fields:
+            centralTaxMode === "fields"
+              ? { organization_id: 20 }
+              : (body?.fields ?? {}),
+        },
+      };
+    }
     if (path.startsWith("central/choices/")) {
       if (centralChoiceMode === "revoked")
         await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
@@ -1882,6 +1923,84 @@ test("central question sharing requires superadmin; organisation reads respect m
     assert.equal((await call(choicesPath)).status, 403);
     await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
     const centralCreate = platform + "/central/questions";
+    const taxPath = platform + "/central/taxonomy/groups/7";
+    const taxNew = platform + "/central/taxonomy/groups/new";
+    const taxBody = {
+      fields: { group_name: "Central group" },
+      revision: "a".repeat(64),
+      request_id: randomUUID(),
+    };
+    assert.equal((await call(taxPath, undefined, member)).status, 403);
+    assert.equal((await call(taxPath, taxBody, member)).status, 403);
+    assert.equal((await call(taxPath)).status, 200);
+    assert.equal(requests.at(-1).path, "central/taxonomy/groups/7");
+    assert.equal((await (await call(taxNew)).json()).revision, "new");
+    assert.equal(
+      (await call(taxNew, { ...taxBody, revision: "new" })).status,
+      201,
+    );
+    assert.deepEqual(requests.at(-1).body, {
+      ...taxBody,
+      revision: "new",
+      actor_id: admin,
+    });
+    assert.equal((await call(taxPath, taxBody)).status, 201);
+    assert.equal((await call(taxPath, taxBody)).status, 201);
+    assert.deepEqual(requests.at(-1).body, { ...taxBody, actor_id: admin });
+    for (const [kind, fields] of Object.entries({
+      subjects: { subject_name: "Subject", group_ids: [1] },
+      topics: { name: "Topic", group_id: 1, subject_id: 2 },
+      subtopics: { name: "Subtopic", group_id: 1, subject_id: 2, topic_id: 3 },
+      sections: { name: "Section", group_ids: [1], status: true },
+    }))
+      assert.equal(
+        (
+          await call(platform + `/central/taxonomy/${kind}/new`, {
+            ...taxBody,
+            fields,
+            revision: "new",
+          })
+        ).status,
+        201,
+      );
+    for (const invalid of [
+      { ...taxBody, actor_id: member },
+      { ...taxBody, fields: { organization_id: 20 } },
+      { ...taxBody, fields: {} },
+      { ...taxBody, fields: [] },
+      { ...taxBody, fields: { group_name: "छ".repeat(90000) } },
+      { ...taxBody, revision: "new" },
+      { ...taxBody, request_id: "bad" },
+    ]) {
+      const before = requests.length;
+      assert.equal((await call(taxPath, invalid)).status, 400);
+      assert.equal(requests.length, before);
+    }
+    for (const path of [
+      taxPath + "?owner=20",
+      platform + "/central/taxonomy/languages/new",
+    ]) {
+      const before = requests.length;
+      assert.equal((await call(path)).status, 400);
+      assert.equal(requests.length, before);
+    }
+    for (const mode of ["kind", "id", "revision", "fields", "malformed"]) {
+      centralTaxMode = mode;
+      assert.equal((await call(taxPath)).status, 503);
+    }
+    centralTaxMode = "conflict";
+    assert.equal((await call(taxPath, taxBody)).status, 409);
+    centralTaxMode = "validation";
+    assert.equal((await call(taxPath, taxBody)).status, 400);
+    centralTaxMode = "malformed";
+    assert.equal((await call(taxPath, taxBody)).status, 503);
+    for (const body of [undefined, taxBody]) {
+      centralTaxMode = "revoked";
+      assert.equal((await call(taxPath, body)).status, 403);
+      await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+        admin,
+      ]);
+    }
     const imageWritePath = centralPath + "/image";
     const centralUpload = {
       fields: {
