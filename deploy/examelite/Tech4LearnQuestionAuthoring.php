@@ -112,7 +112,7 @@ final class Tech4LearnQuestionAuthoring
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'questions',$action);
     }
     public function saveCentralTaxonomy(int $central,string $actor,string $kind,int $id,array $fields,string $revision,string $requestId):array {
-        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages'],true),422);
+        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams'],true),422);
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,$kind);
     }
     public function saveCentralPackageImage(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
@@ -127,6 +127,7 @@ final class Tech4LearnQuestionAuthoring
         if(array_diff(array_keys($fields),$imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):$this->definition($kind)[2])||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
+        if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
         $identity=[$actor,$id,$fields,$revision];if($imageAction)$identity[]=$action;if($kind!=='questions')$identity[]=$kind;
         $fingerprint=hash('sha256',json_encode($identity,JSON_THROW_ON_ERROR));

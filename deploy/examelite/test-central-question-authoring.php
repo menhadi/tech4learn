@@ -73,7 +73,7 @@ foreach($centralLanguages['items'] as $item)check(App\Models\Language::findOrFai
 foreach(['types','difficulties','subjects','sections','topics','subtopics'] as $kind)check(is_array($controller->centralChoices(Request::create('/','GET'),$kind)['items']),'Supported central question classification: '.$kind);
 foreach([['organization_id'=>'20'],['owner'=>'20'],['parent_id'=>'1'],['after'=>'-1'],['search'=>str_repeat('x',121)]] as $query)$reject(fn()=>$controller->centralChoices(Request::create('/','GET',$query),'groups'));
 $reject(fn()=>$controller->centralChoices(Request::create('/','GET'),'platform-languages'));
-$reject(fn()=>$controller->centralChoices(Request::create('/','GET'),'exams'));
+$reject(fn()=>$controller->centralChoices(Request::create('/','GET'),'unsupported'));
 for($i=0;$i<102;$i++)App\Models\Group::create(['organization_id'=>10,'group_name'=>'Central selector page '.$i]);
 $page=$controller->centralChoices(Request::create('/','GET',['search'=>'Central selector page']),'groups');
 check(count($page['items'])===100&&$page['next']!==null,'Central choices are bounded and provide a cursor');
