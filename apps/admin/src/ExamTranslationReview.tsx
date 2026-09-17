@@ -96,10 +96,12 @@ function WordingComparison({
 
 export function ExamTranslationReview({
   org,
+  central = false,
   record,
   disabled,
 }: {
   org: string;
+  central?: boolean;
   record: Exam;
   disabled: boolean;
 }) {
@@ -135,7 +137,7 @@ export function ExamTranslationReview({
       setBusy(false);
     }
   }, [disabled]);
-  const base = `/organisations/${org}/exam-content/exams/${record.id}/translations/${language}`;
+  const base = `${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/exams/${record.id}/translations/${language}`;
   async function approve(
     requestedAction:
       | "approve-translation"
@@ -145,6 +147,7 @@ export function ExamTranslationReview({
     const complete =
       review?.progress.remaining === 0 && review.progress.exam_content_ready;
     if (
+      central ||
       disabled ||
       editing ||
       busy ||
@@ -255,10 +258,12 @@ export function ExamTranslationReview({
     <details className="card">
       <summary>Review translations</summary>
       <p>
-        Compare saved source and translated wording before approval. Basic
-        translated text can be edited below.
+        {central
+          ? "Compare saved central source and translated wording. Central editing, refresh and approval controls are not available yet."
+          : "Compare saved source and translated wording before approval. Basic translated text can be edited below."}
       </p>
       <QuestionChoiceField
+        central={central}
         org={org}
         kind="languages"
         label="Review language"
@@ -306,8 +311,9 @@ export function ExamTranslationReview({
       )}
       {review && (
         <>
-          {(review.progress.remaining > 0 ||
-            !review.progress.exam_content_ready) &&
+          {!central &&
+            (review.progress.remaining > 0 ||
+              !review.progress.exam_content_ready) &&
             !pending && (
               <div>
                 <p>
@@ -353,7 +359,8 @@ export function ExamTranslationReview({
               translation={review.translation}
               mediaBase={mediaBase(0)}
             />
-            {!review.is_source_language &&
+            {!central &&
+              !review.is_source_language &&
               !pending &&
               review.progress.status !== "processing" &&
               !editing && (
@@ -368,7 +375,7 @@ export function ExamTranslationReview({
                   Edit translated exam wording
                 </button>
               )}
-            {editing && editingExam && (
+            {!central && editing && editingExam && (
               <ExamTranslationEditor
                 key={`${review.revision}-exam`}
                 mode="exam"
@@ -423,7 +430,8 @@ export function ExamTranslationReview({
                   mediaBase={mediaBase(selected)}
                 />
               )}
-              {question &&
+              {!central &&
+                question &&
                 !review.is_source_language &&
                 !pending &&
                 review.progress.status !== "processing" &&
@@ -439,7 +447,7 @@ export function ExamTranslationReview({
                     Edit translated wording
                   </button>
                 )}
-              {question && editing && !editingExam && (
+              {!central && question && editing && !editingExam && (
                 <ExamTranslationEditor
                   key={`${review.revision}-${selected}`}
                   org={org}
@@ -481,7 +489,8 @@ export function ExamTranslationReview({
           >
             Next review page
           </button>
-          {!review.approved &&
+          {!central &&
+            !review.approved &&
             review.progress.remaining === 0 &&
             review.progress.exam_content_ready &&
             !pending && (

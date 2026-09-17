@@ -15,6 +15,65 @@ import { ExamContentService } from "./exam-content.service.js";
 @Controller()
 export class ExamContentController {
   @Get(
+    "platform/exam-content/:org/central/exams/:id/translations/:language/media/:question/:revision/:asset",
+  )
+  async centralTranslationImage(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("language") language: string,
+    @Param("question") question: string,
+    @Param("revision") revision: string,
+    @Param("asset") asset: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-central-translation-media:${account.id}:${org}`,
+      180,
+      60,
+    );
+    const image = await this.content.translationMedia(
+      account,
+      org,
+      id,
+      language,
+      question,
+      revision,
+      asset,
+      query,
+      true,
+    );
+    response.setHeader("Content-Type", image.mime);
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(image.buffer);
+  }
+  @Get("platform/exam-content/:org/central/exams/:id/translations/:language")
+  async centralReviewTranslation(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("language") language: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-central-translation-review:${account.id}:${org}`,
+      30,
+      60,
+    );
+    return this.content.reviewTranslation(
+      account,
+      org,
+      id,
+      language,
+      query,
+      true,
+    );
+  }
+  @Get(
     "organisations/:org/exam-content/exams/:id/translations/:language/media/:question/:revision/:asset",
   )
   async translationImage(

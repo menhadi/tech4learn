@@ -677,8 +677,9 @@ function ExamEditor({
               disabled={busy || Object.keys(changes).length > 0}
             />
           )}
-          {!central && record.id > 0 && (
+          {record.id > 0 && (
             <ExamTranslationReview
+              central={central}
               key={`translation-${org}-${record.id}-${record.revision}`}
               org={org}
               record={record}

@@ -115,6 +115,12 @@ test("central question sharing requires superadmin; organisation reads respect m
         },
       };
     }
+    const centralTranslation =
+      /^central\/exams\/([1-9][0-9]*)\/translations\/([1-9][0-9]*)(.*)$/.exec(
+        path,
+      );
+    if (centralTranslation)
+      path = `translations/${org}/exams/${centralTranslation[1]}/languages/${centralTranslation[2]}${centralTranslation[3]}`;
     const centralExamAction = /^central\/exams\/([1-9][0-9]*)\/actions\//.exec(
       path,
     );
@@ -299,7 +305,11 @@ test("central question sharing requires superadmin; organisation reads respect m
       };
     }
     if (path.startsWith("translations/")) {
-      if (translationMode === "revoked")
+      if (translationMode === "revoked" && centralTranslation)
+        await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+          admin,
+        ]);
+      else if (translationMode === "revoked")
         await pg.query(
           "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
           [member, org],
@@ -2026,6 +2036,62 @@ test("central question sharing requires superadmin; organisation reads respect m
         admin,
       ]);
       centralPaperMode = "ok";
+    }
+    {
+      const path = platform + "/central/exams/9/translations/5";
+      const image = path + "/media/7/" + "a".repeat(64) + "/" + "c".repeat(64);
+      for (const selected of [path, image]) {
+        const before = requests.length;
+        assert.equal((await call(selected, undefined, member)).status, 403);
+        assert.equal(requests.length, before);
+      }
+      const response = await call(path);
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).exam_id, 9);
+      assert.equal(
+        requests.at(-1).path,
+        "central/exams/9/translations/5?after=0",
+      );
+      const bytes = await call(image);
+      assert.equal(bytes.status, 200);
+      assert.equal(bytes.headers.get("cache-control"), "no-store");
+      assert.equal(bytes.headers.get("x-content-type-options"), "nosniff");
+      assert.equal(await bytes.text(), "synthetic raster");
+      assert.equal(
+        requests.at(-1).path,
+        "central/exams/9/translations/5/media/7/" +
+          "c".repeat(64) +
+          "?revision=" +
+          "a".repeat(64),
+      );
+      for (const selected of [
+        path + "?actor_id=override",
+        path + "?after=7",
+        path + "?after=-1",
+        path + "?revision=bad",
+        image + "?path=outside",
+        image.replace("/media/7/", "/media/-1/"),
+      ]) {
+        const before = requests.length;
+        assert.equal((await call(selected)).status, 400);
+        assert.equal(requests.length, before);
+      }
+      for (const mode of ["wrong", "counts", "field", "cursor"]) {
+        translationMode = mode;
+        assert.equal((await call(path)).status, 503);
+      }
+      for (const mode of ["wrong", "revision", "mime", "base64"]) {
+        translationMode = mode;
+        assert.equal((await call(image)).status, 503);
+      }
+      for (const selected of [path, image]) {
+        translationMode = "revoked";
+        assert.equal((await call(selected)).status, 403);
+        await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+          admin,
+        ]);
+      }
+      translationMode = "ok";
     }
     const choicesPath = platform + "/central/choices/groups";
     assert.equal((await call(choicesPath, undefined, member)).status, 403);

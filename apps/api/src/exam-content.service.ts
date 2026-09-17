@@ -775,8 +775,10 @@ export class ExamContentService {
     revision: string,
     asset: string,
     query: Record<string, unknown>,
+    central = false,
   ) {
-    await this.questionAccess(user, org, id, "exams");
+    if (central) await this.centralAccess(user, org, id);
+    else await this.questionAccess(user, org, id, "exams");
     if (
       id === "new" ||
       !/^[1-9][0-9]{0,14}$/.test(language) ||
@@ -786,16 +788,21 @@ export class ExamContentService {
       Object.keys(query).length
     )
       throw new BadRequestException("Invalid translation image selection.");
-    const params = new URLSearchParams({ actor_id: user.id, revision });
+    const params = new URLSearchParams(
+      central ? { revision } : { actor_id: user.id, revision },
+    );
     const response = await this.remote.request(
       await this.config(),
       org,
-      `translations/${org}/exams/${id}/languages/${language}/media/${question}/${asset}?${params}`,
+      central
+        ? `central/exams/${id}/translations/${language}/media/${question}/${asset}?${params}`
+        : `translations/${org}/exams/${id}/languages/${language}/media/${question}/${asset}?${params}`,
       undefined,
       14000000,
       30000,
     );
-    await this.questionAccess(user, org, id, "exams");
+    if (central) await this.centralAccess(user, org, id);
+    else await this.questionAccess(user, org, id, "exams");
     const data = response.data;
     const invalid = () =>
       new ServiceUnavailableException(
@@ -830,7 +837,9 @@ export class ExamContentService {
       this.db,
       user,
       org,
-      "exams.translation.image.viewed",
+      central
+        ? "exams.central.translation.image.viewed"
+        : "exams.translation.image.viewed",
       {
         examId: Number(id),
         languageId: Number(language),
@@ -846,8 +855,10 @@ export class ExamContentService {
     id: string,
     language: string,
     query: Record<string, unknown>,
+    central = false,
   ) {
-    await this.questionAccess(user, org, id, "exams");
+    if (central) await this.centralAccess(user, org, id);
+    else await this.questionAccess(user, org, id, "exams");
     const after = query.after ?? "0";
     const revision = query.revision;
     if (
@@ -861,17 +872,22 @@ export class ExamContentService {
       (after !== "0" && revision === undefined)
     )
       throw new BadRequestException("Invalid translation review selection.");
-    const params = new URLSearchParams({ actor_id: user.id, after });
+    const params = new URLSearchParams(
+      central ? { after } : { actor_id: user.id, after },
+    );
     if (typeof revision === "string") params.set("revision", revision);
     const result = await this.remote.request(
       await this.config(),
       org,
-      `translations/${org}/exams/${id}/languages/${language}?${params}`,
+      central
+        ? `central/exams/${id}/translations/${language}?${params}`
+        : `translations/${org}/exams/${id}/languages/${language}?${params}`,
       undefined,
       2100000,
       30000,
     );
-    await this.questionAccess(user, org, id, "exams");
+    if (central) await this.centralAccess(user, org, id);
+    else await this.questionAccess(user, org, id, "exams");
     return translationReview(
       result.data,
       Number(id),
