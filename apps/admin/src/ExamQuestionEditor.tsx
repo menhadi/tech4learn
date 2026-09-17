@@ -6,6 +6,7 @@ import { QuestionChoiceField } from "./QuestionChoiceField";
 import { ExamRichContent } from "./ExamRichContent";
 import { QuestionImageUpload } from "./QuestionImageUpload";
 import { ExamFormulaInsert } from "./ExamFormulaInsert";
+import { retainedFormulaPreview } from "./retained-formula-preview";
 import { ExamExistingFormulaEditor } from "./ExamExistingFormulaEditor";
 
 export type Snapshot = {
@@ -23,6 +24,7 @@ export function FormattedField({
   disabled,
   previewValue,
   mediaBase,
+  originalImageWording,
 }: {
   label: string;
   value: string;
@@ -30,9 +32,14 @@ export function FormattedField({
   disabled: boolean;
   previewValue?: string;
   mediaBase?: string;
+  originalImageWording?: string;
 }) {
   const editor = useRef<HTMLDivElement>(null);
   const [preview, setPreview] = useState(false);
+  const retainedPreview =
+    originalImageWording !== undefined && previewValue !== undefined
+      ? retainedFormulaPreview(value, originalImageWording, previewValue)
+      : null;
   const media = /<(?:img|svg|math|math-field)\b/i.test(value);
   const applyFormula = (updated: string) => {
     if (disabled) return;
@@ -142,6 +149,7 @@ export function FormattedField({
       {media && (
         <ExamExistingFormulaEditor
           value={value}
+          retainedImages={retainedPreview !== null}
           disabled={disabled}
           onChange={applyFormula}
         />
@@ -151,7 +159,11 @@ export function FormattedField({
           /<math\b/i.test(value)) && (
           <section aria-label={`${label} preview`}>
             <ExamRichContent
-              value={/<img\b/i.test(value) ? (previewValue ?? "") : value}
+              value={
+                /<img\b/i.test(value)
+                  ? (retainedPreview ?? previewValue ?? "")
+                  : value
+              }
               mediaBase={mediaBase}
             />
           </section>
@@ -395,6 +407,9 @@ export function ExamQuestionEditor({
           <FormattedField
             label="Question"
             previewValue={record?.preview_fields?.question}
+            originalImageWording={
+              record.id > 0 ? String(record.fields.question ?? "") : undefined
+            }
             mediaBase={mediaBase}
             value={String(values.question ?? "")}
             disabled={busy || imagePending}
@@ -408,6 +423,11 @@ export function ExamQuestionEditor({
                   <FormattedField
                     label={`Option ${n}`}
                     previewValue={record?.preview_fields?.["option" + n]}
+                    originalImageWording={
+                      record.id > 0
+                        ? String(record.fields["option" + n] ?? "")
+                        : undefined
+                    }
                     mediaBase={mediaBase}
                     value={String(values["option" + n] ?? "")}
                     disabled={busy || imagePending}
@@ -538,6 +558,11 @@ export function ExamQuestionEditor({
             <FormattedField
               label="Model answer"
               previewValue={record?.preview_fields?.si_answer1}
+              originalImageWording={
+                record.id > 0
+                  ? String(record.fields.si_answer1 ?? "")
+                  : undefined
+              }
               mediaBase={mediaBase}
               value={String(values.si_answer1 ?? "")}
               disabled={busy || imagePending}
@@ -570,6 +595,9 @@ export function ExamQuestionEditor({
           <FormattedField
             label="Hint"
             previewValue={record?.preview_fields?.hint}
+            originalImageWording={
+              record.id > 0 ? String(record.fields.hint ?? "") : undefined
+            }
             mediaBase={mediaBase}
             value={String(values.hint ?? "")}
             disabled={busy || imagePending}
@@ -578,6 +606,11 @@ export function ExamQuestionEditor({
           <FormattedField
             label="Explanation"
             previewValue={record?.preview_fields?.explanation}
+            originalImageWording={
+              record.id > 0
+                ? String(record.fields.explanation ?? "")
+                : undefined
+            }
             mediaBase={mediaBase}
             value={String(values.explanation ?? "")}
             disabled={busy || imagePending}

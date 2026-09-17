@@ -8,7 +8,7 @@ import {
 } from "./ExamRichContent";
 
 /** Refuse lossy conversions: every retained element must fit the native write format. */
-function parse(value: string) {
+function parse(value: string, images = false) {
   if (value.length > 200000) return null;
   const root = document.createElement("template");
   root.innerHTML = value;
@@ -17,6 +17,21 @@ function parse(value: string) {
   for (const element of elements) {
     const tag = element.localName;
     const math = mathTags.includes(tag);
+    if (images && tag === "img") {
+      if (!element.getAttribute("src")?.trim()) return null;
+      for (const attribute of [...element.attributes]) {
+        if (
+          !(
+            attribute.name === "src" ||
+            (attribute.name === "alt" && attribute.value.length <= 1000) ||
+            (["width", "height"].includes(attribute.name) &&
+              /^[1-9][0-9]{0,3}$/.test(attribute.value))
+          )
+        )
+          return null;
+      }
+      continue;
+    }
     if (!math && !examTextTags.includes(tag)) return null;
     if (math && tag !== "math" && !element.closest("math")) return null;
     for (const attribute of [...element.attributes]) {
@@ -47,13 +62,15 @@ export function ExamExistingFormulaEditor({
   value,
   disabled,
   onChange,
+  retainedImages = false,
 }: {
   value: string;
+  retainedImages?: boolean;
   disabled: boolean;
   onChange: (value: string) => void;
 }) {
   const [selected, setSelected] = useState(0);
-  const parsed = parse(value);
+  const parsed = parse(value, retainedImages);
   if (!parsed) return null;
   const index = Math.min(selected, parsed.formulas.length - 1);
   return (
@@ -81,7 +98,7 @@ export function ExamExistingFormulaEditor({
         disabled={disabled}
         onInsert={(html) => {
           if (disabled) return;
-          const current = parse(value);
+          const current = parse(value, retainedImages);
           if (!current?.formulas[index]) return;
           const replacement = document.createElement("template");
           replacement.innerHTML = html;
