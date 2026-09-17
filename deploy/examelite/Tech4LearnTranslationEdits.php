@@ -12,6 +12,28 @@ final class Tech4LearnTranslationEdits
 {
     public const FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','fill_blank'];
     public const EXAM_FIELDS=['name','instruction','syllabus'];
+    /** Resolve only opaque images already in the locked translation's same field. */
+    private function retainedImages(?QuestionLang $target,array $wording):array {
+        $media=app(Tech4LearnQuestionMedia::class);
+        foreach($wording as $field=>$html){
+            if(!is_string($html)||!str_contains(strtolower($html),'<img'))continue;
+            $sources=$media->sources((string)($target?->{$field}??''));
+            $document=new \DOMDocument();$before=libxml_use_internal_errors(true);
+            try{$document->loadHTML('<?xml encoding="UTF-8"><html><body>'.$html.'</body></html>',LIBXML_NONET);}
+            finally{libxml_clear_errors();libxml_use_internal_errors($before);}
+            abort_unless($document->getElementsByTagName('img')->length<=50,422);
+            foreach($document->getElementsByTagName('img') as $image){
+                $source=$image->getAttribute('src');
+                if(!preg_match('/^t4l-media:([a-f0-9]{64})$/D',$source,$match)||!isset($sources[$match[1]]))
+                    throw ValidationException::withMessages([$field=>'Only images already in this translated field may be retained. Reload the translation review.']);
+                $image->setAttribute('src',$sources[$match[1]]);
+            }
+            $clean='';foreach($document->getElementsByTagName('body')->item(0)->childNodes as $node)$clean.=$document->saveHTML($node);
+            abort_unless(strlen($clean)<=200000,422,'Translated wording is too large after restoring its images.');
+            $wording[$field]=$clean;
+        }
+        return $wording;
+    }
     /** The native engine has no manual exam-language form controller. */
     public function applyExam(Exam $exam,array $fields):void {
         $language=Language::enabledForOrganization($exam->organization_id)->whereHas('exams',fn($q)=>$q->where('exams.id',$exam->id))->findOrFail($fields['language_id']);
@@ -43,6 +65,7 @@ final class Tech4LearnTranslationEdits
         $targets=QuestionLang::where('question_id',$source->id)->where('language_id',$language->id)->lockForUpdate()->get();
         abort_unless($targets->count()<=1,409,'This question has duplicate translations. Resolve them before editing.');
         $target=$targets->first();$native=app(ExamTranslationService::class);
+        $fields['wording']=$this->retainedImages($target,$fields['wording']);
         $values=array_replace(array_fill_keys(self::FIELDS,null),$target?->only(self::FIELDS)??[],$fields['wording'],['language_id'=>(int)$language->id]);
         $stale=$native->questionFieldsNeedingTranslation($source,$target);
         $fingerprints=$target?->source_field_fingerprints??[];

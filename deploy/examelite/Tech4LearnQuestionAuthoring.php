@@ -183,7 +183,7 @@ final class Tech4LearnQuestionAuthoring
             if($action==='save-question-translation')abort_unless(is_int($fields['question_id']??null)&&$fields['question_id']>0,422);
             $wordingFields=$action==='save-exam-translation'?Tech4LearnTranslationEdits::EXAM_FIELDS:Tech4LearnTranslationEdits::FIELDS;
             abort_unless(is_array($fields['wording']??null)&&count($fields['wording'])>0&&!array_diff(array_keys($fields['wording']),$wordingFields),422);
-            foreach($fields['wording'] as $key=>$value){abort_unless($value===null||(is_string($value)&&strlen($value)<=200000),422);if(is_string($value))$fields['wording'][$key]=$this->formattedText($value,$key);}
+            foreach($fields['wording'] as $key=>$value){abort_unless($value===null||(is_string($value)&&strlen($value)<=200000),422);if(is_string($value))$fields['wording'][$key]=$this->formattedText($value,$key,$action==='save-question-translation');}
         }
     }
     private function validateTranslationReview(\Illuminate\Database\Eloquent\Model $exam,int $owner,array $review,string $action):void {

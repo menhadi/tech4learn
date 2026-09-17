@@ -54,8 +54,8 @@ function parse(value: string, images = false) {
   return formulas.length ? { root, formulas } : null;
 }
 
-export function canReplaceExistingFormula(value: string) {
-  return parse(value) !== null;
+export function canReplaceExistingFormula(value: string, retainedImages = false) {
+  return parse(value, retainedImages) !== null;
 }
 
 export function ExamExistingFormulaEditor({

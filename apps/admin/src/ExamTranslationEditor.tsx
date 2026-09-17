@@ -3,6 +3,7 @@ import { canReplaceExistingFormula } from "./ExamExistingFormulaEditor";
 import { api, ApiError } from "./api";
 import { DraftForm } from "./DraftForm";
 import { FormattedField } from "./ExamQuestionEditor";
+import { retainedFormulaPreview } from "./retained-formula-preview";
 
 const questionFields = [
   "question",
@@ -72,7 +73,17 @@ export function ExamTranslationEditor({
         (!/<(?:img|svg|math|math-field)\b/i.test(
           question.translation?.[key] ?? "",
         ) ||
-          canReplaceExistingFormula(question.translation?.[key] ?? "")),
+          (canReplaceExistingFormula(
+            question.translation?.[key] ?? "",
+            mode === "question",
+          ) &&
+            (!/<img\b/i.test(question.translation?.[key] ?? "") ||
+              (typeof text === "string" &&
+                retainedFormulaPreview(
+                  text,
+                  question.translation?.[key] ?? "",
+                  question.translation?.[key] ?? "",
+                ) !== null)))),
     );
   return (
     <section className="panel">
@@ -180,9 +191,16 @@ export function ExamTranslationEditor({
                     : (question.translation?.[field] ?? "")
                 }
                 previewValue={
-                  field in changes
-                    ? (changes[field] ?? "")
-                    : (question.translation?.[field] ?? "")
+                  /<img\b/i.test(question.translation?.[field] ?? "")
+                    ? (question.translation?.[field] ?? "")
+                    : field in changes
+                      ? (changes[field] ?? "")
+                      : (question.translation?.[field] ?? "")
+                }
+                originalImageWording={
+                  mode === "question"
+                    ? (question.translation?.[field] ?? "")
+                    : undefined
                 }
                 mediaBase={mediaBase}
                 disabled={busy || pending !== null}
