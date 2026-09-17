@@ -40,5 +40,10 @@ foreach([false,true] as $central){
     check(DB::table($table)->count()===$ledger&&$service->snapshot($record->fresh())===$saved,'Rejected sources and attributes leave records and ledger unchanged');
     try{$save(['question'=>$wording],$before['revision'],$nextId());throw new RuntimeException('Expected stale image wording rejection');}
     catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===409,'Image wording uses the saved revision');}
+    $record->refresh();$record->question='<img src="'.$source.'" alt="Diagram">';$record->save();
+    $imageOnly=$service->snapshot($record->fresh());
+    $appended=$imageOnly['fields']['question'].'<p>Explain &lt;script&gt; as literal text.</p>';
+    $addition=$save(['question'=>$appended],$imageOnly['revision'],$nextId());
+    check(str_contains($addition['fields']['question'],$source)&&str_contains($addition['fields']['question'],'&lt;script&gt;')&&$addition['fields']['nat_value']===$imageOnly['fields']['nat_value'],'Appending text to image-only wording preserves image, literal markup and answer');
 }
 echo "Retained question images: native mixed wording, original-field scope, unsafe input rejection and retries passed.\n";

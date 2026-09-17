@@ -14,14 +14,14 @@ function sections(value: string, retainedImages: boolean) {
     if (node.textContent?.trim() && !node.parentElement?.closest("math"))
       nodes.push(node);
   }
-  return nodes.length ? { root: parsed.root, nodes } : null;
+  return { root: parsed.root, nodes };
 }
 
 export function canEditExistingText(value: string, retainedImages = false) {
   return sections(value, retainedImages) !== null;
 }
 
-/** Change text nodes only; never reconstruct images or formula internals. */
+/** Edit text or append a plain paragraph without rebuilding images or formulas. */
 export function ExamExistingTextEditor({
   value,
   retainedImages,
@@ -37,19 +37,27 @@ export function ExamExistingTextEditor({
   const [draft, setDraft] = useState<string | null>(null);
   const parsed = sections(value, retainedImages);
   if (!parsed) return null;
-  const index = Math.min(selected, parsed.nodes.length - 1);
-  const original = parsed.nodes[index].textContent ?? "";
+  const index = Math.min(selected, parsed.nodes.length);
+  const append = index === parsed.nodes.length;
+  const original = append ? "" : (parsed.nodes[index].textContent ?? "");
   const replacement = draft ?? original;
-  parsed.nodes[index].textContent = replacement;
+  const newParagraph = document.createElement("p");
+  if (append) {
+    newParagraph.textContent = replacement;
+    parsed.root.content.append(newParagraph);
+  } else parsed.nodes[index].textContent = replacement;
   const updated = parsed.root.innerHTML;
-  parsed.nodes[index].textContent = original;
+  if (append) newParagraph.remove();
+  else parsed.nodes[index].textContent = original;
   const tooLong = updated.length > 200000;
+  const tooComplex =
+    append && parsed.root.content.querySelectorAll("*").length >= 2000;
   return (
     <details data-no-draft="true">
       <summary>Edit surrounding text</summary>
       <p>
-        Select a text section and edit its wording. Images and formatting stay
-        in place. Apply the text, then save the record.
+        Edit a text section or add a paragraph at the end. Images and formatting
+        stay in place. Apply the text, then save the record.
       </p>
       <label>
         Text section
@@ -66,10 +74,11 @@ export function ExamExistingTextEditor({
               {i + 1}: {(node.textContent ?? "").trim().slice(0, 100)}
             </option>
           ))}
+          <option value={parsed.nodes.length}>New paragraph at the end</option>
         </select>
       </label>
       <label>
-        Replacement text
+        {append ? "New paragraph text" : "Replacement text"}
         <textarea
           value={replacement}
           maxLength={200000}
@@ -82,11 +91,16 @@ export function ExamExistingTextEditor({
           This change is too long. Shorten the replacement text.
         </p>
       )}
+      {tooComplex && (
+        <p role="alert">
+          This field has too much formatting to add another paragraph.
+        </p>
+      )}
       <button
         type="button"
-        disabled={disabled || replacement === original || tooLong}
+        disabled={disabled || replacement === original || tooLong || tooComplex}
         onClick={() => {
-          if (disabled || tooLong) return;
+          if (disabled || tooLong || tooComplex) return;
           onChange(updated);
           setDraft(null);
         }}
