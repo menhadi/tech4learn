@@ -129,7 +129,7 @@ final class Tech4LearnQuestionAuthoring
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
         if(array_diff(array_keys($fields),$imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:$this->definition($kind)[2]))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
-        foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
+        foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key,$kind==='questions'&&$id>0);
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
         $this->translationFields($fields,$action);
@@ -154,6 +154,7 @@ final class Tech4LearnQuestionAuthoring
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Central record changed. Reload before saving.');
             else abort_unless($revision==='new',422);
             if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
+            elseif($kind==='questions'&&$question)$this->validateRetainedImages($question,$fields);
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             if($kind==='packages'){
                 abort_unless(($values['package_type']??null)==='free'&&(!$question||$question->package_type==='free'),422,'Central paid package authoring is not available through this adapter.');
@@ -244,7 +245,7 @@ final class Tech4LearnQuestionAuthoring
         }
         if(strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?750000:250000))throw ValidationException::withMessages(['fields'=>'Question is too large.']);
         if($kind==='questions')foreach(['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'] as $key){
-            if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
+            if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key,$kind==='questions'&&$id>0);
         }
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
@@ -265,6 +266,7 @@ final class Tech4LearnQuestionAuthoring
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Question changed. Reload before saving.');
             else abort_unless($revision==='new',422);
             if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
+            elseif($kind==='questions'&&$question)$this->validateRetainedImages($question,$fields);
             $this->validateExamAction($tenant,$question,$fields,$action);
             if($action==='generate-document')$this->validateDocumentSelection($tenant,$id,$fields);
             if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)){
@@ -281,9 +283,20 @@ final class Tech4LearnQuestionAuthoring
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
     }
-    private function formattedText(string $html,string $key):string {
+    private function validateRetainedImages(Question $question,array $fields):void {
+        $media=app(Tech4LearnQuestionMedia::class);
+        foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $field){
+            if(!isset($fields[$field])||!is_string($fields[$field]))continue;
+            $requested=$media->sources($fields[$field]);if(!$requested)continue;
+            $before=$media->sources((string)$question->$field);
+            foreach($requested as $key=>$source)
+                if(!isset($before[$key])||!hash_equals($before[$key],$source))
+                    throw ValidationException::withMessages([$field=>'Only images already in this field may be retained. Use the image upload controls to add or replace an image.']);
+        }
+    }
+    private function formattedText(string $html,string $key,bool $images=false):string {
         // Accept bounded presentation MathML as well as basic text formatting.
-        // Images still use the separately scoped upload/reference action.
+        // Existing image sources are checked against the locked field before native saving.
         $dom=new \DOMDocument();$previous=libxml_use_internal_errors(true);
         try{$dom->loadHTML('<?xml encoding="UTF-8"><html><body>'.$html.'</body></html>',LIBXML_NONET);}
         finally{libxml_clear_errors();libxml_use_internal_errors($previous);}
@@ -294,6 +307,15 @@ final class Tech4LearnQuestionAuthoring
         if($body->getElementsByTagName('*')->length>2000)throw ValidationException::withMessages([$key=>'Formatting is too complex. Split this content into smaller fields.']);
         foreach($body->getElementsByTagName('*') as $element){
             $tag=strtolower($element->tagName);$math=in_array($tag,$mathTags,true);
+            if($images&&$tag==='img'){
+                if(!$element->hasAttribute('src')||trim($element->getAttribute('src'))===''||strlen($element->getAttribute('src'))>200000)
+                    throw ValidationException::withMessages([$key=>'Invalid retained image.']);
+                foreach($element->attributes as $attribute){
+                    $valid=($attribute->name==='src')||($attribute->name==='alt'&&strlen($attribute->value)<=1000)||(in_array($attribute->name,['width','height'],true)&&preg_match('/^[1-9][0-9]{0,3}$/D',$attribute->value));
+                    if(!$valid)throw ValidationException::withMessages([$key=>'Unsupported retained image formatting.']);
+                }
+                continue;
+            }
             if(!$math&&!in_array($tag,$allowed,true))throw ValidationException::withMessages([$key=>'This content requires the native media or formula editor.']);
             if($math&&$tag!=='math'){
                 $parent=$element->parentNode;$inside=false;
