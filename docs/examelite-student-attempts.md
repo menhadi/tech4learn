@@ -1,6 +1,6 @@
 # Internal student attempts: implementation status
 
-The full student portal is not ready for deployment. Separate student sign-in and a basic same-domain attempt screen are implemented locally, with authenticated start/resume, answer saving and submission through ExamElite. Raster images, bounded TeX/MathML, native calculator and shuffled options are integrated locally. Section timers are also integrated locally. Private camera capture, review and pre-start readiness are now integrated locally. Production paper/device verification and the remaining staff workflows are incomplete.
+The full student portal is not ready for deployment. Separate student sign-in and a basic same-domain attempt screen are implemented locally, with authenticated start/resume, answer saving and submission through ExamElite. Raster images, bounded TeX/MathML, native calculator and shuffled options are integrated locally. Section timers are also integrated locally. Private camera capture, review, pre-start readiness, staff marking and published result history are integrated locally. Representative browser/device and production verification remain incomplete.
 
 ## Student sign-in and exam grants
 
@@ -18,7 +18,7 @@ The sign-in screen displays the assigned exam. Check exam setup reads requiremen
 
 The adapter locks the attempt and answer rows, rejects new writes after submission or the attempt's captured duration, and respects the exam close time. Increasing the exam duration later cannot extend an already-started attempt through this answer path. The native ExamAnswerPersistenceService continues to store the answer and enforce its answer-lock rule; the integration does not grade questions.
 
-Question type is resolved from the native question, never from browser input. The bounded input contains the selected answer and review/bookmark/lock/time flags only. Numerical, true/false, single/multiple-choice and fill-blank values have isolated native persistence tests. Subjective text is accepted by the private adapter but a complete manual-marking workflow is still outstanding.
+Question type is resolved from the native question, never from browser input. The bounded input contains the selected answer and review/bookmark/lock/time flags only. Numerical, true/false, single/multiple-choice and fill-blank values have isolated native persistence tests. Subjective text is accepted by the private adapter and flows through native submission into the staff marking interface. The continuous native pilot test covers this path.
 
 An answer revision rejects stale edits. `tech4learn_attempt_requests` records a request fingerprint and minimal acknowledgement, without storing answer keys. An identical lost-response retry is acknowledged without applying the answer again, even if a newer answer exists. A changed request with the same ID is rejected. Revoked Taking access also prevents retry acknowledgements. A previously accepted request can be acknowledged after submission; it cannot change that submission.
 
@@ -37,9 +37,9 @@ Workspace and attempt locks serialise lifecycle mutations. Submission retries re
 ## Remaining integration
 
 - Validate supported delivery settings and representative papers before production use. The current native transaction rejects SVG and interactive media, rolling back a newly created attempt rather than showing an incomplete paper.
-- Replace the older launch path's automatic membership in every native exam group with explicit exam access. Existing external launch/session behaviour is not changed by these private components.
+- Verify the deployed retirement of old external workspace links. The local implementation now refuses them and uses explicit exam grants.
 - Verify the supported raster/formula formats against representative native papers before deployment; SVG and interactive media remain unsupported.
-- Complete manual marking and student result-history navigation; validate camera delivery on representative devices before a production rollout.
+- Verify the implemented manual marking and published-result history in a representative browser workflow; validate camera delivery on representative devices before a production rollout.
 
 ## Local verification
 
@@ -148,3 +148,7 @@ Owned passages and raster images referenced by the question/passage now appear i
 Stored reference-answer raster images now use the same private reader, with an additional pending-stat identity check. Native array-encoded reference answers are normalised before display, media lookup and unsupported-content checks. A removed reference image loses authorisation. The browser waits for reference images alongside question/passage content before enabling marking. Native and synthetic browser tests cover these boundaries.
 
 Images embedded in student answers, unsupported media types and broader exam workflow verification remain unfinished. The adapter does not fetch arbitrary student-supplied image references.
+
+## Continuous native pilot verification
+
+`test-pilot-exam-workflow.php` extends the existing native lifecycle and marking suites with one newly authored subjective question and exam. It creates and assembles the paper through authoring, explicitly enables online visibility, activates it, starts a mapped student, saves and retries a written answer, resumes, submits, marks the actual pending answer, publishes the result and reads student history. It never seeds a completed attempt or pending mark for this added flow. Answer, marking and submission retries preserve the outcome. The deployment script runs this suite in place of the marking-only entry point; all preceding checks remain included. It passed locally against the native controller snapshots. This proves the native vertical workflow with isolated storage, not a combined live-browser or production deployment test.
