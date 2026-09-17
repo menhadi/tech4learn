@@ -24,25 +24,20 @@ Run `npm run check` for API tests, workspace typechecks and production builds. P
 
 Python installer tests check additive registration, provider ordering before native catch-all routes, repeat installs and scoped vhosts. Synthetic browser checks cover T4L buttons, learner selection, expiring links and saved restrictions. They are not a production exam attempt.
 
-## User-run deployment
+## Current user-run deployment
 
-The existing origin certificate does not cover workspace hosts; a read-only request returned Cloudflare 526. Keep full TLS verification enabled. If the wildcard certificate is not present, run:
+The current deployer installs the same-domain integration. It no longer requests a wildcard certificate, installs workspace subdomain vhosts or checks a retired workspace launch URL. Staff and student browsers stay on Tech4Learn; the private engine connection still uses `https://examelite.com` with full TLS verification. Existing main-domain certificates and the central credential remain required. Legacy vhost and certificate files are left in place; their removal is not part of this deployment. Installed middleware rejects the retired browser hosts.
 
-```bash
-sudo certbot certonly --manual --preferred-challenges dns \
-  --cert-name examelite-workspaces -d '*.examelite.com'
-```
-
-Add Certbot's requested DNS TXT record before continuing. Wildcard DNS must route workspace hosts to the existing origin. Manual DNS certificates need renewal before expiry; this does not configure unattended renewal.
-
-After pulling the checked commit, run as root:
+When a checked release is ready and the user elects to deploy it, run as root after pulling that commit. This is a deployment procedure, not a statement that all requested features are complete:
 
 ```bash
 bash /home/tech4learn/tech4learn-app/deploy/examelite/deploy-native-workspace.sh
 ```
 
-This installs additive files in both ExamElite and T4L on the same server. It preflights the wildcard certificate/key, PHP socket and central credential; runs isolated tests; backs up replaced source files; installs provider files and four additive tables; checks actual route dispatch, CSRF, compiled views and authenticated health; installs a dedicated vhost; then runs T4L's existing backup/build/migrate/health procedure for migration 14. Main ExamElite vhosts/certificates and central credentials are preserved.
+This installs additive files in both ExamElite and T4L on the same server. It requires a clean checkout, preflights the central credential, runs isolated native tests, backs up replaced source files, installs provider files and applies the explicit workspace schema. It verifies route dispatch, compiled views, schema and authenticated health before running T4L's existing backup/build/migrate/health procedure. A native test or engine health failure stops before the T4L update. No workspace DNS or wildcard certificate is needed by this path.
 
 Source backups are printed under `/root/tech4learn-backups/`. A failure can leave the additive ExamElite installation in place even if T4L has not been updated. The T4L deployer restores its previous built files on failure; there is no whole-deployment database rollback. Retain additive tables and copied content during recovery.
 
-After deployment: open exam management, copy an exam from Shared library, edit the owned version, create a student link, complete an attempt and verify its result. Confirm the shared original and other organisations are unchanged. No production write is performed by the assistant.
+After deployment: open the organisation's internal exam screens, create or copy a question and exam, edit the owned version, issue a student link, complete an attempt, mark it and publish its result. Confirm the browser stays on Tech4Learn, the shared original and other organisations remain unchanged, and a revoked student link cannot reopen the attempt. Follow the [current implementation status](examelite-central-content.md) for remaining functionality and verification limits. No production write is performed by the assistant.
+
+The local `test-deploy-workspace.py` check replaces every installer command with an inert stub and verifies clean-checkout enforcement, native-test failure, engine-health failure and successful sequencing without a wildcard certificate. It does not execute a production deployment or validate the host's PHP, network or service configuration.

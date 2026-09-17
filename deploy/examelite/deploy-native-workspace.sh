@@ -5,12 +5,8 @@ test "$(id -u)" = 0
 repo=/home/tech4learn/tech4learn-app
 source="$repo/deploy/examelite"
 test -z "$(runuser -u tech4learn -- git -C "$repo" status --porcelain)"
-test -f /etc/letsencrypt/live/examelite-workspaces/fullchain.pem || {
-  printf '%s\n' "First obtain the wildcard certificate with: certbot certonly --manual --preferred-challenges dns --cert-name examelite-workspaces -d '*.examelite.com'" >&2
-  exit 1
-}
-openssl x509 -in /etc/letsencrypt/live/examelite-workspaces/fullchain.pem -checkend 86400 -noout
-python3 -B "$source/install-workspace-hosts.py" --preflight
+# Browser delivery stays on Tech4Learn. The private engine uses examelite.com;
+# retired workspace subdomains do not require certificates or new vhosts.
 python3 -B "$source/check-workspace-connection.py" --configuration-only
 python3 -B "$source/test-workspace-install.py"
 php "$source/test-workspace-policy.php"
@@ -32,12 +28,7 @@ runuser -u examelite -- php /home/examelite/public_html/artisan view:clear
 runuser -u examelite -- php < "$source/verify-workspace.php"
 bash "$source/install-proctor-retention.sh"
 python3 -B "$source/check-workspace-connection.py"
-python3 -B "$source/install-workspace-hosts.py"
-http_code=$(curl --silent --show-error --max-time 20 -o /dev/null -w '%{http_code}' https://t4l-00000000000000000000000000000000.examelite.com/tech4learn/launch)
-test "$http_code" = 404 || {
-  printf 'Workspace TLS/routing check returned HTTP %s; Tech4Learn has not been updated.\n' "$http_code" >&2
-  exit 1
-}
 bash "$repo/deploy/virtualmin/update-ui-template.sh"
-printf '\nNative ExamElite workspace installed. Refresh Tech4Learn and open Exams & results → ExamElite workspace.\n'
-printf 'Superadmin: enable Exams for the pilot organisation and test question sharing and pulling. In-page authoring and exam taking are still under development.\n'
+printf '\nSame-domain ExamElite integration installed. Refresh Tech4Learn and open Exams & results.\n'
+printf 'Pilot check: enable Exams for the organisation, create or copy a question and exam, issue a student link, submit an attempt, mark it and publish its result.\n'
+printf 'Keep staff and students on the Tech4Learn domain. Full feature parity and production workflow verification remain unfinished; see docs/examelite-central-content.md.\n'
