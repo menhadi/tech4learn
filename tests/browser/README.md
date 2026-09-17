@@ -1,5 +1,16 @@
 # Pilot workflow verification
 
+## Question text beside retained media
+
+Run `npm exec vite -- --config tests/browser/vite.config.mjs` and open
+`http://127.0.0.1:5195/tests/browser/question-text.html`. Wait for PASS/FAIL.
+This synthetic fixture mounts the real shared question field and scoped form.
+It appends literal text to source-image, opaque translated-image, formula-only
+and mixed fields; verifies the original markup survives; and checks disabled
+editing. It does not call the native engine or verify image downloading.
+The retained-question-images PHP suite separately checks native persistence.
+No learner data or credentials are used.
+
 ## Connected API and native engine check
 
 `pilot-api-native.mjs` runs the real Nest HTTP handlers against PGlite and sends

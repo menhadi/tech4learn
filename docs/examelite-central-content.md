@@ -1,5 +1,10 @@
 # Central exam controls and question transfers
 
+For the current consolidated status and remaining work, read
+[delivery status](examelite-delivery-status.md). Later sections of this document
+include historical milestones whose pending statements may have been completed
+by subsequent entries.
+
 This document tracks the revised same-domain integration. It is implemented locally and requires explicit user deployment. It does **not** complete the full in-page ExamElite authoring and exam-taking requirement.
 
 The [current deployment procedure](examelite-native-workspace.md#current-user-run-deployment) installs the same-domain screens and private engine adapters without requiring the retired wildcard workspace certificate or creating external workspace hosts. The script verifies the authenticated engine connection before updating Tech4Learn. This removes an obsolete deployment dependency; it does not establish full feature parity or a completed live test.
