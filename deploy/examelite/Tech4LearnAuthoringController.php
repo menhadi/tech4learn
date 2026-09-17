@@ -115,6 +115,11 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
     }
     public function examAction(Request $r,string $org,string $id,string $action){return $this->save($r,$org,$id,'exams',$action);}
     public function disableLanguage(Request $r,string $org,string $id){return $this->save($r,$org,$id,'languages','disable-language');}
+    public function deleteCategory(Request $r,string $org,string $kind,string $id){
+        abort_unless(in_array($kind,['categories','subcategories'],true)&&preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
+        abort_unless($r->query()===[]&&!array_diff(array_keys($r->all()),['actor_id','fields','revision','request_id'])&&$r->input('fields')===[],422);
+        return $this->save($r,$org,$id,$kind,'delete-category');
+    }
     public function packageImageWrite(Request $r,string $org,string $id){return $this->save($r,$org,$id,'packages','set-image');}
     public function questionImageWrite(Request $r,string $org,string $id){return $this->save($r,$org,$id,'questions','set-image');}
     public function examQuestions(Request $r,string $org,string $id){

@@ -54,6 +54,8 @@ foreach([
  ['GET','api/tech4learn/v1/central/choices/groups','Tech4LearnAuthoringController@centralChoices'],
  ['GET','api/tech4learn/v1/central/taxonomy/groups/new','Tech4LearnContentController@centralTaxonomy'],
  ['POST','api/tech4learn/v1/central/taxonomy/groups/new','Tech4LearnContentController@centralTaxonomyWrite'],
+ ['POST','api/tech4learn/v1/central/taxonomy/categories/1/delete','Tech4LearnContentController@centralCategoryDelete'],
+ ['POST','api/tech4learn/v1/authoring/11111111-1111-1111-1111-111111111111/taxonomy/categories/1/delete','Tech4LearnAuthoringController@deleteCategory'],
  ['GET','api/tech4learn/v1/central/questions/1','Tech4LearnContentController@centralDetail'],
  ['POST','api/tech4learn/v1/central/questions','Tech4LearnContentController@centralWrite'],
  ['POST','api/tech4learn/v1/central/questions/1','Tech4LearnContentController@centralWrite'],

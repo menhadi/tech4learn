@@ -31,6 +31,10 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         $this->centralTaxonomyKind($kind);
         return $this->centralWrite($r,$id,null,$kind);
     }
+    public function centralCategoryDelete(Request $r,string $kind,string $id) {
+        abort_unless(in_array($kind,['categories','subcategories'],true)&&preg_match('/^[1-9][0-9]{0,14}$/D',$id)&&$r->input('fields')===[],422);
+        return $this->centralWrite($r,$id,'delete-category',$kind);
+    }
     public function centralWrite(Request $r,string $id='new',?string $action=null,string $kind='questions') {
         $central=$this->configuration($r)['_platform']['organization_id'];
         abort_unless($r->query()===[]&&!array_diff(array_keys($r->all()),['actor_id','fields','revision','request_id']),422);
@@ -39,6 +43,10 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         abort_unless(is_array($r->input('fields')),422);
         try {
             $service=app(\App\Services\Tech4LearnQuestionAuthoring::class);
+            if($action==='delete-category'){
+                $result=$service->deleteCentralCategory($central,$r->input('actor_id'),$kind,(int)$id,$r->input('revision'),$r->input('request_id'));
+                return $this->reply($central,['saved'=>true,'kind'=>$kind,'record'=>$result]);
+            }
             $result=$kind==='exams'&&$action!==null?$service->saveCentralExamAction($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):($kind==='questions'?$service->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):($kind==='packages'&&$action==='set-image'?$service->saveCentralPackageImage($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id')):$service->saveCentralTaxonomy($central,$r->input('actor_id'),$kind,$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'))));
             return $this->reply($central,$kind==='questions'?['saved'=>true,'question'=>$result]:['saved'=>true,'kind'=>$kind,'record'=>$result]);
         }catch(\Illuminate\Validation\ValidationException $e){return $this->reply($central,['saved'=>false,'errors'=>$e->errors()]);}

@@ -31,6 +31,7 @@ Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::get('/central/choices/{kind}', [Tech4LearnAuthoringController::class, 'centralChoices']);
     Route::get('/central/taxonomy/{kind}/{id}', [Tech4LearnContentController::class, 'centralTaxonomy']);
     Route::post('/central/taxonomy/{kind}/{id}', [Tech4LearnContentController::class, 'centralTaxonomyWrite']);
+    Route::post('/central/taxonomy/{kind}/{id}/delete', [Tech4LearnContentController::class, 'centralCategoryDelete']);
     Route::get('/central/questions/{id}', [Tech4LearnContentController::class, 'centralDetail']);
     Route::post('/central/questions', [Tech4LearnContentController::class, 'centralWrite']);
     Route::post('/central/questions/{id}', [Tech4LearnContentController::class, 'centralWrite']);
@@ -57,6 +58,7 @@ Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::get('/authoring/{org}/taxonomy/{kind}/{id}', [Tech4LearnAuthoringController::class, 'taxonomy']);
     Route::post('/authoring/{org}/taxonomy/{kind}/{id}', [Tech4LearnAuthoringController::class, 'saveTaxonomy']);
     Route::post('/authoring/{org}/taxonomy/languages/{id}/disable', [Tech4LearnAuthoringController::class, 'disableLanguage']);
+    Route::post('/authoring/{org}/taxonomy/{kind}/{id}/delete', [Tech4LearnAuthoringController::class, 'deleteCategory']);
     Route::get('/authoring/{org}/choices/{kind}', [Tech4LearnAuthoringController::class, 'choices']);
     Route::post('/authoring/{org}/questions', [Tech4LearnAuthoringController::class, 'create']);
     Route::post('/authoring/{org}/questions/{id}/image', [Tech4LearnAuthoringController::class, 'questionImageWrite']);
