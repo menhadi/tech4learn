@@ -57,6 +57,14 @@ adapter milestone as a release.
    browser checks cover both owners, upload/replacement/removal, retry, locks,
    byte exclusion and missing-translation gating. Translated exam images remain
    outside these question controls.
+   A further native gap was confirmed in the inspected controller snapshot:
+   `QuestionLang` and native translation fingerprints include `si_answer1`
+   (the subjective model answer), but `QuestionLangController::store/update`
+   neither validates nor saves it. The current Tech4Learn manual editor therefore
+   withholds that field. Completing it needs a compatible native controller
+   extension plus adapter/gateway/editor coverage. Legacy native forms that omit
+   the field must preserve existing answers; adding an unconditional null write
+   would lose data. This remains implementation work, not a completed feature.
 2. **Verify native background processing.** Exercise PDF rendering and AI
    translation completion in isolated local worker fixtures, including failure,
    approval invalidation and repeat requests. A queued request alone is not a
