@@ -8,7 +8,7 @@ import {
 } from "./ExamRichContent";
 
 /** Refuse lossy conversions: every retained element must fit the native write format. */
-function parse(value: string, images = false) {
+export function parseRetainedExamContent(value: string, images = false) {
   if (value.length > 200000) return null;
   const root = document.createElement("template");
   root.innerHTML = value;
@@ -51,11 +51,14 @@ function parse(value: string, images = false) {
   const formulas = [...root.content.querySelectorAll("math")].filter(
     (element) => !element.parentElement?.closest("math"),
   );
-  return formulas.length ? { root, formulas } : null;
+  return { root, formulas };
 }
 
-export function canReplaceExistingFormula(value: string, retainedImages = false) {
-  return parse(value, retainedImages) !== null;
+export function canReplaceExistingFormula(
+  value: string,
+  retainedImages = false,
+) {
+  return !!parseRetainedExamContent(value, retainedImages)?.formulas.length;
 }
 
 export function ExamExistingFormulaEditor({
@@ -70,8 +73,8 @@ export function ExamExistingFormulaEditor({
   onChange: (value: string) => void;
 }) {
   const [selected, setSelected] = useState(0);
-  const parsed = parse(value, retainedImages);
-  if (!parsed) return null;
+  const parsed = parseRetainedExamContent(value, retainedImages);
+  if (!parsed?.formulas.length) return null;
   const index = Math.min(selected, parsed.formulas.length - 1);
   return (
     <section data-no-draft="true" aria-label="Edit existing formulas">
@@ -98,7 +101,7 @@ export function ExamExistingFormulaEditor({
         disabled={disabled}
         onInsert={(html) => {
           if (disabled) return;
-          const current = parse(value, retainedImages);
+          const current = parseRetainedExamContent(value, retainedImages);
           if (!current?.formulas[index]) return;
           const replacement = document.createElement("template");
           replacement.innerHTML = html;

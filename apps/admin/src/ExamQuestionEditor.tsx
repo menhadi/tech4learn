@@ -8,6 +8,7 @@ import { QuestionImageUpload } from "./QuestionImageUpload";
 import { ExamFormulaInsert } from "./ExamFormulaInsert";
 import { retainedFormulaPreview } from "./retained-formula-preview";
 import { ExamExistingFormulaEditor } from "./ExamExistingFormulaEditor";
+import { ExamExistingTextEditor } from "./ExamExistingTextEditor";
 
 export type Snapshot = {
   id: number;
@@ -84,9 +85,18 @@ export function FormattedField({
     <fieldset>
       <legend>{label}</legend>
       {media && (
+        <ExamExistingTextEditor
+          key={value}
+          value={value}
+          retainedImages={retainedPreview !== null}
+          disabled={disabled}
+          onChange={applyFormula}
+        />
+      )}
+      {media && (
         <p>
-          This field contains image or formula markup. Use the available formula
-          or image controls to change it. Saving other fields preserves its
+          This field contains image or formula markup. Use the text, formula or
+          image controls to change it. Saving other fields preserves its
           content.
         </p>
       )}

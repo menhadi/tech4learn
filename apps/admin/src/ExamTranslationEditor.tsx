@@ -4,6 +4,7 @@ import { api, ApiError } from "./api";
 import { DraftForm } from "./DraftForm";
 import { FormattedField } from "./ExamQuestionEditor";
 import { retainedFormulaPreview } from "./retained-formula-preview";
+import { canEditExistingText } from "./ExamExistingTextEditor";
 
 const questionFields = [
   "question",
@@ -73,10 +74,14 @@ export function ExamTranslationEditor({
         (!/<(?:img|svg|math|math-field)\b/i.test(
           question.translation?.[key] ?? "",
         ) ||
-          (canReplaceExistingFormula(
+          ((canReplaceExistingFormula(
             question.translation?.[key] ?? "",
             mode === "question",
-          ) &&
+          ) ||
+            canEditExistingText(
+              question.translation?.[key] ?? "",
+              mode === "question",
+            )) &&
             (!/<img\b/i.test(question.translation?.[key] ?? "") ||
               (typeof text === "string" &&
                 retainedFormulaPreview(
