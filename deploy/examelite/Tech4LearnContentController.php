@@ -12,7 +12,7 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
     public function centralImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image');}
     public function centralPackageImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image','packages');}
     public function centralExamAction(Request $r,string $id,string $action) {return $this->centralWrite($r,$id,$action,'exams');}
-    private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams'],true),404);}
+    private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams','languages'],true),404);}
     public function centralTaxonomy(Request $r,string $kind,string $id) {
         $central=(int)$this->configuration($r)['_platform']['organization_id'];
         $this->centralTaxonomyKind($kind);
@@ -21,6 +21,7 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         $service=app(\App\Services\Tech4LearnQuestionAuthoring::class);
         $record=$id==='new'?['id'=>0,'revision'=>'new','fields'=>array_intersect_key(['display_order'=>0,'group_ids'=>[],'category_ids'=>[],'status'=>true],array_flip($service->definition($kind)[2]))]:$service->record($kind,$service->owned($kind,$central)->findOrFail((int)$id));
         if($kind==='exams'&&$id==='new')$record=$service->newExam();
+        if($kind==='languages')$record['fields']=$id==='new'?['name'=>'','code'=>'','value1'=>'','value2'=>'']:array_intersect_key($record['fields'],array_flip(['name','code','value1','value2']));
         if($kind==='packages'){
             if($id==='new')$record['fields']+=['name'=>'','package_type'=>'free','tag_ids'=>[],'auto_enroll_on_registration'=>false,'show_pdf_download'=>true,'show_solution_pdf_download'=>true];
             else abort_unless(($record['fields']['package_type']??null)==='free',404);
@@ -48,6 +49,7 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
                 return $this->reply($central,['saved'=>true,'kind'=>$kind,'record'=>$result]);
             }
             $result=$kind==='exams'&&$action!==null?$service->saveCentralExamAction($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):($kind==='questions'?$service->saveCentralQuestion($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'),$action):($kind==='packages'&&$action==='set-image'?$service->saveCentralPackageImage($central,$r->input('actor_id'),$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id')):$service->saveCentralTaxonomy($central,$r->input('actor_id'),$kind,$id==='new'?0:(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'))));
+            if($kind==='languages')$result['fields']=array_intersect_key($result['fields'],array_flip(['name','code','value1','value2']));
             return $this->reply($central,$kind==='questions'?['saved'=>true,'question'=>$result]:['saved'=>true,'kind'=>$kind,'record'=>$result]);
         }catch(\Illuminate\Validation\ValidationException $e){return $this->reply($central,['saved'=>false,'errors'=>$e->errors()]);}
         catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){

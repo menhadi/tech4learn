@@ -217,16 +217,24 @@ test("central question sharing requires superadmin; organisation reads respect m
           fields:
             centralTaxMode === "fields"
               ? { organization_id: 20 }
-              : parts[2] === "packages"
+              : parts[2] === "languages"
                 ? {
-                    package_type: centralTaxMode === "paid" ? "paid" : "free",
-                    ...(packageImage
-                      ? { name: "Synthetic central package" }
-                      : (body?.fields ?? {})),
+                    name: "Synthetic language",
+                    code: centralTaxMode === "language-type" ? 12 : "syn",
+                    value1: null,
+                    value2: "False",
+                    ...body?.fields,
                   }
-                : centralExamAction
-                  ? { name: "Synthetic central exam" }
-                  : (body?.fields ?? {}),
+                : parts[2] === "packages"
+                  ? {
+                      package_type: centralTaxMode === "paid" ? "paid" : "free",
+                      ...(packageImage
+                        ? { name: "Synthetic central package" }
+                        : (body?.fields ?? {})),
+                    }
+                  : centralExamAction
+                    ? { name: "Synthetic central exam" }
+                    : (body?.fields ?? {}),
         },
       };
     }
@@ -2601,7 +2609,7 @@ test("central question sharing requires superadmin; organisation reads respect m
     }
     for (const path of [
       taxPath + "?owner=20",
-      platform + "/central/taxonomy/languages/new",
+      platform + "/central/taxonomy/unsupported/new",
     ]) {
       const before = requests.length;
       assert.equal((await call(path)).status, 400);
@@ -2624,6 +2632,69 @@ test("central question sharing requires superadmin; organisation reads respect m
         admin,
       ]);
     }
+    await pg.query("UPDATE auth_limits SET expires_at=now() WHERE key=$1", [
+      digest(`exam-central-classification-write:${admin}`),
+    ]);
+    centralTaxMode = "ok";
+    const languagePath = platform + "/central/taxonomy/languages";
+    const centralLanguage = {
+      fields: {
+        name: "New language",
+        code: "new",
+        value1: "True",
+        value2: "False",
+      },
+      revision: "new",
+      request_id: randomUUID(),
+    };
+    assert.equal(
+      (await call(languagePath + "/new", undefined, member)).status,
+      403,
+    );
+    assert.equal((await call(languagePath + "/new")).status, 200);
+    assert.equal(
+      (await call(languagePath + "/new", centralLanguage)).status,
+      201,
+    );
+    const languageRequest = requests.at(-1);
+    assert.equal(languageRequest.path, "central/taxonomy/languages/new");
+    assert.equal(languageRequest.body.actor_id, admin);
+    assert.equal(
+      (await call(languagePath + "/new", centralLanguage)).status,
+      201,
+    );
+    assert.deepEqual(requests.at(-1).body, languageRequest.body);
+    assert.equal(
+      (
+        await call(languagePath + "/7", {
+          ...centralLanguage,
+          fields: { value1: null },
+          revision: "a".repeat(64),
+        })
+      ).status,
+      201,
+    );
+    for (const fields of [
+      { master_language_id: 1 },
+      { name: ["array"] },
+      { code: "x".repeat(21) },
+      { value2: "<b>False</b>" },
+      { name: null },
+    ])
+      assert.equal(
+        (await call(languagePath + "/new", { ...centralLanguage, fields }))
+          .status,
+        400,
+      );
+    centralTaxMode = "language-type";
+    assert.equal((await call(languagePath + "/7")).status, 503);
+    centralTaxMode = "revoked";
+    assert.equal(
+      (await call(languagePath + "/new", centralLanguage)).status,
+      403,
+    );
+    await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
+    centralTaxMode = "ok";
     const imageWritePath = centralPath + "/image";
     const centralUpload = {
       fields: {

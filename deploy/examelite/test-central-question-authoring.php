@@ -141,7 +141,7 @@ $renamedGroup=$taxSave('groups',$taxGroup['id'],['group_name'=>'Renamed central 
 check($centralController->centralTaxonomy(Request::create('/','GET'),'groups',(string)$taxGroup['id'])['record']===$renamedGroup,'Central classification read returns current native revision');
 $reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET'),'groups',(string)$group->id));
 $reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET',['organization_id'=>20]),'groups',(string)$taxGroup['id']));
-$reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET'),'languages','new'));
+$reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET'),'unsupported','new'));
 $reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET'),'groups','0'));
 DB::table('organizations')->where('id',10)->update(['status'=>'inactive']);
 $reject(fn()=>$centralController->centralTaxonomy(Request::create('/','GET'),'groups',(string)$taxGroup['id']));
@@ -151,7 +151,7 @@ $reject(fn()=>$taxSave('groups',$taxGroup['id'],['group_name'=>'Stale'],$taxGrou
 $reject(fn()=>$taxSave('groups',$group->id,['group_name'=>'Foreign'],$service->record('groups',$group->fresh())['revision'],$nextId()));
 $reject(fn()=>$taxSave('topics',0,['name'=>'Foreign relationship','group_id'=>$group->id,'subject_id'=>$taxSubject['id']],'new',$nextId()));
 $reject(fn()=>$taxSave('groups',0,$groupFields+['organization_id'=>20],'new',$nextId()));
-$reject(fn()=>$taxSave('languages',0,['name'=>'Unsupported'],'new',$nextId()));
+$reject(fn()=>$taxSave('unsupported',0,['name'=>'Unsupported'],'new',$nextId()));
 $taxNative=DB::table('tech4learn_central_users')->where('local_id',$taxActor)->value('external_id');
 DB::table('users')->where('id',$taxNative)->update(['status'=>0]);$reject(fn()=>$taxSave('groups',0,$groupFields,'new',$groupRequest));
 DB::table('users')->where('id',$taxNative)->update(['status'=>1]);

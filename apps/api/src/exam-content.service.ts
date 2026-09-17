@@ -154,6 +154,7 @@ export class ExamContentService {
       throw new BadRequestException("Invalid central exam action.");
     await this.centralAccess(user, org, id, true);
     const definitions: Record<string, string[]> = {
+      languages: ["name", "code", "value1", "value2"],
       groups: ["group_name", "display_order"],
       subjects: ["subject_name", "group_ids", "category_ids"],
       topics: ["name", "group_id", "subject_id", "display_order"],
@@ -272,6 +273,14 @@ export class ExamContentService {
     if (!Object.hasOwn(definitions, kind) || Object.keys(query).length)
       throw new BadRequestException("Invalid central classification.");
     let payload: Record<string, unknown> | undefined;
+    const validLanguageFields = (fields: Record<string, unknown>) =>
+      Object.entries(fields).every(
+        ([key, value]) =>
+          (value === null && ["value1", "value2"].includes(key)) ||
+          (typeof value === "string" &&
+            [...value].length <= (key === "code" ? 20 : 255) &&
+            !/[<>]/.test(value)),
+      );
     if (body !== undefined) {
       const fields = body.fields;
       if (
@@ -313,6 +322,13 @@ export class ExamContentService {
       )
         throw new BadRequestException(
           "Central paid package authoring is not available yet.",
+        );
+      if (
+        kind === "languages" &&
+        !validLanguageFields(fields as Record<string, unknown>)
+      )
+        throw new BadRequestException(
+          "Use plain language names, codes and labels.",
         );
       if (imageAction) {
         const image = fields as Record<string, unknown>;
@@ -459,6 +475,10 @@ export class ExamContentService {
       Object.keys(record.fields).some(
         (key) => !definitions[kind].includes(key),
       ) ||
+      (kind === "languages" &&
+        (!validLanguageFields(record.fields) ||
+          typeof record.fields.name !== "string" ||
+          typeof record.fields.code !== "string")) ||
       (kind === "packages" &&
         (record.fields.package_type !== "free" ||
           (newDraft

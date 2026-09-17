@@ -20,6 +20,7 @@ const labels = {
 };
 type Kind = keyof typeof labels;
 const centralKinds: Kind[] = [
+  "languages",
   "packages",
   "categories",
   "subcategories",
@@ -148,7 +149,7 @@ function TaxonomyEditor({
   return (
     <section className="panel">
       <h3>
-        {kind === "languages"
+        {kind === "languages" && !central
           ? record?.id
             ? "Edit language labels"
             : "Enable language"
@@ -254,7 +255,7 @@ function TaxonomyEditor({
             }
             aria-label="Classification fields"
           >
-            {kind !== "languages" && (
+            {(kind !== "languages" || central) && (
               <label>
                 Name
                 <input
@@ -266,7 +267,7 @@ function TaxonomyEditor({
                 />
               </label>
             )}
-            {kind === "languages" && !record.id && (
+            {kind === "languages" && !central && !record.id && (
               <QuestionChoiceField
                 central={central}
                 org={org}
@@ -278,7 +279,19 @@ function TaxonomyEditor({
                 onChange={(v) => set("master_language_id", v)}
               />
             )}
-            {kind === "languages" && Boolean(record.id) && (
+            {kind === "languages" && central && (
+              <label>
+                Language code
+                <input
+                  required
+                  maxLength={20}
+                  value={values.code ?? ""}
+                  disabled={busy}
+                  onChange={(e) => set("code", e.target.value)}
+                />
+              </label>
+            )}
+            {kind === "languages" && (central || Boolean(record.id)) && (
               <>
                 <p>
                   {values.name} ({values.code})
@@ -290,6 +303,7 @@ function TaxonomyEditor({
                   <label key={key}>
                     {label}
                     <input
+                      maxLength={central ? 255 : undefined}
                       value={values[key] ?? ""}
                       disabled={busy}
                       onChange={(e) => set(key, e.target.value)}
@@ -300,8 +314,9 @@ function TaxonomyEditor({
             )}
             {kind === "languages" && (
               <p>
-                Language names and codes are managed centrally. Enabling a
-                language preserves its existing questions and translations.
+                {central
+                  ? "Organisations can enable this central language. Existing organisation versions keep their saved names and labels when you edit the original."
+                  : "Language names and codes are managed centrally. Enabling a language preserves its existing questions and translations."}
               </p>
             )}
             {kind !== "groups" &&
@@ -618,7 +633,7 @@ function TaxonomyEditor({
             <button
               disabled={busy || (record.id > 0 && !Object.keys(changes).length)}
             >
-              {kind === "languages"
+              {kind === "languages" && !central
                 ? record.id
                   ? "Save language labels"
                   : "Enable language"
@@ -660,7 +675,7 @@ function TaxonomyEditor({
             }}
           />
         )}
-      {kind === "languages" && Boolean(record?.id) && (
+      {kind === "languages" && !central && Boolean(record?.id) && (
         <div>
           <p>
             {record?.fields.is_enabled
@@ -848,9 +863,9 @@ export function ExamTaxonomy({
       </h3>
       {central && (
         <p>
-          Manage central free packages, categories, exam groups, subjects,
-          topics, subtopics and question sections. Organisation-owned copies
-          keep their own versions.
+          Manage central languages, free packages, categories, exam groups,
+          subjects, topics, subtopics and question sections. Organisation-owned
+          copies keep their own versions.
         </p>
       )}
       <label>
@@ -877,7 +892,7 @@ export function ExamTaxonomy({
         </select>
       </label>
       <button disabled={busy} onClick={() => setEditing("new")}>
-        {kind === "languages"
+        {kind === "languages" && !central
           ? "Enable language"
           : `Create ${labels[kind].toLowerCase()}`}
       </button>
