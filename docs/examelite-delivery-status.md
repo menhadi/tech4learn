@@ -99,6 +99,11 @@ adapter milestone as a release.
    The screen clears old results on failed refresh and organisation changes,
    and distinguishes plan permissions from implemented Tech4Learn tools.
    Plan assignment and provider management remain unfinished.
+   Native active-plan options now have a private, paginated reader with the
+   current assignment and opaque plan revisions. Its output excludes prices,
+   configuration and feature payloads. Isolated checks cover active-only pages,
+   changed plans and workspace ownership. The assignment selector and write
+   workflow are not yet connected; reading options changes no subscription.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is

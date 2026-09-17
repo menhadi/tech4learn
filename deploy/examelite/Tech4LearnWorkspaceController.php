@@ -34,6 +34,29 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
             'workspace_features'=>array_map(fn($key)=>['key'=>$key,'enabled'=>Tech4LearnWorkspacePolicy::mayUse($key,$restrictions)],self::FEATURES),
         ]);
     }
+    /** Global native plans are selectable only through the central integration. */
+    public function plans(Request $r,string $org) {
+        $tenant=(int)$this->configuration($r)['_platform']['organization_id'];$this->uuid($org);
+        abort_unless(!array_diff(array_keys($r->query()),['after'])&&$r->request->all()===[],422);
+        $after=$r->query('after','0');
+        abort_unless(is_string($after)&&preg_match('/^(0|[1-9][0-9]{0,14})$/D',$after),422);
+        Organization::where('status','active')->findOrFail($tenant);
+        $workspace=DB::table('tech4learn_workspaces')->where('id',$org)->where('source_organization_id',$tenant)->first();
+        abort_unless($workspace!==null&&$workspace->organization_id!==null&&(int)$workspace->organization_id!==$tenant,404);
+        $owner=Organization::where('status','active')->findOrFail($workspace->organization_id);
+        abort_unless(($owner->settings['tech4learn_workspace']??null)===$org,404);
+        $plans=SaasPlan::where('status',true)->where('id','>',(int)$after)->orderBy('id')->limit(51)->get();
+        $page=$plans->take(50);
+        return $this->reply($tenant,[
+            'items'=>$page->map(fn($plan)=>[
+                'id'=>(int)$plan->id,'name'=>(string)$plan->name,
+                'selected'=>(int)$owner->saas_plan_id===(int)$plan->id,
+                // A later assignment must recheck the selected plan snapshot.
+                'revision'=>hash('sha256',json_encode($plan->getRawOriginal(),JSON_THROW_ON_ERROR)),
+            ])->values()->all(),
+            'next'=>$plans->count()>50?(string)$page->last()->id:null,
+        ]);
+    }
     private function restrictions($items): array {
         try { return Tech4LearnWorkspacePolicy::restrictions($items); }
         catch(\InvalidArgumentException $e) { abort(422,'Invalid feature restrictions.'); }

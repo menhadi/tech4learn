@@ -88,4 +88,23 @@ $router->prefix('api')->group(function(){require __DIR__.'/tech4learn-routes.php
 $route=$router->getRoutes()->match(Illuminate\Http\Request::create('https://example.test/api/tech4learn/v1/workspace/'.$org.'/capabilities','GET'));
 check(str_ends_with($route->getActionName(),'Tech4LearnWorkspaceController@capabilities'),'Registered capability route resolves to scoped native reader');
 echo "Native capability catalogue: native plan flags, separate restrictions, bounded output, owner isolation and no provisioning passed.\n";
+$planRead=fn(string $query='')=>$controller->plans(Illuminate\Http\Request::create('/'.$query,'GET'),$org);
+$firstPlanPage=$planRead();
+check(count($firstPlanPage['items'])===1&&$firstPlanPage['items'][0]['selected']===true&&$firstPlanPage['next']===null,'Current native plan is marked without modifying assignment');
+check(array_keys($firstPlanPage['items'][0])===['id','name','selected','revision'],'Plan options exclude prices, configuration and feature payloads');
+$oldPlanRevision=$firstPlanPage['items'][0]['revision'];
+$plan->name='Renamed synthetic plan';$plan->save();
+check($planRead()['items'][0]['revision']!==$oldPlanRevision,'Plan edit invalidates option revision');
+for($i=0;$i<55;$i++)App\Models\SaasPlan::create(['name'=>'Synthetic choice '.$i,'slug'=>'synthetic-choice-'.$i,'price'=>0,'billing_cycle'=>'monthly','features'=>[],'limits'=>[],'is_default'=>false,'status'=>true]);
+App\Models\SaasPlan::create(['name'=>'Hidden inactive choice','slug'=>'synthetic-disabled','price'=>0,'billing_cycle'=>'monthly','features'=>[],'limits'=>[],'is_default'=>false,'status'=>false]);
+$one=$planRead();$two=$planRead('?after='.$one['next']);
+check(count($one['items'])===50&&count($two['items'])===6&&$two['next']===null,'Active native plan options have bounded cursor pages');
+check(count(array_unique(array_column(array_merge($one['items'],$two['items']),'id')))===56,'Plan pages do not repeat or include inactive records');
+foreach(['?after=-1','?after=01','?after=1e2','?after[]=1','?owner=10'] as $query)$deny(fn()=>$planRead($query));
+DB::table('tech4learn_workspaces')->where('id',$org)->update(['source_organization_id'=>999]);$deny($planRead);
+DB::table('tech4learn_workspaces')->where('id',$org)->update(['source_organization_id'=>10]);
+$route=$router->getRoutes()->match(Illuminate\Http\Request::create('https://example.test/api/tech4learn/v1/workspace/'.$org.'/plans','GET'));
+check(str_ends_with($route->getActionName(),'Tech4LearnWorkspaceController@plans'),'Plan catalogue route resolves to native scoped reader');
+check((int)DB::table('organizations')->where('id',$workspace->organization_id)->value('saas_plan_id')===(int)$plan->id,'Reading plans never changes an organisation subscription');
+echo "Native plan options: current assignment, bounded pages, active-only records, revision changes and owner checks passed.\n";
 }
