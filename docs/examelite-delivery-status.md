@@ -61,6 +61,10 @@ adapter milestone as a release.
    translation completion in isolated local worker fixtures, including failure,
    approval invalidation and repeat requests. A queued request alone is not a
    completed document or translation.
+   The native PDF worker has an isolated cached-artifact check covering ready
+   activation, repeat execution, approval failure, lock release and preservation
+   of the previous artifact. It uses synthetic bytes and a fixed fingerprint
+   service; actual rendering and queue transport remain unverified.
 3. **Complete the agreed module coverage.** Finish platform module/provider
    catalogue and plan assignment, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual
