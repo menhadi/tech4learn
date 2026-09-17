@@ -12,6 +12,7 @@ targets={
  'Tech4LearnExamDocuments.php':'app/Services/Tech4LearnExamDocuments.php',
  'Tech4LearnExamTranslations.php':'app/Services/Tech4LearnExamTranslations.php',
  'Tech4LearnTranslationEdits.php':'app/Services/Tech4LearnTranslationEdits.php',
+ 'Tech4LearnPlanAssignment.php':'app/Services/Tech4LearnPlanAssignment.php',
  'Tech4LearnTranslationController.php':'app/Http/Controllers/Tech4LearnTranslationController.php',
  'Tech4LearnDocumentController.php':'app/Http/Controllers/Tech4LearnDocumentController.php',
  'Tech4LearnResultMarking.php':'app/Services/Tech4LearnResultMarking.php',

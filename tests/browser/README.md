@@ -9,6 +9,12 @@ separate HTTP workspace suite checks stored superadmin access before and after
 the native read, malformed responses and mismatched revisions. Native plan
 evaluation is checked by `test-workspace-provision.php`.
 
+The private native assignment helper is checked with
+`php deploy/examelite/test-native-plan-assignment.php VENDOR_AUTOLOAD
+MODELS_DIRECTORY QUESTION_CONTROLLER SAAS_CONTROLLER` (one command). It runs
+the actual native organisation update against synthetic SQLite records, with
+an isolated audit callback. No assignment route or live write is exercised.
+
 ## Classification deletion
 
 With Vite running, open `/tests/browser/classification-delete.html` and wait

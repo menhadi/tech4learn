@@ -104,6 +104,13 @@ adapter milestone as a release.
    configuration and feature payloads. Isolated checks cover active-only pages,
    changed plans and workspace ownership. The assignment selector and write
    workflow are not yet connected; reading options changes no subscription.
+   A private persistence helper now invokes the native SaaS organisation
+   controller to assign an active plan after checking workspace ownership and
+   both organisation/plan revisions. It preserves contact, domain, status and
+   expiry values and does not edit shared plans. Isolated checks cover native
+   validation, audit invocation and rollback after a native failure. It has no
+   route: central actor authorisation, durable request receipts and the complete
+   assignment interface still need to be connected before availability.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is
