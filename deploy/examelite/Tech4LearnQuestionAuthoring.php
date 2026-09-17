@@ -118,16 +118,21 @@ final class Tech4LearnQuestionAuthoring
     public function saveCentralPackageImage(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'packages','set-image');
     }
+    public function deleteCentralCategory(int $central,string $actor,string $kind,int $id,string $revision,string $requestId):array {
+        abort_unless(in_array($kind,['categories','subcategories'],true)&&$id>0,422);
+        return $this->saveCentralRecord($central,$actor,$id,[],$revision,$requestId,$kind,'delete-category');
+    }
     public function saveCentralExamAction(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $action):array {
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'exams',$action);
     }
     private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {
-        abort_unless($central>0&&$id>=0&&count($fields)>0,422);
-        abort_unless($action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation','generate-document'],true)))),422);
+        $categoryDelete=$action==='delete-category'&&in_array($kind,['categories','subcategories'],true)&&$id>0;
+        abort_unless($central>0&&$id>=0&&($categoryDelete||count($fields)>0),422);
+        abort_unless($categoryDelete||$action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation','generate-document'],true)))),422);
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        if(array_diff(array_keys($fields),$imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:$this->definition($kind)[2]))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
+        if(array_diff(array_keys($fields),$categoryDelete?[]:($imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:$this->definition($kind)[2])))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key,$kind==='questions'&&$id>0);
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
@@ -233,7 +238,8 @@ final class Tech4LearnQuestionAuthoring
         abort_unless($id>=0,422);
         $imageAction=in_array($kind,['questions','packages'],true)&&$action==='set-image'&&$id>0;
         $languageDisable=$kind==='languages'&&$action==='disable-language'&&$id>0;
-        if($languageDisable)$allowedFields=[];
+        $categoryDelete=in_array($kind,['categories','subcategories'],true)&&$action==='delete-category'&&$id>0;
+        if($languageDisable||$categoryDelete)$allowedFields=[];
         elseif($imageAction)$allowedFields=$kind==='packages'?['image','asset','remove']:['field','image','asset','remove'];
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
@@ -387,6 +393,7 @@ final class Tech4LearnQuestionAuthoring
                 if(!(bool)$question->is_enabled)return $this->record($kind,$question);
                 $methods[$action]='destroy';unset($arguments[$parameter]);$arguments['id']=$question->id;
             }
+            if($action==='delete-category')$methods[$action]='destroy';
             $methods['approve-translation']='approve';
             $method=$action!==null?$methods[$action]:($question?'update':($kind==='subcategories'?'storeSubcategory':'store'));
             if(in_array($action,['generate-document','approve-translation'],true)){
@@ -397,6 +404,10 @@ final class Tech4LearnQuestionAuthoring
             if($session->has('errors'))throw ValidationException::withMessages($session->get('errors')->getBag('default')->messages());
             $jsonSuccess=$action!==null&&$response instanceof \Illuminate\Http\JsonResponse&&$response->getStatusCode()<300&&($response->getData(true)['success']??false)===true;
             if((!$session->has('success')&&!$jsonSuccess) || $session->has('error'))throw ValidationException::withMessages(['question'=>'ExamElite could not save this question. Check its fields and related records.']);
+            if($action==='delete-category'){
+                abort_unless(!$this->owned($kind,$tenant)->whereKey($question->id)->exists(),500,'Native category deletion was not confirmed.');
+                return ['id'=>(int)$question->id,'deleted'=>true];
+            }
             if(!$question){
                 if($kind==='languages')$question=$this->owned($kind,$tenant)->where('source_language_id',$fields['master_language_id'])->sole();
                 else {abort_unless(count($created)===1,500,'Native create did not return one question.');$question=$created[0];}
