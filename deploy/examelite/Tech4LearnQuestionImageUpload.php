@@ -1,7 +1,7 @@
 <?php
 namespace App\Services;
 
-use App\Models\Question;
+use App\Models\{Question,QuestionLang};
 use Illuminate\Support\Facades\Storage;
 
 /** A bounded image write used only after authoring scope and revision checks. */
@@ -9,6 +9,16 @@ final class Tech4LearnQuestionImageUpload
 {
  public const MAX_BYTES=524288;
  public function apply(Question $question,array $input,?string &$stored):array {
+  return $this->applyField((int)$question->organization_id,$question->getAttributes(),$input,$stored);
+ }
+ /** Caller must hold the source/translation locks and authorisation checks. */
+ public function applyTranslation(Question $source,QuestionLang $target,array $input,?string &$stored):array {
+  abort_unless($source->exists&&$target->exists&&(int)$source->id===(int)$target->question_id,422);
+  abort_unless(in_array($input['field']??null,Tech4LearnTranslationEdits::FIELDS,true),422);
+  return $this->applyField((int)$source->organization_id,$target->getAttributes(),$input,$stored);
+ }
+ private function applyField(int $owner,array $wording,array $input,?string &$stored):array {
+  abort_unless($owner>0,422);
   $field=$input['field']??null;$encoded=$input['image']??null;$replace=$input['asset']??null;
   $remove=($input['remove']??false)===true;
   abort_unless(!array_key_exists('remove',$input)||$input['remove']===true,422);
@@ -18,7 +28,7 @@ final class Tech4LearnQuestionImageUpload
   [$bytes,$extension]=self::decode($encoded);
   }
   abort_unless($replace===null||(is_string($replace)&&preg_match('/^[a-f0-9]{64}$/D',$replace)),422);
-  $html=(string)($question->$field??'');abort_unless(strlen($html)<=2000000,422);
+  $html=(string)($wording[$field]??'');abort_unless(strlen($html)<=2000000,422);
   $document=new \DOMDocument();$previous=libxml_use_internal_errors(true);
   try{$document->loadHTML('<?xml encoding="UTF-8"><html><body>'.$html.'</body></html>',LIBXML_NONET|LIBXML_NOERROR|LIBXML_NOWARNING);}
   finally{libxml_clear_errors();libxml_use_internal_errors($previous);}
@@ -31,7 +41,7 @@ final class Tech4LearnQuestionImageUpload
    abort_unless(strlen($updated)<=2000000,422);
    return [$field=>$updated];
   }
-  $path='images/upload/t4l/'.(int)$question->organization_id.'/'.bin2hex(random_bytes(20)).'.'.$extension;
+  $path='images/upload/t4l/'.$owner.'/'.bin2hex(random_bytes(20)).'.'.$extension;
   $image=$document->createElement('img');$image->setAttribute('src','/storage/'.$path);$image->setAttribute('alt','Question image');
   if($replace!==null)$matches[0]->parentNode->replaceChild($image,$matches[0]);else $body->appendChild($image);
   $updated='';foreach($body->childNodes as $node)$updated.=$document->saveHTML($node);
