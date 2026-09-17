@@ -123,7 +123,7 @@ final class Tech4LearnQuestionAuthoring
     }
     private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {
         abort_unless($central>0&&$id>=0&&count($fields)>0,422);
-        abort_unless($action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status'],true)))),422);
+        abort_unless($action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)))),422);
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
@@ -132,6 +132,7 @@ final class Tech4LearnQuestionAuthoring
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
+        $this->translationFields($fields,$action);
         $identity=[$actor,$id,$fields,$revision];if($action!==null)$identity[]=$action;if($kind!=='questions')$identity[]=$kind;
         $fingerprint=hash('sha256',json_encode($identity,JSON_THROW_ON_ERROR));
         $storedImage=null;
@@ -159,10 +160,30 @@ final class Tech4LearnQuestionAuthoring
                 $this->validatePackageTags($central,$values);
             }
             if($kind==='exams')$this->validateExamAction($central,$question,$fields,$action);
+            if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)){
+                abort_unless(is_int($fields['language_id']??null)&&$fields['language_id']>0&&is_string($fields['translation_revision']??null),422);
+                $review=app(Tech4LearnExamTranslations::class)->centralReview($central,$id,$fields['language_id'],0,$fields['translation_revision']);
+                $this->validateTranslationReview($question,$central,$review,$action);
+            }
             $result=$this->invoke($central,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action);
             DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
+    }
+    private function translationFields(array &$fields,?string $action):void {
+        if(in_array($action,['save-question-translation','save-exam-translation'],true)){
+            if($action==='save-question-translation')abort_unless(is_int($fields['question_id']??null)&&$fields['question_id']>0,422);
+            $wordingFields=$action==='save-exam-translation'?Tech4LearnTranslationEdits::EXAM_FIELDS:Tech4LearnTranslationEdits::FIELDS;
+            abort_unless(is_array($fields['wording']??null)&&count($fields['wording'])>0&&!array_diff(array_keys($fields['wording']),$wordingFields),422);
+            foreach($fields['wording'] as $key=>$value){abort_unless($value===null||(is_string($value)&&strlen($value)<=200000),422);if(is_string($value))$fields['wording'][$key]=$this->formattedText($value,$key);}
+        }
+    }
+    private function validateTranslationReview(\Illuminate\Database\Eloquent\Model $exam,int $owner,array $review,string $action):void {
+        $complete=$review['progress']['remaining']===0&&$review['progress']['exam_content_ready'];
+        if($action==='approve-translation')abort_unless($complete,409,'Complete and review the current translation before approving it.');
+        elseif($action==='refresh-translation'){abort_unless(!$complete,409,'This translation is already current. Reload its review.');abort_unless($review['progress']['status']!=='processing',409,'Translation is already processing. Reload its review later.');}
+        else abort_unless($review['progress']['status']!=='processing',409,'Wait for the active translation before editing it.');
+        abort_unless($exam->packages()->where('packages.organization_id',$owner)->count()===$exam->packages()->count(),403);
     }
     private function validateExamAction(int $owner,?\Illuminate\Database\Eloquent\Model $question,array &$fields,?string $action):void {
         if(in_array($action,['add-questions','remove-questions','assign-section'],true)){
@@ -209,12 +230,7 @@ final class Tech4LearnQuestionAuthoring
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
-        if(in_array($action,['save-question-translation','save-exam-translation'],true)){
-            if($action==='save-question-translation')abort_unless(is_int($fields['question_id']??null)&&$fields['question_id']>0,422);
-            $wordingFields=$action==='save-exam-translation'?Tech4LearnTranslationEdits::EXAM_FIELDS:Tech4LearnTranslationEdits::FIELDS;
-            abort_unless(is_array($fields['wording']??null)&&count($fields['wording'])>0&&!array_diff(array_keys($fields['wording']),$wordingFields),422);
-            foreach($fields['wording'] as $key=>$value){abort_unless($value===null||(is_string($value)&&strlen($value)<=200000),422);if(is_string($value))$fields['wording'][$key]=$this->formattedText($value,$key);}
-        }
+        $this->translationFields($fields,$action);
         if($kind==='languages'){
             if(!$id)abort_unless(array_keys($fields)===['master_language_id']&&is_int($fields['master_language_id'])&&$fields['master_language_id']>0,422);
             else abort_unless(!array_key_exists('master_language_id',$fields),422);
@@ -252,11 +268,7 @@ final class Tech4LearnQuestionAuthoring
             if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)){
                 abort_unless(is_int($fields['language_id']??null)&&$fields['language_id']>0&&is_string($fields['translation_revision']??null),422);
                 $review=app(Tech4LearnExamTranslations::class)->review($workspace,(int)$w->source_organization_id,$actor,$id,$fields['language_id'],0,$fields['translation_revision']);
-                $complete=$review['progress']['remaining']===0&&$review['progress']['exam_content_ready'];
-                if($action==='approve-translation')abort_unless($complete,409,'Complete and review the current translation before approving it.');
-                elseif($action==='refresh-translation') {abort_unless(!$complete,409,'This translation is already current. Reload its review.');abort_unless($review['progress']['status']!=='processing',409,'Translation is already processing. Reload its review later.');}
-                else abort_unless($review['progress']['status']!=='processing',409,'Wait for the active translation before editing it.');
-                abort_unless($question->packages()->where('packages.organization_id',$tenant)->count()===$question->packages()->count(),403);
+                $this->validateTranslationReview($question,$tenant,$review,$action);
             }
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             if($kind==='packages')$this->validatePackageTags($tenant,$values);
