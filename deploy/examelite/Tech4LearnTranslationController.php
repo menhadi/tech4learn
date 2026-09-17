@@ -6,6 +6,21 @@ use Illuminate\Http\Request;
 
 class Tech4LearnTranslationController extends Tech4LearnPlatformController
 {
+    public function centralReview(Request $request,string $exam,string $language) {
+        $owner=(int)$this->configuration($request)['_platform']['organization_id'];
+        abort_unless(!array_diff(array_keys($request->query()),['after','revision']),422);
+        $after=$request->query('after','0');$revision=$request->query('revision');
+        abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$exam)&&preg_match('/^[1-9][0-9]{0,14}$/D',$language),422);
+        abort_unless(is_string($after)&&preg_match('/^(0|[1-9][0-9]{0,14})$/D',$after)&&($revision===null||is_string($revision)),422);
+        return $this->reply($owner,['data'=>app(Tech4LearnExamTranslations::class)->centralReview($owner,(int)$exam,(int)$language,(int)$after,$revision)]);
+    }
+    public function centralMedia(Request $request,string $exam,string $language,string $question,string $asset) {
+        $owner=(int)$this->configuration($request)['_platform']['organization_id'];
+        abort_unless(!array_diff(array_keys($request->query()),['revision']),422);
+        $revision=$request->query('revision');
+        abort_unless(is_string($revision)&&preg_match('/^[1-9][0-9]{0,14}$/D',$exam)&&preg_match('/^[1-9][0-9]{0,14}$/D',$language)&&preg_match('/^(0|[1-9][0-9]{0,14})$/D',$question),422);
+        return $this->reply($owner,['data'=>app(Tech4LearnExamTranslations::class)->centralMedia($owner,(int)$exam,(int)$language,(int)$question,$asset,$revision)]);
+    }
     public function media(Request $request,string $org,string $exam,string $language,string $question,string $asset) {
         $source=$this->configuration($request)['_platform']['organization_id'];
         abort_unless(array_diff(array_keys($request->query()),['actor_id','revision'])===[],422);

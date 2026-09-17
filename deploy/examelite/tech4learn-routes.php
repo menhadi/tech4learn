@@ -39,6 +39,8 @@ Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::post('/central/packages/{id}/image', [Tech4LearnContentController::class, 'centralPackageImageWrite']);
     Route::post('/central/exams/{id}/actions/{action}', [Tech4LearnContentController::class, 'centralExamAction']);
     Route::get('/central/exams/{id}/questions', [Tech4LearnAuthoringController::class, 'centralExamQuestions']);
+    Route::get('/central/exams/{exam}/translations/{language}/media/{question}/{asset}', [Tech4LearnTranslationController::class, 'centralMedia']);
+    Route::get('/central/exams/{exam}/translations/{language}', [Tech4LearnTranslationController::class, 'centralReview']);
     Route::get('/translations/{org}/exams/{exam}/languages/{language}', [Tech4LearnTranslationController::class, 'review']);
     Route::get('/documents/{org}/exams/{exam}/{type}', [Tech4LearnDocumentController::class, 'read'])->where('type','questions|solutions');
     Route::get('/documents/{org}/exams/{exam}/{type}/status', [Tech4LearnDocumentController::class, 'documentStatus'])->where('type','questions|solutions');

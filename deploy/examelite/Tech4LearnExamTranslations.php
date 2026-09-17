@@ -10,6 +10,12 @@ final class Tech4LearnExamTranslations
     private const FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','fill_blank','si_answer1'];
     public function review(string $workspace,int $source,string $actor,int $examId,int $languageId,int $after=0,?string $expectedRevision=null):array {
         $result=$this->snapshot($workspace,$source,$actor,$examId,$languageId,$after,$expectedRevision);
+        return $this->rewrite($result);
+    }
+    public function centralReview(int $owner,int $examId,int $languageId,int $after=0,?string $expectedRevision=null):array {
+        return $this->rewrite($this->snapshot('',$owner,'',$examId,$languageId,$after,$expectedRevision,true));
+    }
+    private function rewrite(array $result):array {
         $media=app(Tech4LearnQuestionMedia::class);
         $rewrite=fn($fields)=>$fields===null?null:array_map(fn($html)=>$html===null?null:$media->rewrite((string)$html),$fields);
         $result['source']=$rewrite($result['source']);$result['translation']=$rewrite($result['translation']);
@@ -17,8 +23,14 @@ final class Tech4LearnExamTranslations
         return $result;
     }
     public function media(string $workspace,int $source,string $actor,int $examId,int $languageId,int $questionId,string $asset,string $revision):array {
+        return $this->readMedia($workspace,$source,$actor,$examId,$languageId,$questionId,$asset,$revision);
+    }
+    public function centralMedia(int $owner,int $examId,int $languageId,int $questionId,string $asset,string $revision):array {
+        return $this->readMedia('',$owner,'',$examId,$languageId,$questionId,$asset,$revision,true);
+    }
+    private function readMedia(string $workspace,int $source,string $actor,int $examId,int $languageId,int $questionId,string $asset,string $revision,bool $central=false):array {
         abort_unless($questionId>=0&&preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        $read=fn()=>$this->snapshot($workspace,$source,$actor,$examId,$languageId,max(0,$questionId-1),$revision);
+        $read=fn()=>$this->snapshot($workspace,$source,$actor,$examId,$languageId,max(0,$questionId-1),$revision,$central);
         $review=$read();
         if($questionId===0){$fields=$review;}
         else {$fields=$review['items'][0]??null;abort_unless($fields&&$fields['question_id']===$questionId,404);}
@@ -28,19 +40,24 @@ final class Tech4LearnExamTranslations
         $read();
         return $result+['exam_id'=>$examId,'language_id'=>$languageId,'question_id'=>$questionId,'revision'=>$revision];
     }
-    private function snapshot(string $workspace,int $source,string $actor,int $examId,int $languageId,int $after,?string $expectedRevision):array {
-        foreach([$workspace,$actor] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
-        abort_unless($examId>0&&$languageId>0&&$after>=0,422);
+    private function snapshot(string $workspace,int $source,string $actor,int $examId,int $languageId,int $after,?string $expectedRevision,bool $central=false):array {
+        if(!$central)foreach([$workspace,$actor] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
+        abort_unless($source>0&&$examId>0&&$languageId>0&&$after>=0,422);
         abort_unless($expectedRevision===null||preg_match('/^[a-f0-9]{64}$/D',$expectedRevision),422);
         abort_unless($after===0||$expectedRevision!==null,422);
-        return DB::transaction(function()use($workspace,$source,$actor,$examId,$languageId,$after,$expectedRevision){
-            $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$source)->lockForUpdate()->first();
-            abort_unless($w&&$w->organization_id,404);$owner=(int)$w->organization_id;
-            Organization::where('status','active')->lockForUpdate()->findOrFail($owner);
-            abort_unless(!in_array('exams',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
-            $userId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$actor)->where('kind','staff')->value('external_id');
-            User::where('status',1)->lockForUpdate()->findOrFail($userId);
-            abort_unless(DB::table('organization_users')->where('organization_id',$owner)->where('user_id',$userId)->where('status',1)->lockForUpdate()->first()!==null,403);
+        return DB::transaction(function()use($workspace,$source,$actor,$examId,$languageId,$after,$expectedRevision,$central){
+            if($central){
+                $owner=$source;
+                Organization::where('status','active')->lockForUpdate()->findOrFail($owner);
+            }else{
+                $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$source)->lockForUpdate()->first();
+                abort_unless($w&&$w->organization_id,404);$owner=(int)$w->organization_id;
+                Organization::where('status','active')->lockForUpdate()->findOrFail($owner);
+                abort_unless(!in_array('exams',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
+                $userId=DB::table('tech4learn_workspace_users')->where('workspace_id',$workspace)->where('local_id',$actor)->where('kind','staff')->value('external_id');
+                User::where('status',1)->lockForUpdate()->findOrFail($userId);
+                abort_unless(DB::table('organization_users')->where('organization_id',$owner)->where('user_id',$userId)->where('status',1)->lockForUpdate()->first()!==null,403);
+            }
             $exam=Exam::where('organization_id',$owner)->lockForUpdate()->findOrFail($examId);
             $language=Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->lockForUpdate()->findOrFail($languageId);
             $count=$exam->questions()->count();abort_unless($count<=2000,422,'This paper exceeds the translation review size limit.');
