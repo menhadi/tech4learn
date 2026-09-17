@@ -88,6 +88,14 @@ adapter milestone as a release.
    catalogue and plan assignment, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual
    native capabilities before exposing controls; retain native engine ownership.
+   A private native capability reader now inventories the installed engine's
+   plan feature keys and evaluates the mapped organisation's entitlements using
+   native `SaasAccess`. It reports the five workspace restrictions separately,
+   omits unknown plan attributes and never creates an organisation or login
+   ticket. Isolated checks cover plan changes, expired subscriptions and owner
+   mapping. This is backend groundwork: a superadmin catalogue screen, plan
+   assignment and provider management remain unfinished. A native entitlement
+   must not be presented as an implemented Tech4Learn workflow.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is

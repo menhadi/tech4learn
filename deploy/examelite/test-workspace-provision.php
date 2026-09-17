@@ -60,4 +60,32 @@ $controller->restrict($request(['restrictions'=>['taking'],'revision'=>1]),$org)
 try {$controller->launch($request(array_replace($studentPayload,['restrictions'=>['taking'],'revision'=>1])),$org);throw new RuntimeException('Expected restriction');}
 catch(RuntimeException $e){if($e->getCode()!==403)throw $e;}
 echo "Workspace provision: separate organisation, no global role, minimal identity, safe retry and restrictions passed.\n";
+DB::table('organizations')->where('id',10)->update(['status'=>'active']);
+$read=fn()=>$controller->capabilities(Illuminate\Http\Request::create('/','GET'),$org);
+$catalogue=$read();
+check(array_keys($catalogue)===['revision','native_features','workspace_features'],'Catalogue contains only revision and bounded feature flags');
+check(count($catalogue['native_features'])>0&&array_filter($catalogue['native_features'],fn($item)=>$item['enabled']!==true)===[],'Native default workspace plan enables its known capabilities');
+check(array_column($catalogue['workspace_features'],'enabled','key')['taking']===false&&$catalogue['revision']===1,'Workspace restrictions are separate from native plan entitlements');
+$plan=App\Models\SaasPlan::findOrFail(DB::table('organizations')->where('id',$workspace->organization_id)->value('saas_plan_id'));
+$features=$plan->features;$first=array_key_first($features);$features[$first]=false;$features['private_unknown_feature']=true;$plan->features=$features;$plan->save();
+$flags=array_column($read()['native_features'],'enabled','key');
+check($flags[$first]===false&&!array_key_exists('private_unknown_feature',$flags),'Catalogue uses native entitlement evaluation and omits unknown plan attributes');
+DB::statement('ALTER TABLE organizations ADD COLUMN subscription_ends_at TEXT');
+DB::table('organizations')->where('id',$workspace->organization_id)->update(['subscription_ends_at'=>'2000-01-01 00:00:00']);
+check(array_filter($read()['native_features'],fn($item)=>$item['enabled'])===[],'Native expired subscription denies plan features');
+DB::table('organizations')->where('id',$workspace->organization_id)->update(['subscription_ends_at'=>null]);
+$deny=function(callable $operation){try{$operation();throw new LogicException('Expected catalogue denial');}catch(RuntimeException $error){if(!in_array($error->getCode(),[403,404,422],true))throw $error;}};
+$deny(fn()=>$controller->capabilities(Illuminate\Http\Request::create('/?organization_id=10','GET'),$org));
+DB::table('tech4learn_workspaces')->where('id',$org)->update(['source_organization_id'=>999]);$deny($read);
+DB::table('tech4learn_workspaces')->where('id',$org)->update(['source_organization_id'=>10,'organization_id'=>10]);$deny($read);
+DB::table('tech4learn_workspaces')->where('id',$org)->update(['organization_id'=>$workspace->organization_id]);
+DB::table('organizations')->where('id',$workspace->organization_id)->update(['settings'=>'{}']);$deny($read);
+DB::table('organizations')->where('id',$workspace->organization_id)->update(['settings'=>json_encode(['tech4learn_workspace'=>$org])]);
+check(DB::table('tech4learn_workspace_tickets')->count()===$tickets,'Capability reads never create launch credentials');
+$router=new Illuminate\Routing\Router(new Illuminate\Events\Dispatcher($container),$container);
+$container->instance('router',$router);Illuminate\Support\Facades\Route::clearResolvedInstance('router');
+$router->prefix('api')->group(function(){require __DIR__.'/tech4learn-routes.php';});
+$route=$router->getRoutes()->match(Illuminate\Http\Request::create('https://example.test/api/tech4learn/v1/workspace/'.$org.'/capabilities','GET'));
+check(str_ends_with($route->getActionName(),'Tech4LearnWorkspaceController@capabilities'),'Registered capability route resolves to scoped native reader');
+echo "Native capability catalogue: native plan flags, separate restrictions, bounded output, owner isolation and no provisioning passed.\n";
 }

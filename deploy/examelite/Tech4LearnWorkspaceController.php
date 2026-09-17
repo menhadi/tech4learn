@@ -14,6 +14,26 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
             && app()->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class);
         return $this->reply($tenant,['ready'=>$ready]);
     }
+    /** Native entitlement inventory; it does not claim that every feature has a T4L interface. */
+    public function capabilities(Request $r,string $org) {
+        $tenant=(int)$this->configuration($r)['_platform']['organization_id'];$this->uuid($org);
+        abort_unless($r->query()===[]&&$r->all()===[],422);
+        Organization::where('status','active')->findOrFail($tenant);
+        $workspace=DB::table('tech4learn_workspaces')->where('id',$org)->where('source_organization_id',$tenant)->first();
+        abort_unless($workspace!==null&&$workspace->organization_id!==null&&(int)$workspace->organization_id!==$tenant,404);
+        $owner=Organization::with('plan')->where('status','active')->findOrFail($workspace->organization_id);
+        abort_unless(($owner->settings['tech4learn_workspace']??null)===$org,404);
+        $keys=(new \ReflectionClass(\App\Support\SaasAccess::class))->getConstant('PLAN_FEATURES');
+        abort_unless(is_array($keys)&&array_is_list($keys)&&count($keys)<=100,503,'Unsupported native capability catalogue.');
+        foreach($keys as $key)abort_unless(is_string($key)&&preg_match('/^[a-z][a-z0-9_]{0,63}$/D',$key),503);
+        $keys=array_values(array_unique($keys));sort($keys);
+        $restrictions=$this->restrictions(json_decode($workspace->restrictions,true,512,JSON_THROW_ON_ERROR));
+        return $this->reply($tenant,[
+            'revision'=>(int)$workspace->revision,
+            'native_features'=>array_map(fn($key)=>['key'=>$key,'enabled'=>\App\Support\SaasAccess::featureEnabled($key,$owner)],$keys),
+            'workspace_features'=>array_map(fn($key)=>['key'=>$key,'enabled'=>Tech4LearnWorkspacePolicy::mayUse($key,$restrictions)],self::FEATURES),
+        ]);
+    }
     private function restrictions($items): array {
         try { return Tech4LearnWorkspacePolicy::restrictions($items); }
         catch(\InvalidArgumentException $e) { abort(422,'Invalid feature restrictions.'); }
