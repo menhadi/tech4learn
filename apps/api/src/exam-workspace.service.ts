@@ -80,6 +80,75 @@ export class ExamWorkspaceService {
     const rules = await this.rules(org);
     return { ...rules, features: workspaceFeatures, defaults: "all" };
   }
+  async capabilities(
+    user: Account,
+    org: string,
+    query: Record<string, unknown>,
+  ) {
+    const authorize = async () => {
+      this.admin(user);
+      await this.organisation(org);
+      const current = await this.db.query<{ is_superadmin: boolean }>(
+        "SELECT is_superadmin FROM users WHERE id=$1",
+        [user.id],
+      );
+      if (!current.rows[0]?.is_superadmin) throw new ForbiddenException();
+    };
+    await authorize();
+    if (Object.keys(query).length)
+      throw new BadRequestException("Unexpected catalogue filters.");
+    const before = await this.rules(org);
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `workspace/${org}/capabilities`,
+    );
+    await authorize();
+    const after = await this.rules(org);
+    if (
+      before.revision !== after.revision ||
+      response.revision !== after.revision
+    )
+      throw new ConflictException("Exam access changed. Reload the catalogue.");
+    const flags = (items: unknown, expected?: readonly string[]) => {
+      if (!Array.isArray(items) || !items.length || items.length > 100)
+        throw new ServiceUnavailableException(
+          "Invalid exam capability catalogue.",
+        );
+      const seen = new Set<string>();
+      const result = items.map((item) => {
+        if (
+          !item ||
+          typeof item.key !== "string" ||
+          !/^[a-z][a-z0-9_]{0,63}$/.test(item.key) ||
+          typeof item.enabled !== "boolean" ||
+          seen.has(item.key) ||
+          (expected && !expected.includes(item.key))
+        )
+          throw new ServiceUnavailableException(
+            "Invalid exam capability catalogue.",
+          );
+        seen.add(item.key);
+        return { key: item.key as string, enabled: item.enabled as boolean };
+      });
+      if (
+        expected &&
+        (seen.size !== expected.length ||
+          result.some(
+            (item) => item.enabled === after.restrictions.includes(item.key),
+          ))
+      )
+        throw new ConflictException(
+          "Exam access is not synchronised. Reload its saved settings.",
+        );
+      return result;
+    };
+    return {
+      revision: after.revision,
+      native_features: flags(response.native_features),
+      workspace_features: flags(response.workspace_features, workspaceFeatures),
+    };
+  }
   async students(user: Account, org: string, search: string) {
     await this.access.require(user, org, "exams.manage");
     await this.access.require(user, org, "learners.view");

@@ -93,9 +93,12 @@ adapter milestone as a release.
    native `SaasAccess`. It reports the five workspace restrictions separately,
    omits unknown plan attributes and never creates an organisation or login
    ticket. Isolated checks cover plan changes, expired subscriptions and owner
-   mapping. This is backend groundwork: a superadmin catalogue screen, plan
-   assignment and provider management remain unfinished. A native entitlement
-   must not be presented as an implemented Tech4Learn workflow.
+   mapping. A superadmin-only plan-permission catalogue is now connected to this
+   reader. Its gateway validates bounded feature flags, rechecks stored admin
+   access after the read and rejects stale or inconsistent workspace rules.
+   The screen clears old results on failed refresh and organisation changes,
+   and distinguishes plan permissions from implemented Tech4Learn tools.
+   Plan assignment and provider management remain unfinished.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is

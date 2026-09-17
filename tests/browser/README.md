@@ -1,5 +1,14 @@
 # Pilot workflow verification
 
+## Plan permission catalogue
+
+Open `/tests/browser/exam-capabilities.html` with Vite running. The real catalogue
+component uses synthetic responses to check explicit loading, organisation
+scope, permission labels, failed-refresh clearing and remount isolation. The
+separate HTTP workspace suite checks stored superadmin access before and after
+the native read, malformed responses and mismatched revisions. Native plan
+evaluation is checked by `test-workspace-provision.php`.
+
 ## Classification deletion
 
 With Vite running, open `/tests/browser/classification-delete.html` and wait

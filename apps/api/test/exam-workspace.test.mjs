@@ -92,9 +92,18 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
   const requests = [];
   let badProvision = false,
     fail = false;
+  let capabilityReply,
+    capabilityRevoke = false;
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
     if (fail) throw new Error("Provider unavailable");
+    if (path.endsWith("/capabilities")) {
+      if (capabilityRevoke)
+        await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+          admin,
+        ]);
+      return capabilityReply;
+    }
     return path.endsWith("/launch")
       ? { ready: !badProvision }
       : { saved: true };
@@ -214,6 +223,73 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
       [member],
     );
     assert.equal((await call("/launch", { feature: "exams" })).status, 404);
+    const validCatalogue = {
+      revision: 1,
+      native_features: [
+        { key: "ai_translation", enabled: true, secret: "omit" },
+        { key: "paid_packages", enabled: false },
+      ],
+      workspace_features: [
+        "subjects",
+        "questions",
+        "exams",
+        "taking",
+        "results",
+      ].map((key) => ({ key, enabled: key !== "questions" })),
+      private_configuration: "omit",
+    };
+    capabilityReply = validCatalogue;
+    let before = requests.length;
+    assert.equal((await call("/capabilities", undefined, member)).status, 403);
+    assert.equal(
+      (await call("/capabilities?owner=1", undefined, admin)).status,
+      400,
+    );
+    assert.equal(requests.length, before);
+    const catalogue = await call("/capabilities", undefined, admin);
+    assert.equal(catalogue.status, 200);
+    const projected = await catalogue.json();
+    assert.deepEqual(Object.keys(projected), [
+      "revision",
+      "native_features",
+      "workspace_features",
+    ]);
+    assert.deepEqual(projected.native_features, [
+      { key: "ai_translation", enabled: true },
+      { key: "paid_packages", enabled: false },
+    ]);
+    assert.equal(requests.at(-1).path, `workspace/${org}/capabilities`);
+    assert.equal(requests.at(-1).body, undefined);
+    for (const native_features of [
+      null,
+      [],
+      [{ key: "bad/key", enabled: true }],
+      [{ key: "valid", enabled: 1 }],
+      [
+        { key: "duplicate", enabled: true },
+        { key: "duplicate", enabled: false },
+      ],
+    ]) {
+      capabilityReply = { ...validCatalogue, native_features };
+      assert.equal((await call("/capabilities", undefined, admin)).status, 503);
+    }
+    capabilityReply = { ...validCatalogue, revision: 0 };
+    assert.equal((await call("/capabilities", undefined, admin)).status, 409);
+    capabilityReply = {
+      ...validCatalogue,
+      workspace_features: validCatalogue.workspace_features.map((row) => ({
+        ...row,
+        enabled: true,
+      })),
+    };
+    assert.equal((await call("/capabilities", undefined, admin)).status, 409);
+    capabilityReply = validCatalogue;
+    capabilityRevoke = true;
+    assert.equal((await call("/capabilities", undefined, admin)).status, 403);
+    capabilityRevoke = false;
+    before = requests.length;
+    assert.equal((await call("/capabilities", undefined, admin)).status, 403);
+    assert.equal(requests.length, before);
   } finally {
     await app.close();
     await pg.close();

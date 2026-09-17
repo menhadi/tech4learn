@@ -4,6 +4,7 @@ import { DraftForm } from "./DraftForm";
 import { DirectoryTable } from "./DirectoryTable";
 import { ExamQuestions } from "./ExamContent";
 import { ExamTaxonomy } from "./ExamTaxonomy";
+import { ExamCapabilities } from "./ExamCapabilities";
 const ExamProctorReview = lazy(() =>
   import("./ExamProctorReview").then((module) => ({
     default: module.ExamProctorReview,
@@ -325,6 +326,9 @@ export function ExamWorkspace({
             </tr>
           ))}
         </DirectoryTable>
+      )}
+      {controls && rules && (
+        <ExamCapabilities key={`${org}-${rules.revision}`} org={org} />
       )}
     </section>
   );

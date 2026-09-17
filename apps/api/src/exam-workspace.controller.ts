@@ -16,6 +16,15 @@ export class ExamWorkspaceController {
     private readonly identity: IdentityService,
     private readonly service: ExamWorkspaceService,
   ) {}
+  @Get("capabilities") async capabilities(
+    @Param("org") org: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-capabilities:${account.id}`, 30, 60);
+    return this.service.capabilities(account, org, query);
+  }
   @Get() async status(
     @Param("org") org: string,
     @Headers("cookie") cookie?: string,
