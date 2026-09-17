@@ -112,7 +112,7 @@ final class Tech4LearnQuestionAuthoring
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'questions',$action);
     }
     public function saveCentralTaxonomy(int $central,string $actor,string $kind,int $id,array $fields,string $revision,string $requestId):array {
-        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams'],true),422);
+        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams','languages'],true),422);
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,$kind);
     }
     public function saveCentralPackageImage(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
@@ -132,8 +132,11 @@ final class Tech4LearnQuestionAuthoring
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        if(array_diff(array_keys($fields),$categoryDelete?[]:($imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:$this->definition($kind)[2])))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
+        if(array_diff(array_keys($fields),$categoryDelete?[]:($imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:($kind==='languages'?['name','code','value1','value2']:$this->definition($kind)[2]))))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
+        if($kind==='languages')foreach($fields as $field=>$value){
+            abort_unless(($value===null&&in_array($field,['value1','value2'],true))||(is_string($value)&&mb_strlen($value)<=($field==='code'?20:255)&&strip_tags($value)===$value),422,'Use plain language names, codes and labels.');
+        }
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key,$kind==='questions'&&$id>0);
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
@@ -172,7 +175,7 @@ final class Tech4LearnQuestionAuthoring
                 $review=app(Tech4LearnExamTranslations::class)->centralReview($central,$id,$fields['language_id'],0,$fields['translation_revision']);
                 $this->validateTranslationReview($question,$central,$review,$action);
             }
-            $result=$this->invoke($central,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action);
+            $result=$this->invoke($central,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action,$kind==='languages');
             DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
@@ -338,7 +341,7 @@ final class Tech4LearnQuestionAuthoring
         $clean='';foreach($body->childNodes as $node){if($node instanceof \DOMElement||$node instanceof \DOMText)$clean.=$dom->saveHTML($node);}
         return $clean;
     }
-    private function invoke(int $tenant,User $user,array $fields,?\Illuminate\Database\Eloquent\Model $question,string $kind,?string $action=null):array {
+    private function invoke(int $tenant,User $user,array $fields,?\Illuminate\Database\Eloquent\Model $question,string $kind,?string $action=null,bool $centralLanguage=false):array {
         [$modelClass,$controllerClass,,$parameter]=$this->definition($kind);
         $organisation=Organization::where('status','active')->findOrFail($tenant);
         $app=app();$oldRequest=$app->make('request');$oldRedirect=$app->make('redirect');$guard=Auth::guard('web');$oldUser=$guard->user();
@@ -380,7 +383,7 @@ final class Tech4LearnQuestionAuthoring
                 abort_unless($result['processed']===1,409,'This translation could not be queued.');
                 return $this->record($kind,$question)+['translation_requested'=>true];
             }
-            $controller=app($controllerClass);
+            $controller=$centralLanguage?new \App\Http\Controllers\Tech4LearnCentralLanguageController($tenant):app($controllerClass);
             $arguments=['request'=>$request];if($question)$arguments[$parameter]=$question;
             $methods=['add-questions'=>'bulkAddQuestions','remove-questions'=>'removeQuestions','create-section'=>'storeSection','update-section'=>'updateSection','remove-section'=>'destroySection','assign-section'=>'assignQuestionSections','subject-timers'=>'setSectionWiseTimer','generate-document'=>'generate','set-status'=>'toggleStatus','set-result-status'=>'toggleResultStatus'];
             if(in_array($action,['update-section','remove-section'],true))$arguments['section']=$question->sections()->findOrFail($fields['section_id']);
@@ -409,7 +412,7 @@ final class Tech4LearnQuestionAuthoring
                 return ['id'=>(int)$question->id,'deleted'=>true];
             }
             if(!$question){
-                if($kind==='languages')$question=$this->owned($kind,$tenant)->where('source_language_id',$fields['master_language_id'])->sole();
+                if($kind==='languages'&&!$centralLanguage)$question=$this->owned($kind,$tenant)->where('source_language_id',$fields['master_language_id'])->sole();
                 else {abort_unless(count($created)===1,500,'Native create did not return one question.');$question=$created[0];}
             }
             return $this->record($kind,$this->owned($kind,$tenant)->findOrFail($question->id));

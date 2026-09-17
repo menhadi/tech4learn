@@ -1,7 +1,15 @@
 import unittest
-from workspace_install import add_provider, add_navigation, hosting_config, fix_exam_creation_validation
+from workspace_install import add_provider, add_navigation, hosting_config, fix_exam_creation_validation, allow_scoped_language_controller
 
 class WorkspaceInstallTests(unittest.TestCase):
+    def test_scoped_language_hooks_preserve_native_logic(self):
+        native = 'private function isPlatformAdmin(): bool { return SaasAccess::isPlatformAdmin(); }\nprivate function platformOrganizationId(): ?int { return $configured; }\npublic function store() { native_write(); }'
+        changed = allow_scoped_language_controller(native)
+        self.assertEqual(changed, native.replace('private function', 'protected function'))
+        self.assertEqual(allow_scoped_language_controller(changed), changed)
+        for invalid in ['unknown', native + native, native.replace('bool', 'mixed')]:
+            with self.assertRaises(ValueError): allow_scoped_language_controller(invalid)
+
     def test_additive_and_repeatable(self):
         source = "before App\\Providers\\RouteServiceProvider::class, after"
         changed = add_provider(source)

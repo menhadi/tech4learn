@@ -15,7 +15,7 @@ namespace {
 if(!function_exists('subcategories_enabled')){function subcategories_enabled():bool{return $GLOBALS['t4lTestSubcategoriesEnabled']??true;}}
 if(isset($argv[3])){ $taxonomy=dirname($argv[3]).'/CurriculumTaxonomyService.php'; if(is_file($taxonomy))require $taxonomy; }
 require __DIR__.'/test-content-copies.php';
-if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController','CategoryController','LanguageController'] as $controller){$path=dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
+if(isset($argv[3])){require $argv[3];foreach(['SubjectController','TopicController','StopicController','GroupController','SectionController','CategoryController','LanguageController'] as $controller){$path=$controller==='LanguageController'&&isset($GLOBALS['t4lTestLanguageController'])?$GLOBALS['t4lTestLanguageController']:dirname($argv[3]).'/'.$controller.'.php';if(is_file($path))require $path;}}
 require __DIR__.'/Tech4LearnQuestionAuthoring.php';
 require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 require_once __DIR__.'/Tech4LearnQuestionImageUpload.php';

@@ -8,6 +8,8 @@ Category deletion has a tested native service adapter for organisation and centr
 
 ## Confirmed product direction
 
+Central language creation and editing now have a tested native service adapter, but their routes, gateway and interface remain unfinished. The adapter invokes ExamElite's existing language controller for validation and persistence. The installer makes only its two context hooks protected so a private, unrouted subclass can supply the credential's central owner; mapped authors remain ordinary native users without global administrator rights. Unknown controller signatures fail installation before writes. Native tests cover names/codes and labels, duplicate rejection, unchanged organisation copies, ownership, revoked authors, stale revisions and repeat requests. Organisation language enabling and label-only editing continue through the original controller.
+
 Exam tools belong inside Tech4Learn's organisation navigation and domain. ExamElite remains the engine and data authority for questions, exams, attempts and marking. Neither external workspace launch links nor an iframe constitute the desired final interface. Reuse its terminology and workflow alongside the existing shared Tech4Learn form/table template.
 
 Superadmin controls platform availability, organisation/plan entitlements, staff permissions and central content distribution. Platform availability and commercial plan configuration are separate from an organisation's enabled modules; a provider capability must not be labelled working before its adapter and interface are complete.

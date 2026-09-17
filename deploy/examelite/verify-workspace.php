@@ -2,6 +2,8 @@
 require '/home/examelite/public_html/vendor/autoload.php';
 $app=require '/home/examelite/public_html/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+foreach(['isPlatformAdmin','platformOrganizationId'] as $hook)if(!(new ReflectionMethod(\App\Http\Controllers\LanguageController::class,$hook))->isProtected())throw new RuntimeException('Native language context hooks are missing.');
+if(!class_exists(\App\Http\Controllers\Tech4LearnCentralLanguageController::class))throw new RuntimeException('Scoped central language adapter is missing.');
 foreach(['tech4learn_central_users'=>['organization_id','local_id','external_id'],'tech4learn_central_requests'=>['organization_id','request_id','actor_id','fingerprint','result','created_at']] as $table=>$columns)if(!\Illuminate\Support\Facades\Schema::hasColumns($table,$columns))throw new RuntimeException('Central authoring schema is missing.');
 foreach([\App\Services\Tech4LearnPackageImageUpload::class,\App\Services\Tech4LearnQuestionImageUpload::class] as $service)if(!class_exists($service))throw new RuntimeException('Native image adapter is missing.');
 if(!$app->providerIsLoaded(\App\Providers\Tech4LearnWorkspaceProvider::class)) throw new RuntimeException('Workspace provider is not loaded.');

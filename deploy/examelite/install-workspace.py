@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Run explicitly as root on the server; no migrations or service restarts here."""
 import os, pathlib, pwd, shutil, subprocess, datetime
-from workspace_install import add_provider, add_navigation, fix_exam_creation_validation
+from workspace_install import add_provider, add_navigation, fix_exam_creation_validation, allow_scoped_language_controller
 
 if os.geteuid()!=0: raise SystemExit('Run as root.')
 root=pathlib.Path('/home/examelite/public_html')
 source=pathlib.Path(__file__).resolve().parent
 owner=pwd.getpwnam('examelite')
 targets={
+ 'Tech4LearnCentralLanguageController.php':'app/Http/Controllers/Tech4LearnCentralLanguageController.php',
  'Tech4LearnExamDocuments.php':'app/Services/Tech4LearnExamDocuments.php',
  'Tech4LearnExamTranslations.php':'app/Services/Tech4LearnExamTranslations.php',
  'Tech4LearnTranslationEdits.php':'app/Services/Tech4LearnTranslationEdits.php',
@@ -46,10 +47,10 @@ targets={
 for src,dest in targets.items():
     if (root/dest).is_symlink(): raise SystemExit('Refusing symlink target: '+dest)
     subprocess.run(['php','-l',str(source/src)],check=True)
-app=root/'config/app.php';layout=root/'resources/views/layouts/master.blade.php';exam=root/'app/Http/Controllers/ExamController.php'
-for p in (app,layout,exam):
+app=root/'config/app.php';layout=root/'resources/views/layouts/master.blade.php';exam=root/'app/Http/Controllers/ExamController.php';language=root/'app/Http/Controllers/LanguageController.php'
+for p in (app,layout,exam,language):
     if not p.is_file() or p.is_symlink(): raise SystemExit('Expected regular source: '+str(p))
-updates={app:add_provider(app.read_text()),layout:add_navigation(layout.read_text()),exam:fix_exam_creation_validation(exam.read_text())}
+updates={app:add_provider(app.read_text()),layout:add_navigation(layout.read_text()),exam:fix_exam_creation_validation(exam.read_text()),language:allow_scoped_language_controller(language.read_text())}
 backup=pathlib.Path('/root/tech4learn-backups')/('native-workspace-'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%f'))
 backup.mkdir(parents=True,mode=0o700)
 originals={}
@@ -67,6 +68,7 @@ try:
     for dest,content in updates.items(): dest.write_text(content)
     subprocess.run(['php','-l',str(app)],check=True)
     subprocess.run(['php','-l',str(exam)],check=True)
+    subprocess.run(['php','-l',str(language)],check=True)
 except BaseException:
     for dest,content in originals.items():
         if content is None: dest.unlink(missing_ok=True)

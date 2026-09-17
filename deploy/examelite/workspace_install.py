@@ -70,3 +70,13 @@ def fix_exam_creation_validation(text):
     if block.count('$request->validate([') != 1 or '$validated =' in block:
         raise ValueError('Review native exam creation validation before installing.')
     return text[:start] + block.replace('$request->validate([', '$validated = $request->validate([', 1) + text[end:]
+
+def allow_scoped_language_controller(text):
+    """Expose two native context hooks; preserve native language writes/validation."""
+    for method, result in [('isPlatformAdmin', 'bool'), ('platformOrganizationId', '?int')]:
+        private = f'private function {method}(): {result}'
+        protected = f'protected function {method}(): {result}'
+        if text.count(private) + text.count(protected) != 1:
+            raise ValueError('Unsupported native language controller; no files changed.')
+        text = text.replace(private, protected)
+    return text
