@@ -89,7 +89,13 @@ adapter milestone as a release.
    catalogue and plan assignment, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual
    native capabilities before exposing controls; retain native engine ownership.
-   Central language deletion needs reference protection before exposure.
+   Central language deletion now has a native service guard for enabled copies,
+   source questions, question/passage translations, exam language links and
+   translations, results, PDF builds and official-source rules. English is
+   protected. Isolated native checks cover these references, foreign ownership,
+   stale revisions and retry after deletion, including a disabled actor.
+   The action remains unexposed: private route, gateway, confirmation UI and
+   production concurrency verification are still required before availability.
 4. **Run representative complete journeys.** Cover superadmin distribution,
    organisation-owned editing, student entry through results, multiple question
    types/papers, concurrent saves and representative device layouts. Check

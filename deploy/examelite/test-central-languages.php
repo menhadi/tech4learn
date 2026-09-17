@@ -48,3 +48,32 @@ check($centralController->centralTaxonomyWrite(Illuminate\Http\Request::create('
 $reject(fn()=>$centralController->centralTaxonomy(Illuminate\Http\Request::create('/?owner=20','GET'),'languages',(string)$edited['id']));
 $reject(fn()=>$centralController->centralTaxonomy(Illuminate\Http\Request::create('/','GET'),'languages',(string)$orgEnabled['id']));
 echo "Central language routes: draft, projection, native save/retry and foreign-record denial passed.\n";
+
+$deletable=$languageSave(0,['name'=>'Unused synthetic language','code'=>'delete-test'],'new',$nextId());
+$remove=fn($record,$key)=>$service->deleteCentralLanguage(10,$centralActor,$record['id'],$record['revision'],$key);
+$deleteRequest=$nextId();$ledger=DB::table('tech4learn_central_requests')->count();
+foreach([
+ 'languages'=>'source_language_id','questions'=>'language_id','question_langs'=>'language_id',
+ 'passage_langs'=>'language_id','exam_languages'=>'language_id','exam_language_translations'=>'language_id',
+ 'exam_results'=>'language_id','exam_pdf_builds'=>'language_id','official_exam_source_rules'=>'language_id',
+] as $table=>$column){
+ if(!DB::getSchemaBuilder()->hasTable($table))DB::statement('CREATE TABLE '.$table.' (id INTEGER PRIMARY KEY, '.$column.' INTEGER)');
+ if(!DB::getSchemaBuilder()->hasColumn($table,$column))DB::statement('ALTER TABLE '.$table.' ADD COLUMN '.$column.' INTEGER');
+ DB::beginTransaction();
+ try{
+  DB::table($table)->insert([$column=>$deletable['id']]);
+  $reject(fn()=>$remove($deletable,$deleteRequest));
+  check(Language::find($deletable['id'])!==null&&DB::table('tech4learn_central_requests')->count()===$ledger,'Referenced language remains intact with no receipt: '.$table);
+ }finally{DB::rollBack();}
+}
+$reject(fn()=>$remove($orgEnabled,$nextId()));
+$reject(fn()=>$remove(array_replace($deletable,['revision'=>str_repeat('0',64)]),$nextId()));
+$englishRecord=$service->record('languages',Language::where('organization_id',10)->where('code','en')->firstOrFail());
+$reject(fn()=>$remove($englishRecord,$nextId()));
+$deleted=$remove($deletable,$deleteRequest);
+check($deleted===['id'=>$deletable['id'],'deleted'=>true]&&Language::find($deletable['id'])===null,'Unused central language deleted by native controller');
+check($remove($deletable,$deleteRequest)===$deleted,'Deleted central language receipt remains replayable');
+DB::table('users')->where('id',$authorId)->update(['status'=>0]);
+$reject(fn()=>$remove($deletable,$deleteRequest));
+DB::table('users')->where('id',$authorId)->update(['status'=>1]);
+echo "Central language deletion: native persistence, all known references, English protection, ownership, revisions and authorised retries passed.\n";

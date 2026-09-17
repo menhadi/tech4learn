@@ -123,17 +123,22 @@ final class Tech4LearnQuestionAuthoring
         abort_unless(in_array($kind,['categories','subcategories'],true)&&$id>0,422);
         return $this->saveCentralRecord($central,$actor,$id,[],$revision,$requestId,$kind,'delete-category');
     }
+    public function deleteCentralLanguage(int $central,string $actor,int $id,string $revision,string $requestId):array {
+        abort_unless($id>0,422);
+        return $this->saveCentralRecord($central,$actor,$id,[],$revision,$requestId,'languages','delete-language');
+    }
     public function saveCentralExamAction(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $action):array {
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'exams',$action);
     }
     private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {
-        $categoryDelete=$action==='delete-category'&&in_array($kind,['categories','subcategories'],true)&&$id>0;
-        abort_unless($central>0&&$id>=0&&($categoryDelete||count($fields)>0),422);
-        abort_unless($categoryDelete||$action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation','set-translation-image','generate-document'],true)))),422);
+        $recordDelete=$action==='delete-category'&&in_array($kind,['categories','subcategories'],true)&&$id>0;
+        $recordDelete=$recordDelete||($action==='delete-language'&&$kind==='languages'&&$id>0);
+        abort_unless($central>0&&$id>=0&&($recordDelete||count($fields)>0),422);
+        abort_unless($recordDelete||$action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation','set-translation-image','generate-document'],true)))),422);
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        if(array_diff(array_keys($fields),$categoryDelete?[]:($imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:($kind==='languages'?['name','code','value1','value2']:$this->definition($kind)[2]))))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>(($imageAction||$action==='set-translation-image')?750000:250000))
+        if(array_diff(array_keys($fields),$recordDelete?[]:($imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:($kind==='languages'?['name','code','value1','value2']:$this->definition($kind)[2]))))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>(($imageAction||$action==='set-translation-image')?750000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         if($kind==='languages')foreach($fields as $field=>$value){
             abort_unless(($value===null&&in_array($field,['value1','value2'],true))||(is_string($value)&&mb_strlen($value)<=($field==='code'?20:255)&&strip_tags($value)===$value),422,'Use plain language names, codes and labels.');
@@ -410,6 +415,7 @@ final class Tech4LearnQuestionAuthoring
                 $methods[$action]='destroy';unset($arguments[$parameter]);$arguments['id']=$question->id;
             }
             if($action==='delete-category')$methods[$action]='destroy';
+            if($action==='delete-language'){$methods[$action]='destroy';unset($arguments[$parameter]);$arguments['id']=$question->id;}
             $methods['approve-translation']='approve';
             $method=$action!==null?$methods[$action]:($question?'update':($kind==='subcategories'?'storeSubcategory':'store'));
             if(in_array($action,['generate-document','approve-translation'],true)){
@@ -420,8 +426,8 @@ final class Tech4LearnQuestionAuthoring
             if($session->has('errors'))throw ValidationException::withMessages($session->get('errors')->getBag('default')->messages());
             $jsonSuccess=$action!==null&&$response instanceof \Illuminate\Http\JsonResponse&&$response->getStatusCode()<300&&($response->getData(true)['success']??false)===true;
             if((!$session->has('success')&&!$jsonSuccess) || $session->has('error'))throw ValidationException::withMessages(['question'=>'ExamElite could not save this question. Check its fields and related records.']);
-            if($action==='delete-category'){
-                abort_unless(!$this->owned($kind,$tenant)->whereKey($question->id)->exists(),500,'Native category deletion was not confirmed.');
+            if(in_array($action,['delete-category','delete-language'],true)){
+                abort_unless(!$this->owned($kind,$tenant)->whereKey($question->id)->exists(),500,'Native deletion was not confirmed.');
                 return ['id'=>(int)$question->id,'deleted'=>true];
             }
             if(!$question){
