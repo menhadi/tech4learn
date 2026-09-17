@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run explicitly as root on the server; no migrations or service restarts here."""
 import os, pathlib, pwd, shutil, subprocess, datetime
-from workspace_install import add_provider, add_navigation, fix_exam_creation_validation, allow_scoped_language_controller
+from workspace_install import add_provider, add_navigation, fix_exam_creation_validation, allow_scoped_language_controller, add_translated_model_answer
 
 if os.geteuid()!=0: raise SystemExit('Run as root.')
 root=pathlib.Path('/home/examelite/public_html')
@@ -47,10 +47,10 @@ targets={
 for src,dest in targets.items():
     if (root/dest).is_symlink(): raise SystemExit('Refusing symlink target: '+dest)
     subprocess.run(['php','-l',str(source/src)],check=True)
-app=root/'config/app.php';layout=root/'resources/views/layouts/master.blade.php';exam=root/'app/Http/Controllers/ExamController.php';language=root/'app/Http/Controllers/LanguageController.php'
-for p in (app,layout,exam,language):
+app=root/'config/app.php';layout=root/'resources/views/layouts/master.blade.php';exam=root/'app/Http/Controllers/ExamController.php';language=root/'app/Http/Controllers/LanguageController.php';question_language=root/'app/Http/Controllers/QuestionLangController.php'
+for p in (app,layout,exam,language,question_language):
     if not p.is_file() or p.is_symlink(): raise SystemExit('Expected regular source: '+str(p))
-updates={app:add_provider(app.read_text()),layout:add_navigation(layout.read_text()),exam:fix_exam_creation_validation(exam.read_text()),language:allow_scoped_language_controller(language.read_text())}
+updates={app:add_provider(app.read_text()),layout:add_navigation(layout.read_text()),exam:fix_exam_creation_validation(exam.read_text()),language:allow_scoped_language_controller(language.read_text()),question_language:add_translated_model_answer(question_language.read_text())}
 backup=pathlib.Path('/root/tech4learn-backups')/('native-workspace-'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%f'))
 backup.mkdir(parents=True,mode=0o700)
 originals={}

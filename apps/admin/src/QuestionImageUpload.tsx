@@ -58,7 +58,9 @@ export function QuestionImageUpload({
       : translation
         ? translation.fields.map((key) => [
             key,
-            key.replace("option", "Option "),
+            key === "si_answer1"
+              ? "Model answer"
+              : key.replace("option", "Option "),
           ])
         : [
             ["question", "Question"],

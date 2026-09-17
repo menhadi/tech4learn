@@ -1,6 +1,6 @@
 # ExamElite integration: current delivery status
 
-Updated 17 September 2026. This is the current summary; the central-content and
+Updated 18 September 2026. This is the current summary; the central-content and
 student-attempt documents also contain historical milestone notes. A historical
 “pending” statement does not override a later implemented milestone.
 
@@ -18,12 +18,14 @@ checked commits when the release is ready.
 | Central distribution | Share questions to organisations and pull organisation questions into central ownership as independent copies. No student/result sharing. |
 | Questions and classifications | Native question creation/editing, taxonomy, central language creation/editing, organisation language enabling, free packages and guarded category deletion. |
 | Source media and wording | Raster upload/replacement/removal, protected previews, supported MathML replacement and literal surrounding-text edits/appends. Arbitrary native markup is not fully supported. |
-| Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing text/formulas. Saved translated questions support raster upload, replacement and reference removal. |
+| Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing text/formulas, including subjective model answers. Saved translated questions support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
 | Documents | Native PDF request/status/approved download adapters and screens. Actual rendering/worker completion is not yet verified. |
 
-Latest full scaffold check: 86 tests passed, typechecks and builds passed.
+Latest validation: typechecks passed; 85 of 86 tests passed in the full run.
+The remaining test expected model answers to be unsupported. After updating
+that assertion, its focused rerun passed. Production builds passed separately.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It
 does not establish production Laravel middleware/TLS, concurrency, device
@@ -60,11 +62,14 @@ adapter milestone as a release.
    A further native gap was confirmed in the inspected controller snapshot:
    `QuestionLang` and native translation fingerprints include `si_answer1`
    (the subjective model answer), but `QuestionLangController::store/update`
-   neither validates nor saves it. The current Tech4Learn manual editor therefore
-   withholds that field. Completing it needs a compatible native controller
-   extension plus adapter/gateway/editor coverage. Legacy native forms that omit
-   the field must preserve existing answers; adding an unconditional null write
-   would lose data. This remains implementation work, not a completed feature.
+   neither validates nor saves it. A guarded, repeatable installer extension now
+   adds native validation and conditional writes. Isolated central/organisation
+   checks cover model-answer formulas and images, preservation of source and
+   other wording, legacy native forms that omit the answer, retries and explicit
+   clearing. The gateway and shared editor now accept the model-answer field.
+   The user-run deployment checks this extension after installation. Native,
+   gateway and synthetic browser fixtures remain separate local checks, not live
+   acceptance of this workflow.
 2. **Verify native background processing.** Exercise PDF rendering and AI
    translation completion in isolated local worker fixtures, including failure,
    approval invalidation and repeat requests. A queued request alone is not a

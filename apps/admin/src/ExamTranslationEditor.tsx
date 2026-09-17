@@ -18,6 +18,7 @@ const questionFields = [
   "hint",
   "explanation",
   "fill_blank",
+  "si_answer1",
 ];
 const labels: Record<string, string> = {
   name: "Translated exam title",
@@ -27,6 +28,7 @@ const labels: Record<string, string> = {
   hint: "Translated hint",
   explanation: "Translated explanation",
   fill_blank: "Translated fill in the blank",
+  si_answer1: "Translated model answer",
 };
 type Wording = Record<string, string | null>;
 export function ExamTranslationEditor({

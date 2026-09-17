@@ -80,3 +80,18 @@ def allow_scoped_language_controller(text):
             raise ValueError('Unsupported native language controller; no files changed.')
         text = text.replace(private, protected)
     return text
+
+
+def add_translated_model_answer(text):
+    """Extend native translated wording without clearing omitted legacy answers."""
+    rule = "'fill_blank' => 'nullable|string',"
+    write = "'fill_blank' => $request->fill_blank,"
+    answer_rule = "'si_answer1' => 'sometimes|nullable|string',"
+    answer_write = "...($request->has('si_answer1') ? ['si_answer1' => $request->input('si_answer1')] : []),"
+    if text.count(rule) != 2 or text.count(write) != 2:
+        raise ValueError('Unsupported native question-language controller; no files changed.')
+    if text.count(answer_rule) == 2 and text.count(answer_write) == 2:
+        return text
+    if 'si_answer1' in text:
+        raise ValueError('Review existing native model-answer handling before installing.')
+    return text.replace(rule, rule + '\n            ' + answer_rule).replace(write, write + '\n            ' + answer_write)

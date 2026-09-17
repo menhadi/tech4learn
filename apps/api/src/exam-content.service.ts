@@ -48,6 +48,7 @@ export class ExamContentService {
         "option6",
         "hint",
         "explanation",
+        "si_answer1",
       ].includes(fields.field) ||
       (fields.asset !== undefined &&
         (typeof fields.asset !== "string" ||
@@ -447,6 +448,7 @@ export class ExamContentService {
                   "hint",
                   "explanation",
                   "fill_blank",
+                  "si_answer1",
                 ];
           if (
             examAction === "save-question-translation" &&
@@ -1983,6 +1985,7 @@ export class ExamContentService {
                     "hint",
                     "explanation",
                     "fill_blank",
+                    "si_answer1",
                   ]
             ).includes(key) ||
             (value !== null &&

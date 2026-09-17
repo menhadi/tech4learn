@@ -1,7 +1,15 @@
 import unittest
-from workspace_install import add_provider, add_navigation, hosting_config, fix_exam_creation_validation, allow_scoped_language_controller
+from workspace_install import add_provider, add_navigation, hosting_config, fix_exam_creation_validation, allow_scoped_language_controller, add_translated_model_answer
 
 class WorkspaceInstallTests(unittest.TestCase):
+    def test_translated_model_answer_preserves_omitted_values(self):
+        source = ("'fill_blank' => 'nullable|string',\n'fill_blank' => $request->fill_blank,\n") * 2
+        updated = add_translated_model_answer(source)
+        self.assertEqual(updated.count("$request->has('si_answer1')"), 2)
+        self.assertEqual(updated.count("'sometimes|nullable|string'"), 2)
+        self.assertEqual(add_translated_model_answer(updated), updated)
+        for invalid in [source + source, 'unknown', source + 'si_answer1']:
+            with self.assertRaises(ValueError): add_translated_model_answer(invalid)
     def test_scoped_language_hooks_preserve_native_logic(self):
         native = 'private function isPlatformAdmin(): bool { return SaasAccess::isPlatformAdmin(); }\nprivate function platformOrganizationId(): ?int { return $configured; }\npublic function store() { native_write(); }'
         changed = allow_scoped_language_controller(native)

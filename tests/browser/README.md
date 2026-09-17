@@ -31,8 +31,17 @@ The actual translation editor/shared image form runs against synthetic fetch
 responses. It checks organisation/central routes, current review identity,
 upload/replacement/removal, an identical lost-response retry, editor locking,
 file-byte exclusion from drafts and hidden controls for missing translations.
+It exercises model-answer image destinations and saves new model-answer text.
 The separate `test-translated-image-routes.php` checks real native persistence.
 This browser fixture does not contact a live server or verify media downloads.
+
+For native model answers, run `php deploy/examelite/test-translated-model-answer.php
+VENDOR_AUTOLOAD MODELS_DIRECTORY QUESTION_CONTROLLER EXAM_CONTROLLER
+PATCHED_QUESTION_LANGUAGE_CONTROLLER` as one command. The last path must contain
+the installer extension from `add_translated_model_answer`. This checks native
+text/formula and image saving, legacy omission preservation, clearing, source
+isolation and retries. The deployment script runs it against the installed
+controller; never point local fixtures at a server environment file.
 
 ## Question text beside retained media
 

@@ -12,7 +12,7 @@ require __DIR__.'/test-exam-authoring.php';
 require dirname($argv[3]).'/ExamTranslationService.php';
 require dirname($argv[3]).'/ExamDocumentController.php';
 require dirname($argv[3]).'/ExamDocumentBulkActionService.php';
-require dirname($argv[3]).'/QuestionLangController.php';
+require $GLOBALS['t4lTestQuestionLangController']??dirname($argv[3]).'/QuestionLangController.php';
 require __DIR__.'/Tech4LearnTranslationEdits.php';
 require __DIR__.'/Tech4LearnExamTranslations.php';
 require __DIR__.'/Tech4LearnTranslationController.php';

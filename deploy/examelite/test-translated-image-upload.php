@@ -28,7 +28,7 @@ foreach([10,20] as $owner){
     check(!str_contains($removed['question'],'<img')&&$unused===null&&isset($imageDisk->files[$replacement]),'Removal only removes reference, preserving shared bytes');
     $before=$imageDisk->writes;
     foreach([
-        ['field'=>'si_answer1'],['field'=>'organization_id'],['image'=>base64_encode('invalid')],['asset'=>str_repeat('0',64)],['remove'=>true]
+        ['field'=>'fill_blank'],['field'=>'organization_id'],['image'=>base64_encode('invalid')],['asset'=>str_repeat('0',64)],['remove'=>true]
     ] as $bad){
         $reject(function()use($uploader,$source,$translation,$input,$bad){$path=null;$uploader->applyTranslation($source,$translation,array_replace($input,$bad),$path);});
     }

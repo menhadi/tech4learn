@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 /** Translate the native question-language web form, preserving untouched fields. */
 final class Tech4LearnTranslationEdits
 {
-    public const FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','fill_blank'];
+    public const FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','fill_blank','si_answer1'];
     public const EXAM_FIELDS=['name','instruction','syllabus'];
     /** Resolve only opaque images already in the locked translation's same field. */
     private function retainedImages(?QuestionLang $target,array $wording):array {

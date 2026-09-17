@@ -1022,14 +1022,17 @@ test("central question sharing requires superadmin; organisation reads respect m
         language_id: 5,
         question_id: 7,
         translation_revision: "a".repeat(64),
-        field: "question",
+        field: "si_answer1",
         image: "aW1hZ2U=",
       },
       "save-question-translation": {
         language_id: 5,
         translation_revision: "a".repeat(64),
         question_id: 7,
-        wording: { question: "<p>Translated wording</p>" },
+        wording: {
+          question: "<p>Translated wording</p>",
+          si_answer1: "Translated model answer",
+        },
       },
       "approve-translation": {
         language_id: 5,
@@ -1111,7 +1114,7 @@ test("central question sharing requires superadmin; organisation reads respect m
       image: "aW1hZ2U=",
     };
     for (const bad of [
-      { field: "si_answer1" },
+      { field: "fill_blank" },
       { language_id: 0 },
       { image: "aW1hZ2U=\n" },
       { remove: true },
@@ -1174,13 +1177,19 @@ test("central question sharing requires superadmin; organisation reads respect m
       language_id: 5,
       translation_revision: "a".repeat(64),
       question_id: 7,
-      wording: { question: "Translated wording" },
+      wording: {
+        question: "Translated wording",
+        si_answer1: "Translated model answer",
+      },
     };
     for (const fields of [
       { ...validTranslationEdit, question_id: 0 },
       { ...validTranslationEdit, translation_revision: "old" },
       { ...validTranslationEdit, wording: {} },
-      { ...validTranslationEdit, wording: { si_answer1: "Unsupported field" } },
+      {
+        ...validTranslationEdit,
+        wording: { organization_id: "Unsupported field" },
+      },
       { ...validTranslationEdit, wording: { question: 42 } },
       { ...validTranslationEdit, source_question: "Override" },
     ]) {
@@ -2499,14 +2508,17 @@ test("central question sharing requires superadmin; organisation reads respect m
           language_id: 5,
           question_id: 7,
           translation_revision: "b".repeat(64),
-          field: "question",
+          field: "si_answer1",
           image: "aW1hZ2U=",
         },
         "save-question-translation": {
           language_id: 5,
           translation_revision: "b".repeat(64),
           question_id: 7,
-          wording: { question: "Translated wording" },
+          wording: {
+            question: "Translated wording",
+            si_answer1: "Translated model answer",
+          },
         },
         "save-exam-translation": {
           language_id: 5,
