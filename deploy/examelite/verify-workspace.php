@@ -26,6 +26,8 @@ foreach([
  ['GET','api/tech4learn/v1/central/exams/1/translations/1','Tech4LearnTranslationController@centralReview'],
  ['GET','api/tech4learn/v1/translations/11111111-1111-1111-1111-111111111111/exams/1/languages/1','Tech4LearnTranslationController@review'],
  ['GET','api/tech4learn/v1/translations/11111111-1111-1111-1111-111111111111/exams/1/languages/1/media/0/'.str_repeat('a',64),'Tech4LearnTranslationController@media'],
+ ['GET','api/tech4learn/v1/central/exams/1/documents/questions/status','Tech4LearnDocumentController@centralStatus'],
+ ['GET','api/tech4learn/v1/central/exams/1/documents/questions','Tech4LearnDocumentController@centralRead'],
  ['GET','api/tech4learn/v1/documents/11111111-1111-1111-1111-111111111111/exams/1/questions','Tech4LearnDocumentController@read'],
  ['GET','api/tech4learn/v1/documents/11111111-1111-1111-1111-111111111111/exams/1/questions/status','Tech4LearnDocumentController@documentStatus'],
  ['POST','api/tech4learn/v1/student/11111111-1111-1111-1111-111111111111/history','Tech4LearnStudentController@attempt'],

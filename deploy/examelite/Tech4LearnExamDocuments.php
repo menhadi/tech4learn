@@ -9,9 +9,9 @@ final class Tech4LearnExamDocuments
 {
     public const MAX_BYTES=10485760;
 
-    public function status(string $workspace,int $source,string $actor,int $examId,?int $packageId,?int $languageId,string $type):array {
+    public function status(string $workspace,int $source,string $actor,int $examId,?int $packageId,?int $languageId,string $type,bool $central=false):array {
         abort_unless($examId>0&&($packageId===null||$packageId>0)&&($languageId===null||$languageId>0)&&in_array($type,['questions','solutions'],true),422);
-        $owner=$this->scope($workspace,$source,$actor);
+        $owner=$this->scope($workspace,$source,$actor,$central);
         $exam=Exam::where('organization_id',$owner)->findOrFail($examId);
         $package=$packageId===null?null:Package::where('organization_id',$owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($packageId);
         $language=$languageId===null?null:Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($languageId);
@@ -25,13 +25,14 @@ final class Tech4LearnExamDocuments
             $available=$root!==false&&$path!==false&&str_starts_with($path,$root.DIRECTORY_SEPARATOR)&&is_file($path)&&filesize($path)>0&&filesize($path)<=self::MAX_BYTES;
             if($available){$handle=@fopen($path,'rb');$available=$handle!==false;if($handle!==false){try{$available=fread($handle,5)==='%PDF-';}finally{fclose($handle);}}}
         }
-        abort_unless($this->scope($workspace,$source,$actor)===$owner,403);
+        abort_unless($this->scope($workspace,$source,$actor,$central)===$owner,403);
         if($packageId!==null)Package::where('organization_id',$owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($packageId);
         if($languageId!==null)Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($languageId);
         return ['exam_id'=>$examId,'package_id'=>$packageId,'language_id'=>$languageId,'document_type'=>$type,'build_id'=>$build?(int)$build->id:null,'status'=>$state,'approved_available'=>$available];
     }
 
-    private function scope(string $workspace,int $source,string $actor):int {
+    private function scope(string $workspace,int $source,string $actor,bool $central=false):int {
+        if($central){abort_unless($source>0,422);Organization::where('status','active')->findOrFail($source);return $source;}
         foreach([$workspace,$actor] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$source)->first();
         abort_unless($w&&$w->organization_id,404);
@@ -44,9 +45,9 @@ final class Tech4LearnExamDocuments
         return $owner;
     }
 
-    public function read(string $workspace,int $source,string $actor,int $examId,?int $packageId,?int $languageId,string $type):array {
+    public function read(string $workspace,int $source,string $actor,int $examId,?int $packageId,?int $languageId,string $type,bool $central=false):array {
         abort_unless($examId>0&&($packageId===null||$packageId>0)&&($languageId===null||$languageId>0)&&in_array($type,['questions','solutions'],true),422);
-        $owner=$this->scope($workspace,$source,$actor);
+        $owner=$this->scope($workspace,$source,$actor,$central);
         $exam=Exam::where('organization_id',$owner)->findOrFail($examId);
         $package=$packageId===null?null:Package::where('organization_id',$owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($packageId);
         $language=$languageId===null?null:Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($languageId);
@@ -55,7 +56,7 @@ final class Tech4LearnExamDocuments
         abort_unless((int)$build->organization_id===$owner&&(int)$build->exam_id===$examId&&($build->package_id===null?null:(int)$build->package_id)===$packageId&&($build->language_id===null?null:(int)$build->language_id)===$languageId&&$build->document_type===$type,403);
         $bytes=$this->bytes((string)$build->current_path);
         // Reading can take time. Recheck revocation before releasing document bytes.
-        abort_unless($this->scope($workspace,$source,$actor)===$owner,403);
+        abort_unless($this->scope($workspace,$source,$actor,$central)===$owner,403);
         Exam::where('organization_id',$owner)->findOrFail($examId);
         if($packageId!==null)Package::where('organization_id',$owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($packageId);
         if($languageId!==null)Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($languageId);

@@ -1,0 +1,26 @@
+<?php
+require __DIR__.'/test-central-exam-documents.php';
+use Illuminate\Support\Facades\DB;
+DB::statement('CREATE TABLE tech4learn_central_users(organization_id INTEGER,local_id TEXT,external_id INTEGER UNIQUE,PRIMARY KEY(organization_id,local_id))');
+DB::statement('CREATE TABLE tech4learn_central_requests(organization_id INTEGER,request_id TEXT,actor_id TEXT,fingerprint TEXT,result TEXT,created_at TEXT,PRIMARY KEY(organization_id,request_id))');
+foreach(['username','email','password','ugroup_id','is_platform_admin','created_at','updated_at'] as $column)DB::statement('ALTER TABLE users ADD COLUMN '.$column.' TEXT');
+foreach(['role','created_at','updated_at'] as $column)DB::statement('ALTER TABLE organization_users ADD COLUMN '.$column.' TEXT');
+$app['config']->set('hashing',['driver'=>'bcrypt','bcrypt'=>['rounds'=>4]]);$app->instance('hash',new Illuminate\Hashing\HashManager($app));Illuminate\Support\Facades\Hash::clearResolvedInstance('hash');
+$ca='aaaaaaaa-1111-1111-1111-111111111111';$uuid=fn()=>(string)Illuminate\Support\Str::uuid();
+$centralQuestion=$q->replicate();$centralQuestion->organization_id=10;$centralQuestion->save();$centralExam->questions()->attach($centralQuestion->id);
+$centralLanguage->code='en';$centralLanguage->save();
+$fields=['package_id'=>$centralPackage->id,'language_id'=>$centralLanguage->id,'document_type'=>'questions'];
+$revision=$service->record('exams',$centralExam->fresh())['revision'];$key=$uuid();$before=App\Jobs\GenerateExamPdfJob::$scheduled;
+$generate=fn($values,$rev,$request)=>$service->saveCentralExamAction(10,$ca,$centralExam->id,$values,$rev,$request,'generate-document');
+$result=$generate($fields,$revision,$key);
+check(App\Jobs\GenerateExamPdfJob::$scheduled===$before+1,'Central generation delegates to native PDF queue');
+check($generate($fields,$revision,$key)===$result&&App\Jobs\GenerateExamPdfJob::$scheduled===$before+1,'Central generation retry does not dispatch again');
+$reject(fn()=>$generate(array_replace($fields,['package_id'=>$packageSaved['id']]),$revision,$uuid()),'Foreign central generation package');
+$reject(fn()=>$generate(array_replace($fields,['language_id'=>$language->id]),$revision,$uuid()),'Foreign central generation language');
+$reject(fn()=>$generate(array_replace($fields,['document_type'=>'solutions']),$revision,$key),'Changed central generation request replay');
+$nativeUser=DB::table('tech4learn_central_users')->where('local_id',$ca)->value('external_id');DB::table('users')->where('id',$nativeUser)->update(['status'=>0]);$reject(fn()=>$generate($fields,$revision,$key),'Revoked central author replay');DB::table('users')->where('id',$nativeUser)->update(['status'=>1]);
+$centralLanguage->code='zz';$centralLanguage->save();$reject(fn()=>$generate($fields,$service->record('exams',$centralExam->fresh())['revision'],$uuid()),'Unapproved central translation');$centralLanguage->code='en';$centralLanguage->save();
+$centralLanguage->is_enabled=false;$centralLanguage->save();$reject(fn()=>$generate($fields,$service->record('exams',$centralExam->fresh())['revision'],$uuid()),'Disabled central generation language');$centralLanguage->is_enabled=true;$centralLanguage->save();
+$centralExam->questions()->detach();$reject(fn()=>$generate($fields,$service->record('exams',$centralExam->fresh())['revision'],$uuid()),'Empty central paper');
+check(App\Jobs\GenerateExamPdfJob::$scheduled===$before+1,'Rejected central generation does not dispatch');
+echo "Central document generation: native queue, scope, approval and durable retry passed.\n";

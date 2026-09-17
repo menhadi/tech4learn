@@ -123,7 +123,7 @@ final class Tech4LearnQuestionAuthoring
     }
     private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {
         abort_unless($central>0&&$id>=0&&count($fields)>0,422);
-        abort_unless($action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)))),422);
+        abort_unless($action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation','generate-document'],true)))),422);
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
@@ -160,6 +160,7 @@ final class Tech4LearnQuestionAuthoring
                 $this->validatePackageTags($central,$values);
             }
             if($kind==='exams')$this->validateExamAction($central,$question,$fields,$action);
+            if($action==='generate-document')$this->validateDocumentSelection($central,$id,$fields);
             if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)){
                 abort_unless(is_int($fields['language_id']??null)&&$fields['language_id']>0&&is_string($fields['translation_revision']??null),422);
                 $review=app(Tech4LearnExamTranslations::class)->centralReview($central,$id,$fields['language_id'],0,$fields['translation_revision']);
@@ -169,6 +170,12 @@ final class Tech4LearnQuestionAuthoring
             DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
+    }
+    private function validateDocumentSelection(int $owner,int $examId,array $fields):void {
+                foreach(['package_id','language_id'] as $key)abort_unless(is_int($fields[$key]??null)&&$fields[$key]>0,422);
+                abort_unless(in_array($fields['document_type']??null,['questions','solutions'],true),422);
+                \App\Models\Package::where('organization_id',$owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($fields['package_id']);
+                \App\Models\Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($fields['language_id']);
     }
     private function translationFields(array &$fields,?string $action):void {
         if(in_array($action,['save-question-translation','save-exam-translation'],true)){
@@ -259,12 +266,7 @@ final class Tech4LearnQuestionAuthoring
             else abort_unless($revision==='new',422);
             if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             $this->validateExamAction($tenant,$question,$fields,$action);
-            if($action==='generate-document'){
-                foreach(['package_id','language_id'] as $key)abort_unless(is_int($fields[$key]??null)&&$fields[$key]>0,422);
-                abort_unless(in_array($fields['document_type']??null,['questions','solutions'],true),422);
-                \App\Models\Package::where('organization_id',$tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['package_id']);
-                \App\Models\Language::enabledForOrganization($tenant)->whereHas('exams',fn($q)=>$q->where('exams.id',$id))->findOrFail($fields['language_id']);
-            }
+            if($action==='generate-document')$this->validateDocumentSelection($tenant,$id,$fields);
             if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)){
                 abort_unless(is_int($fields['language_id']??null)&&$fields['language_id']>0&&is_string($fields['translation_revision']??null),422);
                 $review=app(Tech4LearnExamTranslations::class)->review($workspace,(int)$w->source_organization_id,$actor,$id,$fields['language_id'],0,$fields['translation_revision']);
