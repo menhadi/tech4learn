@@ -57,6 +57,12 @@ final class Tech4LearnTranslationEdits
         app(ExamDocumentInvalidationService::class)->invalidateExam($exam);
     }
     public function apply(Exam $exam,array $fields,Request $request):void {
+        $stored=null;$this->save($exam,$fields,$request,false,$stored);
+    }
+    public function applyImage(Exam $exam,array $fields,Request $request,?string &$stored):void {
+        $this->save($exam,$fields,$request,true,$stored);
+    }
+    private function save(Exam $exam,array $fields,Request $request,bool $image,?string &$stored):void {
         $source=$exam->questions()->where('questions.organization_id',$exam->organization_id)->lockForUpdate()->findOrFail($fields['question_id']);
         $language=Language::enabledForOrganization($exam->organization_id)->whereHas('exams',fn($q)=>$q->where('exams.id',$exam->id))->findOrFail($fields['language_id']);
         abort_unless(strtolower((string)$language->code)!=='en',422,'Edit English wording in the question editor.');
@@ -65,7 +71,11 @@ final class Tech4LearnTranslationEdits
         $targets=QuestionLang::where('question_id',$source->id)->where('language_id',$language->id)->lockForUpdate()->get();
         abort_unless($targets->count()<=1,409,'This question has duplicate translations. Resolve them before editing.');
         $target=$targets->first();$native=app(ExamTranslationService::class);
-        $fields['wording']=$this->retainedImages($target,$fields['wording']);
+        if($image){
+            abort_unless($target!==null,409,'Save and review translated wording before adding images.');
+            $fields['wording']=app(Tech4LearnQuestionImageUpload::class)->applyTranslation($source,$target,$fields,$stored);
+            foreach($fields['wording'] as $html)abort_unless(strlen($html)<=200000,422,'Translated wording is too large.');
+        }else $fields['wording']=$this->retainedImages($target,$fields['wording']);
         $values=array_replace(array_fill_keys(self::FIELDS,null),$target?->only(self::FIELDS)??[],$fields['wording'],['language_id'=>(int)$language->id]);
         $stale=$native->questionFieldsNeedingTranslation($source,$target);
         $fingerprints=$target?->source_field_fingerprints??[];

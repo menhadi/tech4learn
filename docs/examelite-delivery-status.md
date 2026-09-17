@@ -40,11 +40,13 @@ adapter milestone as a release.
    reconciliation, and inventory remaining native formula/markup formats.
    Verify organisation and central authoring, private previews, retries and
    unchanged copies together.
-   The bounded image helper now accepts a saved translation belonging to its
-   source question, preserving text/formulas and using the source owner's file
-   namespace. Its isolated replace/remove/cleanup checks pass. Native transaction
-   wiring, revision/retry enforcement, gateway and UI are still required before
-   translated uploads can be exposed; this helper alone grants no access.
+   The native translated-image action now uses the owned paper's saved
+   translation, source-owner file namespace, exam/review revisions and request
+   ledger. Upload, replacement and reference removal invoke the native
+   question-language controller and invalidate translation approval/documents.
+   Organisation/central tests cover private review references, repeat requests,
+   stale/foreign denial and cleanup after failed native saves. Private route,
+   gateway and UI wiring still remain; this is not an exposed upload workflow.
 2. **Verify native background processing.** Exercise PDF rendering and AI
    translation completion in isolated local worker fixtures, including failure,
    approval invalidation and repeat requests. A queued request alone is not a

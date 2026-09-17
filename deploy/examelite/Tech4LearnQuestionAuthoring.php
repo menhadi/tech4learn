@@ -25,6 +25,7 @@ final class Tech4LearnQuestionAuthoring
         'generate-document'=>['package_id','language_id','document_type'],
         'approve-translation'=>['language_id','translation_revision'],
         'refresh-translation'=>['language_id','translation_revision'],
+        'set-translation-image'=>['language_id','translation_revision','question_id','field','image','asset','remove'],
         'save-question-translation'=>['language_id','translation_revision','question_id','wording'],
         'save-exam-translation'=>['language_id','translation_revision','wording'],
     ];
@@ -128,11 +129,11 @@ final class Tech4LearnQuestionAuthoring
     private function saveCentralRecord(int $central,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind,?string $action=null):array {
         $categoryDelete=$action==='delete-category'&&in_array($kind,['categories','subcategories'],true)&&$id>0;
         abort_unless($central>0&&$id>=0&&($categoryDelete||count($fields)>0),422);
-        abort_unless($categoryDelete||$action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation','generate-document'],true)))),422);
+        abort_unless($categoryDelete||$action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation','set-translation-image','generate-document'],true)))),422);
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        if(array_diff(array_keys($fields),$categoryDelete?[]:($imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:($kind==='languages'?['name','code','value1','value2']:$this->definition($kind)[2]))))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?710000:250000))
+        if(array_diff(array_keys($fields),$categoryDelete?[]:($imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:($kind==='languages'?['name','code','value1','value2']:$this->definition($kind)[2]))))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>(($imageAction||$action==='set-translation-image')?750000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         if($kind==='languages')foreach($fields as $field=>$value){
             abort_unless(($value===null&&in_array($field,['value1','value2'],true))||(is_string($value)&&mb_strlen($value)<=($field==='code'?20:255)&&strip_tags($value)===$value),422,'Use plain language names, codes and labels.');
@@ -170,12 +171,12 @@ final class Tech4LearnQuestionAuthoring
             }
             if($kind==='exams')$this->validateExamAction($central,$question,$fields,$action);
             if($action==='generate-document')$this->validateDocumentSelection($central,$id,$fields);
-            if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)){
+            if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation','set-translation-image'],true)){
                 abort_unless(is_int($fields['language_id']??null)&&$fields['language_id']>0&&is_string($fields['translation_revision']??null),422);
                 $review=app(Tech4LearnExamTranslations::class)->centralReview($central,$id,$fields['language_id'],0,$fields['translation_revision']);
                 $this->validateTranslationReview($question,$central,$review,$action);
             }
-            $result=$this->invoke($central,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action,$kind==='languages');
+            $result=$this->invoke($central,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action,$kind==='languages',$storedImage);
             DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
@@ -187,6 +188,14 @@ final class Tech4LearnQuestionAuthoring
                 \App\Models\Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($fields['language_id']);
     }
     private function translationFields(array &$fields,?string $action):void {
+        if($action==='set-translation-image'){
+            abort_unless(is_int($fields['question_id']??null)&&$fields['question_id']>0,422);
+            abort_unless(in_array($fields['field']??null,Tech4LearnTranslationEdits::FIELDS,true)&&in_array($fields['field'],Tech4LearnQuestionMedia::AUTHORING_FIELDS,true),422);
+            abort_unless(!array_key_exists('remove',$fields)||$fields['remove']===true,422);
+            if(($fields['remove']??false)===true)abort_unless(!array_key_exists('image',$fields)&&isset($fields['asset']),422);
+            else Tech4LearnQuestionImageUpload::decode($fields['image']??null);
+            if(array_key_exists('asset',$fields))abort_unless(is_string($fields['asset'])&&preg_match('/^[a-f0-9]{64}$/D',$fields['asset']),422);
+        }
         if(in_array($action,['save-question-translation','save-exam-translation'],true)){
             if($action==='save-question-translation')abort_unless(is_int($fields['question_id']??null)&&$fields['question_id']>0,422);
             $wordingFields=$action==='save-exam-translation'?Tech4LearnTranslationEdits::EXAM_FIELDS:Tech4LearnTranslationEdits::FIELDS;
@@ -252,7 +261,7 @@ final class Tech4LearnQuestionAuthoring
             if(!$id)abort_unless(array_keys($fields)===['master_language_id']&&is_int($fields['master_language_id'])&&$fields['master_language_id']>0,422);
             else abort_unless(!array_key_exists('master_language_id',$fields),422);
         }
-        if(strlen(json_encode($fields,JSON_THROW_ON_ERROR))>($imageAction?750000:250000))throw ValidationException::withMessages(['fields'=>'Question is too large.']);
+        if(strlen(json_encode($fields,JSON_THROW_ON_ERROR))>(($imageAction||$action==='set-translation-image')?750000:250000))throw ValidationException::withMessages(['fields'=>'Question is too large.']);
         if($kind==='questions')foreach(['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'] as $key){
             if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key,$kind==='questions'&&$id>0);
         }
@@ -278,7 +287,7 @@ final class Tech4LearnQuestionAuthoring
             elseif($kind==='questions'&&$question)$this->validateRetainedImages($question,$fields);
             $this->validateExamAction($tenant,$question,$fields,$action);
             if($action==='generate-document')$this->validateDocumentSelection($tenant,$id,$fields);
-            if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true)){
+            if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation','set-translation-image'],true)){
                 abort_unless(is_int($fields['language_id']??null)&&$fields['language_id']>0&&is_string($fields['translation_revision']??null),422);
                 $review=app(Tech4LearnExamTranslations::class)->review($workspace,(int)$w->source_organization_id,$actor,$id,$fields['language_id'],0,$fields['translation_revision']);
                 $this->validateTranslationReview($question,$tenant,$review,$action);
@@ -287,7 +296,7 @@ final class Tech4LearnQuestionAuthoring
             if($kind==='packages')$this->validatePackageTags($tenant,$values);
             // The native controller accepts its web form. Give it a private request/session,
             // and translate its redirect feedback into an atomic API outcome.
-            $result=$this->invoke($tenant,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action);
+            $result=$this->invoke($tenant,$user,$action!==null&&!$imageAction?$fields:$values,$question,$kind,$imageAction?($kind==='packages'?'set-package-image':null):$action,false,$storedImage);
             DB::table('tech4learn_authoring_requests')->insert(['workspace_id'=>$workspace,'request_id'=>$requestId,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
@@ -341,7 +350,7 @@ final class Tech4LearnQuestionAuthoring
         $clean='';foreach($body->childNodes as $node){if($node instanceof \DOMElement||$node instanceof \DOMText)$clean.=$dom->saveHTML($node);}
         return $clean;
     }
-    private function invoke(int $tenant,User $user,array $fields,?\Illuminate\Database\Eloquent\Model $question,string $kind,?string $action=null,bool $centralLanguage=false):array {
+    private function invoke(int $tenant,User $user,array $fields,?\Illuminate\Database\Eloquent\Model $question,string $kind,?string $action=null,bool $centralLanguage=false,?string &$storedImage=null):array {
         [$modelClass,$controllerClass,,$parameter]=$this->definition($kind);
         $organisation=Organization::where('status','active')->findOrFail($tenant);
         $app=app();$oldRequest=$app->make('request');$oldRedirect=$app->make('redirect');$guard=Auth::guard('web');$oldUser=$guard->user();
@@ -361,7 +370,7 @@ final class Tech4LearnQuestionAuthoring
         }
         try {
             abort_unless((int)Tenant::resolve($organisation->domain)->id===$tenant,403);
-            if(in_array($kind,['languages','packages'],true)||in_array($action,['generate-document','approve-translation','refresh-translation','save-question-translation','save-exam-translation'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
+            if(in_array($kind,['languages','packages'],true)||in_array($action,['generate-document','approve-translation','refresh-translation','save-question-translation','save-exam-translation','set-translation-image'],true))abort_unless(!\App\Support\SaasAccess::isPlatformAdmin()&&(int)\App\Support\SaasAccess::organization()?->id===$tenant,403);
             if($action==='set-package-image'){
                 $question->photo=$fields['photo'];$question->save();
                 return $this->record($kind,$question->fresh());
@@ -372,6 +381,10 @@ final class Tech4LearnQuestionAuthoring
             }
             if($action==='save-question-translation'){
                 app(Tech4LearnTranslationEdits::class)->apply($question,$fields,$request);
+                return $this->record($kind,$question->fresh());
+            }
+            if($action==='set-translation-image'){
+                app(Tech4LearnTranslationEdits::class)->applyImage($question,$fields,$request,$storedImage);
                 return $this->record($kind,$question->fresh());
             }
             if($action==='refresh-translation'){

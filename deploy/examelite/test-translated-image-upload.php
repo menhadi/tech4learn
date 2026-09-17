@@ -3,6 +3,7 @@
 require __DIR__.'/test-central-translation-writes.php';
 use App\Models\{Question,QuestionLang};
 use App\Services\{Tech4LearnQuestionImageUpload,Tech4LearnQuestionMedia};
+use Illuminate\Support\Facades\DB;
 
 $uploader=app(Tech4LearnQuestionImageUpload::class);
 $png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
@@ -39,3 +40,48 @@ foreach([10,20] as $owner){
     check(!isset($imageDisk->files[$stored])&&!isset($imageDisk->files[$replacement]),'Caller can discard uploads after failed native transaction');
 }
 echo "Translated image helper: owner paths, preserved wording, replace/remove, rejected fields and cleanup passed.\n";
+
+foreach([false,true] as $central){
+    $owner=$central?10:20;$lang=$central?$centralTarget:$target;
+    $paper=App\Models\Exam::create(['organization_id'=>$owner,'name'=>'Synthetic translated image paper','status'=>'Inactive']);
+    $paper->languages()->attach($lang->id);
+    $source=Question::create(['organization_id'=>$owner,'question'=>'Source unchanged']);$paper->questions()->attach($source->id);
+    $translation=QuestionLang::create(['question_id'=>$source->id,'language_id'=>$lang->id,'question'=>'<p>Translated text</p>','explanation'=>'Preserve this']);
+    $record=fn()=>$service->record('exams',$paper->fresh());
+    $review=fn()=>$central?$reader->centralReview(10,$paper->id,$lang->id):$reader->review($workspace,10,$actor,$paper->id,$lang->id);
+    $fields=fn()=>['language_id'=>$lang->id,'question_id'=>$source->id,'translation_revision'=>$review()['revision'],'field'=>'question','image'=>$png];
+    $save=fn($values,$revision,$key)=>$central?$service->saveCentralExamAction(10,$ca,$paper->id,$values,$revision,$key,'set-translation-image'):$service->save($workspace,20,$actor,$paper->id,$values,$revision,$key,'exams','set-translation-image');
+    $values=$fields();$revision=$record()['revision'];$key=$uuid();$writes=$imageDisk->writes;
+    $saved=$save($values,$revision,$key);
+    check($imageDisk->writes===$writes+1&&str_contains($translation->fresh()->question,'/storage/images/upload/t4l/'.$owner.'/'),'Native translated image action persists under correct owner');
+    check($translation->fresh()->explanation==='Preserve this'&&$source->fresh()->question==='Source unchanged','Native image action preserves other wording and source');
+    check($save($values,$revision,$key)===$saved&&$imageDisk->writes===$writes+1,'Lost-response retry does not upload or invalidate twice');
+    $after=$review();check(str_contains($after['items'][0]['translation']['question'],'t4l-media:'),'Review projects new image as private opaque reference');
+    check(DB::table('exam_languages')->where('exam_id',$paper->id)->where('language_id',$lang->id)->value('translation_status')==='pending','Image edit clears prior approval');
+    $writes=$imageDisk->writes;$reject(fn()=>$save($values,$record()['revision'],$uuid()));
+    foreach([['question_id'=>$foreign->id],['field'=>'organization_id'],['wording'=>['question'=>'injected']],['image'=>base64_encode('invalid')]] as $bad)$reject(fn()=>$save(array_replace($fields(),$bad),$record()['revision'],$uuid()));
+    check($imageDisk->writes===$writes,'Stale review and invalid/foreign actions never write image files');
+    $asset=array_key_first(app(Tech4LearnQuestionMedia::class)->sources($translation->fresh()->question));
+    $save($fields()+['asset'=>$asset],$record()['revision'],$uuid());
+    check(substr_count($translation->fresh()->question,'<img')===1,'Native replacement keeps one reference');
+    $asset=array_key_first(app(Tech4LearnQuestionMedia::class)->sources($translation->fresh()->question));
+    $remove=$fields();unset($remove['image']);$remove+=['asset'=>$asset,'remove'=>true];
+    $save($remove,$record()['revision'],$uuid());
+    check(!str_contains($translation->fresh()->question,'<img'),'Native reference removal persisted');
+    $oldController=app(App\Http\Controllers\QuestionLangController::class);
+    $app->instance(App\Http\Controllers\QuestionLangController::class,new class extends App\Http\Controllers\QuestionLangController {
+        public function update(Illuminate\Http\Request $request,$id){throw new RuntimeException('synthetic native failure');}
+    });
+    $files=count($imageDisk->files);$before=$translation->fresh()->question;
+    try{$save($fields(),$record()['revision'],$uuid());throw new RuntimeException('Expected failed save');}
+    catch(RuntimeException $e){check($e->getMessage()==='synthetic native failure','Expected injected native failure');}
+    finally{$app->instance(App\Http\Controllers\QuestionLangController::class,$oldController);}
+    check(count($imageDisk->files)===$files&&$translation->fresh()->question===$before,'Failed native save rolls back wording and removes new upload');
+    DB::table('exam_languages')->where('exam_id',$paper->id)->where('language_id',$lang->id)->update(['translation_status'=>'processing']);
+    $writes=$imageDisk->writes;$reject(fn()=>$save($fields(),$record()['revision'],$uuid()));
+    check($imageDisk->writes===$writes,'Processing translation cannot receive new uploads');
+    DB::table('exam_languages')->where('exam_id',$paper->id)->where('language_id',$lang->id)->update(['translation_status'=>'pending']);
+    $translation->delete();$reject(fn()=>$save($fields(),$record()['revision'],$uuid()));
+    check($imageDisk->writes===$writes,'Missing translated wording cannot receive new uploads');
+}
+echo "Translated image native actions: central/organisation persistence, review/retry, scope and failed-save cleanup passed.\n";
