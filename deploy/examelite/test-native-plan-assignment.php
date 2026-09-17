@@ -38,5 +38,31 @@ try{
  DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['source_organization_id'=>30]);
  $reject(fn()=>$apply(Tech4LearnPlanAssignment::revision($owner->fresh()),Tech4LearnPlanAssignment::revision($plan)));
 }finally{app()->instance('redirect',$oldRedirect);}
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['source_organization_id'=>10]);
+DB::table('tech4learn_central_users')->insert(['organization_id'=>10,'local_id'=>$centralActor,'external_id'=>$nativeId]);
+$assignmentId=$nextId();$ownerRevision=Tech4LearnPlanAssignment::revision($owner->fresh());$planRevision=Tech4LearnPlanAssignment::revision($replacement->fresh());
+$assign=fn($id,$actor=null,$choice=null)=>$helper->assign(10,$workspace,$actor??$centralActor,$choice??$replacement->id,$ownerRevision,$planRevision,$id);
+$requestBefore=app('request');$redirectBefore=app('redirect');$guard=Illuminate\Support\Facades\Auth::guard('web');$userBefore=$guard->user();
+$receipt=$assign($assignmentId);$audits=count($GLOBALS['planAudit']);
+check($receipt['plan_id']===$replacement->id&&$assign($assignmentId)===$receipt&&count($GLOBALS['planAudit'])===$audits,'Assignment receipt replays without a second native write');
+check(app('request')===$requestBefore&&app('redirect')===$redirectBefore&&$guard->user()===$userBefore,'Assignment restores caller context');
+$reject(fn()=>$assign($assignmentId,$centralActor,$plan->id));
+$reject(fn()=>$assign($nextId()));
+$reject(fn()=>$assign($nextId(),'dddddddd-1111-1111-1111-111111111111'));
+$centralNativeId=DB::table('tech4learn_central_users')->where('local_id',$centralActor)->value('external_id');
+DB::table('organization_users')->where('organization_id',10)->where('user_id',$centralNativeId)->update(['status'=>0]);
+$reject(fn()=>$assign($assignmentId));
+DB::table('organization_users')->where('organization_id',10)->where('user_id',$centralNativeId)->update(['status'=>1,'role'=>'member']);
+$reject(fn()=>$assign($assignmentId));
+DB::table('organization_users')->where('organization_id',10)->where('user_id',$centralNativeId)->update(['role'=>'owner']);
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['source_organization_id'=>30]);$reject(fn()=>$assign($assignmentId));
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['source_organization_id'=>10]);
+$ledgerBefore=DB::table('tech4learn_central_requests')->count();$GLOBALS['failPlanAudit']=true;
+try{$helper->assign(10,$workspace,$centralActor,$plan->id,Tech4LearnPlanAssignment::revision($owner->fresh()),Tech4LearnPlanAssignment::revision($plan->fresh()),$nextId());throw new LogicException('Expected audit failure');}
+catch(RuntimeException $error){check($error->getMessage()==='Synthetic native audit failure','Assignment audit failure propagates');}
+finally{$GLOBALS['failPlanAudit']=false;}
+check(DB::table('tech4learn_central_requests')->count()===$ledgerBefore&&(int)$owner->fresh()->saas_plan_id===$replacement->id,'Failed assignment rolls back both native change and receipt');
+check(app('request')===$requestBefore&&app('redirect')===$redirectBefore&&$guard->user()===$userBefore,'Failed assignment restores caller context');
+echo "Central plan assignment: receipts, revocation, scope, rollback and caller context passed.\n";
 echo "Native plan assignment helper: native validation/persistence, audit, scope, revisions and unchanged shared plan passed.\n";
 }

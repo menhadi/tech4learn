@@ -48,6 +48,7 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
         $plans=SaasPlan::where('status',true)->where('id','>',(int)$after)->orderBy('id')->limit(51)->get();
         $page=$plans->take(50);
         return $this->reply($tenant,[
+            'assignment_revision'=>hash('sha256',json_encode($owner->getRawOriginal(),JSON_THROW_ON_ERROR)),
             'items'=>$page->map(fn($plan)=>[
                 'id'=>(int)$plan->id,'name'=>(string)$plan->name,
                 'selected'=>(int)$owner->saas_plan_id===(int)$plan->id,

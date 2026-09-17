@@ -92,6 +92,7 @@ $planRead=fn(string $query='')=>$controller->plans(Illuminate\Http\Request::crea
 $firstPlanPage=$planRead();
 check(count($firstPlanPage['items'])===1&&$firstPlanPage['items'][0]['selected']===true&&$firstPlanPage['next']===null,'Current native plan is marked without modifying assignment');
 check(array_keys($firstPlanPage['items'][0])===['id','name','selected','revision'],'Plan options exclude prices, configuration and feature payloads');
+check($firstPlanPage['assignment_revision']===hash('sha256',json_encode(App\Models\Organization::findOrFail($workspace->organization_id)->getRawOriginal(),JSON_THROW_ON_ERROR)),'Plan reader supplies the exact current organisation assignment revision');
 $oldPlanRevision=$firstPlanPage['items'][0]['revision'];
 $plan->name='Renamed synthetic plan';$plan->save();
 check($planRead()['items'][0]['revision']!==$oldPlanRevision,'Plan edit invalidates option revision');

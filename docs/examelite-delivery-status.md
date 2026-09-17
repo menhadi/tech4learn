@@ -109,8 +109,15 @@ adapter milestone as a release.
    both organisation/plan revisions. It preserves contact, domain, status and
    expiry values and does not edit shared plans. Isolated checks cover native
    validation, audit invocation and rollback after a native failure. It has no
-   route: central actor authorisation, durable request receipts and the complete
-   assignment interface still need to be connected before availability.
+   route. An assignment coordinator now checks the existing central actor's
+   active owner/admin membership and workspace mapping before writes or receipt
+   replay, binds receipts to the exact request and restores native request/auth
+   context after success or failure. Native checks cover revoked membership,
+   changed retry payloads, stale revisions, rollback and no duplicate writes.
+   The reader supplies an organisation revision for optimistic concurrency.
+   Fresh Tech4Learn superadmin authorisation, first-use actor provisioning,
+   private action routing and the assignment interface remain to be connected;
+   these helpers alone do not make plan assignment available to users.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is
