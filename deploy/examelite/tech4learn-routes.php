@@ -71,6 +71,7 @@ Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::get('/workspace/status', [Tech4LearnWorkspaceController::class, 'health']);
     Route::get('/workspace/{org}/capabilities', [Tech4LearnWorkspaceController::class, 'capabilities']);
     Route::get('/workspace/{org}/plans', [Tech4LearnWorkspaceController::class, 'plans']);
+    Route::post('/workspace/{org}/plan', [Tech4LearnWorkspaceController::class, 'assignPlan']);
     Route::post('/workspace/{org}/restrictions', [Tech4LearnWorkspaceController::class, 'restrict']);
     Route::post('/workspace/{org}/launch', [Tech4LearnWorkspaceController::class, 'launch']);
     Route::get('/platform/status', [Tech4LearnPlatformController::class, 'status']);

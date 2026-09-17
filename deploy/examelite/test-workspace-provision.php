@@ -106,6 +106,8 @@ DB::table('tech4learn_workspaces')->where('id',$org)->update(['source_organizati
 DB::table('tech4learn_workspaces')->where('id',$org)->update(['source_organization_id'=>10]);
 $route=$router->getRoutes()->match(Illuminate\Http\Request::create('https://example.test/api/tech4learn/v1/workspace/'.$org.'/plans','GET'));
 check(str_ends_with($route->getActionName(),'Tech4LearnWorkspaceController@plans'),'Plan catalogue route resolves to native scoped reader');
+$route=$router->getRoutes()->match(Illuminate\Http\Request::create('https://example.test/api/tech4learn/v1/workspace/'.$org.'/plan','POST'));
+check(str_ends_with($route->getActionName(),'Tech4LearnWorkspaceController@assignPlan'),'Plan write route resolves to private credential controller');
 check((int)DB::table('organizations')->where('id',$workspace->organization_id)->value('saas_plan_id')===(int)$plan->id,'Reading plans never changes an organisation subscription');
 echo "Native plan options: current assignment, bounded pages, active-only records, revision changes and owner checks passed.\n";
 }

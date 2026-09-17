@@ -50,6 +50,7 @@ foreach([
  ['GET','api/tech4learn/v1/workspace/status','Tech4LearnWorkspaceController@health'],
  ['GET','api/tech4learn/v1/workspace/11111111-1111-4111-8111-111111111111/capabilities','Tech4LearnWorkspaceController@capabilities'],
  ['GET','api/tech4learn/v1/workspace/11111111-1111-4111-8111-111111111111/plans','Tech4LearnWorkspaceController@plans'],
+ ['POST','api/tech4learn/v1/workspace/11111111-1111-4111-8111-111111111111/plan','Tech4LearnWorkspaceController@assignPlan'],
  ['GET','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/questions','Tech4LearnContentController@questions'],
  ['GET','api/tech4learn/v1/central/packages/1/media/'.str_repeat('a',64),'Tech4LearnContentController@centralPackageMedia'],
  ['POST','api/tech4learn/v1/central/packages/1/image','Tech4LearnContentController@centralPackageImageWrite'],

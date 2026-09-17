@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 final class Tech4LearnPlanAssignment
 {
     /** Private credential boundary must supply a freshly authorised T4L superadmin.
-     * Require an existing central actor; never elevate a native account.
+     * Provision only an isolated central actor; never elevate a native account.
      */
     public function assign(int $central,string $workspace,string $actor,int $planId,string $ownerRevision,string $planRevision,string $requestId):array {
         foreach([$workspace,$actor,$requestId] as $value)abort_unless(is_string($value)&&preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/Di',$value),422);
@@ -19,16 +19,21 @@ final class Tech4LearnPlanAssignment
         $fingerprint=hash('sha256',json_encode(['assign-plan',$central,$workspace,$actor,$planId,$ownerRevision,$planRevision],JSON_THROW_ON_ERROR));
         return DB::transaction(function()use($central,$workspace,$actor,$planId,$ownerRevision,$planRevision,$requestId,$fingerprint){
             $organization=Organization::where('status','active')->lockForUpdate()->findOrFail($central);
+            $prior=DB::table('tech4learn_central_requests')->where('organization_id',$central)->where('request_id',$requestId)->first();
             $mapping=DB::table('tech4learn_central_users')->where('organization_id',$central)->where('local_id',$actor)->lockForUpdate()->first();
-            abort_unless($mapping!==null,403,'Central actor is not provisioned.');
-            $user=User::where('status',1)->where('is_platform_admin',false)->lockForUpdate()->findOrFail($mapping->external_id);
+            if(!$mapping){
+                abort_unless(!$prior,403,'Central actor mapping is unavailable.');
+                $key=hash('sha256','central:'.$central.':'.$actor);
+                $user=User::create(['name'=>'Tech4Learn central author','username'=>'t4lc-'.$key,'email'=>$key.'@tech4learn.invalid','password'=>\Illuminate\Support\Facades\Hash::make(bin2hex(random_bytes(32))),'ugroup_id'=>0,'status'=>1,'is_platform_admin'=>false]);
+                DB::table('organization_users')->insert(['organization_id'=>$central,'user_id'=>$user->id,'role'=>'owner','status'=>1,'created_at'=>now(),'updated_at'=>now()]);
+                DB::table('tech4learn_central_users')->insert(['organization_id'=>$central,'local_id'=>$actor,'external_id'=>$user->id]);
+            }else $user=User::where('status',1)->where('is_platform_admin',false)->lockForUpdate()->findOrFail($mapping->external_id);
             abort_unless(DB::table('organization_users')->where('organization_id',$central)->where('user_id',$user->id)->where('status',1)->whereIn('role',['owner','admin'])->lockForUpdate()->first()!==null,403);
             // Recheck mapping and actor before replay, including after revocation.
             $workspaceMapping=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$central)->lockForUpdate()->first();
             abort_unless($workspaceMapping!==null&&$workspaceMapping->organization_id!==null&&(int)$workspaceMapping->organization_id!==$central,404);
             $owner=Organization::where('status','active')->lockForUpdate()->findOrFail($workspaceMapping->organization_id);
             abort_unless(($owner->settings['tech4learn_workspace']??null)===$workspace&&$owner->slug!=='examelite',404);
-            $prior=DB::table('tech4learn_central_requests')->where('organization_id',$central)->where('request_id',$requestId)->first();
             if($prior){abort_unless(hash_equals($prior->fingerprint,$fingerprint),409,'Request ID already used.');return json_decode($prior->result,true,512,JSON_THROW_ON_ERROR);}
             $app=app();$oldRequest=$app->make('request');$oldRedirect=$app->make('redirect');
             $guard=\Illuminate\Support\Facades\Auth::guard('web');$oldUser=$guard->user();

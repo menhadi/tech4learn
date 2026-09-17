@@ -108,16 +108,20 @@ adapter milestone as a release.
    controller to assign an active plan after checking workspace ownership and
    both organisation/plan revisions. It preserves contact, domain, status and
    expiry values and does not edit shared plans. Isolated checks cover native
-   validation, audit invocation and rollback after a native failure. It has no
-   route. An assignment coordinator now checks the existing central actor's
+   validation, audit invocation and rollback after a native failure.
+   An assignment coordinator now checks the central actor's
    active owner/admin membership and workspace mapping before writes or receipt
    replay, binds receipts to the exact request and restores native request/auth
    context after success or failure. Native checks cover revoked membership,
    changed retry payloads, stale revisions, rollback and no duplicate writes.
    The reader supplies an organisation revision for optimistic concurrency.
-   Fresh Tech4Learn superadmin authorisation, first-use actor provisioning,
-   private action routing and the assignment interface remain to be connected;
-   these helpers alone do not make plan assignment available to users.
+   A private credential-protected action route now validates exact bounded input
+   and supports first-use provisioning of a central-only author without a global
+   admin role. Tests cover input overrides and missing actor mappings on replay.
+   The deployment script includes the isolated assignment suite and route check.
+   Fresh Tech4Learn superadmin authorisation in the gateway and the assignment
+   interface remain to be connected; native routes alone do not make plan
+   assignment available to users.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is

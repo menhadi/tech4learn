@@ -2,7 +2,7 @@
 namespace App\Http\Controllers { function audit_log(...$args){if($GLOBALS['failPlanAudit']??false)throw new \RuntimeException('Synthetic native audit failure');$GLOBALS['planAudit'][]=$args[0];} }
 namespace {
 require __DIR__.'/test-central-question-authoring.php';
-if(isset($argv[4]))require $argv[4];
+require $argv[4]??'/home/examelite/public_html/app/Http/Controllers/SaasController.php';
 require __DIR__.'/Tech4LearnPlanAssignment.php';
 use Illuminate\Support\Facades\DB;
 use App\Models\{Organization,SaasPlan};
@@ -63,6 +63,22 @@ catch(RuntimeException $error){check($error->getMessage()==='Synthetic native au
 finally{$GLOBALS['failPlanAudit']=false;}
 check(DB::table('tech4learn_central_requests')->count()===$ledgerBefore&&(int)$owner->fresh()->saas_plan_id===$replacement->id,'Failed assignment rolls back both native change and receipt');
 check(app('request')===$requestBefore&&app('redirect')===$redirectBefore&&$guard->user()===$userBefore,'Failed assignment restores caller context');
+require __DIR__.'/Tech4LearnWorkspaceController.php';
+$planController=new class extends App\Http\Controllers\Tech4LearnWorkspaceController {
+ protected function configuration(Illuminate\Http\Request $r):array {return ['_platform'=>['organization_id'=>10]];}
+ protected function reply(int $tenant,array $data){return $data;}
+};
+$newActor='eeeeeeee-1111-1111-1111-111111111111';
+$planBody=['actor_id'=>$newActor,'request_id'=>$nextId(),'plan_id'=>$plan->id,'assignment_revision'=>Tech4LearnPlanAssignment::revision($owner->fresh()),'plan_revision'=>Tech4LearnPlanAssignment::revision($plan->fresh())];
+$callPlan=fn($body)=>$planController->assignPlan(Illuminate\Http\Request::create('/','POST',$body),$workspace);
+foreach(['organization_id'=>30,'price'=>99,'status'=>'suspended'] as $key=>$value)$reject(fn()=>$callPlan($planBody+[$key=>$value]));
+foreach(['plan_id'=>'1','actor_id'=>[],'assignment_revision'=>'new','plan_revision'=>null,'request_id'=>'bad'] as $key=>$value)$reject(fn()=>$callPlan(array_replace($planBody,[$key=>$value])));
+$reject(fn()=>$planController->assignPlan(Illuminate\Http\Request::create('/?owner=30','POST',$planBody),$workspace));
+$created=$callPlan($planBody);check($created['saved']&&$created['plan_id']===$plan->id&&$callPlan($planBody)===$created,'Private plan controller saves and replays a bounded request');
+$newNativeId=DB::table('tech4learn_central_users')->where('local_id',$newActor)->value('external_id');
+check($newNativeId!==null&&!App\Models\User::findOrFail($newNativeId)->is_platform_admin&&DB::table('organization_users')->where('user_id',$newNativeId)->count()===1,'First plan assignment provisions only a central scoped author');
+DB::table('tech4learn_central_users')->where('local_id',$newActor)->delete();$reject(fn()=>$callPlan($planBody));
+echo "Private plan controller: bounded input, first-use isolated actor and revoked mapping replay passed.\n";
 echo "Central plan assignment: receipts, revocation, scope, rollback and caller context passed.\n";
 echo "Native plan assignment helper: native validation/persistence, audit, scope, revisions and unchanged shared plan passed.\n";
 }

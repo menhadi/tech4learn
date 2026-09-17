@@ -58,6 +58,19 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
             'next'=>$plans->count()>50?(string)$page->last()->id:null,
         ]);
     }
+    /** Private server credential only; T4L must reauthorise its superadmin. */
+    public function assignPlan(Request $r,string $org) {
+        $tenant=(int)$this->configuration($r)['_platform']['organization_id'];$this->uuid($org);
+        $keys=['actor_id','request_id','plan_id','assignment_revision','plan_revision'];
+        $body=$r->all();
+        abort_unless($r->query()===[]&&!array_diff(array_keys($body),$keys)&&!array_diff($keys,array_keys($body)),422);
+        foreach(['actor_id','request_id','assignment_revision','plan_revision'] as $key)abort_unless(is_string($body[$key]),422);
+        $this->uuid($body['actor_id']);$this->uuid($body['request_id']);
+        abort_unless(is_int($body['plan_id'])&&$body['plan_id']>0&&$body['plan_id']<=999999999999999,422);
+        foreach(['assignment_revision','plan_revision'] as $key)abort_unless(preg_match('/^[a-f0-9]{64}$/D',$body[$key]),422);
+        $result=app(\App\Services\Tech4LearnPlanAssignment::class)->assign($tenant,$org,$body['actor_id'],$body['plan_id'],$body['assignment_revision'],$body['plan_revision'],$body['request_id']);
+        return $this->reply($tenant,['saved'=>true]+$result);
+    }
     private function restrictions($items): array {
         try { return Tech4LearnWorkspacePolicy::restrictions($items); }
         catch(\InvalidArgumentException $e) { abort(422,'Invalid feature restrictions.'); }
