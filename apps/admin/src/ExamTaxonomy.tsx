@@ -99,11 +99,18 @@ function TaxonomyEditor({
     [newTag, setNewTag] = useState(""),
     [imagePending, setImagePending] = useState(false),
     [imageVersion, setImageVersion] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    revision: string;
+    request_id: string;
+  } | null>(null);
   const base = `${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/taxonomy/${kind}`;
   async function load() {
     setBusy(true);
     setError("");
     setNotice("");
+    setPendingDelete(null);
+    setConfirmDelete(false);
     const recordId = activeId;
     setRecord(null);
     try {
@@ -124,7 +131,7 @@ function TaxonomyEditor({
     void load();
   }, [org, central, kind, id]);
   const set = (key: string, value: any) => {
-    if (pendingDisable || imagePending) return;
+    if (pendingDisable || pendingDelete || imagePending) return;
     setChanges((old) => ({ ...old, [key]: value }));
     setRequest(null);
     setNotice("");
@@ -145,11 +152,16 @@ function TaxonomyEditor({
           ? record?.id
             ? "Edit language labels"
             : "Enable language"
-          : `${record?.id ? "Edit" : "Create"} ${labels[kind].toLowerCase()}`}
+          : `${activeId !== "new" ? "Edit" : "Create"} ${labels[kind].toLowerCase()}`}
       </h3>
       <button
         className="secondary"
-        disabled={busy || Boolean(pendingDisable) || imagePending}
+        disabled={
+          busy ||
+          Boolean(pendingDisable) ||
+          Boolean(pendingDelete) ||
+          imagePending
+        }
         onClick={onClose}
       >
         Back to classification
@@ -172,7 +184,7 @@ function TaxonomyEditor({
           title="Details"
           draftState={{ revision: record.revision, changes, request, newTag }}
           restoreState={(s) => {
-            if (pendingDisable || imagePending) return;
+            if (pendingDisable || pendingDelete || imagePending) return;
             if (
               s?.revision === record.revision &&
               s.changes &&
@@ -193,10 +205,8 @@ function TaxonomyEditor({
           }}
           onSubmit={async (e) => {
             e.preventDefault();
-            if (pendingDisable || imagePending)
-              throw new Error(
-                "Resolve the language disable request before editing.",
-              );
+            if (pendingDisable || pendingDelete || imagePending)
+              throw new Error("Resolve the pending action before editing.");
             if (kind === "packages" && newTag.trim()) {
               setError(
                 "Add the new tag to the selection, or clear its name before saving.",
@@ -236,7 +246,12 @@ function TaxonomyEditor({
         >
           <fieldset
             data-no-draft="true"
-            disabled={busy || Boolean(pendingDisable) || imagePending}
+            disabled={
+              busy ||
+              Boolean(pendingDisable) ||
+              Boolean(pendingDelete) ||
+              imagePending
+            }
             aria-label="Classification fields"
           >
             {kind !== "languages" && (
@@ -695,6 +710,79 @@ function TaxonomyEditor({
           )}
         </div>
       )}
+      {["categories", "subcategories"].includes(kind) &&
+        record &&
+        record.id > 0 && (
+          <section aria-label="Delete classification" data-no-draft="true">
+            <p>
+              Delete this {kind === "categories" ? "category" : "subcategory"}{" "}
+              only if it is no longer needed. ExamElite prevents deletion while
+              child categories, exams, packages or flashcards use it.
+            </p>
+            <label>
+              <input
+                type="checkbox"
+                checked={confirmDelete}
+                disabled={busy || Boolean(pendingDelete)}
+                onChange={(event) => setConfirmDelete(event.target.checked)}
+              />
+              Delete “{record.fields.title}” permanently
+            </label>
+            <button
+              type="button"
+              className="secondary"
+              disabled={
+                busy ||
+                Boolean(request) ||
+                Object.keys(changes).length > 0 ||
+                (!pendingDelete && !confirmDelete)
+              }
+              onClick={async () => {
+                const payload = pendingDelete ?? {
+                  revision: record.revision,
+                  request_id: crypto.randomUUID(),
+                };
+                setPendingDelete(payload);
+                setBusy(true);
+                setError("");
+                setNotice("");
+                try {
+                  const result = await api<{ id: number; deleted: boolean }>(
+                    `${base}/${record.id}/delete`,
+                    "POST",
+                    payload,
+                  );
+                  if (result.id !== record.id || result.deleted !== true)
+                    throw new Error(
+                      "Deletion could not be confirmed. Retry or reload.",
+                    );
+                  setRecord(null);
+                  setPendingDelete(null);
+                  setConfirmDelete(false);
+                  setNotice(
+                    "Classification deleted. Return to the list to load the remaining records.",
+                  );
+                } catch (e) {
+                  setError(
+                    e instanceof Error
+                      ? e.message
+                      : "Unable to confirm deletion. Retry or reload.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {pendingDelete ? "Retry deletion" : "Delete classification"}
+            </button>
+            {Object.keys(changes).length > 0 && (
+              <p>
+                Save your edits or reload the saved classification before
+                deleting.
+              </p>
+            )}
+          </section>
+        )}
     </section>
   );
 }
