@@ -25,6 +25,7 @@ try {
     $exam=$service->save($workspace,20,$actor,$exam['id'],['status'=>'Active'],$exam['revision'],$next(),'exams','set-status');
     $pilotLearner=$next();
     $run=fn($action,$fields)=>$lifecycle->run($workspace,10,$pilotLearner,'Synthetic pilot candidate',$exam['id'],$action,$fields);
+    $prepared=$run('prepare',['request_id'=>$next()]);
     $started=$run('start',['request_id'=>$next()]);
     check(count($started['questions'])===1&&$started['questions'][0]['id']===$question['id'],'Created paper is delivered with its authored question');
     $answerRequest=['request_id'=>$next(),'attempt_id'=>$started['attempt_id'],'question_id'=>$question['id'],'revision'=>$started['questions'][0]['revision'],'fields'=>['option_selected'=>'Two pairs each have two items, giving four.']];
@@ -49,5 +50,13 @@ try {
     $history=$run('history',['request_id'=>$next()]);
     check(count($history['items'])===1&&$history['items'][0]['attempt_id']===$started['attempt_id'],'Student history contains exactly the completed pilot attempt');
     check($run('submit',$submit)===$published,'Submission retry preserves the graded published result');
+    // Optional synthetic transcript for browser contract verification; no production bootstrap.
+    if(isset($argv[5]))file_put_contents($argv[5],json_encode([
+        'org'=>$workspace,'learner'=>$pilotLearner,'exam'=>$exam['id'],'question'=>$question['id'],
+        'prepared'=>$prepared,'started'=>$started,'ack'=>$ack,'resumed'=>$resumed,'finished'=>$finished,
+        'review'=>$review,'graded'=>$graded,'published'=>$published,'history'=>$history,
+        'marked_review'=>$marking->review($workspace,10,$actor,$pilotLearner,$started['attempt_id']),
+        'marked_list'=>$marking->attempts($workspace,10,$actor,$pilotLearner),
+    ],JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR));
 } finally {Carbon::setTestNow();}
 echo "Pilot native workflow: create, assemble, activate, take, resume, submit, mark, publish and history passed.\n";
