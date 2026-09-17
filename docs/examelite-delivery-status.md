@@ -45,8 +45,10 @@ adapter milestone as a release.
    ledger. Upload, replacement and reference removal invoke the native
    question-language controller and invalidate translation approval/documents.
    Organisation/central tests cover private review references, repeat requests,
-   stale/foreign denial and cleanup after failed native saves. Private route,
-   gateway and UI wiring still remain; this is not an exposed upload workflow.
+   stale/foreign denial and cleanup after failed native saves. Private action
+   routes now also have bounded envelopes and controller/registration tests;
+   the user-run deployment script includes that check. Tech4Learn gateway and
+   UI wiring still remain; this is not yet a browser upload workflow.
 2. **Verify native background processing.** Exercise PDF rendering and AI
    translation completion in isolated local worker fixtures, including failure,
    approval invalidation and repeat requests. A queued request alone is not a

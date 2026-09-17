@@ -113,7 +113,11 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         abort_unless(hash_equals($asset,hash('sha256',trim((string)$current->photo))),409);
         return $this->reply($central,$data);
     }
-    public function examAction(Request $r,string $org,string $id,string $action){return $this->save($r,$org,$id,'exams',$action);}
+    public function examAction(Request $r,string $org,string $id,string $action){
+        abort_unless($r->query()===[]&&!array_diff(array_keys($r->all()),['actor_id','fields','revision','request_id']),422);
+        abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id)&&isset(Tech4LearnQuestionAuthoring::EXAM_ACTIONS[$action]),422);
+        return $this->save($r,$org,$id,'exams',$action);
+    }
     public function disableLanguage(Request $r,string $org,string $id){return $this->save($r,$org,$id,'languages','disable-language');}
     public function deleteCategory(Request $r,string $org,string $kind,string $id){
         abort_unless(in_array($kind,['categories','subcategories'],true)&&preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);

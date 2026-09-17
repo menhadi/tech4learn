@@ -11,7 +11,10 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
 {
     public function centralImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image');}
     public function centralPackageImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image','packages');}
-    public function centralExamAction(Request $r,string $id,string $action) {return $this->centralWrite($r,$id,$action,'exams');}
+    public function centralExamAction(Request $r,string $id,string $action) {
+        abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id)&&isset(\App\Services\Tech4LearnQuestionAuthoring::EXAM_ACTIONS[$action]),422);
+        return $this->centralWrite($r,$id,$action,'exams');
+    }
     private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams','languages'],true),404);}
     public function centralTaxonomy(Request $r,string $kind,string $id) {
         $central=(int)$this->configuration($r)['_platform']['organization_id'];
