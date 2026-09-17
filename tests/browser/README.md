@@ -1,5 +1,15 @@
 # Pilot workflow verification
 
+## Native translation completion
+
+Run `php deploy/examelite/test-translation-completion.php VENDOR_AUTOLOAD
+MODELS_DIRECTORY QUESTION_CONTROLLER EXAM_CONTROLLER` as one command.
+The native service receives synthetic, already-complete translations in SQLite.
+It checks ready state, explicit native approval policy, repeat completion and
+lock contention. The fixture injects feature access and forbids AI-provider
+access; it does not test actual AI generation, commercial plan evaluation or
+queue transport. No application environment is bootstrapped.
+
 ## Native PDF worker state check
 
 Run `php deploy/examelite/test-pdf-worker.php VENDOR_AUTOLOAD MODELS_DIRECTORY

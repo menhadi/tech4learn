@@ -67,6 +67,11 @@ adapter milestone as a release.
    verifying that an attached source edit selects a different cached version.
    Artifact bytes remain synthetic; actual rendering and queue transport remain
    unverified.
+   Native translation completion now also has isolated checks for ready state,
+   manual versus automatic approval, repeat completion, contended locks and
+   injected feature denial. Provider access is explicitly forbidden in that
+   fixture; AI generation, real plan evaluation and queue transport remain
+   unverified by it.
 3. **Complete the agreed module coverage.** Finish platform module/provider
    catalogue and plan assignment, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual
