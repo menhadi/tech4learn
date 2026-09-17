@@ -17,6 +17,56 @@ import { centralExamMetadata } from "./central-exam-metadata.js";
 
 @Injectable()
 export class ExamContentService {
+  private translatedImage(fields: Record<string, unknown>) {
+    const allowed = [
+      "language_id",
+      "translation_revision",
+      "question_id",
+      "field",
+      "image",
+      "asset",
+      "remove",
+    ];
+    if (
+      Object.keys(fields).some((key) => !allowed.includes(key)) ||
+      ![fields.language_id, fields.question_id].every(
+        (value) =>
+          Number.isSafeInteger(value) &&
+          Number(value) > 0 &&
+          Number(value) < 1e15,
+      ) ||
+      typeof fields.translation_revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(fields.translation_revision) ||
+      typeof fields.field !== "string" ||
+      ![
+        "question",
+        "option1",
+        "option2",
+        "option3",
+        "option4",
+        "option5",
+        "option6",
+        "hint",
+        "explanation",
+      ].includes(fields.field) ||
+      (fields.asset !== undefined &&
+        (typeof fields.asset !== "string" ||
+          !/^[a-f0-9]{64}$/.test(fields.asset))) ||
+      (fields.remove !== undefined && fields.remove !== true) ||
+      (fields.remove === true
+        ? fields.image !== undefined || fields.asset === undefined
+        : typeof fields.image !== "string" ||
+          !fields.image.length ||
+          fields.image.length > 699052)
+    )
+      throw new BadRequestException("Invalid translated image changes.");
+    if (fields.remove !== true) {
+      const encoded = fields.image as string;
+      const bytes = Buffer.from(encoded, "base64");
+      if (bytes.length > 524288 || bytes.toString("base64") !== encoded)
+        throw new BadRequestException("Use a raster image up to 512 KB.");
+    }
+  }
   async deleteCategory(
     user: Account,
     org: string,
@@ -131,6 +181,15 @@ export class ExamContentService {
       "set-result-status": ["result_after_finish"],
       "approve-translation": ["language_id", "translation_revision"],
       "refresh-translation": ["language_id", "translation_revision"],
+      "set-translation-image": [
+        "language_id",
+        "translation_revision",
+        "question_id",
+        "field",
+        "image",
+        "asset",
+        "remove",
+      ],
       "save-question-translation": [
         "language_id",
         "translation_revision",
@@ -302,7 +361,9 @@ export class ExamContentService {
             ).includes(key),
         ) ||
         Buffer.byteLength(JSON.stringify(fields), "utf8") >
-          (imageAction ? 710000 : 250000) ||
+          (imageAction || examAction === "set-translation-image"
+            ? 750000
+            : 250000) ||
         typeof body.revision !== "string" ||
         (id === "new"
           ? body.revision !== "new"
@@ -345,6 +406,8 @@ export class ExamContentService {
         )
           throw new BadRequestException("Invalid central package image.");
       }
+      if (examAction === "set-translation-image")
+        this.translatedImage(fields as Record<string, unknown>);
       if (examAction === "generate-document") {
         const document = fields as Record<string, unknown>;
         if (
@@ -1833,6 +1896,7 @@ export class ExamContentService {
           "refresh-translation",
           "save-question-translation",
           "save-exam-translation",
+          "set-translation-image",
         ].includes(action))
     )
       throw new BadRequestException("Invalid exam action.");
@@ -1848,7 +1912,8 @@ export class ExamContentService {
       !b.fields ||
       typeof b.fields !== "object" ||
       Array.isArray(b.fields) ||
-      JSON.stringify(b.fields).length > (imageAction ? 750000 : 250000) ||
+      JSON.stringify(b.fields).length >
+        (imageAction || action === "set-translation-image" ? 750000 : 250000) ||
       typeof b.revision !== "string" ||
       (id === "new"
         ? b.revision !== "new"
@@ -1859,6 +1924,17 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid question changes.");
+    if (action === "set-translation-image") {
+      this.translatedImage(b.fields as Record<string, unknown>);
+      if (
+        Object.keys(b).some(
+          (key) => !["fields", "revision", "request_id"].includes(key),
+        )
+      )
+        throw new BadRequestException(
+          "Unsupported translated image request fields.",
+        );
+    }
     if (
       action === "save-question-translation" ||
       action === "save-exam-translation"
@@ -2021,7 +2097,7 @@ export class ExamContentService {
         actor_id: user.id,
       },
     );
-    if (imageAction || languageDisable)
+    if (imageAction || languageDisable || action === "set-translation-image")
       await this.questionAccess(user, org, id, feature);
     if (response.conflict === true)
       throw new ConflictException(
@@ -2064,6 +2140,15 @@ export class ExamContentService {
       throw new ServiceUnavailableException(
         "Unable to verify the language state. Reload before continuing.",
       );
+    if (
+      action === "set-translation-image" &&
+      (response.question?.id !== Number(id) ||
+        typeof response.question?.revision !== "string" ||
+        !/^[a-f0-9]{64}$/.test(response.question.revision))
+    )
+      throw new ServiceUnavailableException(
+        "Unable to verify the translated image save. Retry or reload the exam.",
+      );
     await this.access.audit(
       this.db,
       user,
@@ -2074,7 +2159,9 @@ export class ExamContentService {
         requestId: b.request_id,
       },
     );
-    return response.question;
+    return action === "set-translation-image"
+      ? { id: response.question.id, revision: response.question.revision }
+      : response.question;
   }
   constructor(
     private readonly db: Database,

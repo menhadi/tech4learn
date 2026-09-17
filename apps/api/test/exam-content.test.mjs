@@ -506,7 +506,7 @@ test("central question sharing requires superadmin; organisation reads respect m
             : {
                 saved: true,
                 question: {
-                  id: 9,
+                  id: saveOutcome === "wrong-image-record" ? 10 : 9,
                   revision: "b".repeat(64),
                   fields: { question: "Saved" },
                 },
@@ -1018,6 +1018,13 @@ test("central question sharing requires superadmin; organisation reads respect m
         translation_revision: "a".repeat(64),
         wording: { name: "Translated exam", instruction: "<p>Read first</p>" },
       },
+      "set-translation-image": {
+        language_id: 5,
+        question_id: 7,
+        translation_revision: "a".repeat(64),
+        field: "question",
+        image: "aW1hZ2U=",
+      },
       "save-question-translation": {
         language_id: 5,
         translation_revision: "a".repeat(64),
@@ -1042,7 +1049,13 @@ test("central question sharing requires superadmin; organisation reads respect m
         (
           await call(
             `/organisations/${org}/exam-content/exams/9/actions/${action}`,
-            { ...edit, fields, actor_id: admin },
+            {
+              ...edit,
+              fields,
+              ...(action === "set-translation-image"
+                ? {}
+                : { actor_id: admin }),
+            },
             member,
           )
         ).status,
@@ -1090,6 +1103,72 @@ test("central question sharing requires superadmin; organisation reads respect m
       );
       assert.equal(requests.length, before);
     }
+    const translationImageWrite = {
+      language_id: 5,
+      question_id: 7,
+      translation_revision: "a".repeat(64),
+      field: "question",
+      image: "aW1hZ2U=",
+    };
+    for (const bad of [
+      { field: "si_answer1" },
+      { language_id: 0 },
+      { image: "aW1hZ2U=\n" },
+      { remove: true },
+      { organization_id: 2 },
+      { wording: { question: "override" } },
+    ]) {
+      const before = requests.length;
+      assert.equal(
+        (
+          await call(
+            `/organisations/${org}/exam-content/exams/9/actions/set-translation-image`,
+            { ...edit, fields: { ...translationImageWrite, ...bad } },
+            member,
+          )
+        ).status,
+        400,
+      );
+      assert.equal(requests.length, before);
+    }
+    const translationImageWritePath = `/organisations/${org}/exam-content/exams/9/actions/set-translation-image`;
+    const translationImageRemove = {
+      ...translationImageWrite,
+      remove: true,
+      asset: "c".repeat(64),
+    };
+    delete translationImageRemove.image;
+    const translationRemovedImage = await call(
+      translationImageWritePath,
+      { ...edit, fields: translationImageRemove },
+      member,
+    );
+    assert.equal(translationRemovedImage.status, 201);
+    assert.deepEqual(await translationRemovedImage.json(), {
+      id: 9,
+      revision: "b".repeat(64),
+    });
+    assert.equal(
+      (
+        await call(
+          translationImageWritePath,
+          { ...edit, fields: translationImageWrite, actor_id: admin },
+          member,
+        )
+      ).status,
+      400,
+    );
+    saveOutcome = "wrong-image-record";
+    assert.equal(
+      (
+        await call(
+          translationImageWritePath,
+          { ...edit, fields: translationImageWrite },
+          member,
+        )
+      ).status,
+      503,
+    );
     saveOutcome = "conflict";
     const validTranslationEdit = {
       language_id: 5,
@@ -2415,6 +2494,13 @@ test("central question sharing requires superadmin; organisation reads respect m
         "refresh-translation": {
           language_id: 5,
           translation_revision: "b".repeat(64),
+        },
+        "set-translation-image": {
+          language_id: 5,
+          question_id: 7,
+          translation_revision: "b".repeat(64),
+          field: "question",
+          image: "aW1hZ2U=",
         },
         "save-question-translation": {
           language_id: 5,

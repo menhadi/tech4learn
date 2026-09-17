@@ -47,8 +47,12 @@ adapter milestone as a release.
    Organisation/central tests cover private review references, repeat requests,
    stale/foreign denial and cleanup after failed native saves. Private action
    routes now also have bounded envelopes and controller/registration tests;
-   the user-run deployment script includes that check. Tech4Learn gateway and
-   UI wiring still remain; this is not yet a browser upload workflow.
+   the user-run deployment script includes that check. The Tech4Learn gateway
+   now forwards bounded translated-image actions for organisation and central
+   owners, derives actors from current sessions and rechecks access after the
+   native response. Organisation writes return only the saved exam ID/revision,
+   so the interface must reload the reviewed translation after a save. UI wiring
+   still remains; this is not yet a browser upload workflow.
 2. **Verify native background processing.** Exercise PDF rendering and AI
    translation completion in isolated local worker fixtures, including failure,
    approval invalidation and repeat requests. A queued request alone is not a
