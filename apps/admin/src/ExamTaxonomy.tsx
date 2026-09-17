@@ -725,14 +725,15 @@ function TaxonomyEditor({
           )}
         </div>
       )}
-      {["categories", "subcategories"].includes(kind) &&
+      {(["categories", "subcategories"].includes(kind) ||
+        (central && kind === "languages")) &&
         record &&
         record.id > 0 && (
           <section aria-label="Delete classification" data-no-draft="true">
             <p>
-              Delete this {kind === "categories" ? "category" : "subcategory"}{" "}
-              only if it is no longer needed. ExamElite prevents deletion while
-              child categories, exams, packages or flashcards use it.
+              {kind === "languages"
+                ? "Delete this language only if it is unused. English and languages referenced by organisation copies, questions, translations, exams, results or document builds are protected."
+                : `Delete this ${kind === "categories" ? "category" : "subcategory"} only if it is no longer needed. ExamElite prevents deletion while child categories, exams, packages or flashcards use it.`}
             </p>
             <label>
               <input
@@ -741,7 +742,9 @@ function TaxonomyEditor({
                 disabled={busy || Boolean(pendingDelete)}
                 onChange={(event) => setConfirmDelete(event.target.checked)}
               />
-              Delete “{record.fields.title}” permanently
+              Delete “
+              {kind === "languages" ? record.fields.name : record.fields.title}”
+              permanently
             </label>
             <button
               type="button"

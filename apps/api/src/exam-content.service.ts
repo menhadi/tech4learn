@@ -78,7 +78,11 @@ export class ExamContentService {
     central = false,
   ) {
     if (
-      !["categories", "subcategories"].includes(kind) ||
+      ![
+        "categories",
+        "subcategories",
+        ...(central ? ["languages"] : []),
+      ].includes(kind) ||
       !/^[1-9][0-9]{0,14}$/.test(id) ||
       Object.keys(query).length ||
       Object.keys(body).some(
@@ -88,7 +92,7 @@ export class ExamContentService {
       !/^[a-f0-9]{64}$/.test(body.revision) ||
       typeof body.request_id !== "string"
     )
-      throw new BadRequestException("Invalid category deletion request.");
+      throw new BadRequestException("Invalid classification deletion request.");
     uuid(body.request_id);
     const authorize = () =>
       central
@@ -112,10 +116,10 @@ export class ExamContentService {
     if (response.saved === false) {
       if (response.conflict === true)
         throw new ConflictException(
-          "The category changed. Reload before deleting.",
+          "The record changed or is still in use. Reload and check its references before deleting.",
         );
       throw new BadRequestException(
-        "ExamElite could not delete this category. It may still be in use; reload and check its linked records.",
+        "ExamElite could not delete this record. It may still be in use; reload and check its linked records.",
       );
     }
     const result = central ? response.record : response.question;
@@ -127,7 +131,7 @@ export class ExamContentService {
       result.deleted !== true
     )
       throw new ServiceUnavailableException(
-        "Unable to verify category deletion. Retry the same request or reload.",
+        "Unable to verify deletion. Retry the same request or reload.",
       );
     await this.access.audit(
       this.db,

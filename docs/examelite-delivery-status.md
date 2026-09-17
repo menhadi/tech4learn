@@ -23,9 +23,8 @@ checked commits when the release is ready.
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
 | Documents | Native PDF request/status/approved download adapters and screens. Actual rendering/worker completion is not yet verified. |
 
-Latest validation: typechecks passed; 85 of 86 tests passed in the full run.
-The remaining test expected model answers to be unsupported. After updating
-that assertion, its focused rerun passed. Production builds passed separately.
+Latest validation: `npm run check` passed with 86 tests, all workspace
+typechecks and production builds. The existing large-bundle warning remains.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It
 does not establish production Laravel middleware/TLS, concurrency, device
@@ -94,8 +93,12 @@ adapter milestone as a release.
    translations, results, PDF builds and official-source rules. English is
    protected. Isolated native checks cover these references, foreign ownership,
    stale revisions and retry after deletion, including a disabled actor.
-   The action remains unexposed: private route, gateway, confirmation UI and
-   production concurrency verification are still required before availability.
+   The private route, superadmin-only gateway and confirmation UI are implemented
+   locally. The gateway rejects organisation deletion and rechecks permissions
+   after the native response. Native route checks cover bounded requests, owner
+   overrides, stale versions and receipt replay; synthetic browser checks cover
+   confirmation, unsaved edits, identical retry and missing-record recovery.
+   Production concurrency and live acceptance remain unverified.
 4. **Run representative complete journeys.** Cover superadmin distribution,
    organisation-owned editing, student entry through results, multiple question
    types/papers, concurrent saves and representative device layouts. Check

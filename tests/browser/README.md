@@ -1,5 +1,16 @@
 # Pilot workflow verification
 
+## Classification deletion
+
+With Vite running, open `/tests/browser/classification-delete.html` and wait
+for PASS/FAIL. The real shared editor exercises organisation/central category
+and central language deletion against synthetic responses, including explicit
+confirmation, unsaved-edit blocking, uncertain-write locking, identical retries,
+list refresh and recovery when a record disappears. Native language reference
+guards and private routes are checked by `test-central-languages.php`; native
+category routes by `test-category-delete-routes.php`. This does not establish
+production concurrency or live acceptance.
+
 ## Native translation completion
 
 Run `php deploy/examelite/test-translation-completion.php VENDOR_AUTOLOAD

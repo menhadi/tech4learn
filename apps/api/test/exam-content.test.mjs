@@ -97,7 +97,9 @@ test("central question sharing requires superadmin; organisation reads respect m
   let centralTaxMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
-    if (/\/taxonomy\/(categories|subcategories)\/9\/delete$/.test(path)) {
+    if (
+      /\/taxonomy\/(categories|subcategories|languages)\/9\/delete$/.test(path)
+    ) {
       const central = path.startsWith("central/");
       if (deleteOutcome === "revoked") {
         if (central)
@@ -1340,8 +1342,12 @@ test("central question sharing requires superadmin; organisation reads respect m
         ? `${platform}/central/taxonomy`
         : `/organisations/${org}/exam-content/taxonomy`;
       const payload = { revision: "a".repeat(64), request_id: randomUUID() };
-      const target = `${root}/categories/9/delete`;
-      for (const kind of ["categories", "subcategories"]) {
+      const target = `${root}/${central ? "languages" : "categories"}/9/delete`;
+      for (const kind of [
+        "categories",
+        "subcategories",
+        ...(central ? ["languages"] : []),
+      ]) {
         const result = await call(`${root}/${kind}/9/delete`, payload, actor);
         assert.equal(result.status, 201);
         assert.deepEqual(await result.json(), { id: 9, deleted: true });
@@ -1376,7 +1382,13 @@ test("central question sharing requires superadmin; organisation reads respect m
         400,
       );
       assert.equal(
-        (await call(`${root}/languages/9/delete`, payload, actor)).status,
+        (
+          await call(
+            `${root}/${central ? "subjects" : "languages"}/9/delete`,
+            payload,
+            actor,
+          )
+        ).status,
         400,
       );
       assert.equal(

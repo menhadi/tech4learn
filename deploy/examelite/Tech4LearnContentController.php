@@ -39,6 +39,10 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         abort_unless(in_array($kind,['categories','subcategories'],true)&&preg_match('/^[1-9][0-9]{0,14}$/D',$id)&&$r->input('fields')===[],422);
         return $this->centralWrite($r,$id,'delete-category',$kind);
     }
+    public function centralLanguageDelete(Request $r,string $id) {
+        abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id)&&$r->input('fields')===[],422);
+        return $this->centralWrite($r,$id,'delete-language','languages');
+    }
     public function centralWrite(Request $r,string $id='new',?string $action=null,string $kind='questions') {
         $central=$this->configuration($r)['_platform']['organization_id'];
         abort_unless($r->query()===[]&&!array_diff(array_keys($r->all()),['actor_id','fields','revision','request_id']),422);
@@ -47,6 +51,11 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         abort_unless(is_array($r->input('fields')),422);
         try {
             $service=app(\App\Services\Tech4LearnQuestionAuthoring::class);
+            if($action==='delete-language'){
+                abort_unless($kind==='languages'&&$r->input('fields')===[],422);
+                $result=$service->deleteCentralLanguage($central,$r->input('actor_id'),(int)$id,$r->input('revision'),$r->input('request_id'));
+                return $this->reply($central,['saved'=>true,'kind'=>'languages','record'=>$result]);
+            }
             if($action==='delete-category'){
                 $result=$service->deleteCentralCategory($central,$r->input('actor_id'),$kind,(int)$id,$r->input('revision'),$r->input('request_id'));
                 return $this->reply($central,['saved'=>true,'kind'=>$kind,'record'=>$result]);

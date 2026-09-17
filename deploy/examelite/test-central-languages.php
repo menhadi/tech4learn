@@ -77,3 +77,24 @@ DB::table('users')->where('id',$authorId)->update(['status'=>0]);
 $reject(fn()=>$remove($deletable,$deleteRequest));
 DB::table('users')->where('id',$authorId)->update(['status'=>1]);
 echo "Central language deletion: native persistence, all known references, English protection, ownership, revisions and authorised retries passed.\n";
+
+$unused=$languageSave(0,['name'=>'Private route test','code'=>'route-delete'],'new',$nextId());
+$body=['actor_id'=>$centralActor,'request_id'=>$nextId(),'revision'=>$unused['revision'],'fields'=>[]];
+$sendDelete=fn(array $data,string $id,string $query='')=>$centralController->centralLanguageDelete(Illuminate\Http\Request::create('/'.$query,'POST',$data),$id);
+foreach(['0','new','-1','1e2',str_repeat('9',16)] as $invalid)$reject(fn()=>$sendDelete($body,$invalid));
+foreach(['actor_id','revision','request_id','fields'] as $key){$bad=$body;unset($bad[$key]);$reject(fn()=>$sendDelete($bad,(string)$unused['id']));}
+$reject(fn()=>$sendDelete($body+['organization_id'=>20],(string)$unused['id']));
+$reject(fn()=>$sendDelete(array_replace($body,['fields'=>['code'=>'override']]),(string)$unused['id']));
+$reject(fn()=>$sendDelete($body,(string)$unused['id'],'?organization_id=20'));
+$reject(fn()=>$sendDelete($body,(string)$orgEnabled['id']));
+$conflict=$sendDelete(array_replace($body,['revision'=>str_repeat('0',64)]),(string)$unused['id']);
+check(($conflict['conflict']??false)===true&&Language::find($unused['id'])!==null,'Private stale language deletion preserves native record');
+$reply=$sendDelete($body,(string)$unused['id']);
+check($reply['organization_id']===10&&$reply['saved']===true&&$reply['kind']==='languages'&&$reply['record']===['id'=>$unused['id'],'deleted'=>true],'Private language deletion returns bounded central receipt');
+check($sendDelete($body,(string)$unused['id'])===$reply,'Private deletion receipt survives retry');
+$router=new Illuminate\Routing\Router(new Illuminate\Events\Dispatcher($app),$app);
+$app->instance('router',$router);Illuminate\Support\Facades\Route::clearResolvedInstance('router');
+$router->prefix('api')->group(function(){require __DIR__.'/tech4learn-routes.php';});
+$route=$router->getRoutes()->match(Illuminate\Http\Request::create('https://example.test/api/tech4learn/v1/central/taxonomy/languages/1/delete','POST'));
+check(str_ends_with($route->getActionName(),'Tech4LearnContentController@centralLanguageDelete'),'Specific language route precedes generic taxonomy deletion');
+echo "Central language deletion route: bounded input, central scope, conflict, native receipt and route precedence passed.\n";

@@ -31,6 +31,7 @@ Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::get('/central/choices/{kind}', [Tech4LearnAuthoringController::class, 'centralChoices']);
     Route::get('/central/taxonomy/{kind}/{id}', [Tech4LearnContentController::class, 'centralTaxonomy']);
     Route::post('/central/taxonomy/{kind}/{id}', [Tech4LearnContentController::class, 'centralTaxonomyWrite']);
+    Route::post('/central/taxonomy/languages/{id}/delete', [Tech4LearnContentController::class, 'centralLanguageDelete']);
     Route::post('/central/taxonomy/{kind}/{id}/delete', [Tech4LearnContentController::class, 'centralCategoryDelete']);
     Route::get('/central/questions/{id}', [Tech4LearnContentController::class, 'centralDetail']);
     Route::post('/central/questions', [Tech4LearnContentController::class, 'centralWrite']);
