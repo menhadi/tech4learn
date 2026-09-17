@@ -17,6 +17,76 @@ import { centralExamMetadata } from "./central-exam-metadata.js";
 
 @Injectable()
 export class ExamContentService {
+  async deleteCategory(
+    user: Account,
+    org: string,
+    kind: string,
+    id: string,
+    body: Record<string, unknown>,
+    query: Record<string, unknown>,
+    central = false,
+  ) {
+    if (
+      !["categories", "subcategories"].includes(kind) ||
+      !/^[1-9][0-9]{0,14}$/.test(id) ||
+      Object.keys(query).length ||
+      Object.keys(body).some(
+        (key) => !["revision", "request_id"].includes(key),
+      ) ||
+      typeof body.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(body.revision) ||
+      typeof body.request_id !== "string"
+    )
+      throw new BadRequestException("Invalid category deletion request.");
+    uuid(body.request_id);
+    const authorize = () =>
+      central
+        ? this.centralAccess(user, org, id)
+        : this.questionAccess(user, org, id, "subjects");
+    await authorize();
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      central
+        ? `central/taxonomy/${kind}/${id}/delete`
+        : `authoring/${org}/taxonomy/${kind}/${id}/delete`,
+      {
+        actor_id: user.id,
+        fields: [],
+        revision: body.revision,
+        request_id: body.request_id,
+      },
+    );
+    await authorize();
+    if (response.saved === false) {
+      if (response.conflict === true)
+        throw new ConflictException(
+          "The category changed. Reload before deleting.",
+        );
+      throw new BadRequestException(
+        "ExamElite could not delete this category. It may still be in use; reload and check its linked records.",
+      );
+    }
+    const result = central ? response.record : response.question;
+    if (
+      response.saved !== true ||
+      (central && response.kind !== kind) ||
+      !result ||
+      result.id !== Number(id) ||
+      result.deleted !== true
+    )
+      throw new ServiceUnavailableException(
+        "Unable to verify category deletion. Retry the same request or reload.",
+      );
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      `exams.${central ? "central." : ""}${kind}.deleted`,
+      { recordId: Number(id), requestId: body.request_id },
+    );
+    return { id: Number(id), deleted: true };
+  }
   private async centralAccess(
     user: Account,
     org: string,

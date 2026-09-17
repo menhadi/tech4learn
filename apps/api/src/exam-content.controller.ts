@@ -523,6 +523,49 @@ export class ExamContentController {
     );
   }
 
+  @Post("organisations/:org/exam-content/taxonomy/:kind/:id/delete")
+  async deleteCategory(
+    @Param("org") org: string,
+    @Param("kind") kind: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-category-delete:${account.id}`, 30, 60);
+    return this.content.deleteCategory(
+      account,
+      org,
+      kind,
+      id,
+      body ?? {},
+      query,
+    );
+  }
+
+  @Post("platform/exam-content/:org/central/taxonomy/:kind/:id/delete")
+  async centralCategoryDelete(
+    @Param("org") org: string,
+    @Param("kind") kind: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-category-delete:${account.id}`, 30, 60);
+    return this.content.deleteCategory(
+      account,
+      org,
+      kind,
+      id,
+      body ?? {},
+      query,
+      true,
+    );
+  }
+
   @Get("organisations/:org/exam-content/choices/:kind")
   async questionChoices(
     @Param("org") org: string,

@@ -71,6 +71,7 @@ test("central question sharing requires superadmin; organisation reads respect m
   let centralPaperMode = "ok";
   let saveOutcome = "success";
   let disableOutcome = "success";
+  let deleteOutcome = "success";
   let mediaMode = "ok";
   let documentMode = "ok";
   let translationMode = "ok";
@@ -96,6 +97,32 @@ test("central question sharing requires superadmin; organisation reads respect m
   let centralTaxMode = "ok";
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
+    if (/\/taxonomy\/(categories|subcategories)\/9\/delete$/.test(path)) {
+      const central = path.startsWith("central/");
+      if (deleteOutcome === "revoked") {
+        if (central)
+          await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+            admin,
+          ]);
+        else
+          await pg.query(
+            "UPDATE organisation_settings SET enabled_modules=$2::jsonb WHERE organisation_id=$1",
+            [org, JSON.stringify({ exams: false })],
+          );
+      }
+      if (deleteOutcome === "conflict") return { saved: false, conflict: true };
+      if (deleteOutcome === "used")
+        return { saved: false, errors: { record: ["In use"] } };
+      return {
+        saved: true,
+        kind: path.split("/").at(-3),
+        [central ? "record" : "question"]: {
+          id: deleteOutcome === "wrong" ? 10 : 9,
+          deleted: deleteOutcome !== "missing",
+          secret: "discard",
+        },
+      };
+    }
     const packageImage = /^central\/packages\/[1-9][0-9]*\/image$/.test(path);
     if (packageImage) path = `central/taxonomy/packages/${path.split("/")[2]}`;
     if (path.startsWith("central/packages/") && path.includes("/media/")) {
@@ -1211,6 +1238,73 @@ test("central question sharing requires superadmin; organisation reads respect m
       200,
     );
     const languages = `/organisations/${org}/exam-content/taxonomy/languages`;
+    for (const central of [false, true]) {
+      const actor = central ? admin : member;
+      const root = central
+        ? `${platform}/central/taxonomy`
+        : `/organisations/${org}/exam-content/taxonomy`;
+      const payload = { revision: "a".repeat(64), request_id: randomUUID() };
+      const target = `${root}/categories/9/delete`;
+      for (const kind of ["categories", "subcategories"]) {
+        const result = await call(`${root}/${kind}/9/delete`, payload, actor);
+        assert.equal(result.status, 201);
+        assert.deepEqual(await result.json(), { id: 9, deleted: true });
+        const first = requests.at(-1);
+        assert.equal(first.body.actor_id, actor);
+        assert.deepEqual(first.body.fields, []);
+        assert.equal(
+          (await call(`${root}/${kind}/9/delete`, payload, actor)).status,
+          201,
+        );
+        assert.deepEqual(requests.at(-1).body, first.body);
+      }
+      for (const [mode, status] of [
+        ["conflict", 409],
+        ["used", 400],
+        ["wrong", 503],
+        ["missing", 503],
+      ]) {
+        deleteOutcome = mode;
+        assert.equal((await call(target, payload, actor)).status, status);
+      }
+      deleteOutcome = "success";
+      for (const changed of [
+        { ...payload, actor_id: other },
+        { ...payload, fields: {} },
+        { ...payload, revision: "new" },
+      ])
+        assert.equal((await call(target, changed, actor)).status, 400);
+      assert.equal(
+        (await call(target + "?organization_id=" + other, payload, actor))
+          .status,
+        400,
+      );
+      assert.equal(
+        (await call(`${root}/languages/9/delete`, payload, actor)).status,
+        400,
+      );
+      assert.equal(
+        (await call(`${root}/categories/new/delete`, payload, actor)).status,
+        400,
+      );
+      if (central)
+        assert.equal((await call(target, payload, member)).status, 403);
+      else
+        assert.equal(
+          (await call(target.replace(org, other), payload, member)).status,
+          404,
+        );
+      deleteOutcome = "revoked";
+      assert.equal((await call(target, payload, actor)).status, 403);
+      await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+        admin,
+      ]);
+      await pg.query(
+        "UPDATE organisation_settings SET enabled_modules=$2::jsonb WHERE organisation_id=$1",
+        [org, JSON.stringify({ exams: true })],
+      );
+      deleteOutcome = "success";
+    }
     const disableLanguage = {
       fields: {},
       revision: "a".repeat(64),
