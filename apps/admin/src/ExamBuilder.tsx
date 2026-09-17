@@ -771,8 +771,8 @@ export function ExamBuilder({
       {central && (
         <p>
           Superadmin edits the shared originals here. Organisation changes use
-          their own copies. Central PDF generation and translation editing are
-          not yet available on this screen.
+          their own copies. Central PDF generation is not yet available on this
+          screen.
         </p>
       )}
       <button disabled={busy} onClick={() => setEditing("new")}>

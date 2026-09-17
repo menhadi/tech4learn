@@ -2246,6 +2246,25 @@ test("central question sharing requires superadmin; organisation reads respect m
         "subject-timers": { subject_ids: [1], durations: [10] },
         "set-status": { status: "Active" },
         "set-result-status": { result_after_finish: true },
+        "approve-translation": {
+          language_id: 5,
+          translation_revision: "b".repeat(64),
+        },
+        "refresh-translation": {
+          language_id: 5,
+          translation_revision: "b".repeat(64),
+        },
+        "save-question-translation": {
+          language_id: 5,
+          translation_revision: "b".repeat(64),
+          question_id: 7,
+          wording: { question: "Translated wording" },
+        },
+        "save-exam-translation": {
+          language_id: 5,
+          translation_revision: "b".repeat(64),
+          wording: { name: "Translated exam" },
+        },
       })) {
         const path = platform + `/central/exams/7/actions/${action}`;
         const body = { ...taxBody, fields };
@@ -2260,6 +2279,18 @@ test("central question sharing requires superadmin; organisation reads respect m
       assert.equal((await call(actionPath, actionBody)).status, 201);
       for (const [path, body] of [
         [actionPath, { ...actionBody, actor_id: member }],
+        [
+          platform + "/central/exams/7/actions/save-question-translation",
+          {
+            ...taxBody,
+            fields: {
+              language_id: 5,
+              translation_revision: "b".repeat(64),
+              question_id: 7,
+              wording: { organization_id: 20 },
+            },
+          },
+        ],
         [actionPath, { ...actionBody, fields: { organization_id: 2 } }],
         [actionPath + "?owner=2", actionBody],
         [platform + "/central/exams/new/actions/set-status", actionBody],

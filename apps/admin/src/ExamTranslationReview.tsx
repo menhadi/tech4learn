@@ -147,7 +147,6 @@ export function ExamTranslationReview({
     const complete =
       review?.progress.remaining === 0 && review.progress.exam_content_ready;
     if (
-      central ||
       disabled ||
       editing ||
       busy ||
@@ -174,7 +173,7 @@ export function ExamTranslationReview({
     try {
       const { action: _action, ...body } = payload;
       await api(
-        `/organisations/${org}/exam-content/exams/${record.id}/actions/${action}`,
+        `${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/exams/${record.id}/actions/${action}`,
         "POST",
         body,
         35000,
@@ -259,7 +258,7 @@ export function ExamTranslationReview({
       <summary>Review translations</summary>
       <p>
         {central
-          ? "Compare saved central source and translated wording. Central editing, refresh and approval controls are not available yet."
+          ? "Compare saved central source and translated wording before approval. Changes affect central originals; organisation copies keep their own wording."
           : "Compare saved source and translated wording before approval. Basic translated text can be edited below."}
       </p>
       <QuestionChoiceField
@@ -311,15 +310,15 @@ export function ExamTranslationReview({
       )}
       {review && (
         <>
-          {!central &&
-            (review.progress.remaining > 0 ||
-              !review.progress.exam_content_ready) &&
+          {(review.progress.remaining > 0 ||
+            !review.progress.exam_content_ready) &&
             !pending && (
               <div>
                 <p>
-                  Refresh uses the organisation's ExamElite AI translation
-                  service. Automatic approval and PDFs follow its saved
-                  automation settings.
+                  Refresh uses the ExamElite AI translation service configured
+                  for {central ? "the central bank" : "this organisation"}.
+                  Automatic approval and PDFs follow its saved automation
+                  settings.
                 </p>
                 <button
                   type="button"
@@ -359,8 +358,7 @@ export function ExamTranslationReview({
               translation={review.translation}
               mediaBase={mediaBase(0)}
             />
-            {!central &&
-              !review.is_source_language &&
+            {!review.is_source_language &&
               !pending &&
               review.progress.status !== "processing" &&
               !editing && (
@@ -375,8 +373,9 @@ export function ExamTranslationReview({
                   Edit translated exam wording
                 </button>
               )}
-            {!central && editing && editingExam && (
+            {editing && editingExam && (
               <ExamTranslationEditor
+                central={central}
                 key={`${review.revision}-exam`}
                 mode="exam"
                 org={org}
@@ -430,8 +429,7 @@ export function ExamTranslationReview({
                   mediaBase={mediaBase(selected)}
                 />
               )}
-              {!central &&
-                question &&
+              {question &&
                 !review.is_source_language &&
                 !pending &&
                 review.progress.status !== "processing" &&
@@ -447,8 +445,9 @@ export function ExamTranslationReview({
                     Edit translated wording
                   </button>
                 )}
-              {!central && question && editing && !editingExam && (
+              {question && editing && !editingExam && (
                 <ExamTranslationEditor
+                  central={central}
                   key={`${review.revision}-${selected}`}
                   org={org}
                   examId={record.id}
@@ -489,8 +488,7 @@ export function ExamTranslationReview({
           >
             Next review page
           </button>
-          {!central &&
-            !review.approved &&
+          {!review.approved &&
             review.progress.remaining === 0 &&
             review.progress.exam_content_ready &&
             !pending && (

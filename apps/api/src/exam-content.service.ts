@@ -58,6 +58,19 @@ export class ExamContentService {
       "subject-timers": ["subject_ids", "durations"],
       "set-status": ["status"],
       "set-result-status": ["result_after_finish"],
+      "approve-translation": ["language_id", "translation_revision"],
+      "refresh-translation": ["language_id", "translation_revision"],
+      "save-question-translation": [
+        "language_id",
+        "translation_revision",
+        "question_id",
+        "wording",
+      ],
+      "save-exam-translation": [
+        "language_id",
+        "translation_revision",
+        "wording",
+      ],
     };
     if (
       examAction !== undefined &&
@@ -244,6 +257,60 @@ export class ExamContentService {
               image.image.length > 699052)
         )
           throw new BadRequestException("Invalid central package image.");
+      }
+      if (examAction?.endsWith("-translation")) {
+        const translation = fields as Record<string, unknown>;
+        if (
+          !Number.isSafeInteger(translation.language_id) ||
+          Number(translation.language_id) <= 0 ||
+          Number(translation.language_id) >= 1e15 ||
+          typeof translation.translation_revision !== "string" ||
+          !/^[a-f0-9]{64}$/.test(translation.translation_revision)
+        )
+          throw new BadRequestException("Invalid central translation review.");
+        if (examAction.startsWith("save-")) {
+          const allowed =
+            examAction === "save-exam-translation"
+              ? ["name", "instruction", "syllabus"]
+              : [
+                  "question",
+                  "option1",
+                  "option2",
+                  "option3",
+                  "option4",
+                  "option5",
+                  "option6",
+                  "hint",
+                  "explanation",
+                  "fill_blank",
+                ];
+          if (
+            examAction === "save-question-translation" &&
+            (!Number.isSafeInteger(translation.question_id) ||
+              Number(translation.question_id) <= 0 ||
+              Number(translation.question_id) >= 1e15)
+          )
+            throw new BadRequestException(
+              "Invalid central translated question.",
+            );
+          const wording = translation.wording;
+          if (
+            !wording ||
+            typeof wording !== "object" ||
+            Array.isArray(wording) ||
+            !Object.keys(wording).length ||
+            Object.entries(wording).some(
+              ([key, value]) =>
+                !allowed.includes(key) ||
+                (value !== null &&
+                  (typeof value !== "string" ||
+                    Buffer.byteLength(value, "utf8") > 200000)),
+            )
+          )
+            throw new BadRequestException(
+              "Invalid central translated wording.",
+            );
+        }
       }
       payload = {
         fields,

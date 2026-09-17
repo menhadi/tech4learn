@@ -28,6 +28,7 @@ const labels: Record<string, string> = {
 type Wording = Record<string, string | null>;
 export function ExamTranslationEditor({
   org,
+  central = false,
   mode = "question",
   examId,
   examRevision,
@@ -39,6 +40,7 @@ export function ExamTranslationEditor({
   onSaved,
 }: {
   org: string;
+  central?: boolean;
   mode?: "question" | "exam";
   examId: number;
   examRevision: string;
@@ -76,7 +78,8 @@ export function ExamTranslationEditor({
     <section className="panel">
       <h3>Edit translated {mode === "exam" ? "exam wording" : "question"}</h3>
       <p>
-        Changes apply to this organisation's translated{" "}
+        Changes apply to{" "}
+        {central ? "the central bank's" : "this organisation's"} translated{" "}
         {mode === "exam" ? "exam wording" : "question wherever it is used"}.
         Affected papers need translation approval again. Supported MathML
         formulas can be replaced using checked TeX. Images and unsupported
@@ -91,7 +94,7 @@ export function ExamTranslationEditor({
         </p>
       )}
       <DraftForm
-        draftKey={`exam-translation-${org}-${examId}-${languageId}-${question.question_id}`}
+        draftKey={`${central ? "central-exam" : "exam"}-translation-${org}-${examId}-${languageId}-${question.question_id}`}
         title="Translated wording"
         draftState={{ examRevision, translationRevision, changes, pending }}
         restoreState={(state) => {
@@ -123,7 +126,7 @@ export function ExamTranslationEditor({
           setError("");
           try {
             await api(
-              `/organisations/${org}/exam-content/exams/${examId}/actions/save-${mode}-translation`,
+              `${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/exams/${examId}/actions/save-${mode}-translation`,
               "POST",
               {
                 revision: examRevision,
