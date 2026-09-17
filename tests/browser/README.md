@@ -3,14 +3,15 @@
 ## Native PDF worker state check
 
 Run `php deploy/examelite/test-pdf-worker.php VENDOR_AUTOLOAD MODELS_DIRECTORY
-QUESTION_CONTROLLER EXAM_CONTROLLER GENERATE_EXAM_PDF_JOB` from the repository
+QUESTION_CONTROLLER EXAM_CONTROLLER GENERATE_EXAM_PDF_JOB EXAM_PDF_CACHE_SERVICE` from the repository
 root (as one command). Paths refer to local native source snapshots. The isolated
 fixture invokes the actual worker against SQLite and a temporary synthetic
 cached artifact, checking activation, repeat execution and failed replacement
 after translation approval is removed. It does not bootstrap the application,
 run its queue transport, render a PDF or use live environment settings. The
-fingerprint service is a fixture; real renderer/fingerprint verification remains
-outstanding. The random temporary directory is removed after the check.
+native fingerprint service is loaded from the supplied source path too; an
+attached source edit must select a different cached version. Real rendering
+remains outstanding. The random temporary directory is removed after the check.
 
 ## Translated question images
 
