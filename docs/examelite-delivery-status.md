@@ -18,7 +18,7 @@ checked commits when the release is ready.
 | Central distribution | Share questions to organisations and pull organisation questions into central ownership as independent copies. No student/result sharing. |
 | Questions and classifications | Native question creation/editing, taxonomy, central language creation/editing, organisation language enabling, free packages and guarded category deletion. |
 | Source media and wording | Raster upload/replacement/removal, protected previews, supported MathML replacement and literal surrounding-text edits/appends. Arbitrary native markup is not fully supported. |
-| Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing text/formulas. New translated-image upload remains unfinished. |
+| Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing text/formulas. Saved translated questions support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
 | Documents | Native PDF request/status/approved download adapters and screens. Actual rendering/worker completion is not yet verified. |
@@ -35,8 +35,7 @@ These are outstanding deliverables, not enabled or completed features. Work
 should proceed in coherent workflow batches rather than treating each small
 adapter milestone as a release.
 
-1. **Complete question media workflows.** Add translated-image upload and
-   replacement through native ownership/revision checks, address upload orphan
+1. **Complete question media workflows.** Address upload orphan
    reconciliation, and inventory remaining native formula/markup formats.
    Verify organisation and central authoring, private previews, retries and
    unchanged copies together.
@@ -51,8 +50,13 @@ adapter milestone as a release.
    now forwards bounded translated-image actions for organisation and central
    owners, derives actors from current sessions and rechecks access after the
    native response. Organisation writes return only the saved exam ID/revision,
-   so the interface must reload the reviewed translation after a save. UI wiring
-   still remains; this is not yet a browser upload workflow.
+   so the interface reloads the reviewed translation after a save. The shared
+   translated question editor now provides those controls for saved translations,
+   locks wording while an image write is uncertain and preserves identical retry
+   requests. Drafts contain destination choices only, not file bytes. Synthetic
+   browser checks cover both owners, upload/replacement/removal, retry, locks,
+   byte exclusion and missing-translation gating. Translated exam images remain
+   outside these question controls.
 2. **Verify native background processing.** Exercise PDF rendering and AI
    translation completion in isolated local worker fixtures, including failure,
    approval invalidation and repeat requests. A queued request alone is not a

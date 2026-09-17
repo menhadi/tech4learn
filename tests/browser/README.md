@@ -1,5 +1,16 @@
 # Pilot workflow verification
 
+## Translated question images
+
+With the browser Vite configuration below running, open
+`http://127.0.0.1:5195/tests/browser/translation-image.html` and wait for PASS/FAIL.
+The actual translation editor/shared image form runs against synthetic fetch
+responses. It checks organisation/central routes, current review identity,
+upload/replacement/removal, an identical lost-response retry, editor locking,
+file-byte exclusion from drafts and hidden controls for missing translations.
+The separate `test-translated-image-routes.php` checks real native persistence.
+This browser fixture does not contact a live server or verify media downloads.
+
 ## Question text beside retained media
 
 Run `npm exec vite -- --config tests/browser/vite.config.mjs` and open

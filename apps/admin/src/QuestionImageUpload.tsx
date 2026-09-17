@@ -7,6 +7,7 @@ export function QuestionImageUpload({
   base,
   kind = "question",
   central = false,
+  translation,
   record,
   disabled,
   onPending,
@@ -16,6 +17,12 @@ export function QuestionImageUpload({
   base: string;
   kind?: "question" | "package";
   central?: boolean;
+  translation?: {
+    languageId: number;
+    questionId: number;
+    revision: string;
+    fields: string[];
+  };
   record: Snapshot & { photo_asset?: string | null };
   disabled: boolean;
   onPending: (pending: boolean) => void;
@@ -33,22 +40,35 @@ export function QuestionImageUpload({
   const [pending, setPending] = useState<{
     request_id: string;
     revision: string;
-    fields: { field?: string; image?: string; asset?: string; remove?: true };
+    fields: {
+      field?: string;
+      image?: string;
+      asset?: string;
+      remove?: true;
+      language_id?: number;
+      question_id?: number;
+      translation_revision?: string;
+    };
   } | null>(null);
   const choosing = useRef(0);
   const removing = asset.startsWith("remove:");
   const fields =
     kind === "package"
       ? [["photo", "Package image"]]
-      : [
-          ["question", "Question"],
-          ["hint", "Hint"],
-          ["explanation", "Explanation"],
-          ...(record.type === "S" ? [["si_answer1", "Model answer"]] : []),
-          ...(record.type === "M"
-            ? [1, 2, 3, 4, 5, 6].map((n) => ["option" + n, "Option " + n])
-            : []),
-        ];
+      : translation
+        ? translation.fields.map((key) => [
+            key,
+            key.replace("option", "Option "),
+          ])
+        : [
+            ["question", "Question"],
+            ["hint", "Hint"],
+            ["explanation", "Explanation"],
+            ...(record.type === "S" ? [["si_answer1", "Model answer"]] : []),
+            ...(record.type === "M"
+              ? [1, 2, 3, 4, 5, 6].map((n) => ["option" + n, "Option " + n])
+              : []),
+          ];
   const assets =
     kind === "package"
       ? record.photo_asset
@@ -65,8 +85,14 @@ export function QuestionImageUpload({
         ];
   return (
     <DraftForm
-      draftKey={`${central ? "central-" : ""}${kind}-image-${record.id}-${record.revision}`}
-      title={kind === "package" ? "Package image" : "Question image"}
+      draftKey={`${central ? "central-" : ""}${translation ? `translation-${translation.languageId}-${translation.questionId}-${translation.revision}-` : ""}${kind}-image-${record.id}-${record.revision}`}
+      title={
+        translation
+          ? "Translated question image"
+          : kind === "package"
+            ? "Package image"
+            : "Question image"
+      }
       draftState={{ field, asset }}
       restoreState={(state) => {
         if (pending) return;
@@ -93,13 +119,19 @@ export function QuestionImageUpload({
                 ...(asset ? { asset } : {}),
               },
         };
+        if (translation && !pending)
+          Object.assign(request.fields, {
+            language_id: translation.languageId,
+            question_id: translation.questionId,
+            translation_revision: translation.revision,
+          });
         setPending(request);
         onPending(true);
         setBusy(true);
         setError("");
         try {
           const saved = await api<Snapshot>(
-            base + "/image",
+            base + (translation ? "/actions/set-translation-image" : "/image"),
             "POST",
             request,
             30000,

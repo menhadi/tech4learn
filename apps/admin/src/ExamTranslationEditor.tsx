@@ -5,6 +5,7 @@ import { DraftForm } from "./DraftForm";
 import { FormattedField } from "./ExamQuestionEditor";
 import { retainedFormulaPreview } from "./retained-formula-preview";
 import { canEditExistingText } from "./ExamExistingTextEditor";
+import { QuestionImageUpload } from "./QuestionImageUpload";
 
 const questionFields = [
   "question",
@@ -63,6 +64,7 @@ export function ExamTranslationEditor({
   const [pending, setPending] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [imagePending, setImagePending] = useState(false);
   const validPatch = (value: any) =>
     value &&
     typeof value === "object" &&
@@ -101,7 +103,7 @@ export function ExamTranslationEditor({
         formulas can be replaced using checked TeX. Images and unsupported
         formula markup are preserved.
       </p>
-      <button type="button" disabled={busy} onClick={onClose}>
+      <button type="button" disabled={busy || imagePending} onClick={onClose}>
         Close translation editor
       </button>
       {error && (
@@ -114,7 +116,7 @@ export function ExamTranslationEditor({
         title="Translated wording"
         draftState={{ examRevision, translationRevision, changes, pending }}
         restoreState={(state) => {
-          if (busy || pending) return;
+          if (busy || pending || imagePending) return;
           if (
             state?.examRevision !== examRevision ||
             state?.translationRevision !== translationRevision ||
@@ -135,7 +137,7 @@ export function ExamTranslationEditor({
         }}
         onSubmit={async (event) => {
           event.preventDefault();
-          if (busy || !Object.keys(changes).length) return;
+          if (busy || imagePending || !Object.keys(changes).length) return;
           const requestId = pending ?? crypto.randomUUID();
           setPending(requestId);
           setBusy(true);
@@ -208,7 +210,7 @@ export function ExamTranslationEditor({
                     : undefined
                 }
                 mediaBase={mediaBase}
-                disabled={busy || pending !== null}
+                disabled={busy || pending !== null || imagePending}
                 onChange={(value) => {
                   setChanges((old) => ({ ...old, [field]: value }));
                   setError("");
@@ -222,7 +224,10 @@ export function ExamTranslationEditor({
             the review to check the saved state.
           </p>
         )}
-        <button type="submit" disabled={busy || !Object.keys(changes).length}>
+        <button
+          type="submit"
+          disabled={busy || imagePending || !Object.keys(changes).length}
+        >
           {busy
             ? "Saving translation…"
             : pending
@@ -230,6 +235,40 @@ export function ExamTranslationEditor({
               : "Save translated wording"}
         </button>
       </DraftForm>
+      {mode === "question" && question.translation && (
+        <QuestionImageUpload
+          key={`${examRevision}-${translationRevision}`}
+          base={`${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/exams/${examId}`}
+          central={central}
+          record={{
+            id: examId,
+            revision: examRevision,
+            fields: {},
+            preview_fields: Object.fromEntries(
+              Object.entries(question.translation).map(([key, value]) => [
+                key,
+                value ?? "",
+              ]),
+            ),
+          }}
+          translation={{
+            languageId,
+            questionId: question.question_id,
+            revision: translationRevision,
+            fields: questionFields.filter(
+              (field) =>
+                field !== "fill_blank" &&
+                (field === "question" ||
+                  question.source[field] ||
+                  question.translation?.[field]),
+            ),
+          }}
+          disabled={busy || pending !== null || Object.keys(changes).length > 0}
+          onPending={setImagePending}
+          onSaved={() => onSaved()}
+          onReload={onSaved}
+        />
+      )}
     </section>
   );
 }
