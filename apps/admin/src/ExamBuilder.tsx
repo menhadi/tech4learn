@@ -668,8 +668,9 @@ function ExamEditor({
               Reload saved exam
             </button>
           </DraftForm>
-          {!central && record.id > 0 && (
+          {record.id > 0 && (
             <ExamDocuments
+              central={central}
               key={`${org}-${record.id}-${record.revision}`}
               org={org}
               record={record}
@@ -771,8 +772,7 @@ export function ExamBuilder({
       {central && (
         <p>
           Superadmin edits the shared originals here. Organisation changes use
-          their own copies. Central PDF generation is not yet available on this
-          screen.
+          their own copies.
         </p>
       )}
       <button disabled={busy} onClick={() => setEditing("new")}>

@@ -115,6 +115,10 @@ test("central question sharing requires superadmin; organisation reads respect m
         },
       };
     }
+    const centralDocument =
+      /^central\/exams\/([1-9][0-9]*)\/documents\/(.*)$/.exec(path);
+    if (centralDocument)
+      path = `documents/${org}/exams/${centralDocument[1]}/${centralDocument[2]}`;
     const centralTranslation =
       /^central\/exams\/([1-9][0-9]*)\/translations\/([1-9][0-9]*)(.*)$/.exec(
         path,
@@ -368,7 +372,11 @@ test("central question sharing requires superadmin; organisation reads respect m
       };
     }
     if (path.startsWith("documents/")) {
-      if (documentMode === "revoked")
+      if (documentMode === "revoked" && centralDocument)
+        await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+          admin,
+        ]);
+      else if (documentMode === "revoked")
         await pg.query(
           "UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2",
           [member, org],
@@ -668,6 +676,53 @@ test("central question sharing requires superadmin; organisation reads respect m
       [member, org],
     );
     documentMode = "ok";
+    const centralPdfPath = `/platform/exam-content/${org}/central/exams/9/documents/questions?package_id=4`;
+    for (const path of [
+      centralPdfPath,
+      centralPdfPath.replace("?", "/status?"),
+    ]) {
+      const before = requests.length;
+      assert.equal((await call(path, undefined, member)).status, 403);
+      assert.equal(requests.length, before);
+      const result = await call(path);
+      assert.equal(result.status, 200);
+      assert.equal(result.headers.get("cache-control"), "no-store");
+      assert.ok(
+        requests.at(-1).path.startsWith("central/exams/9/documents/questions"),
+      );
+      assert.ok(!requests.at(-1).path.includes("actor_id"));
+      if (path.includes("/status?"))
+        assert.deepEqual(await result.json(), {
+          document_type: "questions",
+          status: "processing",
+          approved_available: true,
+        });
+      else {
+        assert.equal(result.headers.get("x-content-type-options"), "nosniff");
+        assert.match(
+          result.headers.get("content-disposition"),
+          /attachment; filename="exam-9-questions.pdf"/,
+        );
+        assert.equal(await result.text(), "%PDF-1.4 synthetic");
+      }
+      for (const extra of [
+        "&actor_id=" + admin,
+        "&language_id=-1",
+        "&path=private",
+      ]) {
+        const before = requests.length;
+        assert.equal((await call(path + extra)).status, 400);
+        assert.equal(requests.length, before);
+      }
+      for (const mode of ["wrong", "invalid", "revoked"]) {
+        documentMode = mode;
+        assert.equal((await call(path)).status, mode === "revoked" ? 403 : 503);
+        await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+          admin,
+        ]);
+      }
+      documentMode = "ok";
+    }
     const translationPath = `/organisations/${org}/exam-content/exams/9/translations/5`;
     const reviewResponse = await call(translationPath, undefined, member);
     assert.equal(reviewResponse.status, 200);
@@ -2237,6 +2292,11 @@ test("central question sharing requires superadmin; organisation reads respect m
       assert.equal((await call(examPath, settings)).status, 201);
       assert.deepEqual(requests.at(-1).body, { ...settings, actor_id: admin });
       for (const [action, fields] of Object.entries({
+        "generate-document": {
+          package_id: 4,
+          language_id: 5,
+          document_type: "questions",
+        },
         "add-questions": { question_ids: [7] },
         "remove-questions": { question_ids: [7] },
         "create-section": { name: "Paper section", duration: 10 },
@@ -2273,6 +2333,10 @@ test("central question sharing requires superadmin; organisation reads respect m
         assert.equal(requests.at(-1).path, `central/exams/7/actions/${action}`);
         assert.deepEqual(requests.at(-1).body, { ...body, actor_id: admin });
       }
+      // Start the invalid-input/provider scenarios in a fresh rate-limit window.
+      await pg.query("UPDATE auth_limits SET expires_at=now() WHERE key=$1", [
+        digest(`exam-central-paper-write:${admin}`),
+      ]);
       const actionPath = platform + "/central/exams/7/actions/set-status";
       const actionBody = { ...taxBody, fields: { status: "Active" } };
       assert.equal((await call(actionPath, actionBody)).status, 201);
@@ -2295,6 +2359,15 @@ test("central question sharing requires superadmin; organisation reads respect m
         [actionPath + "?owner=2", actionBody],
         [platform + "/central/exams/new/actions/set-status", actionBody],
         [platform + "/central/exams/7/actions/generate-document", actionBody],
+        ...[
+          { package_id: "4", language_id: 5, document_type: "questions" },
+          { package_id: 4, language_id: 0, document_type: "questions" },
+          { package_id: 4, language_id: 5, document_type: ["questions"] },
+          { package_id: 4, language_id: 5, document_type: "other" },
+        ].map((fields) => [
+          platform + "/central/exams/7/actions/generate-document",
+          { ...taxBody, fields },
+        ]),
         [
           platform + "/central/exams/7/actions/save-exam-translation",
           actionBody,

@@ -56,6 +56,7 @@ export class ExamContentService {
       "remove-section": ["section_id"],
       "assign-section": ["question_ids", "question_section_id"],
       "subject-timers": ["subject_ids", "durations"],
+      "generate-document": ["package_id", "language_id", "document_type"],
       "set-status": ["status"],
       "set-result-status": ["result_after_finish"],
       "approve-translation": ["language_id", "translation_revision"],
@@ -257,6 +258,20 @@ export class ExamContentService {
               image.image.length > 699052)
         )
           throw new BadRequestException("Invalid central package image.");
+      }
+      if (examAction === "generate-document") {
+        const document = fields as Record<string, unknown>;
+        if (
+          [document.package_id, document.language_id].some(
+            (value) =>
+              !Number.isSafeInteger(value) ||
+              Number(value) <= 0 ||
+              Number(value) >= 1e15,
+          ) ||
+          typeof document.document_type !== "string" ||
+          !["questions", "solutions"].includes(document.document_type)
+        )
+          throw new BadRequestException("Invalid central document selection.");
       }
       if (examAction?.endsWith("-translation")) {
         const translation = fields as Record<string, unknown>;
@@ -969,8 +984,10 @@ export class ExamContentService {
     id: string,
     type: string,
     query: Record<string, unknown>,
+    central = false,
   ) {
-    await this.questionAccess(user, org, id, "exams");
+    if (central) await this.centralAccess(user, org, id);
+    else await this.questionAccess(user, org, id, "exams");
     if (
       id === "new" ||
       !["questions", "solutions"].includes(type) ||
@@ -979,7 +996,7 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid document selection.");
-    const params = new URLSearchParams({ actor_id: user.id });
+    const params = new URLSearchParams(central ? {} : { actor_id: user.id });
     for (const key of ["package_id", "language_id"]) {
       if (query[key] === undefined) continue;
       if (
@@ -992,12 +1009,15 @@ export class ExamContentService {
     const response = await this.remote.request(
       await this.config(),
       org,
-      `documents/${org}/exams/${id}/${type}/status?${params}`,
+      central
+        ? `central/exams/${id}/documents/${type}/status?${params}`
+        : `documents/${org}/exams/${id}/${type}/status?${params}`,
       undefined,
       10000,
       15000,
     );
-    await this.questionAccess(user, org, id, "exams");
+    if (central) await this.centralAccess(user, org, id);
+    else await this.questionAccess(user, org, id, "exams");
     const data = response.data;
     if (
       !data ||
@@ -1035,15 +1055,17 @@ export class ExamContentService {
     id: string,
     type: string,
     query: Record<string, unknown>,
+    central = false,
   ) {
-    await this.questionAccess(user, org, id, "exams");
+    if (central) await this.centralAccess(user, org, id);
+    else await this.questionAccess(user, org, id, "exams");
     if (
       id === "new" ||
       !["questions", "solutions"].includes(type) ||
       Object.keys(query).some((k) => !["package_id", "language_id"].includes(k))
     )
       throw new BadRequestException("Invalid document selection.");
-    const params = new URLSearchParams({ actor_id: user.id });
+    const params = new URLSearchParams(central ? {} : { actor_id: user.id });
     for (const key of ["package_id", "language_id"]) {
       const value = query[key];
       if (value === undefined) continue;
@@ -1054,12 +1076,15 @@ export class ExamContentService {
     const response = await this.remote.request(
       await this.config(),
       org,
-      `documents/${org}/exams/${id}/${type}?${params}`,
+      central
+        ? `central/exams/${id}/documents/${type}?${params}`
+        : `documents/${org}/exams/${id}/${type}?${params}`,
       undefined,
       14000000,
       30000,
     );
-    await this.questionAccess(user, org, id, "exams");
+    if (central) await this.centralAccess(user, org, id);
+    else await this.questionAccess(user, org, id, "exams");
     const data = response.data;
     const invalid = () =>
       new ServiceUnavailableException("The approved PDF could not be loaded.");
@@ -1085,11 +1110,19 @@ export class ExamContentService {
       buffer.subarray(0, 5).toString("ascii") !== "%PDF-"
     )
       throw invalid();
-    await this.access.audit(this.db, user, org, "exams.document.downloaded", {
-      examId: Number(id),
-      buildId: data.build_id,
-      documentType: type,
-    });
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      central
+        ? "exams.central.document.downloaded"
+        : "exams.document.downloaded",
+      {
+        examId: Number(id),
+        buildId: data.build_id,
+        documentType: type,
+      },
+    );
     return { buffer, filename: `exam-${id}-${type}.pdf` };
   }
   async questionMedia(user: Account, org: string, id: string, asset: string) {

@@ -124,6 +124,54 @@ export class ExamContentController {
     );
     return this.content.reviewTranslation(account, org, id, language, query);
   }
+  @Get("platform/exam-content/:org/central/exams/:id/documents/:type/status")
+  async centralDocumentStatus(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("type") type: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-central-document-status:${account.id}:${org}`,
+      60,
+      60,
+    );
+    return this.content.documentStatus(account, org, id, type, query, true);
+  }
+  @Get("platform/exam-content/:org/central/exams/:id/documents/:type")
+  async centralExamDocument(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("type") type: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-central-documents:${account.id}:${org}`,
+      20,
+      60,
+    );
+    const document = await this.content.examDocument(
+      account,
+      org,
+      id,
+      type,
+      query,
+      true,
+    );
+    response.setHeader("Content-Type", "application/pdf");
+    response.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${document.filename}"`,
+    );
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(document.buffer);
+  }
   @Get("organisations/:org/exam-content/exams/:id/documents/:type/status")
   async documentStatus(
     @Param("org") org: string,

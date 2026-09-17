@@ -5,15 +5,20 @@ import type { Exam } from "./ExamBuilder";
 
 export function ExamDocuments({
   org,
+  central = false,
   record,
   disabled,
   onSaved,
 }: {
   org: string;
+  central?: boolean;
   record: Exam;
   disabled: boolean;
   onSaved: (record: Exam) => void;
 }) {
+  const base = central
+    ? `/platform/exam-content/${org}/central`
+    : `/organisations/${org}/exam-content`;
   const [packageId, setPackage] = useState<number | null>(null);
   const [languageId, setLanguage] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,9 +42,7 @@ export function ExamDocuments({
               document_type: string;
               status: string;
               approved_available: boolean;
-            }>(
-              `/organisations/${org}/exam-content/exams/${record.id}/documents/${type}/status?${params}`,
-            ),
+            }>(`${base}/exams/${record.id}/documents/${type}/status?${params}`),
           ),
         ),
       );
@@ -85,7 +88,7 @@ export function ExamDocuments({
     setMessage("");
     try {
       await api<Exam>(
-        `/organisations/${org}/exam-content/exams/${record.id}/actions/generate-document`,
+        `${base}/exams/${record.id}/actions/generate-document`,
         "POST",
         request,
         35000,
@@ -110,9 +113,7 @@ export function ExamDocuments({
     setBusy(true);
     setMessage("");
     try {
-      const saved = await api<Exam>(
-        `/organisations/${org}/exam-content/taxonomy/exams/${record.id}`,
-      );
+      const saved = await api<Exam>(`${base}/taxonomy/exams/${record.id}`);
       setPending(null);
       onSaved(saved);
       setMessage(
@@ -145,7 +146,7 @@ export function ExamDocuments({
       if (packageId !== null) params.set("package_id", String(packageId));
       if (languageId !== null) params.set("language_id", String(languageId));
       const response = await fetch(
-        `${apiBase}/organisations/${org}/exam-content/exams/${record.id}/documents/${type}?${params}`,
+        `${apiBase}${base}/exams/${record.id}/documents/${type}?${params}`,
         {
           credentials: "include",
           signal: controller.signal,
@@ -203,11 +204,12 @@ export function ExamDocuments({
         variant. Changes to exam settings do not regenerate an approved PDF.
       </p>
       <p>
-        Generation requires an assigned package and language. Native translation
-        approval is required; approval controls inside Tech4Learn are still
-        being integrated.
+        Generation requires an assigned package and language. Approve the
+        selected translation in the translation review below before generating
+        its PDF.
       </p>
       <QuestionChoiceField
+        central={central}
         org={org}
         kind="packages"
         label="PDF package"
@@ -220,6 +222,7 @@ export function ExamDocuments({
         }}
       />
       <QuestionChoiceField
+        central={central}
         org={org}
         kind="languages"
         label="PDF language"
