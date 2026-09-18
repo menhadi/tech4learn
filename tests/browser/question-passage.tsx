@@ -37,8 +37,21 @@ window.fetch = async (input, options: any = {}) => {
     data = record;
   } else if (url.includes("/choices/passages"))
     data = { items: [{ id: 9, label: "Synthetic owned passage" }], next: null };
-  else if (url.includes("/choices/")) throw Error("Unexpected choice request");
-  else data = record;
+  else if (url.includes("/choices/")) {
+    const kind = url.split("/choices/")[1].split("?")[0];
+    const catalogues: Record<string, any[]> = {
+      groups: [{ id: 2, label: "Synthetic group" }],
+      languages: [{ id: 3, label: "English" }],
+      subjects: [],
+      topics: [],
+      subtopics: [],
+      sections: [],
+      difficulties: [],
+    };
+    if (!(kind in catalogues))
+      throw Error("Unexpected choice request: " + kind);
+    data = { items: catalogues[kind], next: null };
+  } else data = record;
   return new Response(JSON.stringify(data), {
     headers: { "Content-Type": "application/json" },
   });
@@ -96,7 +109,10 @@ async function run() {
     await until(() => !button("Save question").disabled);
     button("Save question").click();
     await until(
-      () => writes.length === 1 && document.querySelector('[role="alert"]'),
+      () =>
+        writes.length === 1 &&
+        !button("Save question").disabled &&
+        document.body.textContent?.includes("Synthetic acknowledgement lost"),
     );
     button("Save question").click();
     await until(() => writes.length === 2 && record.fields.passage_id === 9);

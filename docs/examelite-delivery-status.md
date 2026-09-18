@@ -195,12 +195,16 @@ adapter milestone as a release.
    the owned passage picker for both owners. Native checks attach an owned
    passage, reject a foreign reference without changing the question, and
    invalidate both referring questions after a wording edit. The picker browser
-   fixture is written but its execution is pending browser availability.
+   fixture now passes for both owners, including scoped choices, minimal field
+   updates and an identical retry after an unconfirmed save.
    Passage saves now freeze wording, language, navigation and draft restoration
    while a write is unconfirmed, keeping the original request for retry.
    Validation/conflict responses reopen editing; connection/server failures and
-   access changes retain the pending request. The browser fixture now asserts
-   these locks, but this extended check also awaits browser availability.
+   access changes retain the pending request. The extended browser fixture now
+   passes for creation and editing under both owners. It simulates a committed
+   save whose acknowledgement is lost, verifies the edit locks and identical
+   retry, and remounts a new-passage form to restore its scoped pending draft
+   before retrying. These checks use synthetic transport, not a live write.
    Connected browser acceptance, passage media and actual PDF regeneration
    verification remain pending.
    A private native capability reader now inventories the installed engine's

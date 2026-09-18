@@ -36,16 +36,18 @@ window.fetch = async (input, options: any = {}) => {
   if (options.method === "POST") {
     const body = JSON.parse(options.body);
     attempts.push(body);
+    if (attempts.length === 1)
+      record = {
+        ...record,
+        id: 9,
+        revision: "b".repeat(64),
+        fields: {
+          ...record.fields,
+          ...body.fields,
+          passages: { ...record.fields.passages, ...body.fields.passages },
+        },
+      };
     if (attempts.length === 1) throw Error("Synthetic lost acknowledgement");
-    record = {
-      ...record,
-      revision: "b".repeat(64),
-      fields: {
-        ...record.fields,
-        ...body.fields,
-        passages: { ...record.fields.passages, ...body.fields.passages },
-      },
-    };
     data = record;
   } else if (url.includes("/choices/languages"))
     data = {
@@ -64,7 +66,13 @@ window.fetch = async (input, options: any = {}) => {
   });
 };
 async function run() {
-  for (const owner of [false, true]) {
+  for (const scenario of [
+    { owner: false, creating: false },
+    { owner: true, creating: false },
+    { owner: false, creating: true },
+    { owner: true, creating: true },
+  ]) {
+    const { owner, creating } = scenario;
     central = owner;
     attempts = [];
     record = {
@@ -78,17 +86,41 @@ async function run() {
         },
       },
     };
-    root.render(
-      <DraftScope user={crypto.randomUUID()} org={org}>
-        <ExamTaxonomy key={String(owner)} org={org} central={owner} />
-      </DraftScope>,
-    );
+    if (creating) record = { id: 0, revision: "new", fields: {} };
+    const user = crypto.randomUUID();
+    const mount = () =>
+      root.render(
+        <DraftScope user={user} org={org}>
+          <ExamTaxonomy key={String(owner)} org={org} central={owner} />
+        </DraftScope>,
+      );
+    mount();
     await until(() => document.querySelector("select"));
     select("passages");
     await until(() => button("Create passages"));
-    button("Load classification").click();
-    await until(() => button("Edit"));
-    button("Edit").click();
+    if (creating) {
+      button("Create passages").click();
+      await until(() => document.querySelector('input[maxlength="255"]'));
+      const name = document.querySelector<HTMLInputElement>(
+        'input[maxlength="255"]',
+      )!;
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )!.set!.call(name, "Created passage");
+      name.dispatchEvent(new Event("input", { bubbles: true }));
+      button("Search passage language").click();
+      await until(() =>
+        [...document.querySelectorAll("option")].some(
+          (o) => o.textContent === "English",
+        ),
+      );
+      select("3");
+    } else {
+      button("Load classification").click();
+      await until(() => button("Edit"));
+      button("Edit").click();
+    }
     await until(() => document.querySelector('[aria-label="Passage wording"]'));
     if (
       document.body.textContent?.includes("Display order") ||
@@ -98,25 +130,32 @@ async function run() {
     const editor = document.querySelector('[aria-label="Passage wording"]')!;
     editor.innerHTML = "<p>Changed wording</p>";
     editor.dispatchEvent(new Event("input", { bubbles: true }));
-    button("Search passage language").click();
-    await until(() =>
-      [...document.querySelectorAll("option")].some(
-        (o) => o.textContent === "Hindi",
-      ),
-    );
-    select("4");
-    await until(() =>
-      document.body.textContent?.includes("does not support yet"),
-    );
-    select("3");
-    await until(() =>
-      document
-        .querySelector('[aria-label="Passage wording"]')
-        ?.textContent?.includes("Changed wording"),
-    );
+    // Separate typing from the next click, as real browser input events are.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (!creating) {
+      button("Search passage language").click();
+      await until(() =>
+        [...document.querySelectorAll("option")].some(
+          (o) => o.textContent === "Hindi",
+        ),
+      );
+      select("4");
+      await until(() =>
+        document.body.textContent?.includes("does not support yet"),
+      );
+      select("3");
+      await until(() =>
+        document
+          .querySelector('[aria-label="Passage wording"]')
+          ?.textContent?.includes("Changed wording"),
+      );
+    }
     button("Save classification").click();
     await until(
-      () => attempts.length === 1 && document.querySelector('[role="alert"]'),
+      () =>
+        attempts.length === 1 &&
+        !button("Save classification").disabled &&
+        document.body.textContent?.includes("Synthetic lost acknowledgement"),
     );
     if (
       !button("Back to classification").disabled ||
@@ -130,6 +169,27 @@ async function run() {
       button("Save classification").disabled
     )
       throw Error("Uncertain passage save did not lock edits and retain retry");
+    if (creating) {
+      root.render(<div />);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      mount();
+      await until(() => document.querySelector("select"));
+      select("passages");
+      await until(() => button("Create passages"));
+      button("Create passages").click();
+      await until(() => button("Restore draft"));
+      button("Restore draft").click();
+      await until(
+        () =>
+          button("Back to classification").disabled &&
+          document.querySelector<HTMLInputElement>('input[maxlength="255"]')
+            ?.value === "Created passage" &&
+          document.querySelector('[aria-label="Passage wording"]')
+            ?.textContent === "Changed wording",
+      );
+      if (!button("Reload saved classification").disabled)
+        throw Error("Restored pending passage lost its write lock");
+    }
     button("Save classification").click();
     await until(
       () =>
@@ -139,18 +199,28 @@ async function run() {
           ?.textContent?.includes("saved"),
     );
     if (JSON.stringify(attempts[0]) !== JSON.stringify(attempts[1]))
-      throw Error("Retry changed request");
+      throw Error(
+        "Retry changed request " +
+          JSON.stringify({ owner, creating, attempts }),
+      );
     if (Object.keys(attempts[0].fields.passages).join() !== "3")
       throw Error("Untouched language sent as an edit");
-    if (!record.fields.passages[4].includes("synthetic.png"))
+    if (
+      creating &&
+      (attempts[0].revision !== "new" ||
+        attempts[0].fields.name !== "Created passage")
+    )
+      throw Error("New passage payload is incorrect");
+    if (!creating && !record.fields.passages[4].includes("synthetic.png"))
       throw Error("Other language changed");
     root.render(<div />);
     await new Promise((r) => setTimeout(r, 40));
   }
   root.render(
     <h1>
-      PASS: passage editor — both owners, language switching, preserved media
-      and identical retry.
+      PASS: passage editor — both owners, creation, language switching,
+      preserved media, edit locks, restored pending drafts and identical retry
+      after lost acknowledgement.
     </h1>,
   );
 }

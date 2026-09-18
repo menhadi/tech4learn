@@ -4,9 +4,12 @@
 
 Open `/tests/browser/exam-passages.html` through the local Vite fixture server.
 The page uses synthetic responses and runs the shared organisation and central
-classification editors. PASS verifies language switching, changed-language-only
-writes, preservation of unsupported media in another language, and an identical
-retry after a lost acknowledgement. It does not contact ExamElite or verify
+classification editors. PASS verifies creation and editing, language switching,
+changed-language-only writes, preservation of unsupported media in another
+language, locked fields while a save is unconfirmed, and an identical retry
+after a simulated committed save loses its acknowledgement. Creation also
+remounts the form and restores its scoped pending draft before retrying.
+It does not contact ExamElite or verify
 native persistence, PDF regeneration or a complete student workflow.
 
 `/tests/browser/question-passage.html` checks the passage picker in the question
