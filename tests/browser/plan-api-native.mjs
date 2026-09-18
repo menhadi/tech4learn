@@ -159,6 +159,38 @@ try {
     (await call("/plan", { ...body, request_id: randomUUID() })).status,
     409,
   );
+  const creation = {
+    request_id: randomUUID(),
+    fields: {
+      name: "Connected native plan",
+      feature_reports: false,
+      limit_students: 25,
+      price: "0.00",
+    },
+  };
+  const created = await call("/plans", creation);
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+  assert.equal(created.data.name, creation.fields.name);
+  assert.deepEqual(await call("/plans", creation), created);
+  const creationFacts = await native("fixture/facts");
+  assert.equal(creationFacts.plan_count, after.plan_count + 1);
+  assert.equal(creationFacts.audits, after.audits + 1);
+  assert.equal(creationFacts.plan_id, choice.id);
+  assert.ok(creationFacts.unchanged_details && creationFacts.unchanged_plans);
+  const withNewPlan = await call("/plans");
+  assert.ok(
+    withNewPlan.data.items.some(
+      (plan) =>
+        plan.id === created.data.plan_id &&
+        plan.name === creation.fields.name &&
+        !plan.selected,
+    ),
+  );
+  assert.equal(
+    (await call("/plans", { ...creation, fields: { name: "Changed retry" } }))
+      .status,
+    409,
+  );
   const callsBefore = nativeCalls;
   assert.equal(
     (await call("/plan", { ...body, actor_id: randomUUID() })).status,
@@ -167,9 +199,10 @@ try {
   assert.equal(nativeCalls, callsBefore);
   await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [actor]);
   assert.equal((await call("/plan", body)).status, 403);
+  assert.equal((await call("/plans", creation)).status, 403);
   assert.equal(nativeCalls, callsBefore);
   console.log(
-    "PASS: real Tech4Learn HTTP → native plan controller: catalogue, assignment, exact replay, stale conflict, actor injection, revocation and unchanged organisation/shared plans.",
+    "PASS: real Tech4Learn HTTP → native plan controller: catalogue, creation, assignment, exact replay, stale conflict, actor injection, revocation and unchanged organisation/shared plans.",
   );
 } finally {
   clearTimeout(deadline);

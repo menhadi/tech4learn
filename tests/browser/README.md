@@ -161,7 +161,7 @@ checks exam upload controls, scoped endpoints and retry locks; the native
 and failed-save file cleanup with the same arguments. Orphan reconciliation and
 production concurrency remain unverified.
 
-## Connected plan assignment check
+## Connected plan creation and assignment check
 
 `plan-api-native.mjs` connects the real Nest plan endpoints to the registered
 native PHP plan routes and `SaasController` using isolated PGlite/SQLite records.
@@ -173,6 +173,7 @@ node tests/browser/plan-api-native.mjs VENDOR_AUTOLOAD MODELS_DIRECTORY QUESTION
 
 It verifies reading choices, assigning a different plan, replaying the exact
 request without another native audit invocation, reloading the selected plan,
+creating and discovering a new plan without duplicate creation on retry,
 stale conflicts, injected actor denial and revoked Tech4Learn superadmin access.
 Native fixture assertions also verify unchanged organisation details and shared
 plans. It passed locally. The native audit helper is a recording test double;

@@ -189,7 +189,7 @@ export function ExamWorkspace({
       </h3>
       <p>
         {controls
-          ? "Choose which feature groups this organisation can use when Exams is enabled. The coverage table shows implemented tools and remaining work; plan assignment is not yet available."
+          ? "Choose which feature groups this organisation can use when Exams is enabled. Assign an existing plan below; the coverage table shows implemented tools and remaining work."
           : "Use the ExamElite interface to manage subjects, questions, exams and results. Shared content opens as your organisation’s own editable version."}
       </p>
       {error && (

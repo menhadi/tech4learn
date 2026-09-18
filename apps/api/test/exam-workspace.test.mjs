@@ -99,7 +99,11 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
     if (fail) throw new Error("Provider unavailable");
-    if (path.includes("/plans?") || path.endsWith("/plan")) {
+    if (
+      path.includes("/plans?") ||
+      path.endsWith("/plan") ||
+      path === "central/plans"
+    ) {
       if (planRevoke)
         await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
           admin,
@@ -386,6 +390,72 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
     planRevoke = false;
     before = requests.length;
     assert.equal((await call("/plan", assignment, admin)).status, 403);
+    assert.equal(requests.length, before);
+    await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
+    const creation = {
+      request_id: randomUUID(),
+      fields: {
+        name: "New synthetic plan",
+        price: "15.50",
+        feature_reports: true,
+        limit_students: 20,
+      },
+    };
+    before = requests.length;
+    assert.equal((await call("/plans", creation, member)).status, 403);
+    assert.equal(
+      (await call("/plans", { ...creation, actor_id: member }, admin)).status,
+      400,
+    );
+    assert.equal((await call("/plans?owner=1", creation, admin)).status, 400);
+    for (const fields of [
+      { ...creation.fields, is_default: true },
+      { ...creation.fields, feature_reports: 1 },
+      { ...creation.fields, limit_students: -1 },
+      { ...creation.fields, price: "1e6" },
+      { ...creation.fields, billing_cycle: ["monthly"] },
+      { ...creation.fields, name: " " },
+      { ...creation.fields, feature_unknown: true },
+    ]) {
+      assert.equal(
+        (await call("/plans", { ...creation, fields }, admin)).status,
+        400,
+      );
+    }
+    assert.equal(requests.length, before);
+    planReply = {
+      saved: true,
+      plan_id: 10,
+      revision,
+      name: creation.fields.name,
+      private_data: "omit",
+    };
+    const createdPlan = await call("/plans", creation, admin);
+    assert.equal(createdPlan.status, 201);
+    assert.deepEqual(await createdPlan.json(), {
+      saved: true,
+      plan_id: 10,
+      revision,
+      name: creation.fields.name,
+    });
+    assert.equal(requests.at(-1).path, "central/plans");
+    assert.deepEqual(requests.at(-1).body, { ...creation, actor_id: admin });
+    assert.equal((await call("/plans", creation, admin)).status, 201);
+    assert.deepEqual(requests.at(-1).body, requests.at(-2).body);
+    planReply = { ...planReply, name: "Different plan" };
+    assert.equal((await call("/plans", creation, admin)).status, 503);
+    planReply = { saved: false, conflict: true };
+    assert.equal((await call("/plans", creation, admin)).status, 409);
+    planRevoke = true;
+    planReply = {
+      saved: true,
+      plan_id: 10,
+      revision,
+      name: creation.fields.name,
+    };
+    assert.equal((await call("/plans", creation, admin)).status, 403);
+    before = requests.length;
+    assert.equal((await call("/plans", creation, admin)).status, 403);
     assert.equal(requests.length, before);
   } finally {
     await app.close();

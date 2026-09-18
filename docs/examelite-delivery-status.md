@@ -178,8 +178,18 @@ adapter milestone as a release.
    fields, and restores native context after failure. Native checks cover
    duplicate prevention, changed-payload rejection, revocation, bounded input
    and joint plan/receipt rollback. Deployment verifies route registration and
-   native checks. The Tech4Learn gateway and same-domain plan-creation interface
-   remain to be connected; live concurrency remains unverified.
+   native checks. The Tech4Learn gateway now accepts bounded creation settings
+   only from stored superadmins, derives the actor from the session, retains
+   request IDs, rechecks access after the native response and projects only the
+   created plan identity/revision. HTTP checks cover invalid settings, injected
+   actors, identical retries, inconsistent responses and access revocation.
+   The same-domain plan-creation interface remains to be connected; live
+   concurrency remains unverified.
+   The connected Nest/native fixture also now creates a plan through both real
+   controllers, retries without a duplicate or second audit invocation, finds
+   it in the catalogue and verifies that existing plans and organisation
+   assignments remain unchanged. Its transport is isolated PHP CLI with
+   synthetic databases, not production HTTP middleware.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is

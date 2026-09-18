@@ -8,6 +8,7 @@ import {
   GoneException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { examPlanFeatures, examPlanLimits } from "./exam-plan-fields.js";
 import { Database } from "./database.js";
 import { AccessService } from "./access.service.js";
 import { ExamEliteService } from "./examelite.service.js";
@@ -216,6 +217,106 @@ export class ExamWorkspaceService {
       assignment_revision: response.assignment_revision as string,
       items,
       next: response.next as string | null,
+    };
+  }
+  async createPlan(
+    user: Account,
+    org: string,
+    body: Record<string, unknown>,
+    query: Record<string, unknown>,
+  ) {
+    await this.planAdmin(user, org);
+    const invalid = () =>
+      new BadRequestException("Choose valid plan settings.");
+    if (
+      Object.keys(query).length ||
+      Object.keys(body).length !== 2 ||
+      Object.keys(body).some(
+        (key) => !["request_id", "fields"].includes(key),
+      ) ||
+      typeof body.request_id !== "string" ||
+      !body.fields ||
+      typeof body.fields !== "object" ||
+      Array.isArray(body.fields)
+    )
+      throw invalid();
+    this.id(body.request_id);
+    const fields = body.fields as Record<string, unknown>;
+    const featureKeys = examPlanFeatures.map((key) => `feature_${key}`);
+    const limitKeys = examPlanLimits.map((key) => `limit_${key}`);
+    const allowed = [
+      "name",
+      "price",
+      "billing_cycle",
+      "status",
+      ...featureKeys,
+      ...limitKeys,
+    ];
+    if (
+      Object.keys(fields).some((key) => !allowed.includes(key)) ||
+      typeof fields.name !== "string" ||
+      !fields.name.trim() ||
+      fields.name !== fields.name.trim() ||
+      fields.name.length > 255 ||
+      JSON.stringify(fields).length > 16384
+    )
+      throw invalid();
+    for (const [key, value] of Object.entries(fields)) {
+      if (
+        (featureKeys.includes(key) || key === "status") &&
+        typeof value !== "boolean"
+      )
+        throw invalid();
+      if (
+        limitKeys.includes(key) &&
+        value !== null &&
+        (!Number.isSafeInteger(value) ||
+          Number(value) < 0 ||
+          Number(value) > 1000000000)
+      )
+        throw invalid();
+      if (
+        key === "price" &&
+        (typeof value !== "string" ||
+          !/^(0|[1-9][0-9]{0,8})(\.[0-9]{1,2})?$/.test(value))
+      )
+        throw invalid();
+      if (
+        key === "billing_cycle" &&
+        (typeof value !== "string" ||
+          !["monthly", "yearly", "lifetime"].includes(value))
+      )
+        throw invalid();
+    }
+    const config = await this.config();
+    await this.planAdmin(user, org);
+    const response = await this.remote.request(config, org, "central/plans", {
+      request_id: body.request_id,
+      actor_id: user.id,
+      fields,
+    });
+    await this.planAdmin(user, org);
+    if (response.saved === false && response.conflict === true)
+      throw new ConflictException(
+        "Plan request changed. Reload before creating another plan.",
+      );
+    if (
+      response.saved !== true ||
+      !Number.isSafeInteger(response.plan_id) ||
+      response.plan_id < 1 ||
+      response.plan_id > 999999999999999 ||
+      response.name !== fields.name ||
+      typeof response.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(response.revision)
+    )
+      throw new ServiceUnavailableException(
+        "Plan creation was not confirmed. Retry the same request.",
+      );
+    return {
+      saved: true,
+      plan_id: response.plan_id as number,
+      name: response.name as string,
+      revision: response.revision as string,
     };
   }
   async assignPlan(

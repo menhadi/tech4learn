@@ -2,6 +2,7 @@
 // CLI-only integration transport over synthetic SQLite; no production bootstrap.
 if(PHP_SAPI!=='cli')exit(1);
 require __DIR__.'/test-native-plan-assignment.php';
+require __DIR__.'/Tech4LearnPlanEditor.php';
 use Illuminate\Support\Facades\DB;
 $app->instance('view',new Illuminate\View\Factory(new Illuminate\View\Engines\EngineResolver(),new Illuminate\View\FileViewFinder(new Illuminate\Filesystem\Filesystem(),[__DIR__]),new Illuminate\Events\Dispatcher($app)));
 $app->instance(Illuminate\Contracts\Routing\ResponseFactory::class,new Illuminate\Routing\ResponseFactory($app['view'],$app['redirect']));
@@ -23,9 +24,9 @@ while(($line=fgets(STDIN))!==false){
   $command=json_decode($line,true,32,JSON_THROW_ON_ERROR);$path=$command['path']??'';
   if($path==='fixture/facts'){
    $current=App\Models\Organization::findOrFail(20)->getRawOriginal();unset($current['saas_plan_id'],$current['updated_at']);
-   $emit(['status'=>200,'data'=>['unchanged_details'=>$current===$baseline,'unchanged_plans'=>App\Models\SaasPlan::orderBy('id')->get()->map(fn($model)=>$model->getRawOriginal())->all()===$shared,'plan_id'=>(int)App\Models\Organization::findOrFail(20)->saas_plan_id,'audits'=>count($GLOBALS['planAudit']??[])]]);continue;
+   $emit(['status'=>200,'data'=>['unchanged_details'=>$current===$baseline,'unchanged_plans'=>App\Models\SaasPlan::whereIn('id',array_column($shared,'id'))->orderBy('id')->get()->map(fn($model)=>$model->getRawOriginal())->all()===$shared,'plan_count'=>App\Models\SaasPlan::count(),'plan_id'=>(int)App\Models\Organization::findOrFail(20)->saas_plan_id,'audits'=>count($GLOBALS['planAudit']??[])]]);continue;
   }
-  if(!is_string($path)||!preg_match('#^workspace/'.preg_quote($workspace,'#').'/(plans(?:\?after=[0-9]+)?|plan)$#D',$path))throw new RuntimeException('Unsupported fixture path');
+  if(!is_string($path)||($path!=='central/plans'&&!preg_match('#^workspace/'.preg_quote($workspace,'#').'/(plans(?:\?after=[0-9]+)?|plan)$#D',$path)))throw new RuntimeException('Unsupported fixture path');
   $body=$command['body']??null;
   $request=Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/'.$path,$body===null?'GET':'POST',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$bridgeToken,'CONTENT_TYPE'=>'application/json'],$body===null?null:json_encode($body,JSON_THROW_ON_ERROR));
   $route=$router->getRoutes()->match($request);$route->setContainer($app);$route->flushController();$app->instance('request',$request);

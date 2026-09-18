@@ -43,6 +43,16 @@ export class ExamWorkspaceController {
     await this.identity.limit(`exam-plans:${account.id}`, 60, 60);
     return this.service.plans(account, org, query);
   }
+  @Post("plans") async createPlan(
+    @Param("org") org: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-plan-create:${account.id}`, 30, 60);
+    return this.service.createPlan(account, org, body ?? {}, query);
+  }
   @Post("plan") async assignPlan(
     @Param("org") org: string,
     @Body() body: Record<string, unknown>,
