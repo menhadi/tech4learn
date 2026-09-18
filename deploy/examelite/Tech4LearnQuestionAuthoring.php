@@ -148,7 +148,7 @@ final class Tech4LearnQuestionAuthoring
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key,$kind==='questions'&&$id>0);
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
-        if($kind==='passages')$this->passageFields($fields);
+        if($kind==='passages')$this->passageFields($fields,$id>0);
         $this->translationFields($fields,$action);
         $identity=[$actor,$id,$fields,$revision];if($action!==null)$identity[]=$action;if($kind!=='questions')$identity[]=$kind;
         $fingerprint=hash('sha256',json_encode($identity,JSON_THROW_ON_ERROR));
@@ -172,6 +172,7 @@ final class Tech4LearnQuestionAuthoring
             else abort_unless($revision==='new',422);
             if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             elseif($kind==='questions'&&$question)$this->validateRetainedImages($question,$fields);
+            elseif($kind==='passages'&&$question)$this->validatePassageImages($question,$fields);
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
             if($kind==='packages'){
                 abort_unless(($values['package_type']??null)==='free'&&(!$question||$question->package_type==='free'),422,'Central paid package authoring is not available through this adapter.');
@@ -195,13 +196,13 @@ final class Tech4LearnQuestionAuthoring
                 \App\Models\Package::where('organization_id',$owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($fields['package_id']);
                 \App\Models\Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($fields['language_id']);
     }
-    private function passageFields(array &$fields):void {
+    private function passageFields(array &$fields,bool $images=false):void {
         if(array_key_exists('name',$fields))abort_unless(is_string($fields['name'])&&trim($fields['name'])!==''&&mb_strlen($fields['name'])<=255&&strip_tags($fields['name'])===$fields['name'],422);
         if(!array_key_exists('passages',$fields))return;
         abort_unless(is_array($fields['passages'])&&count($fields['passages'])>0&&count($fields['passages'])<=50,422);
         foreach($fields['passages'] as $language=>$text){
             abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',(string)$language)&&is_string($text)&&trim($text)!==''&&strlen($text)<=200000,422);
-            $fields['passages'][$language]=$this->formattedText($text,'passage');
+            $fields['passages'][$language]=$this->formattedText($text,'passage',$images);
         }
     }
     private function translationFields(array &$fields,?string $action):void {
@@ -274,7 +275,7 @@ final class Tech4LearnQuestionAuthoring
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
-        if($kind==='passages')$this->passageFields($fields);
+        if($kind==='passages')$this->passageFields($fields,$id>0);
         $this->translationFields($fields,$action);
         if($kind==='languages'){
             if(!$id)abort_unless(array_keys($fields)===['master_language_id']&&is_int($fields['master_language_id'])&&$fields['master_language_id']>0,422);
@@ -304,6 +305,7 @@ final class Tech4LearnQuestionAuthoring
             else abort_unless($revision==='new',422);
             if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             elseif($kind==='questions'&&$question)$this->validateRetainedImages($question,$fields);
+            elseif($kind==='passages'&&$question)$this->validatePassageImages($question,$fields);
             $this->validateExamAction($tenant,$question,$fields,$action);
             if($action==='generate-document')$this->validateDocumentSelection($tenant,$id,$fields);
             if(in_array($action,['approve-translation','refresh-translation','save-question-translation','save-exam-translation','set-translation-image'],true)){
@@ -319,6 +321,19 @@ final class Tech4LearnQuestionAuthoring
             DB::table('tech4learn_authoring_requests')->insert(['workspace_id'=>$workspace,'request_id'=>$requestId,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
             return $result;
         });}catch(\Throwable $error){if($storedImage!==null)app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->discard($storedImage);throw $error;}
+    }
+    /** Retained diagrams belong to the same locked passage language, never another owner/version. */
+    private function validatePassageImages(\App\Models\Passage $passage,array $fields):void {
+        $media=app(Tech4LearnQuestionMedia::class);
+        foreach($fields['passages']??[] as $language=>$html){
+            $targets=$passage->langs()->where('language_id',$language)->lockForUpdate()->get();
+            abort_unless($targets->count()<=1,409,'Resolve duplicate passage language versions before editing.');
+            $sources=$media->sources((string)($targets->first()?->passage??''));
+            foreach($media->sources($html) as $key=>$source){
+                if(!isset($sources[$key])||!hash_equals($sources[$key],$source))
+                    throw ValidationException::withMessages(['passages.'.$language=>'Only images already in this passage language may be retained.']);
+            }
+        }
     }
     private function validateRetainedImages(Question $question,array $fields):void {
         $media=app(Tech4LearnQuestionMedia::class);

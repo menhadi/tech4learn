@@ -256,6 +256,16 @@ adapter milestone as a release.
    retries, and correction after a definitive validation rejection.
    Connected browser acceptance, passage media and actual PDF regeneration
    verification remain pending.
+   The native passage adapter now permits text/formula edits that retain existing
+   raster image references in the same saved language version. It locks the
+   language rows and rejects new, foreign or other-language references, duplicate
+   language records and stale revisions; file bytes are never deleted by wording
+   changes. Both organisation and central native-controller fixtures pass,
+   including exact retries and reference removal. Deployment runs this fixture
+   together with the existing passage suite. The passage UI still preserves
+   media-containing versions as read-only until protected staff previews and
+   upload controls are connected; this is a backend milestone, not full media
+   authoring availability.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,

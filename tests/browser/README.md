@@ -314,3 +314,12 @@ configuration, persisted answers, repeat completion, late-response rejection and
 explicit recovery. `translation-provider-fixture.php` is shared with the direct
 generation fixture and never calls an external provider. PDF dispatch is replaced;
 this check does not establish PDF rendering, production workers or AI quality.
+
+## Native passage image retention
+
+`deploy/examelite/test-retained-passage-images.php` includes the existing passage
+authoring suite, then checks both owners retaining same-language diagrams while
+editing wording/formulas, exact retries, reference removal, stale/duplicate
+language records and rejected image injection. Use the usual vendor/model/native
+controller arguments. It never writes image files. The browser passage editor
+continues to keep media versions read-only pending staff previews/upload controls.
