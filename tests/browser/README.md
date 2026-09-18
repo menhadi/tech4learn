@@ -9,6 +9,11 @@ writes, preservation of unsupported media in another language, and an identical
 retry after a lost acknowledgement. It does not contact ExamElite or verify
 native persistence, PDF regeneration or a complete student workflow.
 
+`/tests/browser/question-passage.html` checks the passage picker in the question
+editor for both owners, a minimal passage-reference update and identical retry.
+It uses synthetic responses; native attachment/foreign-owner rejection is
+covered separately by `deploy/examelite/test-passage-authoring.php`.
+
 ## Plan permission catalogue
 
 Open `/tests/browser/exam-plan-edit.html` for the shared plan editor and

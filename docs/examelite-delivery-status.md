@@ -180,7 +180,7 @@ adapter milestone as a release.
    private read/write/catalogue routes now also pass checks for ownership,
    independent language edits, exact replay and revoked actor membership.
    Passage choices honour the questions restriction even when other features
-   remain available. Deployment includes these isolated native checks. This is
+   remain available. Deployment includes these isolated native checks.
    The Tech4Learn gateway now connects passage reads/writes/catalogues for both
    owners, validates bounded language-keyed wording and derives native actors
    from the signed-in user. Passage access uses the questions permission group
@@ -191,9 +191,13 @@ adapter milestone as a release.
    draft recovery. Only changed language versions are submitted; unsupported
    media versions remain read-only and preserved. A synthetic React/browser
    fixture passes for both owners, language switching, media preservation and
-   identical retry after a lost acknowledgement. Adding the passage picker to
-   question authoring, connected browser acceptance, passage media and actual
-   PDF regeneration verification remain pending.
+   identical retry after a lost acknowledgement. Question authoring now includes
+   the owned passage picker for both owners. Native checks attach an owned
+   passage, reject a foreign reference without changing the question, and
+   invalidate both referring questions after a wording edit. The picker browser
+   fixture is written but its execution is pending browser availability.
+   Connected browser acceptance, passage media and actual PDF regeneration
+   verification remain pending.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,

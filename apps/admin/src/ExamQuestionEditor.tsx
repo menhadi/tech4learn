@@ -395,6 +395,7 @@ export function ExamQuestionEditor({
                 ["topics", "topic_id", "Topic"],
                 ["subtopics", "stopic_id", "Subtopic"],
                 ["sections", "question_section_id", "Question section"],
+                ["passages", "passage_id", "Passage"],
                 ["difficulties", "diff_id", "Difficulty"],
               ] as const
             ).map(([kind, key, label]) => (
