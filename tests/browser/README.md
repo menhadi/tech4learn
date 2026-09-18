@@ -19,8 +19,12 @@ an isolated audit callback. No assignment route or live write is exercised.
 QUESTION_CONTROLLER SAAS_CONTROLLER` additionally checks native plan creation:
 default capability availability, explicit limits/restrictions, unique slugs,
 invalid input, audit rollback, and unchanged previous plans/organisation
-assignments. This internal helper is not exposed through a route or interface;
-the fixture does not establish a complete superadmin creation journey.
+assignments. It also checks the private native creation controller and actor
+coordinator: exact receipts, reordered-field replay, changed payload rejection,
+revoked membership/user/mapping, bounded input and transactional rollback.
+The gateway/interface are not connected yet, so the fixture does not establish
+a complete superadmin creation journey. The native route registration is checked
+by `test-workspace-provision.php`.
 
 ## Classification deletion
 

@@ -59,6 +59,20 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
         ]);
     }
     /** Private server credential only; T4L must reauthorise its superadmin. */
+    public function createPlan(Request $r) {
+        $tenant=(int)$this->configuration($r)['_platform']['organization_id'];
+        $body=$r->all();$keys=['actor_id','request_id','fields'];
+        abort_unless($r->query()===[]&&!array_diff(array_keys($body),$keys)&&!array_diff($keys,array_keys($body)),422);
+        foreach(['actor_id','request_id'] as $key){abort_unless(is_string($body[$key]),422);$this->uuid($body[$key]);}
+        abort_unless(is_array($body['fields'])&&!array_is_list($body['fields'])&&count($body['fields'])<=40&&strlen(json_encode($body['fields'],JSON_THROW_ON_ERROR))<=16384,422);
+        try{$result=app(\App\Services\Tech4LearnPlanEditor::class)->createForActor($tenant,$body['actor_id'],$body['request_id'],$body['fields']);}
+        catch(\Symfony\Component\HttpKernel\Exception\HttpException $error){
+            if($error->getStatusCode()!==409)throw $error;
+            return $this->reply($tenant,['saved'=>false,'conflict'=>true]);
+        }
+        return $this->reply($tenant,['saved'=>true]+$result);
+    }
+    /** Private server credential only; T4L must reauthorise its superadmin. */
     public function assignPlan(Request $r,string $org) {
         $tenant=(int)$this->configuration($r)['_platform']['organization_id'];$this->uuid($org);
         $keys=['actor_id','request_id','plan_id','assignment_revision','plan_revision'];

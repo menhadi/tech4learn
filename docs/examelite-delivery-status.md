@@ -172,8 +172,14 @@ adapter milestone as a release.
    restrictions and limits, and preserves existing plans, the global default
    and all organisation assignments. Isolated native tests cover validation,
    unique slugs, commercial metadata and rollback after audit failure. This
-   helper has no route or interface yet; central actor authorisation, request
-   receipts, gateway and same-domain plan creation remain to be connected.
+   helper now has a private central-credential route and transactional actor
+   coordinator. It provisions only a central-scoped author, rechecks active
+   native membership before writes/replays, binds receipts to the actor and
+   fields, and restores native context after failure. Native checks cover
+   duplicate prevention, changed-payload rejection, revocation, bounded input
+   and joint plan/receipt rollback. Deployment verifies route registration and
+   native checks. The Tech4Learn gateway and same-domain plan-creation interface
+   remain to be connected; live concurrency remains unverified.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is
