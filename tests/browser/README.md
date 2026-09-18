@@ -15,6 +15,13 @@ MODELS_DIRECTORY QUESTION_CONTROLLER SAAS_CONTROLLER` (one command). It runs
 the actual native organisation update against synthetic SQLite records, with
 an isolated audit callback. No assignment route or live write is exercised.
 
+`php deploy/examelite/test-native-plan-editor.php VENDOR_AUTOLOAD MODELS_DIRECTORY
+QUESTION_CONTROLLER SAAS_CONTROLLER` additionally checks native plan creation:
+default capability availability, explicit limits/restrictions, unique slugs,
+invalid input, audit rollback, and unchanged previous plans/organisation
+assignments. This internal helper is not exposed through a route or interface;
+the fixture does not establish a complete superadmin creation journey.
+
 ## Classification deletion
 
 With Vite running, open `/tests/browser/classification-delete.html` and wait
