@@ -54,6 +54,16 @@ native fingerprint service is loaded from the supplied source path too; an
 attached source edit must select a different cached version. Real rendering
 remains outstanding. The random temporary directory is removed after the check.
 
+The native renderer's image-load failure guard is installed by
+`workspace_install.require_pdf_images`. Run
+`python deploy/examelite/test-pdf-renderer-install.py NATIVE_RENDERER` to check
+the guarded, repeatable transformation. After applying that transformation to
+an isolated copy, run `node deploy/examelite/test-pdf-renderer.mjs PATCHED_RENDERER`.
+This executes the renderer with a browser double, checking that failed/incomplete
+images never reach PDF output and that failure closes the browser. It does not
+launch a browser, render a PDF or prove visual correctness. User-run deployment
+applies the guard with the normal backup/rollback and runs the contract check.
+
 ## Translated question images
 
 With the browser Vite configuration below running, open

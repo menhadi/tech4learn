@@ -97,6 +97,14 @@ adapter milestone as a release.
    Failure retry is explicitly released by the fixture, not a background worker
    loop. Artifact bytes remain synthetic; actual rendering, production queue
    configuration and worker backoff/exhaustion remain unverified.
+   Source review found that the native renderer treated failed image loads as
+   successful waits and could publish a paper missing diagrams. The repeatable
+   installer now adds a pre-print completeness/dimension check while preserving
+   the native renderer and advances its cache version so old artifacts are not
+   reused by new builds. Contract checks with a browser double cover good,
+   broken and incomplete images, HTTP/math readiness failures and cleanup.
+   The deployment runs these checks before migrations. Actual rendered output
+   is still unverified; these checks do not launch Chromium.
    Native translation completion now also has isolated checks for ready state,
    manual versus automatic approval, repeat completion, contended locks and
    injected feature denial. Provider access is explicitly forbidden in that

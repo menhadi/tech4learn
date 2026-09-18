@@ -1,4 +1,36 @@
 """Pure additive transformations, shared by the installer and local tests."""
+
+def require_pdf_images(text):
+    """Keep the native renderer, but never publish a paper with failed images."""
+    anchor = "  await page.emulateMedia({ media: 'print' });"
+    guard = """  // Tech4Learn: incomplete diagrams must fail the build, not disappear silently.
+  await page.evaluate(() => {
+    const images = Array.from(document.images);
+    if (images.some((image) => !image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0)) {
+      throw new Error('A print image could not be loaded. Retry after restoring the source image.');
+    }
+  });
+"""
+    marker = '// Tech4Learn: incomplete diagrams'
+    if text.count(anchor) != 1:
+        raise ValueError('Unsupported native PDF renderer; no files changed.')
+    if marker in text:
+        if text.count(guard + anchor) != 1 or text.count(marker) != 1:
+            raise ValueError('Modified PDF image guard; no files changed.')
+        return text
+    if "image.addEventListener('error', resolve" not in text or 'await page.pdf({' not in text:
+        raise ValueError('Unsupported native PDF image wait; no files changed.')
+    return text.replace(anchor, guard + anchor)
+
+def refresh_pdf_image_cache(text):
+    """Do not reuse a PDF produced before image completeness was checked."""
+    before = 'public const TEMPLATE_VERSION = 2;'
+    after = 'public const TEMPLATE_VERSION = 3; // Tech4Learn checked print images'
+    if text.count(after) == 1 and before not in text:
+        return text
+    if text.count(before) != 1 or 'Tech4Learn checked print images' in text:
+        raise ValueError('Unsupported native PDF cache version; no files changed.')
+    return text.replace(before, after)
 def add_provider(text):
     marker = 'App\\Providers\\Tech4LearnWorkspaceProvider::class,'
     anchor = 'App\\Providers\\RouteServiceProvider::class,'

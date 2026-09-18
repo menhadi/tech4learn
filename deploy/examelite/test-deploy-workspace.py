@@ -34,6 +34,7 @@ runuser() {
   return 0
 }
 php() { printf 'php %s\n' "$*" >&2; [[ "$CASE" != tests || "$*" != *test-pilot-exam-workflow.php* ]]; }
+node() { printf 'node %s\n' "$*" >&2; [[ "$CASE" != renderer ]]; }
 python3() {
   printf 'python3 %s\n' "$*" >&2
   [[ "$*" != *install-workspace-hosts.py* ]] || return 91
@@ -63,6 +64,12 @@ source "$2"
 
     def test_native_failure_stops_before_migration(self):
         result = self.run_flow("tests")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("artisan", result.stderr)
+        self.assertNotIn("update-ui-template.sh", result.stderr)
+
+    def test_renderer_failure_stops_before_migration(self):
+        result = self.run_flow("renderer")
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("artisan", result.stderr)
         self.assertNotIn("update-ui-template.sh", result.stderr)
