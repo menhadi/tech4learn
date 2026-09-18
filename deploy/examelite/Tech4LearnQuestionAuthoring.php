@@ -36,7 +36,7 @@ final class Tech4LearnQuestionAuthoring
 
     public const EXAM_FIELDS=['name','test_type','test_subject_id','test_topic_id','test_stopic_id','exam_year','exam_session','duration','attempt_count','passing_percentage','display_order','instruction','show_instruction','syllabus','start_date','end_date','groups','packages','language_ids','category_level_1','category_level_2','offline_enabled','online_attempt_enabled','frontend_visible','omr_enabled','browser_tolerance','random_question','result_after_finish','option_shuffle','allow_answer_change','grouping_mode','use_group_timer','timer_mode','is_subject_timer','negative_marking','proctor','calculator_allowed','tolerance_count'];
     public const PACKAGE_FIELDS=['name','description','slug','package_type','amount','discounted_amount','auto_enroll_on_registration','status','expiry_days','display_order','group_ids','tag_ids','category_level_1','category_level_2','show_pdf_download','show_solution_pdf_download','pdf_title_text','pdf_header_text','pdf_footer_text','pdf_watermark_text','solution_pdf_title_text','solution_pdf_header_text','solution_pdf_footer_text','solution_pdf_watermark_text','flashcards_enabled','guest_flashcards_enabled','ai_flashcard_generation_enabled','meta_title','meta_description','meta_keywords','canonical_url','og_title','og_description','og_image','robots_meta','seo_schema'];
-    public function feature(string $kind):string{return $kind==='questions'?'questions':($kind==='exams'?'exams':'subjects');}
+    public function feature(string $kind):string{return in_array($kind,['questions','passages'],true)?'questions':($kind==='exams'?'exams':'subjects');}
     public function newExam():array {
         $fields=array_fill_keys(['offline_enabled','online_attempt_enabled','frontend_visible','omr_enabled','browser_tolerance','random_question','option_shuffle','use_group_timer','is_subject_timer','negative_marking','proctor','calculator_allowed'],false);
         return ['id'=>0,'revision'=>'new','fields'=>array_merge($fields,['name'=>'','test_type'=>'full_length','duration'=>60,'attempt_count'=>1,'passing_percentage'=>null,'display_order'=>0,'groups'=>[],'packages'=>[],'language_ids'=>[],'grouping_mode'=>'subject','timer_mode'=>'none','result_after_finish'=>true,'allow_answer_change'=>true,'show_instruction'=>true,'tolerance_count'=>0]),'test_types'=>\App\Models\Exam::testTypeLabels(),'timezone'=>config('app.timezone','UTC')];
@@ -53,6 +53,7 @@ final class Tech4LearnQuestionAuthoring
           'categories'=>[\App\Models\Category::class,\App\Http\Controllers\CategoryController::class,['title','description','status','display_order','group_ids','group_orders','show_in_header','header_display_order','meta_title','meta_description','meta_keywords','canonical_url','og_title','og_description','og_image','robots_meta','seo_schema'],'category'],
           'exams'=>[\App\Models\Exam::class,\App\Http\Controllers\ExamController::class,self::EXAM_FIELDS,'exam'],
           'questions'=>[Question::class,QuestionController::class,self::FIELDS,'question'],
+          'passages'=>[\App\Models\Passage::class,\App\Http\Controllers\PassageController::class,['name','passages'],'passage'],
           'groups'=>[\App\Models\Group::class,\App\Http\Controllers\GroupController::class,['group_name','display_order'],'group'],
           'subjects'=>[\App\Models\Subject::class,\App\Http\Controllers\SubjectController::class,['subject_name','group_ids','category_ids'],'subject'],
           'topics'=>[\App\Models\Topic::class,\App\Http\Controllers\TopicController::class,['name','group_id','subject_id','display_order'],'topic'],
@@ -71,6 +72,7 @@ final class Tech4LearnQuestionAuthoring
     public function record(string $kind,\Illuminate\Database\Eloquent\Model $model):array {
         if($kind==='questions')return $this->snapshot($model);
         $fields=$model->only(array_values(array_intersect($this->definition($kind)[2],array_keys($model->getAttributes()))));
+        if($kind==='passages')$fields['passages']=$model->langs()->orderBy('language_id')->pluck('passage','language_id')->all();
         if($kind==='languages')$fields=array_merge($fields,['name'=>$model->name,'code'=>$model->code,'is_enabled'=>(bool)$model->is_enabled]);
         if($kind==='packages'){
             $fields['group_ids']=$model->groups()->orderBy('groups.id')->pluck('groups.id')->map(fn($id)=>(int)$id)->all();
@@ -113,7 +115,7 @@ final class Tech4LearnQuestionAuthoring
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'questions',$action);
     }
     public function saveCentralTaxonomy(int $central,string $actor,string $kind,int $id,array $fields,string $revision,string $requestId):array {
-        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams','languages'],true),422);
+        abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams','languages','passages'],true),422);
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,$kind);
     }
     public function saveCentralPackageImage(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
@@ -146,6 +148,7 @@ final class Tech4LearnQuestionAuthoring
         foreach(Tech4LearnQuestionMedia::AUTHORING_FIELDS as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key,$kind==='questions'&&$id>0);
         if($kind==='exams')foreach(['instruction','syllabus'] as $key)if(isset($fields[$key])&&is_string($fields[$key]))$fields[$key]=$this->formattedText($fields[$key],$key);
         if($kind==='packages'&&isset($fields['description'])&&is_string($fields['description']))$fields['description']=$this->formattedText($fields['description'],'description');
+        if($kind==='passages')$this->passageFields($fields);
         $this->translationFields($fields,$action);
         $identity=[$actor,$id,$fields,$revision];if($action!==null)$identity[]=$action;if($kind!=='questions')$identity[]=$kind;
         $fingerprint=hash('sha256',json_encode($identity,JSON_THROW_ON_ERROR));
@@ -191,6 +194,15 @@ final class Tech4LearnQuestionAuthoring
                 abort_unless(in_array($fields['document_type']??null,['questions','solutions'],true),422);
                 \App\Models\Package::where('organization_id',$owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($fields['package_id']);
                 \App\Models\Language::enabledForOrganization($owner)->whereHas('exams',fn($q)=>$q->where('exams.id',$examId))->findOrFail($fields['language_id']);
+    }
+    private function passageFields(array &$fields):void {
+        if(array_key_exists('name',$fields))abort_unless(is_string($fields['name'])&&trim($fields['name'])!==''&&mb_strlen($fields['name'])<=255&&strip_tags($fields['name'])===$fields['name'],422);
+        if(!array_key_exists('passages',$fields))return;
+        abort_unless(is_array($fields['passages'])&&count($fields['passages'])>0&&count($fields['passages'])<=50,422);
+        foreach($fields['passages'] as $language=>$text){
+            abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',(string)$language)&&is_string($text)&&trim($text)!==''&&strlen($text)<=200000,422);
+            $fields['passages'][$language]=$this->formattedText($text,'passage');
+        }
     }
     private function translationFields(array &$fields,?string $action):void {
         if($action==='set-translation-image'){
@@ -262,6 +274,7 @@ final class Tech4LearnQuestionAuthoring
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
+        if($kind==='passages')$this->passageFields($fields);
         $this->translationFields($fields,$action);
         if($kind==='languages'){
             if(!$id)abort_unless(array_keys($fields)===['master_language_id']&&is_int($fields['master_language_id'])&&$fields['master_language_id']>0,422);
@@ -436,6 +449,9 @@ final class Tech4LearnQuestionAuthoring
                 if($kind==='languages'&&!$centralLanguage)$question=$this->owned($kind,$tenant)->where('source_language_id',$fields['master_language_id'])->sole();
                 else {abort_unless(count($created)===1,500,'Native create did not return one question.');$question=$created[0];}
             }
+            if($kind==='passages')Question::where('organization_id',$tenant)->where('passage_id',$question->id)->orderBy('id')->chunkById(100,function($questions){
+                foreach($questions as $source)app(ExamDocumentInvalidationService::class)->invalidateQuestion($source,true);
+            });
             return $this->record($kind,$this->owned($kind,$tenant)->findOrFail($question->id));
         }finally{
             if(!$originalDispatcher)Question::unsetEventDispatcher();else Question::setEventDispatcher($originalDispatcher);

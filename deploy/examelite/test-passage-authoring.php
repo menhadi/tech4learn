@@ -1,0 +1,30 @@
+<?php
+// Native controller and synthetic SQLite only; no application bootstrap.
+require __DIR__.'/test-exam-authoring.php';
+if(isset($argv[3]))require dirname($argv[3]).'/PassageController.php';
+use Illuminate\Support\Facades\DB;
+use App\Models\{Passage,PassageLang,Language};
+if(!DB::getSchemaBuilder()->hasColumn('passage_langs','passage'))DB::statement('ALTER TABLE passage_langs ADD COLUMN passage TEXT');
+foreach(['index'=>'passages','create'=>'passages/create','edit'=>'passages/{passage}/edit'] as $name=>$path)$routes->add((new Illuminate\Routing\Route(['GET'],$path,fn()=>null))->name('passages.'.$name));
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'[]']);
+$lang=Language::create(['organization_id'=>20,'name'=>'Passage fixture language','code'=>'px','is_enabled'=>true]);
+$next=fn()=>sprintf('%s-%s-4%s-a%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),substr(bin2hex(random_bytes(2)),1),substr(bin2hex(random_bytes(2)),1),bin2hex(random_bytes(6)));
+$request=$next();$fields=['name'=>'Synthetic passage authoring','passages'=>[$lang->id=>'<p>Two pairs make four.</p>']];
+$saved=$service->save($workspace,20,$actor,0,$fields,'new',$request,'passages');
+check((int)Passage::findOrFail($saved['id'])->organization_id===20&&str_contains($saved['fields']['passages'][$lang->id],'Two pairs'),'Native passage controller saves owned translated wording');
+check($service->save($workspace,20,$actor,0,$fields,'new',$request,'passages')===$saved,'Identical passage retry returns one saved record');
+$source=App\Models\Question::create(['organization_id'=>20,'question'=>'Synthetic passage reference','passage_id'=>$saved['id']]);
+$invalidationBefore=App\Services\ExamDocumentInvalidationService::$questionCalls;
+$updated=$service->save($workspace,20,$actor,$saved['id'],['passages'=>[$lang->id=>'<p>Updated wording</p>']],$saved['revision'],$next(),'passages');
+check($updated['revision']!==$saved['revision']&&str_contains($updated['fields']['passages'][$lang->id],'Updated wording'),'Passage wording changes the concurrency revision');
+check(App\Services\ExamDocumentInvalidationService::$questionCalls===$invalidationBefore+1,'Referenced source invokes native document invalidation');
+$reject=function(callable $operation,int $status){try{$operation();throw new RuntimeException('Expected passage rejection');}catch(Illuminate\Database\Eloquent\ModelNotFoundException $error){check($status===404,'Passage ownership rejection');}catch(Illuminate\Validation\ValidationException $error){check($status===422,'Passage validation rejection');}catch(Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $error){check($error->getStatusCode()===$status,'Passage rejection status');}};
+$reject(fn()=>$service->save($workspace,20,$actor,$saved['id'],['name'=>'Stale edit'],$saved['revision'],$next(),'passages'),409);
+$foreign=Passage::create(['organization_id'=>10,'name'=>'Foreign passage fixture']);
+$reject(fn()=>$service->save($workspace,20,$actor,$foreign->id,['name'=>'Wrong owner'],'new',$next(),'passages'),404);
+$reject(fn()=>$service->save($workspace,20,$actor,$saved['id'],['passages'=>['01'=>'Invalid language key']],$updated['revision'],$next(),'passages'),422);
+$reject(fn()=>$service->save($workspace,20,$actor,$saved['id'],['passages'=>[$lang->id=>'<img src="https://synthetic.invalid/private.png">']],$updated['revision'],$next(),'passages'),422);
+DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'["questions"]']);
+$reject(fn()=>$service->save($workspace,20,$actor,0,$fields,'new',$request,'passages'),403);
+check(Passage::where('name',$fields['name'])->count()===1,'Failed passage writes create no duplicates');
+echo "Native passage authoring: ownership, wording revisions, retry, stale/foreign denial and feature revocation passed. Routes and interface remain pending.\n";

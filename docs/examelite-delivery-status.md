@@ -171,6 +171,14 @@ adapter milestone as a release.
    catalogue and full plan management, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual
    native capabilities before exposing controls; retain native engine ownership.
+   Passage authoring now has a native service foundation using the inspected
+   PassageController for creation and language-specific edits. Its snapshots
+   include wording in concurrency revisions; bounded text/formula input rejects
+   arbitrary new image references. Organisation fixtures cover native saves,
+   exact retry, stale/foreign denial, feature revocation and invocation of native
+   document invalidation for referenced questions. This is not an enabled tool:
+   central workflow checks, private routes, gateway and shared editor remain
+   pending, as do passage media and actual PDF regeneration verification.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,
