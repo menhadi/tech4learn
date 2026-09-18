@@ -98,6 +98,8 @@ export function DraftForm({
   const latest = useRef(""),
     submitted = useRef(""),
     dirty = useRef(false);
+  const currentDraftState = useRef(draftState);
+  currentDraftState.current = draftState;
   const [status, setStatus] = useState(
       "Changes are saved as a draft on this device. Submit to save the record. Drafts expire after 7 days and are cleared on sign out.",
     ),
@@ -131,7 +133,10 @@ export function DraftForm({
     if (!storageKey || !draftEnabled || restoring.current || !form.current)
       return;
     try {
-      const values = { fields: snapshot(form.current), state: draftState };
+      const values = {
+        fields: snapshot(form.current),
+        state: currentDraftState.current,
+      };
       latest.current = JSON.stringify(values);
       writeDraft(storageKey, values);
       setStatus(
@@ -178,6 +183,7 @@ export function DraftForm({
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
       setStatus("Draft restored. Review the sections before submitting.");
+      dirty.current = true;
       setSaved(null);
     } finally {
       restoring.current = false;
@@ -231,8 +237,12 @@ export function DraftForm({
               type="button"
               className="secondary"
               onClick={() => {
-                try { localStorage.removeItem(storageKey); } catch {
-                  setStatus("Browser storage is unavailable. The draft could not be discarded.");
+                try {
+                  localStorage.removeItem(storageKey);
+                } catch {
+                  setStatus(
+                    "Browser storage is unavailable. The draft could not be discarded.",
+                  );
                   return;
                 }
                 dirty.current = false;

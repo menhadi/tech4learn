@@ -5,6 +5,7 @@ import { DirectoryTable } from "./DirectoryTable";
 import { ExamQuestions } from "./ExamContent";
 import { ExamTaxonomy } from "./ExamTaxonomy";
 import { ExamCapabilities } from "./ExamCapabilities";
+import { ExamPlanAssignment } from "./ExamPlanAssignment";
 const ExamProctorReview = lazy(() =>
   import("./ExamProctorReview").then((module) => ({
     default: module.ExamProctorReview,
@@ -32,16 +33,16 @@ type Feature = keyof typeof labels;
 type Rules = { restrictions: Feature[]; revision: number };
 const coverage: Record<Feature, [string, string]> = {
   subjects: [
-    "Classification, free package details and organisation languages",
-    "Package images, paid packages and central language administration",
+    "Classification, free packages and images, organisation and central languages",
+    "Paid packages and broader native configuration",
   ],
   questions: [
-    "Owned question editing, formula preview and image controls",
-    "Central-original editing and visual formula editor",
+    "Owned and central question editing, formula preview and image controls",
+    "Visual formula editor and remaining native markup formats",
   ],
   exams: [
-    "Exam settings, paper controls, PDF generation and approved downloads",
-    "Rich translation editing, OMR and generated-file verification",
+    "Exam settings, paper controls, translation editing and PDF request/download controls",
+    "Translated exam images, OMR and generated-file verification",
   ],
   taking: [
     "Scoped student links, start, resume, answers and submission",
@@ -66,6 +67,7 @@ export function ExamWorkspace({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [planRevision, setPlanRevision] = useState(0);
   const [page, setPage] = useState("questions");
   const [restrictions, setRestrictions] = useState<Feature[]>([]);
   useEffect(() => {
@@ -328,7 +330,17 @@ export function ExamWorkspace({
         </DirectoryTable>
       )}
       {controls && rules && (
-        <ExamCapabilities key={`${org}-${rules.revision}`} org={org} />
+        <>
+          <ExamPlanAssignment
+            key={`plan-${org}`}
+            org={org}
+            onSaved={() => setPlanRevision((value) => value + 1)}
+          />
+          <ExamCapabilities
+            key={`${org}-${rules.revision}-${planRevision}`}
+            org={org}
+          />
+        </>
       )}
     </section>
   );

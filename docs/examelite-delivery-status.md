@@ -14,7 +14,7 @@ checked commits when the release is ready.
 | Workflow | Current boundary |
 | --- | --- |
 | Organisation and superadmin navigation | Internal Tech4Learn screens; ExamElite remains the backend engine. |
-| Feature controls | Exams module and five native feature groups; revisioned organisation controls and current stored permissions. Commercial plans remain unfinished. |
+| Feature controls | Exams module and five native feature groups; revisioned organisation controls, native plan permissions and superadmin assignment of existing plans. Plan creation, billing and provider management remain unfinished. |
 | Central distribution | Share questions to organisations and pull organisation questions into central ownership as independent copies. No student/result sharing. |
 | Questions and classifications | Native question creation/editing, taxonomy, central language creation/editing, organisation language enabling, free packages and guarded category deletion. |
 | Source media and wording | Raster upload/replacement/removal, protected previews, supported MathML replacement and literal surrounding-text edits/appends. Arbitrary native markup is not fully supported. |
@@ -85,7 +85,7 @@ adapter milestone as a release.
    fixture; AI generation, real plan evaluation and queue transport remain
    unverified by it.
 3. **Complete the agreed module coverage.** Finish platform module/provider
-   catalogue and plan assignment, paid-package workflows, OMR, student answer
+   catalogue and full plan management, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual
    native capabilities before exposing controls; retain native engine ownership.
    A private native capability reader now inventories the installed engine's
@@ -98,12 +98,11 @@ adapter milestone as a release.
    access after the read and rejects stale or inconsistent workspace rules.
    The screen clears old results on failed refresh and organisation changes,
    and distinguishes plan permissions from implemented Tech4Learn tools.
-   Plan assignment and provider management remain unfinished.
+   Provider management and full commercial-plan management remain unfinished.
    Native active-plan options now have a private, paginated reader with the
    current assignment and opaque plan revisions. Its output excludes prices,
    configuration and feature payloads. Isolated checks cover active-only pages,
-   changed plans and workspace ownership. The assignment selector and write
-   workflow are not yet connected; reading options changes no subscription.
+   changed plans and workspace ownership. Reading options changes no subscription.
    A private persistence helper now invokes the native SaaS organisation
    controller to assign an active plan after checking workspace ownership and
    both organisation/plan revisions. It preserves contact, domain, status and
@@ -125,8 +124,16 @@ adapter milestone as a release.
    IDs for retry, strips extra response fields and returns stale assignments as
    conflicts so the interface can request a reload. HTTP tests cover injected
    actors, malformed plans, revoked access and identical retry forwarding.
-   The assignment interface remains to be connected; these endpoints alone do
-   not provide a complete plan-management workflow.
+   The superadmin screen now loads plan choices and assigns an existing plan
+   without changing subscription dates. It keeps uncertain writes locked to the
+   same request, offers a scoped draft restore and reloads the permission view
+   after success. Synthetic browser checks cover selection, identical retry
+   through repeated draft restores, stale conflict recovery and organisation
+   switching. This exposed and fixed a shared-form restore issue: persisting
+   after an asynchronous controlled-state restore used the earlier state.
+   Draft persistence now uses current controlled state and continues saving
+   restored edits. Plan creation, billing, provider controls and a live complete
+   plan-assignment journey remain outside this milestone.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is
