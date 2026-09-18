@@ -13,6 +13,7 @@ $app->instance(CallQueuedHandler::class,new CallQueuedHandler($dispatcher,$app))
 $app->instance(App\Services\ExamDocumentLifecycleService::class,$lifecycle);
 $paper->languages()->updateExistingPivot($lang->id,['translation_approved_at'=>now()]);
 $build->refresh()->update(['status'=>'queued']);
+$seedPdf($changedFingerprint,$pdf);
 $queue->push(new GenerateExamPdfJob($build->id));
 check($queue->size()===1&&$build->fresh()->status==='queued','Enqueue alone does not complete a PDF');
 $reserved=$queue->pop();
@@ -25,14 +26,18 @@ check(file_get_contents($directory.'/current.pdf')===$pdf,'Queued completion pre
 
 $queue->push(new GenerateExamPdfJob($build->id));$locks->available=false;
 $reserved=$queue->pop();$releasedBefore=$locks->released;$reserved->fire();
-check($reserved->isReleased()&&$queue->size()===1&&$queue->pop()===null,'Contended build is delayed, not acknowledged or immediately retried');
+$modernWorker=defined(GenerateExamPdfJob::class.'::QUEUE');
+if($modernWorker)check($reserved->isDeleted()&&$queue->size()===0,'Current native worker acknowledges duplicate work while another worker owns the lock');
+else check($reserved->isReleased()&&$queue->size()===1&&$queue->pop()===null,'Legacy contended build is delayed, not acknowledged or immediately retried');
 check($locks->released===$releasedBefore&&file_get_contents($directory.'/current.pdf')===$pdf,'Contended worker does not release another lock or change the PDF');
 $locks->available=true;
-DB::table('jobs')->update(['available_at'=>time()-1]);
-$retried=$queue->pop();check($retried->attempts()===2,'Delayed retry retains attempt count');$retried->fire();
+if($modernWorker)$queue->push(new GenerateExamPdfJob($build->id));
+else DB::table('jobs')->update(['available_at'=>time()-1]);
+$retried=$queue->pop();check($retried->attempts()===($modernWorker?1:2),'Retry retains the native queue policy');$retried->fire();
 check($queue->size()===0&&$build->fresh()->status==='ready','Released native job completes on retry');
 
 $paper->languages()->updateExistingPivot($lang->id,['translation_approved_at'=>null]);
+$build->refresh()->update(['status'=>'queued']);
 $queue->push(new GenerateExamPdfJob($build->id));$denied=$queue->pop();
 try{$denied->fire();throw new RuntimeException('Expected queued approval denial');}
 catch(RuntimeException $e){check($e->getMessage()==='Translation is not approved.','Queued execution rechecks approval');}
@@ -41,9 +46,10 @@ check(file_get_contents($directory.'/current.pdf')===$pdf,'Queue failure preserv
 // Deliberately release here; the production worker's backoff/failure loop is not simulated.
 $denied->release(0);
 $paper->languages()->updateExistingPivot($lang->id,['translation_approved_at'=>now()]);
+$seedPdf($changedFingerprint,$pdf);
 $recovered=$queue->pop();check($recovered->attempts()===2,'Failed transport retry retains attempt count');$recovered->fire();
 check($queue->size()===0&&$build->fresh()->status==='ready','Approved queued retry recovers');
-echo "Native PDF database queue: serialization, reservation, completion, contention delay and approval retry passed.\n";
+echo "Native PDF database queue: serialization, reservation, completion, native contention policy and approval retry passed.\n";
 
 // Exercise the actual Worker exception policy, rather than manually releasing jobs.
 $events=new Illuminate\Events\Dispatcher($app);
@@ -64,6 +70,7 @@ $exceptions=new class implements Illuminate\Contracts\Debug\ExceptionHandler {
 $runner=new Illuminate\Queue\Worker($factory,$events,$exceptions,fn()=>false);
 $options=new Illuminate\Queue\WorkerOptions(backoff:'5,11',sleep:0,maxTries:9);
 $paper->languages()->updateExistingPivot($lang->id,['translation_approved_at'=>null]);
+$build->refresh()->update(['status'=>'queued']);
 $queue->push(new GenerateExamPdfJob($build->id));
 for($attempt=1;$attempt<=3;$attempt++){
  $job=$queue->pop();check($job!==null&&$job->attempts()===$attempt,'Real worker receives retained attempt count');
@@ -84,6 +91,7 @@ for($attempt=1;$attempt<=3;$attempt++){
 check(count($failedEvents)===1&&count($releaseEvents)===2,'Worker emits one terminal failure and two retry events');
 check($build->fresh()->status==='failed','Exhausted PDF remains failed rather than ready');
 $paper->languages()->updateExistingPivot($lang->id,['translation_approved_at'=>now()]);
+$seedPdf($changedFingerprint,$pdf);
 $queue->push(new GenerateExamPdfJob($build->id));$job=$queue->pop();
 $runner->process('synthetic',$job,$options);
 check($job->isDeleted()&&$queue->size()===0&&$build->fresh()->status==='ready','Explicit new request recovers after approval is restored');

@@ -132,8 +132,7 @@ adapter milestone as a release.
    removed. The worker patch accepts the newer ready-artifact shortcut and
    preserves its runtime retries while putting lookup under lock cleanup.
    Both source generations pass installer repeatability/rejection checks;
-   transformed current PHP/JavaScript also pass syntax checks. Current-native
-   worker execution remains unverified. The renderer contract double now runs
+   transformed current PHP/JavaScript also pass syntax checks. The renderer contract double now runs
    both complete source generations, including the current runtime handshake,
    version-mismatch recovery/exhaustion, native image replacement, pre-existing
    missing-source markers, MathJax errors and print failures. The unpatched
@@ -147,8 +146,17 @@ adapter milestone as a release.
    are not retrospectively certified by the new image guard. Subsequent actual
    renders use the completeness guard. Unknown schemas, versions or fingerprint
    layouts still stop installation. Both native cache generations and the
-   deployment-flow tests pass. **Do not deploy yet:** current worker execution
-   and actual rendering still need verification, alongside the remaining scope.
+   deployment-flow tests pass. The fresh native worker, cache and lifecycle now
+   also pass isolated cached-artifact execution and actual Laravel database
+   queue/Worker checks. Fixtures explicitly queue replacements and reseed
+   synthetic artifacts after the current engine removes superseded versions;
+   accidental real rendering is forbidden. Tests preserve the native contention
+   policies: the legacy worker delays a duplicate; the current worker acknowledges
+   it while the lock owner continues. Both versions cover approval failure,
+   retry exhaustion/recovery and missing-build lock cleanup. The unpatched
+   current worker fails that cleanup regression and the patched copy passes.
+   **Do not deploy yet:** actual rendering and production worker configuration
+   still need verification, alongside the remaining scope.
    Native translation completion now also has isolated checks for ready state,
    manual versus automatic approval, repeat completion, contended locks and
    injected feature denial. Provider access is explicitly forbidden in that

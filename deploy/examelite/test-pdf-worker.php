@@ -4,7 +4,7 @@ require __DIR__.'/test-exam-authoring.php';
 $cachePath=$argv[6]??'';
 if(!is_file($cachePath))throw new RuntimeException('Supply the native ExamPdfCacheService.php path as argument six.');
 require $cachePath;
-require dirname($cachePath).'/ExamDocumentLifecycleService.php';
+require $argv[7]??dirname($cachePath).'/ExamDocumentLifecycleService.php';
 $jobPath=$argv[5]??'';
 if(!is_file($jobPath))throw new RuntimeException('Supply the native GenerateExamPdfJob.php path as argument five.');
 require $jobPath;
@@ -13,6 +13,8 @@ use App\Models\{Exam,ExamPdfBuild,Language};
 DB::statement('CREATE TABLE configurations(id INTEGER PRIMARY KEY,organization_id INTEGER,name TEXT,updated_at TEXT)');
 
 DB::statement('CREATE TABLE exam_pdf_builds(id INTEGER PRIMARY KEY,organization_id INTEGER,exam_id INTEGER,package_id INTEGER,language_id INTEGER,document_type TEXT,status TEXT,current_path TEXT,version_path TEXT,source_fingerprint TEXT,file_size INTEGER,last_error TEXT,started_at TEXT,completed_at TEXT,created_at TEXT,updated_at TEXT)');
+DB::statement('ALTER TABLE exam_pdf_builds ADD COLUMN fingerprint_schema_version INTEGER');
+if(!DB::getSchemaBuilder()->hasColumn('question_langs','si_answer1'))DB::statement('ALTER TABLE question_langs ADD COLUMN si_answer1 TEXT');
 $app->instance('files',new Illuminate\Filesystem\Filesystem());File::clearResolvedInstance('files');
 $locks=new class {
  public int $released=0;public bool $available=true;
@@ -23,6 +25,11 @@ $directory=sys_get_temp_dir().'/t4l-worker-'.bin2hex(random_bytes(8));mkdir($dir
 $lifecycle=new class($directory) extends App\Services\ExamDocumentLifecycleService {
  public function __construct(private string $testDirectory){}
  public function directory(Exam $exam,?App\Models\Package $package,?Language $language,string $type):string{return $this->testDirectory;}
+ public function printUrl(App\Models\ExamPdfBuild $build):string{throw new RuntimeException('Fixture must use a seeded PDF; rendering is forbidden.');}
+};
+$seedPdf=function(string $fingerprint,string $bytes)use($directory):void{
+ if(!is_dir($directory.'/versions'))mkdir($directory.'/versions',0700,true);
+ if(file_put_contents($directory.'/versions/'.$fingerprint.'.pdf',$bytes)===false)throw new RuntimeException('Cannot seed synthetic PDF.');
 };
 try {
  $paper=Exam::create(['organization_id'=>20,'name'=>'Synthetic worker paper','status'=>'Inactive']);
@@ -42,10 +49,12 @@ try {
  $changedFingerprint=app(App\Services\ExamPdfCacheService::class)->fingerprint($paper->fresh(),$lang->fresh(),null,false);
  check($changedFingerprint!==$fingerprint,'Native fingerprint changes when attached source changes');
  $pdf.="\n% Changed synthetic version";
- file_put_contents($directory.'/versions/'.$changedFingerprint.'.pdf',$pdf);
+ $seedPdf($changedFingerprint,$pdf);
+ $build->refresh()->update(['status'=>'queued']); // A replacement request follows source invalidation.
  $worker->handle($lifecycle);
  check($build->fresh()->source_fingerprint===$changedFingerprint&&file_get_contents($directory.'/current.pdf')===$pdf,'Native worker selects the changed source version');
  $paper->languages()->updateExistingPivot($lang->id,['translation_approved_at'=>null]);
+ $build->refresh()->update(['status'=>'queued']);
  try{$worker->handle($lifecycle);throw new RuntimeException('Expected approval rejection');}
  catch(RuntimeException $e){check($e->getMessage()==='Translation is not approved.','Unapproved translation stops worker before rendering');}
  check($build->fresh()->status==='failed'&&$locks->released===4&&file_get_contents($directory.'/current.pdf')===$pdf,'Failed replacement preserves prior artifact and releases lock');
