@@ -176,8 +176,12 @@ adapter milestone as a release.
    include wording in concurrency revisions; bounded text/formula input rejects
    arbitrary new image references. Organisation fixtures cover native saves,
    exact retry, stale/foreign denial, feature revocation and invocation of native
-   document invalidation for referenced questions. This is not an enabled tool:
-   central workflow checks, private routes, gateway and shared editor remain
+   document invalidation for referenced questions. Central native authoring and
+   private read/write/catalogue routes now also pass checks for ownership,
+   independent language edits, exact replay and revoked actor membership.
+   Passage choices honour the questions restriction even when other features
+   remain available. Deployment includes these isolated native checks. This is
+   not yet an enabled Tech4Learn tool: the gateway and shared editor remain
    pending, as do passage media and actual PDF regeneration verification.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using

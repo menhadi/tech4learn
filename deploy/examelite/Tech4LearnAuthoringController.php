@@ -18,13 +18,13 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         return [$tenant,(int)$w->organization_id];
     }
     public function choices(Request $r,string $org,string $kind){
-        [$central,$owner]=$this->workspace($r,$org,$kind==='exams'?'exams':null);
+        [$central,$owner]=$this->workspace($r,$org,$kind==='exams'?'exams':($kind==='passages'?'questions':null));
         return $this->ownerChoices($r,$central,$owner,$kind);
     }
     public function centralChoices(Request $r,string $kind){
         $central=(int)$this->configuration($r)['_platform']['organization_id'];
         \App\Models\Organization::where('status','active')->findOrFail($central);
-        abort_unless(in_array($kind,['groups','subjects','sections','topics','subtopics','languages','types','difficulties','categories','subcategories','packages','package-tags','exams'],true),404);
+        abort_unless(in_array($kind,['groups','subjects','sections','topics','subtopics','languages','types','difficulties','categories','subcategories','packages','package-tags','exams','passages'],true),404);
         abort_unless(!array_diff(array_keys($r->query()),$kind==='subcategories'?['search','after','parent_id']:['search','after']),422);
         return $this->ownerChoices($r,$central,$central,$kind,true);
     }
@@ -43,7 +43,7 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
             'exams'=>['exams','name'], 'packages'=>['packages','name'], 'groups'=>['groups','group_name'], 'subjects'=>['subjects','subject_name'],
             'sections'=>['question_sections','name'], 'topics'=>['topics','name'],
             'subtopics'=>['stopics','name'], 'languages'=>['languages','name'],
-            'types'=>['qtypes','question_type'], 'difficulties'=>['diffs','diff_level'],
+            'passages'=>['passages','name'], 'types'=>['qtypes','question_type'], 'difficulties'=>['diffs','diff_level'],
         ];
         abort_unless(isset($definitions[$kind]),404);[$table,$label]=$definitions[$kind];
         if($kind==='package-tags')$query=DB::table('package_tags')->where('status',1)->where(fn($q)=>$q->whereNull('organization_id')->orWhere('organization_id',$owner));

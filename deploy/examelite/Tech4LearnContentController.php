@@ -15,7 +15,7 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id)&&isset(\App\Services\Tech4LearnQuestionAuthoring::EXAM_ACTIONS[$action]),422);
         return $this->centralWrite($r,$id,$action,'exams');
     }
-    private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams','languages'],true),404);}
+    private function centralTaxonomyKind(string $kind):void {abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams','languages','passages'],true),404);}
     public function centralTaxonomy(Request $r,string $kind,string $id) {
         $central=(int)$this->configuration($r)['_platform']['organization_id'];
         $this->centralTaxonomyKind($kind);

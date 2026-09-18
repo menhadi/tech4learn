@@ -27,4 +27,39 @@ $reject(fn()=>$service->save($workspace,20,$actor,$saved['id'],['passages'=>[$la
 DB::table('tech4learn_workspaces')->where('id',$workspace)->update(['restrictions'=>'["questions"]']);
 $reject(fn()=>$service->save($workspace,20,$actor,0,$fields,'new',$request,'passages'),403);
 check(Passage::where('name',$fields['name'])->count()===1,'Failed passage writes create no duplicates');
-echo "Native passage authoring: ownership, wording revisions, retry, stale/foreign denial and feature revocation passed. Routes and interface remain pending.\n";
+DB::statement('CREATE TABLE tech4learn_central_users(organization_id INTEGER,local_id TEXT,external_id INTEGER UNIQUE,PRIMARY KEY(organization_id,local_id))');
+DB::statement('CREATE TABLE tech4learn_central_requests(organization_id INTEGER,request_id TEXT,actor_id TEXT,fingerprint TEXT,result TEXT,created_at TEXT,PRIMARY KEY(organization_id,request_id))');
+foreach(['username','email','password','ugroup_id','is_platform_admin','created_at','updated_at'] as $column)DB::statement('ALTER TABLE users ADD COLUMN '.$column.' TEXT');
+foreach(['role','created_at','updated_at'] as $column)DB::statement('ALTER TABLE organization_users ADD COLUMN '.$column.' TEXT');
+$app['config']->set('hashing',['driver'=>'bcrypt','bcrypt'=>['rounds'=>4]]);
+$app->instance('hash',new Illuminate\Hashing\HashManager($app));
+Illuminate\Support\Facades\Hash::clearResolvedInstance('hash');
+$centralActor=$next();$centralLanguage=Language::create(['organization_id'=>10,'name'=>'Central passage language','code'=>'cp','is_enabled'=>true]);
+$secondLanguage=Language::create(['organization_id'=>10,'name'=>'Second passage language','code'=>'sp','is_enabled'=>true]);
+$centralFields=['name'=>'Synthetic central passage','passages'=>[$centralLanguage->id=>'<p>Central wording</p>',$secondLanguage->id=>'<p>Preserved wording</p>']];
+$key=$next();$central=$service->saveCentralTaxonomy(10,$centralActor,'passages',0,$centralFields,'new',$key);
+check((int)Passage::findOrFail($central['id'])->organization_id===10,'Central passage belongs to central owner');
+check($service->saveCentralTaxonomy(10,$centralActor,'passages',0,$centralFields,'new',$key)===$central,'Central exact retry is idempotent');
+$centralUpdated=$service->saveCentralTaxonomy(10,$centralActor,'passages',$central['id'],['passages'=>[$centralLanguage->id=>'<p>Central edit</p>']],$central['revision'],$next());
+check(str_contains($centralUpdated['fields']['passages'][$secondLanguage->id],'Preserved wording'),'Editing one passage language preserves the other');
+check($service->record('passages',Passage::findOrFail($saved['id']))===$updated,'Central editing preserves organisation passage');
+$reject(fn()=>$service->saveCentralTaxonomy(10,$centralActor,'passages',$saved['id'],['name'=>'Foreign edit'],$updated['revision'],$next()),404);
+$reject(fn()=>$service->saveCentralTaxonomy(10,$centralActor,'passages',$central['id'],['passages'=>[$lang->id=>'Wrong owner language']],$centralUpdated['revision'],$next()),422);
+$nativeActor=DB::table('tech4learn_central_users')->where('local_id',$centralActor)->value('external_id');
+require __DIR__.'/Tech4LearnContentController.php';
+$centralController=new class extends App\Http\Controllers\Tech4LearnContentController {
+ protected function configuration(Illuminate\Http\Request $r):array{return ['_platform'=>['organization_id'=>10]];}
+ protected function reply(int $owner,array $data){return $data;}
+};
+$read=$centralController->centralTaxonomy(Illuminate\Http\Request::create('/','GET'),'passages',(string)$central['id']);
+check($read['record']===$centralUpdated,'Private central passage read returns owned revision and wording');
+$body=['actor_id'=>$centralActor,'request_id'=>$next(),'revision'=>$centralUpdated['revision'],'fields'=>['name'=>'Central route rename']];
+$reply=$centralController->centralTaxonomyWrite(Illuminate\Http\Request::create('/','POST',$body),'passages',(string)$central['id']);
+check($reply['saved']&&$reply['record']['fields']['name']==='Central route rename','Private central passage write uses native controller');
+check($centralController->centralTaxonomyWrite(Illuminate\Http\Request::create('/','POST',$body),'passages',(string)$central['id'])===$reply,'Private route retries preserve receipt');
+$choices=$controller->centralChoices(Illuminate\Http\Request::create('/','GET'),'passages');
+check(in_array($central['id'],array_column($choices['items'],'id'),true)&&!in_array($saved['id'],array_column($choices['items'],'id'),true),'Central passage catalogue excludes organisation records');
+$reject(fn()=>$controller->choices(Illuminate\Http\Request::create('/','GET'),$workspace,'passages'),403);
+DB::table('organization_users')->where('organization_id',10)->where('user_id',$nativeActor)->update(['status'=>0]);
+$reject(fn()=>$service->saveCentralTaxonomy(10,$centralActor,'passages',0,$centralFields,'new',$key),403);
+echo "Native passage authoring: both owners, private central routes, scoped catalogue, preserved languages, revisions/retries and revoked access passed. Gateway and interface remain pending.\n";
