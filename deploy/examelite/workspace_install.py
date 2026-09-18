@@ -31,6 +31,25 @@ def refresh_pdf_image_cache(text):
     if text.count(before) != 1 or 'Tech4Learn checked print images' in text:
         raise ValueError('Unsupported native PDF cache version; no files changed.')
     return text.replace(before, after)
+def protect_pdf_worker_lookup(text):
+    """Release the acquired native PDF lock even when the build lookup fails."""
+    lookup = "$build = ExamPdfBuild::with(['exam.organization', 'package', 'language'])->findOrFail($this->buildId);"
+    before = "        " + lookup + "\n        $temporary = null;\n        $next = null;\n\n        try {"
+    after = "        // Tech4Learn: build lookup belongs inside the acquired lock's cleanup scope.\n        $build = null;\n        $temporary = null;\n        $next = null;\n\n        try {\n            " + lookup
+    catch_before = "$build->update(['status' => 'failed', 'last_error' => mb_substr($exception->getMessage(), 0, 2000)]);"
+    catch_after = "$build?->update(['status' => 'failed', 'last_error' => mb_substr($exception->getMessage(), 0, 2000)]);"
+    marker = '// Tech4Learn: build lookup belongs inside'
+    cleanup = "        } finally {\n            if ($temporary && is_file($temporary)) File::delete($temporary);\n            if ($next && is_file($next)) File::delete($next);\n            $lock->release();\n        }"
+    if text.count(cleanup) != 1:
+        raise ValueError('Unsupported native PDF lock cleanup; no files changed.')
+    if marker in text:
+        if text.count(after) != 1 or text.count(catch_after) != 1 or text.count(marker) != 1:
+            raise ValueError('Modified PDF worker cleanup guard; no files changed.')
+        return text
+    if text.count(before) != 1 or text.count(catch_before) != 1:
+        raise ValueError('Unsupported native PDF worker; no files changed.')
+    return text.replace(before, after).replace(catch_before, catch_after)
+
 def add_provider(text):
     marker = 'App\\Providers\\Tech4LearnWorkspaceProvider::class,'
     anchor = 'App\\Providers\\RouteServiceProvider::class,'

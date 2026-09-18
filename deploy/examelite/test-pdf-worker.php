@@ -4,7 +4,7 @@ require __DIR__.'/test-exam-authoring.php';
 $cachePath=$argv[6]??'';
 if(!is_file($cachePath))throw new RuntimeException('Supply the native ExamPdfCacheService.php path as argument six.');
 require $cachePath;
-require dirname($argv[3]).'/ExamDocumentLifecycleService.php';
+require dirname($cachePath).'/ExamDocumentLifecycleService.php';
 $jobPath=$argv[5]??'';
 if(!is_file($jobPath))throw new RuntimeException('Supply the native GenerateExamPdfJob.php path as argument five.');
 require $jobPath;
@@ -51,6 +51,12 @@ try {
  check($build->fresh()->status==='failed'&&$locks->released===4&&file_get_contents($directory.'/current.pdf')===$pdf,'Failed replacement preserves prior artifact and releases lock');
  check(glob($directory.'/*.tmp.pdf')===[]&&glob($directory.'/.current.*.pdf')===[],'No temporary activation files remain');
  require __DIR__.'/test-pdf-database-queue.php';
+ $releasedBefore=$locks->released;
+ $missingId=(int)ExamPdfBuild::max('id')+1000;
+ try{(new App\Jobs\GenerateExamPdfJob($missingId))->handle($lifecycle);throw new RuntimeException('Expected missing build');}
+ catch(Illuminate\Database\Eloquent\ModelNotFoundException $e){}
+ check($locks->released===$releasedBefore+1,'Missing build releases its acquired lock instead of waiting for expiry');
+ check(file_get_contents($directory.'/current.pdf')===$pdf,'Missing build leaves prior artifact intact');
 } finally {
  // Only this freshly-created random fixture directory can be removed.
  $resolved=realpath($directory);$tempRoot=realpath(sys_get_temp_dir());

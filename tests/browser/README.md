@@ -80,12 +80,23 @@ after translation approval is removed. It also runs Laravel's database queue,
 serialized native job and queued handler against that synthetic database:
 reservation excludes a second consumer, completion acknowledges the job,
 lock contention delays it, and approval failure remains unacknowledged until
-an explicitly released retry completes. Native timeout/attempt settings and
-retry counts are checked. This does not exercise a long-running worker's
-backoff/failure loop, render a PDF or use live environment settings. The
+an explicitly released retry completes. The same fixture additionally invokes
+Laravel's actual Worker processing policy: automatic attempt-specific backoff,
+native three-attempt exhaustion, terminal failure events and recovery through
+an explicit new request. Native timeout/attempt settings and retry counts are
+checked. This does not run a daemon, test timeout signals or failed-job storage,
+render a PDF or use live environment settings. The
 native fingerprint service is loaded from the supplied source path too; an
 attached source edit must select a different cached version. Real rendering
 remains outstanding. The random temporary directory is removed after the check.
+
+Use a native job copy patched with `workspace_install.protect_pdf_worker_lookup`.
+The fixture verifies that a missing build releases the already acquired lock;
+the unpatched job fails this regression. Run
+`python deploy/examelite/test-pdf-worker-install.py NATIVE_JOB` to check the
+repeatable transformation. User-run installation backs up and lints the native
+job with the other changes; deployment verifies the installed guard before
+migrations. No native source repository or live files are changed by local tests.
 
 The native renderer's image-load failure guard is installed by
 `workspace_install.require_pdf_images`. Run

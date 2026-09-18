@@ -94,9 +94,20 @@ adapter milestone as a release.
    reserves it, invokes its queued handler and acknowledges completion. Checks
    cover reservation exclusion, contended-lock delayed release, retained retry
    counts and approval failure/recovery without replacing the prior artifact.
-   Failure retry is explicitly released by the fixture, not a background worker
-   loop. Artifact bytes remain synthetic; actual rendering, production queue
-   configuration and worker backoff/exhaustion remain unverified.
+   The fixture now also invokes Laravel's actual Worker processing policy:
+   failed jobs are automatically released with attempt-specific backoff, the
+   native three-attempt limit exhausts the job, one failure event is emitted,
+   and an explicit new request recovers after translation approval is restored.
+   This is in-process worker execution; daemon operation, timeout signals and
+   production failed-job persistence remain unverified. Artifact bytes remain
+   synthetic; actual rendering and production queue configuration remain open.
+   A missing native build was found to throw before the acquired lock's cleanup
+   scope, leaving it held until expiry. The guarded installer now moves lookup
+   inside that scope and tolerates the missing row in failure reporting. The
+   regression fails against the original source and passes against the patched
+   isolated copy, confirming release without changing the prior artifact.
+   Installer checks cover repeatability, modified/unknown layouts and stopping
+   deployment before migrations if the guard cannot be verified.
    Source review found that the native renderer treated failed image loads as
    successful waits and could publish a paper missing diagrams. The repeatable
    installer now adds a pre-print completeness/dimension check while preserving

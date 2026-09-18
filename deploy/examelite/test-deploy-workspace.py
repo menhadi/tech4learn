@@ -38,6 +38,7 @@ node() { printf 'node %s\n' "$*" >&2; [[ "$CASE" != renderer ]]; }
 python3() {
   printf 'python3 %s\n' "$*" >&2
   [[ "$*" != *install-workspace-hosts.py* ]] || return 91
+  [[ "$CASE" != worker || "$*" != *test-pdf-worker-install.py* ]] || return 92
   [[ "$CASE" != health || "$*" != *check-workspace-connection.py || "$*" == *--configuration-only* ]]
 }
 bash() { printf 'bash %s\n' "$*" >&2; }
@@ -79,6 +80,12 @@ source "$2"
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("python3", result.stderr)
         self.assertNotIn("php", result.stderr)
+
+    def test_worker_guard_failure_stops_before_migration(self):
+        result = self.run_flow("worker")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("artisan", result.stderr)
+        self.assertNotIn("update-ui-template.sh", result.stderr)
 
 
 if __name__ == "__main__":
