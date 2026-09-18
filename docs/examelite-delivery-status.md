@@ -175,7 +175,7 @@ adapter milestone as a release.
    provider work after completion. Foreign/unlinked language and revoked-feature
    checks stop before provider selection. Manual review stays unapproved after
    completion. The user-run deployment gates migration on this fixture, and
-   nine isolated deployment-flow checks pass. This covers the native generation
+   ten isolated deployment-flow checks pass. This covers the native generation
    pipeline; real provider output quality, plan evaluation and queue/daemon
    operation still require verification.
    Generation regression checks exposed a late-response overwrite: source or
@@ -190,6 +190,16 @@ adapter milestone as a release.
    the current native service. Installer checks cover repeat installation and
    refusal of modified/unknown guards. These are isolated interleaving checks,
    not production database concurrency or live deployment verification.
+   A separate translation-job fixture now runs the real Laravel database queue,
+   overlap middleware, cache locks and Worker failure handling with scripted
+   translator/document boundaries. It covers delayed continuation, approval and
+   package PDF flags, failure limits and a fresh request after failure. Both the
+   older three-attempt job and a fresh read-only copy of the current one-attempt
+   job pass. Current-job checks additionally cover duplicate dispatch suppression,
+   preservation of the approval request and actor across continuation, and
+   stopping already-failed translations before provider work. Deployment includes
+   this fixture before migrations. This is in-process queue verification, not a
+   connected provider-to-PDF journey or production worker-daemon verification.
 3. **Complete the agreed module coverage.** Finish platform module/provider
    catalogue and full plan management, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual

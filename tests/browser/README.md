@@ -105,6 +105,15 @@ that regression. `test-translation-install.py SERVICE_SOURCE` checks the pure
 installer transformation and refusal of modified guards. No live files are
 changed by these tests.
 
+`test-translation-worker.php` takes the same four native fixture arguments, with
+an optional fifth path to `TranslateExamLanguageJob.php`. It runs the native job
+through Laravel's SQLite database queue, overlap middleware and Worker exception
+policy. Translator results and document requests are scripted boundaries.
+Checks cover continuation, native attempt limits, explicit new work, PDF approval
+and package flags. The current unique job additionally preserves approval/actor
+settings and refuses to restart an already-failed translation. This does not
+contact providers, render PDFs or run a production daemon.
+
 ## Native multilingual passage delivery
 
 The separate `test-passage-media.php` suite takes `VENDOR_AUTOLOAD
