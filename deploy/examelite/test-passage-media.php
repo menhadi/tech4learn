@@ -1,0 +1,43 @@
+<?php
+// Actual native models and normaliser, isolated SQLite and synthetic in-memory images.
+require __DIR__.'/test-attempt-answers.php';
+use App\Models\{Passage,PassageLang,Language};
+use Illuminate\Support\Facades\DB;
+if(!DB::getSchemaBuilder()->hasColumn('passage_langs','passage'))DB::statement('ALTER TABLE passage_langs ADD COLUMN passage TEXT');
+$sourceLanguage=Language::create(['organization_id'=>20,'name'=>'Source fixture language','code'=>'s1']);
+$selectedLanguage=Language::create(['organization_id'=>20,'name'=>'Selected fixture language','code'=>'s2']);
+$otherLanguage=Language::create(['organization_id'=>20,'name'=>'Other fixture language','code'=>'s3']);
+$passage=Passage::create(['organization_id'=>20,'name'=>'Synthetic multilingual passage']);
+$png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=');
+$sourceImage='data:image/png;base64,'.base64_encode($png.'source');
+$selectedImage='data:image/png;base64,'.base64_encode($png.'selected');
+$otherImage='data:image/png;base64,'.base64_encode($png.'other');
+// Deliberately insert the unrelated language first to check deterministic source fallback.
+$otherWording=PassageLang::create(['passage_id'=>$passage->id,'language_id'=>$otherLanguage->id,'passage'=>'Other wording <img src="'.$otherImage.'">']);
+$sourceWording=PassageLang::create(['passage_id'=>$passage->id,'language_id'=>$sourceLanguage->id,'passage'=>'Source wording <img src="'.$sourceImage.'">']);
+$selectedWording=PassageLang::create(['passage_id'=>$passage->id,'language_id'=>$selectedLanguage->id,'passage'=>'Selected wording <math><mfrac><mn>1</mn><mn>2</mn></mfrac></math><img src="'.$selectedImage.'" onerror="alert(1)">']);
+$display->language_id=$sourceLanguage->id;
+$display->setRelation('passage',$passage);
+$attempt->language_id=$selectedLanguage->id;
+$native['selectedLanguageId']=$selectedLanguage->id;
+$reader=new App\Services\Tech4LearnQuestionMedia();
+$project=function()use($projection,$native,$student){return $projection->fromNativeView($native,20,$student->id)['questions'][0]['passage']['content'];};
+$html=$project();
+check(str_contains($html,'Selected wording')&&!str_contains($html,'Source wording')&&!str_contains($html,'Other wording'),'Passage follows selected exam language rather than source question language');
+check(str_contains($html,'\frac{1}{2}')&&str_contains($html,'t4l-media:'.hash('sha256',$selectedImage))&&!str_contains($html,'onerror')&&!str_contains($html,'data:image'),'Native formula normalisation preserves the protected passage diagram');
+$image=$reader->read($display,$attempt,hash('sha256',$selectedImage));
+check($image['base64']===base64_encode($png.'selected'),'Protected media serves the diagram actually displayed');
+foreach([$sourceImage,$otherImage] as $hidden)rejectAnswer(fn()=>$reader->read($display,$attempt,hash('sha256',$hidden)),'Other passage language diagram is not exposed');
+$selectedWording->delete();
+$html=$project();
+check(str_contains($html,'Source wording')&&!str_contains($html,'Other wording'),'Missing selected wording falls back to the question source language');
+check($reader->read($display,$attempt,hash('sha256',$sourceImage))['base64']===base64_encode($png.'source'),'Source fallback display and protected media agree');
+rejectAnswer(fn()=>$reader->read($display,$attempt,hash('sha256',$selectedImage)),'Removed translation diagram is no longer accessible');
+$sourceWording->delete();
+check(str_contains($project(),'Other wording')&&$reader->read($display,$attempt,hash('sha256',$otherImage))['base64']===base64_encode($png.'other'),'Legacy last-resort passage fallback is shared by display and media');
+$passage->organization_id=99;
+rejectAnswer(fn()=>$project(),'Foreign passage cannot be displayed');
+rejectAnswer(fn()=>$reader->read($display,$attempt,hash('sha256',$otherImage)),'Foreign passage media cannot be read');
+$passage->organization_id=20;$attempt->end_time=now();
+rejectAnswer(fn()=>$reader->read($display,$attempt,hash('sha256',$otherImage)),'Student media remains closed after submission');
+echo "Native passage delivery: selected language, native formula normalisation, protected matching images, source fallback and foreign/submitted denial passed.\n";

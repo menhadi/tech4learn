@@ -74,15 +74,22 @@ class Tech4LearnQuestionMedia
   $decoded=json_decode($value,true);
   return is_array($decoded)&&count(array_filter($decoded,fn($v)=>!is_string($v)&&!is_numeric($v)))===0?implode(', ',$decoded):$value;
  }
+ /** Use the same selected passage wording for student display and protected media. */
+ public function passageWording(Question $question,int $language):?array {
+  $passage=$question->passage;if(!$passage)return null;
+  abort_unless((int)$passage->organization_id===(int)$question->organization_id,403);
+  $wording=$language>0?$passage->langs()->where('language_id',$language)->first():null;
+  $wording??=$passage->langs()->where('language_id',(int)$question->language_id)->first();
+  $wording??=$passage->langs()->orderBy('id')->first();
+  return ['name'=>(string)$passage->name,'content'=>(string)($wording?->passage??'')];
+ }
  private function readQuestion(Question $question,ExamResult $attempt,string $key,string $reference=''):array {
   abort_unless(preg_match('/^[a-f0-9]{64}$/D',$key),422);
   abort_unless((int)$question->organization_id===(int)$attempt->organization_id,403);
   $translation=$question->langs()->where('language_id',(int)$attempt->language_id)->first();$sources=$this->sources($reference);
   foreach(['question','option1','option2','option3','option4','option5','option6','hint'] as $field)$sources+=$this->sources((string)($translation?->$field??$question->$field??''));
-  if($passage=$question->passage){
-   abort_unless((int)$passage->organization_id===(int)$question->organization_id,403);
-   $lang=$passage->langs()->where('language_id',(int)$question->language_id)->first()??$passage->langs()->first();
-   $sources+=$this->sources((string)($lang?->passage??''));
+  if($passage=$this->passageWording($question,(int)$attempt->language_id)){
+   $sources+=$this->sources($passage['content']);
   }
   abort_unless(isset($sources[$key]),404);
   return $this->raster($sources[$key])+['asset'=>$key,'question_id'=>(int)$question->id,'attempt_id'=>(int)$attempt->id];

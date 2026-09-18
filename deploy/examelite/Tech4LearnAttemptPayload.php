@@ -25,14 +25,11 @@ final class Tech4LearnAttemptPayload
                 $text=$normaliser->normalize($media->rewrite($text,true))['content'];
                 $content[$key]=$media->restore(str_starts_with($key,'option')?$normaliser->repairOptionForDisplay($text):$normaliser->repairForDisplay($text));
             }
-            $passage=$question->passage;
-            $passageContent=null;
-            if($passage){
-                abort_unless((int)$passage->organization_id===$tenant,403);
-                $passageLang=$passage->langs()->where('language_id',(int)$question->language_id)->first()??$passage->langs()->first();
-                $passageContent=['name'=>(string)$passage->name,'content'=>(string)($passageLang?->passage??'')];
+            $passageContent=$media->passageWording($question,$language);
+            if($passageContent){
                 abort_unless(!preg_match('/<(?:svg|math-field|iframe|video|audio|object|embed)\b/i',$passageContent['content']),422,'This paper needs media or formula display that is not available yet.');
-                $passageContent['content']=$media->rewrite($passageContent['content']);
+                $text=$normaliser->normalize($media->rewrite($passageContent['content'],true))['content'];
+                $passageContent['content']=$media->restore($normaliser->repairForDisplay($text));
             }
             $optionOrder=collect(range(1,6))->filter(fn($n)=>$content['option'.$n]!=='');
             if($exam->option_shuffle)$optionOrder=$optionOrder->shuffle();

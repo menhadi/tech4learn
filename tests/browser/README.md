@@ -69,6 +69,15 @@ lock contention. The fixture injects feature access and forbids AI-provider
 access; it does not test actual AI generation, commercial plan evaluation or
 queue transport. No application environment is bootstrapped.
 
+## Native multilingual passage delivery
+
+The separate `test-passage-media.php` suite takes `VENDOR_AUTOLOAD
+MODELS_DIRECTORY QUESTION_CONTROLLER EXAM_CONTROLLER` as arguments. It checks
+that multilingual student passages and their protected images resolve the same
+selected translation, with source/legacy fallback, native formula normalisation
+and foreign/submitted denial. It uses the native models and an isolated database;
+images are synthetic in-memory data. Deployment runs this before migrations.
+
 ## Native PDF worker state check
 
 Run `php deploy/examelite/test-pdf-worker.php VENDOR_AUTOLOAD MODELS_DIRECTORY

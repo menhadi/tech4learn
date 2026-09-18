@@ -241,6 +241,13 @@ adapter milestone as a release.
    organisation-owned editing, student entry through results, multiple question
    types/papers, concurrent saves and representative device layouts. Check
    revoked access and foreign-organisation denial across each journey.
+   Multilingual passage delivery now resolves the selected exam language before
+   the source question language, with a shared fallback used by both the student
+   payload and protected image reader. Previously the adapter always selected
+   the source language for passages. Native normalisation now handles passage
+   formulas consistently with question wording. Isolated tests cover translated
+   wording/diagrams, denial of non-displayed language images, source and legacy
+   fallback, foreign passage denial and submitted-attempt media closure.
 5. **Prepare the final deployment handoff.** Run release checks, verify a clean
    pushed revision and produce one checked copy-paste deployment procedure with
    post-deployment acceptance checks. Live installation and migrations remain
