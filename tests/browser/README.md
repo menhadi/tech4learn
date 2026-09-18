@@ -114,6 +114,26 @@ check. Native HTTP/TLS transport, Laravel middleware, production databases,
 concurrent sessions, representative devices and PDF/AI workers are outside this
 check. No fixture endpoint is part of the production app.
 
+## Connected plan assignment check
+
+`plan-api-native.mjs` connects the real Nest plan endpoints to the registered
+native PHP plan routes and `SaasController` using isolated PGlite/SQLite records.
+After building the API, run from the repository root:
+
+```text
+node tests/browser/plan-api-native.mjs VENDOR_AUTOLOAD MODELS_DIRECTORY QUESTION_CONTROLLER SAAS_CONTROLLER
+```
+
+It verifies reading choices, assigning a different plan, replaying the exact
+request without another native audit invocation, reloading the selected plan,
+stale conflicts, injected actor denial and revoked Tech4Learn superadmin access.
+Native fixture assertions also verify unchanged organisation details and shared
+plans. It passed locally. The native audit helper is a recording test double;
+database audit persistence, native HTTP/TLS middleware, concurrency and browser
+interaction are outside this connected check. The separate
+`exam-plan-assignment.html` fixture checks the real React selector with synthetic
+transport, including pagination and repeated scoped draft restoration.
+
 ## Recorded native payload browser check
 
 This fixture uses the real student and marking React components with payloads

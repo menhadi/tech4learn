@@ -134,6 +134,13 @@ adapter milestone as a release.
    Draft persistence now uses current controlled state and continues saving
    restored edits. Plan creation, billing, provider controls and a live complete
    plan-assignment journey remain outside this milestone.
+   A connected local plan check now sends real Nest HTTP requests through the
+   registered native routes and SaaS organisation controller. It verifies
+   assignment, replay without a second audit invocation, selected-plan refresh,
+   stale conflicts and stored-access revocation, with unchanged organisation
+   details and shared plans. This uses synthetic databases and CLI transport to
+   PHP; native HTTP middleware, database audit persistence and production
+   concurrency remain unverified.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is
