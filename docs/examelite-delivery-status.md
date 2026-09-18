@@ -186,8 +186,14 @@ adapter milestone as a release.
    from the signed-in user. Passage access uses the questions permission group
    and is checked again after remote reads/writes. Service-level gateway tests
    cover invalid owner/actor overrides, multibyte size limits and revocation
-   during remote work. The shared editor, connected browser acceptance, passage
-   media and actual PDF regeneration verification remain pending.
+   during remote work. Both owners now use the shared classification form to
+   create/edit passages with a language picker, formatted wording and scoped
+   draft recovery. Only changed language versions are submitted; unsupported
+   media versions remain read-only and preserved. A synthetic React/browser
+   fixture passes for both owners, language switching, media preservation and
+   identical retry after a lost acknowledgement. Adding the passage picker to
+   question authoring, connected browser acceptance, passage media and actual
+   PDF regeneration verification remain pending.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,

@@ -3,11 +3,13 @@ import { api, apiBase } from "./api";
 import { QuestionImageUpload } from "./QuestionImageUpload";
 import { DraftForm } from "./DraftForm";
 import { SmartTable } from "./DirectoryTable";
+import { FormattedField } from "./ExamQuestionEditor";
 import {
   QuestionChoiceField,
   type QuestionChoice,
 } from "./QuestionChoiceField";
 const labels = {
+  passages: "Passages",
   packages: "Exam packages",
   languages: "Languages",
   categories: "Categories",
@@ -20,6 +22,7 @@ const labels = {
 };
 type Kind = keyof typeof labels;
 const centralKinds: Kind[] = [
+  "passages",
   "languages",
   "packages",
   "categories",
@@ -101,6 +104,7 @@ function TaxonomyEditor({
     [imagePending, setImagePending] = useState(false),
     [imageVersion, setImageVersion] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [passageLanguage, setPassageLanguage] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{
     revision: string;
     request_id: string;
@@ -115,7 +119,11 @@ function TaxonomyEditor({
     const recordId = activeId;
     setRecord(null);
     try {
-      setRecord(await api<RecordData>(`${base}/${recordId}`));
+      const loaded = await api<RecordData>(`${base}/${recordId}`);
+      setRecord(loaded);
+      setPassageLanguage(
+        Number(Object.keys(loaded.fields.passages ?? {})[0]) || null,
+      );
       setChanges({});
       setNewTag("");
       setRequest(null);
@@ -138,6 +146,11 @@ function TaxonomyEditor({
     setNotice("");
   };
   const values = { ...record?.fields, ...changes };
+  if (kind === "passages")
+    values.passages = {
+      ...(record?.fields.passages ?? {}),
+      ...(changes.passages ?? {}),
+    };
   const name =
     kind === "groups"
       ? "group_name"
@@ -183,7 +196,13 @@ function TaxonomyEditor({
           key={`${central}-${org}-${kind}-${record.id || "new"}`}
           draftKey={`exam-taxonomy-${central ? `central-${org}-` : ""}${kind}-${record.id || "new"}`}
           title="Details"
-          draftState={{ revision: record.revision, changes, request, newTag }}
+          draftState={{
+            revision: record.revision,
+            changes,
+            request,
+            newTag,
+            passageLanguage,
+          }}
           restoreState={(s) => {
             if (pendingDisable || pendingDelete || imagePending) return;
             if (
@@ -199,6 +218,12 @@ function TaxonomyEditor({
                   : "",
               );
               setRequest(typeof s.request === "string" ? s.request : null);
+              if (
+                kind === "passages" &&
+                Number.isSafeInteger(s.passageLanguage) &&
+                s.passageLanguage > 0
+              )
+                setPassageLanguage(s.passageLanguage);
             } else
               setError(
                 "This draft belongs to an older version. Reload the record before editing.",
@@ -267,6 +292,46 @@ function TaxonomyEditor({
                 />
               </label>
             )}
+            {kind === "passages" && (
+              <>
+                <QuestionChoiceField
+                  org={org}
+                  central={central}
+                  kind="languages"
+                  label="Passage language"
+                  value={passageLanguage}
+                  required
+                  disabled={busy}
+                  onChange={(value) => setPassageLanguage(value)}
+                />
+                <p>
+                  Choose a language to add or edit its wording. Other saved
+                  language versions are preserved.
+                </p>
+                {passageLanguage !== null &&
+                  (/<(?:img|svg|math-field)\b/i.test(
+                    values.passages?.[passageLanguage] ?? "",
+                  ) ? (
+                    <p role="status">
+                      This version contains media that the passage editor does
+                      not support yet. Its saved wording will be preserved.
+                    </p>
+                  ) : (
+                    <FormattedField
+                      key={passageLanguage}
+                      label="Passage wording"
+                      value={values.passages?.[passageLanguage] ?? ""}
+                      disabled={busy}
+                      onChange={(value) =>
+                        set("passages", {
+                          ...(changes.passages ?? {}),
+                          [passageLanguage]: value,
+                        })
+                      }
+                    />
+                  ))}
+              </>
+            )}
             {kind === "languages" && !central && !record.id && (
               <QuestionChoiceField
                 central={central}
@@ -320,6 +385,7 @@ function TaxonomyEditor({
               </p>
             )}
             {kind !== "groups" &&
+              kind !== "passages" &&
               kind !== "subcategories" &&
               kind !== "languages" && (
                 <QuestionChoiceField
@@ -381,19 +447,23 @@ function TaxonomyEditor({
                 onChange={(v) => set("topic_id", v)}
               />
             )}
-            {kind !== "subjects" && kind !== "languages" && (
-              <label>
-                Display order
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={values.display_order ?? 0}
-                  disabled={busy}
-                  onChange={(e) => set("display_order", Number(e.target.value))}
-                />
-              </label>
-            )}
+            {kind !== "subjects" &&
+              kind !== "languages" &&
+              kind !== "passages" && (
+                <label>
+                  Display order
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={values.display_order ?? 0}
+                    disabled={busy}
+                    onChange={(e) =>
+                      set("display_order", Number(e.target.value))
+                    }
+                  />
+                </label>
+              )}
             {kind === "subcategories" && (
               <QuestionChoiceField
                 central={central}
@@ -867,8 +937,8 @@ export function ExamTaxonomy({
       {central && (
         <p>
           Manage central languages, free packages, categories, exam groups,
-          subjects, topics, subtopics and question sections. Organisation-owned
-          copies keep their own versions.
+          subjects, topics, subtopics, passages and question sections.
+          Organisation-owned copies keep their own versions.
         </p>
       )}
       <label>

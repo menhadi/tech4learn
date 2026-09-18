@@ -1,5 +1,14 @@
 # Pilot workflow verification
 
+## Passage editor
+
+Open `/tests/browser/exam-passages.html` through the local Vite fixture server.
+The page uses synthetic responses and runs the shared organisation and central
+classification editors. PASS verifies language switching, changed-language-only
+writes, preservation of unsupported media in another language, and an identical
+retry after a lost acknowledgement. It does not contact ExamElite or verify
+native persistence, PDF regeneration or a complete student workflow.
+
 ## Plan permission catalogue
 
 Open `/tests/browser/exam-plan-edit.html` for the shared plan editor and
