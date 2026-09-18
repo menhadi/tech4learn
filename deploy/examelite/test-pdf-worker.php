@@ -1,5 +1,11 @@
 <?php
 namespace {
+// Default to installed source definitions, never bootstrap its application or
+// environment. Explicit read-only snapshot paths remain available locally.
+if(!isset($argv[1])||!is_file($argv[1]))throw new InvalidArgumentException('Supply the native vendor autoload.php path.');
+$nativeRoot=dirname(realpath($argv[1]),2);
+$argv[5]=$argv[5]??$nativeRoot.'/app/Jobs/GenerateExamPdfJob.php';
+$argv[6]=$argv[6]??$nativeRoot.'/app/Services/ExamPdfCacheService.php';
 require __DIR__.'/test-exam-authoring.php';
 $cachePath=$argv[6]??'';
 if(!is_file($cachePath))throw new RuntimeException('Supply the native ExamPdfCacheService.php path as argument six.');

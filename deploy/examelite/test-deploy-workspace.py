@@ -33,7 +33,11 @@ runuser() {
   if [[ "$*" == *"status --porcelain"* && "$CASE" == dirty ]]; then printf ' M file\n'; fi
   return 0
 }
-php() { printf 'php %s\n' "$*" >&2; [[ "$CASE" != tests || "$*" != *test-pilot-exam-workflow.php* ]]; }
+php() {
+  printf 'php %s\n' "$*" >&2
+  [[ "$CASE" != runtime || "$*" != *test-pdf-worker.php* ]] || return 93
+  [[ "$CASE" != tests || "$*" != *test-pilot-exam-workflow.php* ]]
+}
 node() { printf 'node %s\n' "$*" >&2; [[ "$CASE" != renderer ]]; }
 python3() {
   printf 'python3 %s\n' "$*" >&2
@@ -84,6 +88,13 @@ source "$2"
     def test_worker_guard_failure_stops_before_migration(self):
         result = self.run_flow("worker")
         self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("artisan", result.stderr)
+        self.assertNotIn("update-ui-template.sh", result.stderr)
+
+    def test_worker_execution_failure_stops_before_migration(self):
+        result = self.run_flow("runtime")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("runuser -u examelite", result.stderr)
         self.assertNotIn("artisan", result.stderr)
         self.assertNotIn("update-ui-template.sh", result.stderr)
 

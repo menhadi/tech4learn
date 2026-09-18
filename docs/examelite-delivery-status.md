@@ -155,6 +155,11 @@ adapter milestone as a release.
    it while the lock owner continues. Both versions cover approval failure,
    retry exhaustion/recovery and missing-build lock cleanup. The unpatched
    current worker fails that cleanup regression and the patched copy passes.
+   The user-run deployment now executes this isolated worker/queue suite against
+   installed native definitions after source installation and before migrations,
+   cache clearing or Tech4Learn UI deployment. Seven mocked deployment-ordering
+   checks include stopping at a failed worker execution test. This verifies
+   ordering locally; it does not mean the deployment has been run on live.
    **Do not deploy yet:** actual rendering and production worker configuration
    still need verification, alongside the remaining scope.
    Native translation completion now also has isolated checks for ready state,
