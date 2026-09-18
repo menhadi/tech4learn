@@ -14,11 +14,18 @@ final class Tech4LearnPlanEditor
     public const LIMITS=['organizations','admins','students','exams','packages','questions','quality_audits_monthly','quality_questions_per_audit','quality_source_per_audit','quality_ai_per_audit','quality_visual_per_audit','quality_repairs_monthly'];
 
     public function createForActor(int $central,string $actor,string $requestId,array $fields):array {
+        return $this->mutateForActor($central,$actor,$requestId,$fields,null,null);
+    }
+    public function updateForActor(int $central,string $actor,string $requestId,int $planId,string $revision,array $fields):array {
+        abort_unless($planId>0&&$planId<=999999999999999&&preg_match('/^[a-f0-9]{64}$/D',$revision),422);
+        return $this->mutateForActor($central,$actor,$requestId,$fields,$planId,$revision);
+    }
+    private function mutateForActor(int $central,string $actor,string $requestId,array $fields,?int $planId,?string $revision):array {
         foreach([$actor,$requestId] as $value)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/Di',$value),422);
         abort_unless(!array_is_list($fields)&&count($fields)<=40&&strlen(json_encode($fields,JSON_THROW_ON_ERROR))<=16384,422);
         ksort($fields);
-        $fingerprint=hash('sha256',json_encode(['create-plan',$central,$actor,$fields],JSON_THROW_ON_ERROR));
-        return DB::transaction(function()use($central,$actor,$requestId,$fields,$fingerprint){
+        $fingerprint=hash('sha256',json_encode($planId===null?['create-plan',$central,$actor,$fields]:['update-plan',$central,$actor,$planId,$revision,$fields],JSON_THROW_ON_ERROR));
+        return DB::transaction(function()use($central,$actor,$requestId,$fields,$fingerprint,$planId,$revision){
             $organization=Organization::where('status','active')->lockForUpdate()->findOrFail($central);
             $prior=DB::table('tech4learn_central_requests')->where('organization_id',$central)->where('request_id',$requestId)->first();
             $mapping=DB::table('tech4learn_central_users')->where('organization_id',$central)->where('local_id',$actor)->lockForUpdate()->first();
@@ -40,13 +47,39 @@ final class Tech4LearnPlanEditor
             $app->instance('request',$request);$app->instance('redirect',$redirect);$guard->setUser($user);\App\Support\Tenant::clear();
             try{
                 abort_unless((int)\App\Support\Tenant::resolve($organization->domain)->id===$central,403);
-                $result=$this->create($central,$fields,$request);
+                $result=$planId===null?$this->create($central,$fields,$request):$this->update($central,$planId,$revision,$fields,$request);
                 DB::table('tech4learn_central_requests')->insert(['organization_id'=>$central,'request_id'=>$requestId,'actor_id'=>$actor,'fingerprint'=>$fingerprint,'result'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>now()]);
                 return $result;
             }finally{
                 $oldUser?$guard->setUser($oldUser):$guard->forgetUser();
                 $app->instance('request',$oldRequest);$app->instance('redirect',$oldRedirect);\App\Support\Tenant::clear();$session->invalidate();
             }
+        });
+    }
+
+    /** Complete native form values; refuse unknown stored keys rather than erase them. */
+    public function snapshot(SaasPlan $plan):array {
+        $features=$plan->features??[];$limits=$plan->limits??[];
+        abort_unless(is_array($features)&&is_array($limits)&&!array_diff(array_keys($features),self::FEATURES)&&!array_diff(array_keys($limits),self::LIMITS),409,'This plan contains unsupported settings. Use native plan management.');
+        $fields=$plan->only(['name','price','billing_cycle','status']);
+        foreach(self::FEATURES as $key)$fields['feature_'.$key]=(bool)($features[$key]??false);
+        foreach(self::LIMITS as $key)$fields['limit_'.$key]=($limits[$key]??null)===''?null:($limits[$key]??null);
+        return ['plan_id'=>(int)$plan->id,'revision'=>Tech4LearnPlanAssignment::revision($plan),'fields'=>$fields,'is_default'=>(bool)$plan->is_default,'assigned_organisations'=>Organization::where('saas_plan_id',$plan->id)->count()];
+    }
+    /** The coordinator authorises the central actor before this internal helper. */
+    public function update(int $central,int $planId,string $revision,array $fields,Request $request):array {
+        return DB::transaction(function()use($central,$planId,$revision,$fields,$request){
+            Organization::where('status','active')->lockForUpdate()->findOrFail($central);
+            $plan=SaasPlan::lockForUpdate()->findOrFail($planId);
+            abort_unless(hash_equals(Tech4LearnPlanAssignment::revision($plan),$revision),409,'Plan changed. Reload before editing.');
+            $stored=$this->snapshot($plan)['fields'];
+            abort_unless(count($fields)>0&&!array_diff(array_keys($fields),array_keys($stored)),422);
+            $request->replace(array_replace($stored,$fields,['is_default'=>(bool)$plan->is_default]));
+            $request->session()->forget(['success','error','errors']);
+            app(\App\Http\Controllers\SaasController::class)->updatePlan($request,$plan);
+            abort_unless($request->session()->has('success')&&!$request->session()->has('errors')&&!$request->session()->has('error'),422,'Native plan update was not confirmed.');
+            $plan->refresh();
+            return ['plan_id'=>(int)$plan->id,'revision'=>Tech4LearnPlanAssignment::revision($plan),'name'=>$plan->name];
         });
     }
 

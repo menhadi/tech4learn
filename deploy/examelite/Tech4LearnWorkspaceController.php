@@ -59,6 +59,34 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
         ]);
     }
     /** Private server credential only; T4L must reauthorise its superadmin. */
+    public function centralPlans(Request $r) {
+        $tenant=(int)$this->configuration($r)['_platform']['organization_id'];
+        Organization::where('status','active')->findOrFail($tenant);
+        abort_unless(!array_diff(array_keys($r->query()),['after'])&&$r->request->all()===[],422);
+        $after=$r->query('after','0');abort_unless(is_string($after)&&preg_match('/^(0|[1-9][0-9]{0,14})$/D',$after),422);
+        $plans=SaasPlan::where('id','>',(int)$after)->orderBy('id')->limit(51)->get();$page=$plans->take(50);
+        return $this->reply($tenant,['items'=>$page->map(fn($p)=>['id'=>(int)$p->id,'name'=>(string)$p->name,'active'=>(bool)$p->status,'is_default'=>(bool)$p->is_default,'revision'=>\App\Services\Tech4LearnPlanAssignment::revision($p)])->values()->all(),'next'=>$plans->count()>50?(string)$page->last()->id:null]);
+    }
+    public function centralPlan(Request $r,string $id) {
+        $tenant=(int)$this->configuration($r)['_platform']['organization_id'];
+        Organization::where('status','active')->findOrFail($tenant);
+        abort_unless($r->all()===[]&&preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);
+        return $this->reply($tenant,app(\App\Services\Tech4LearnPlanEditor::class)->snapshot(SaasPlan::findOrFail((int)$id)));
+    }
+    public function updatePlan(Request $r,string $id) {
+        $tenant=(int)$this->configuration($r)['_platform']['organization_id'];
+        $body=$r->all();$keys=['actor_id','request_id','revision','fields'];
+        abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id)&&$r->query()===[]&&!array_diff(array_keys($body),$keys)&&!array_diff($keys,array_keys($body)),422);
+        foreach(['actor_id','request_id'] as $key){abort_unless(is_string($body[$key]),422);$this->uuid($body[$key]);}
+        abort_unless(is_string($body['revision'])&&preg_match('/^[a-f0-9]{64}$/D',$body['revision'])&&is_array($body['fields'])&&!array_is_list($body['fields'])&&count($body['fields'])<=40&&strlen(json_encode($body['fields'],JSON_THROW_ON_ERROR))<=16384,422);
+        try{$result=app(\App\Services\Tech4LearnPlanEditor::class)->updateForActor($tenant,$body['actor_id'],$body['request_id'],(int)$id,$body['revision'],$body['fields']);}
+        catch(\Symfony\Component\HttpKernel\Exception\HttpException $error){
+            if($error->getStatusCode()!==409)throw $error;
+            return $this->reply($tenant,['saved'=>false,'conflict'=>true]);
+        }
+        return $this->reply($tenant,['saved'=>true]+$result);
+    }
+    /** Private server credential only; T4L must reauthorise its superadmin. */
     public function createPlan(Request $r) {
         $tenant=(int)$this->configuration($r)['_platform']['organization_id'];
         $body=$r->all();$keys=['actor_id','request_id','fields'];

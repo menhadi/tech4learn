@@ -34,6 +34,13 @@ The gateway/interface are not connected yet, so the fixture does not establish
 a complete superadmin creation journey. The native route registration is checked
 by `test-workspace-provision.php`.
 
+`test-native-plan-update.php` takes the same arguments and includes the creation
+and assignment checks. It adds native partial editing, current snapshots and
+assignment counts, active/inactive catalogue pages, receipt replay, stale edits,
+revoked actors, audit rollback and rejection of unknown stored settings. The
+deployment runs this combined suite once. Existing-plan editing still needs the
+Tech4Learn gateway and interface; this does not establish production concurrency.
+
 ## Classification deletion
 
 With Vite running, open `/tests/browser/classification-delete.html` and wait

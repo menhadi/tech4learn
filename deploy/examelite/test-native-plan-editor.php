@@ -66,4 +66,4 @@ finally{$GLOBALS['failPlanAudit']=false;}
 check(DB::table('tech4learn_central_requests')->count()===$beforeLedger&&SaasPlan::count()===$count,'Failed coordinated creation rolls back plan and receipt');
 check(app('request')===$requestBefore&&app('redirect')===$redirectBefore&&$guard->user()===$userBefore,'Failed creation restores caller context');
 DB::table('tech4learn_central_users')->where('organization_id',10)->where('local_id',$body['actor_id'])->delete();$reject(fn()=>$call($body));
-echo "Native plan creation: validation, defaults, limits, metadata, receipt replay, revocation, bounded controller input and rollback passed. T4L gateway/interface remain unconnected.\n";
+echo "Native plan creation: validation, defaults, limits, metadata, receipt replay, revocation, bounded controller input and rollback passed.\n";

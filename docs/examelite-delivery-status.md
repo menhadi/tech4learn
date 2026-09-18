@@ -191,6 +191,15 @@ adapter milestone as a release.
    isolation and permission rejection. Creation leaves assignments unchanged;
    the existing selector assigns active plans separately. Existing-plan editing,
    billing integration and live concurrency remain unverified/unimplemented.
+   Existing-plan editing now has private native catalogue/detail/update routes.
+   The native controller owns partial updates reconstructed from stored values;
+   optimistic revisions and central actor receipts guard retries. Unknown
+   stored features/limits block editing rather than being discarded. Native
+   checks cover inactive plans, pagination, assignment counts, unchanged
+   assignment IDs/slug/default, stale edits, actor revocation and audit rollback.
+   These editing routes are not connected to the Tech4Learn gateway/interface
+   yet. Native plan status controls catalogue availability; it is not an
+   organisation access-revocation mechanism.
    The connected Nest/native fixture also now creates a plan through both real
    controllers, retries without a duplicate or second audit invocation, finds
    it in the catalogue and verifies that existing plans and organisation
