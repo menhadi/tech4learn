@@ -14,6 +14,9 @@ native persistence, PDF regeneration or a complete student workflow.
 
 `/tests/browser/question-passage.html` checks the passage picker in the question
 editor for both owners, a minimal passage-reference update and identical retry.
+It also checks locked editing after an unconfirmed question save, recovery of
+a pending new-question draft, and correction using a new request after a
+definitive validation rejection. Numerical questions use the native `NAT` type.
 It uses synthetic responses; native attachment/foreign-owner rejection is
 covered separately by `deploy/examelite/test-passage-authoring.php`.
 

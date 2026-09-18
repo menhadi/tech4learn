@@ -1,6 +1,6 @@
 # ExamElite integration: current delivery status
 
-Updated 18 September 2026. This is the current summary; the central-content and
+Updated 19 September 2026. This is the current summary; the central-content and
 student-attempt documents also contain historical milestone notes. A historical
 “pending” statement does not override a later implemented milestone.
 
@@ -205,6 +205,12 @@ adapter milestone as a release.
    save whose acknowledgement is lost, verifies the edit locks and identical
    retry, and remounts a new-passage form to restore its scoped pending draft
    before retrying. These checks use synthetic transport, not a live write.
+   Question authoring now also locks wording, answer controls, classifications,
+   image actions, navigation and draft replacement after an unconfirmed save.
+   Retrying uses the original request; validation/conflict errors allow edits
+   with a new request. The browser fixture passes for organisation and central
+   editing, creation with pending-draft restoration, identical lost-response
+   retries, and correction after a definitive validation rejection.
    Connected browser acceptance, passage media and actual PDF regeneration
    verification remain pending.
    A private native capability reader now inventories the installed engine's

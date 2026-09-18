@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
-import { api, apiBase } from "./api";
+import { api, apiBase, ApiError } from "./api";
 import { DraftForm } from "./DraftForm";
 import { QuestionChoiceField } from "./QuestionChoiceField";
 import { ExamRichContent } from "./ExamRichContent";
@@ -251,8 +251,9 @@ export function ExamQuestionEditor({
       active = false;
     };
   }, [base, central, reload]);
+  const writePending = request !== null;
   const set = (key: string, value: any) => {
-    if (imagePending) return;
+    if (imagePending || writePending) return;
     setChanges((old) => ({ ...old, [key]: value }));
     setRequest(null);
     setNotice("");
@@ -273,7 +274,7 @@ export function ExamQuestionEditor({
       <button
         className="secondary"
         onClick={onClose}
-        disabled={busy || imagePending}
+        disabled={busy || imagePending || writePending}
       >
         Back to question bank
       </button>
@@ -283,6 +284,12 @@ export function ExamQuestionEditor({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {writePending && !busy && (
+        <p role="status">
+          The save has not been confirmed. Retry Save question to check the same
+          request before editing further.
+        </p>
+      )}
       {record && (
         <DraftForm
           key={activeId}
@@ -295,7 +302,7 @@ export function ExamQuestionEditor({
             request,
           }}
           restoreState={(s) => {
-            if (imagePending) return;
+            if (imagePending || writePending) return;
             if (
               s?.revision === record.revision &&
               s.changes &&
@@ -342,6 +349,8 @@ export function ExamQuestionEditor({
                   : "Question saved in your organisation.",
               );
             } catch (e) {
+              if (e instanceof ApiError && [400, 409, 422].includes(e.status))
+                setRequest(null);
               setError(
                 e instanceof Error ? e.message : "Unable to save question.",
               );
@@ -359,7 +368,7 @@ export function ExamQuestionEditor({
               label="Question type"
               value={values.qtype_id ?? null}
               required
-              disabled={busy || imagePending}
+              disabled={busy || imagePending || writePending}
               onChange={(v, option) => {
                 set("qtype_id", v);
                 setSelectedType(option?.type ?? "");
@@ -376,7 +385,7 @@ export function ExamQuestionEditor({
               multiple
               required
               value={values.group_ids ?? []}
-              disabled={busy || imagePending}
+              disabled={busy || imagePending || writePending}
               onChange={(v) => set("group_ids", v)}
             />
             <QuestionChoiceField
@@ -386,7 +395,7 @@ export function ExamQuestionEditor({
               label="Language"
               required
               value={values.language_id ?? null}
-              disabled={busy || imagePending}
+              disabled={busy || imagePending || writePending}
               onChange={(v) => set("language_id", v)}
             />
             {(
@@ -406,7 +415,7 @@ export function ExamQuestionEditor({
                 kind={kind}
                 label={label}
                 value={values[key] ?? null}
-                disabled={busy || imagePending}
+                disabled={busy || imagePending || writePending}
                 onChange={(v) => set(key, v)}
               />
             ))}
@@ -423,7 +432,7 @@ export function ExamQuestionEditor({
             }
             mediaBase={mediaBase}
             value={String(values.question ?? "")}
-            disabled={busy || imagePending}
+            disabled={busy || imagePending || writePending}
             onChange={(v) => set("question", v)}
           />
           {selectedType === "M" && (
@@ -441,14 +450,14 @@ export function ExamQuestionEditor({
                     }
                     mediaBase={mediaBase}
                     value={String(values["option" + n] ?? "")}
-                    disabled={busy || imagePending}
+                    disabled={busy || imagePending || writePending}
                     onChange={(v) => set("option" + n, v)}
                   />
                   <label>
                     <input
                       type="checkbox"
                       checked={(values.correct_answers ?? []).includes(n)}
-                      disabled={busy || imagePending}
+                      disabled={busy || imagePending || writePending}
                       onChange={(e) =>
                         set(
                           "correct_answers",
@@ -471,7 +480,7 @@ export function ExamQuestionEditor({
               Correct answer
               <select
                 value={values.true_false ?? ""}
-                disabled={busy || imagePending}
+                disabled={busy || imagePending || writePending}
                 onChange={(e) => set("true_false", e.target.value)}
               >
                 <option value="">Choose answer</option>
@@ -487,7 +496,7 @@ export function ExamQuestionEditor({
                 Answer rule
                 <select
                   value={values.nat_mode ?? "exact"}
-                  disabled={busy || imagePending}
+                  disabled={busy || imagePending || writePending}
                   onChange={(e) => set("nat_mode", e.target.value)}
                 >
                   <option value="exact">Exact value</option>
@@ -514,7 +523,7 @@ export function ExamQuestionEditor({
                     type="number"
                     step="any"
                     value={values[key] ?? ""}
-                    disabled={busy || imagePending}
+                    disabled={busy || imagePending || writePending}
                     onChange={(e) =>
                       set(
                         key,
@@ -535,7 +544,7 @@ export function ExamQuestionEditor({
                     Blank {i + 1} — separate alternatives with |
                     <input
                       value={blank.accepted_answers ?? ""}
-                      disabled={busy || imagePending}
+                      disabled={busy || imagePending || writePending}
                       onChange={(e) =>
                         set(
                           "fill_blank_answers",
@@ -552,7 +561,10 @@ export function ExamQuestionEditor({
                 type="button"
                 className="secondary"
                 disabled={
-                  busy || (values.fill_blank_answers ?? []).length >= 20
+                  busy ||
+                  imagePending ||
+                  writePending ||
+                  (values.fill_blank_answers ?? []).length >= 20
                 }
                 onClick={() =>
                   set("fill_blank_answers", [
@@ -576,7 +588,7 @@ export function ExamQuestionEditor({
               }
               mediaBase={mediaBase}
               value={String(values.si_answer1 ?? "")}
-              disabled={busy || imagePending}
+              disabled={busy || imagePending || writePending}
               onChange={(v) => set("si_answer1", v)}
             />
           )}
@@ -592,7 +604,7 @@ export function ExamQuestionEditor({
                   type="number"
                   step="any"
                   value={values[key] ?? ""}
-                  disabled={busy || imagePending}
+                  disabled={busy || imagePending || writePending}
                   onChange={(e) =>
                     set(
                       key,
@@ -611,7 +623,7 @@ export function ExamQuestionEditor({
             }
             mediaBase={mediaBase}
             value={String(values.hint ?? "")}
-            disabled={busy || imagePending}
+            disabled={busy || imagePending || writePending}
             onChange={(v) => set("hint", v)}
           />
           <FormattedField
@@ -624,7 +636,7 @@ export function ExamQuestionEditor({
             }
             mediaBase={mediaBase}
             value={String(values.explanation ?? "")}
-            disabled={busy || imagePending}
+            disabled={busy || imagePending || writePending}
             onChange={(v) => set("explanation", v)}
           />
           <button
@@ -635,7 +647,7 @@ export function ExamQuestionEditor({
           <button
             className="secondary"
             type="button"
-            disabled={busy || imagePending}
+            disabled={busy || imagePending || writePending}
             onClick={() => setReload((v) => v + 1)}
           >
             Reload saved question
@@ -648,7 +660,7 @@ export function ExamQuestionEditor({
           base={base}
           central={central}
           record={record}
-          disabled={busy || Object.keys(changes).length > 0}
+          disabled={busy || writePending || Object.keys(changes).length > 0}
           onPending={setImagePending}
           onSaved={(saved) => {
             setRecord(saved);
