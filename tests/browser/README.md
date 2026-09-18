@@ -43,8 +43,13 @@ QUESTION_CONTROLLER EXAM_CONTROLLER GENERATE_EXAM_PDF_JOB EXAM_PDF_CACHE_SERVICE
 root (as one command). Paths refer to local native source snapshots. The isolated
 fixture invokes the actual worker against SQLite and a temporary synthetic
 cached artifact, checking activation, repeat execution and failed replacement
-after translation approval is removed. It does not bootstrap the application,
-run its queue transport, render a PDF or use live environment settings. The
+after translation approval is removed. It also runs Laravel's database queue,
+serialized native job and queued handler against that synthetic database:
+reservation excludes a second consumer, completion acknowledges the job,
+lock contention delays it, and approval failure remains unacknowledged until
+an explicitly released retry completes. Native timeout/attempt settings and
+retry counts are checked. This does not exercise a long-running worker's
+backoff/failure loop, render a PDF or use live environment settings. The
 native fingerprint service is loaded from the supplied source path too; an
 attached source edit must select a different cached version. Real rendering
 remains outstanding. The random temporary directory is removed after the check.

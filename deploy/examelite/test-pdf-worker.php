@@ -50,9 +50,12 @@ try {
  catch(RuntimeException $e){check($e->getMessage()==='Translation is not approved.','Unapproved translation stops worker before rendering');}
  check($build->fresh()->status==='failed'&&$locks->released===4&&file_get_contents($directory.'/current.pdf')===$pdf,'Failed replacement preserves prior artifact and releases lock');
  check(glob($directory.'/*.tmp.pdf')===[]&&glob($directory.'/.current.*.pdf')===[],'No temporary activation files remain');
+ require __DIR__.'/test-pdf-database-queue.php';
 } finally {
  // Only this freshly-created random fixture directory can be removed.
+ $resolved=realpath($directory);$tempRoot=realpath(sys_get_temp_dir());
+ if(!$resolved||!$tempRoot||!str_starts_with($resolved,$tempRoot.DIRECTORY_SEPARATOR.'t4l-worker-'))throw new RuntimeException('Unsafe fixture cleanup path.');
  File::deleteDirectory($directory);
 }
-echo "Native PDF worker: cached activation, repeat execution, approval failure and prior-artifact preservation passed. Renderer and queue transport remain untested.\n";
+echo "Native PDF worker: cached activation, repeat execution, approval failure and prior-artifact preservation passed. Actual rendering and production worker operation remain untested.\n";
 }

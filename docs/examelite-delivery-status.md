@@ -90,8 +90,13 @@ adapter milestone as a release.
    activation, repeat execution, approval failure, lock release and preservation
    of the previous artifact. It now uses the native fingerprint service too,
    verifying that an attached source edit selects a different cached version.
-   Artifact bytes remain synthetic; actual rendering and queue transport remain
-   unverified.
+   An isolated Laravel database queue now serializes the native PDF job,
+   reserves it, invokes its queued handler and acknowledges completion. Checks
+   cover reservation exclusion, contended-lock delayed release, retained retry
+   counts and approval failure/recovery without replacing the prior artifact.
+   Failure retry is explicitly released by the fixture, not a background worker
+   loop. Artifact bytes remain synthetic; actual rendering, production queue
+   configuration and worker backoff/exhaustion remain unverified.
    Native translation completion now also has isolated checks for ready state,
    manual versus automatic approval, repeat completion, contended locks and
    injected feature denial. Provider access is explicitly forbidden in that
