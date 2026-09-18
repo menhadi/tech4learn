@@ -149,6 +149,133 @@ export class ExamWorkspaceService {
       workspace_features: flags(response.workspace_features, workspaceFeatures),
     };
   }
+  private async planAdmin(user: Account, org: string) {
+    this.admin(user);
+    await this.organisation(org);
+    const current = await this.db.query<{ is_superadmin: boolean }>(
+      "SELECT is_superadmin FROM users WHERE id=$1",
+      [user.id],
+    );
+    if (!current.rows[0]?.is_superadmin) throw new ForbiddenException();
+  }
+  async plans(user: Account, org: string, query: Record<string, unknown>) {
+    await this.planAdmin(user, org);
+    const after = query.after ?? "0";
+    if (
+      Object.keys(query).some((key) => key !== "after") ||
+      typeof after !== "string" ||
+      !/^(0|[1-9][0-9]{0,14})$/.test(after)
+    )
+      throw new BadRequestException("Invalid plan cursor.");
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `workspace/${org}/plans?after=${after}`,
+    );
+    await this.planAdmin(user, org);
+    const invalid = () =>
+      new ServiceUnavailableException("Invalid exam plan catalogue.");
+    if (
+      typeof response.assignment_revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(response.assignment_revision) ||
+      !Array.isArray(response.items) ||
+      response.items.length > 50
+    )
+      throw invalid();
+    let previous = Number(after),
+      selected = 0;
+    const items = response.items.map((item: any) => {
+      if (
+        !item ||
+        !Number.isSafeInteger(item.id) ||
+        item.id <= previous ||
+        item.id > 999999999999999 ||
+        typeof item.name !== "string" ||
+        !item.name.trim() ||
+        item.name.length > 255 ||
+        typeof item.selected !== "boolean" ||
+        typeof item.revision !== "string" ||
+        !/^[a-f0-9]{64}$/.test(item.revision)
+      )
+        throw invalid();
+      previous = item.id;
+      if (item.selected && ++selected > 1) throw invalid();
+      return {
+        id: item.id as number,
+        name: item.name as string,
+        selected: item.selected as boolean,
+        revision: item.revision as string,
+      };
+    });
+    if (
+      response.next !== null &&
+      (items.length !== 50 || response.next !== String(previous))
+    )
+      throw invalid();
+    return {
+      assignment_revision: response.assignment_revision as string,
+      items,
+      next: response.next as string | null,
+    };
+  }
+  async assignPlan(
+    user: Account,
+    org: string,
+    body: Record<string, unknown>,
+    query: Record<string, unknown>,
+  ) {
+    await this.planAdmin(user, org);
+    const keys = [
+      "request_id",
+      "plan_id",
+      "assignment_revision",
+      "plan_revision",
+    ];
+    if (
+      Object.keys(query).length ||
+      Object.keys(body).length !== keys.length ||
+      Object.keys(body).some((key) => !keys.includes(key)) ||
+      !Number.isSafeInteger(body.plan_id) ||
+      (body.plan_id as number) < 1 ||
+      (body.plan_id as number) > 999999999999999 ||
+      typeof body.request_id !== "string"
+    )
+      throw new BadRequestException("Invalid plan assignment.");
+    this.id(body.request_id);
+    for (const key of ["assignment_revision", "plan_revision"])
+      if (
+        typeof body[key] !== "string" ||
+        !/^[a-f0-9]{64}$/.test(body[key] as string)
+      )
+        throw new BadRequestException("Reload the plan before assigning it.");
+    const config = await this.config();
+    await this.planAdmin(user, org);
+    const response = await this.remote.request(
+      config,
+      org,
+      `workspace/${org}/plan`,
+      { ...body, actor_id: user.id },
+    );
+    await this.planAdmin(user, org);
+    if (response.saved === false && response.conflict === true)
+      throw new ConflictException(
+        "Organisation or plan changed. Reload before assigning.",
+      );
+    if (
+      response.saved !== true ||
+      response.plan_id !== body.plan_id ||
+      typeof response.assignment_revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(response.assignment_revision)
+    )
+      throw new ServiceUnavailableException(
+        "Plan assignment was not confirmed. Retry the same request.",
+      );
+    return {
+      saved: true,
+      plan_id: response.plan_id as number,
+      assignment_revision: response.assignment_revision as string,
+    };
+  }
   async students(user: Account, org: string, search: string) {
     await this.access.require(user, org, "exams.manage");
     await this.access.require(user, org, "learners.view");

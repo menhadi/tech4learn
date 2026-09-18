@@ -75,6 +75,7 @@ foreach(['organization_id'=>30,'price'=>99,'status'=>'suspended'] as $key=>$valu
 foreach(['plan_id'=>'1','actor_id'=>[],'assignment_revision'=>'new','plan_revision'=>null,'request_id'=>'bad'] as $key=>$value)$reject(fn()=>$callPlan(array_replace($planBody,[$key=>$value])));
 $reject(fn()=>$planController->assignPlan(Illuminate\Http\Request::create('/?owner=30','POST',$planBody),$workspace));
 $created=$callPlan($planBody);check($created['saved']&&$created['plan_id']===$plan->id&&$callPlan($planBody)===$created,'Private plan controller saves and replays a bounded request');
+check($callPlan(array_replace($planBody,['request_id'=>$nextId()]))===['saved'=>false,'conflict'=>true],'Stale assignment is a bounded conflict response for the gateway');
 $newNativeId=DB::table('tech4learn_central_users')->where('local_id',$newActor)->value('external_id');
 check($newNativeId!==null&&!App\Models\User::findOrFail($newNativeId)->is_platform_admin&&DB::table('organization_users')->where('user_id',$newNativeId)->count()===1,'First plan assignment provisions only a central scoped author');
 DB::table('tech4learn_central_users')->where('local_id',$newActor)->delete();$reject(fn()=>$callPlan($planBody));

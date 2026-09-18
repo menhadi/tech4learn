@@ -119,9 +119,14 @@ adapter milestone as a release.
    and supports first-use provisioning of a central-only author without a global
    admin role. Tests cover input overrides and missing actor mappings on replay.
    The deployment script includes the isolated assignment suite and route check.
-   Fresh Tech4Learn superadmin authorisation in the gateway and the assignment
-   interface remain to be connected; native routes alone do not make plan
-   assignment available to users.
+   The Tech4Learn gateway now exposes bounded plan reads and assignment writes
+   only to current stored superadmins, derives the actor from the authenticated
+   account, and rechecks access after the native response. It preserves request
+   IDs for retry, strips extra response fields and returns stale assignments as
+   conflicts so the interface can request a reload. HTTP tests cover injected
+   actors, malformed plans, revoked access and identical retry forwarding.
+   The assignment interface remains to be connected; these endpoints alone do
+   not provide a complete plan-management workflow.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and
    translations, results, PDF builds and official-source rules. English is

@@ -34,6 +34,25 @@ export class ExamWorkspaceController {
       org,
     );
   }
+  @Get("plans") async plans(
+    @Param("org") org: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-plans:${account.id}`, 60, 60);
+    return this.service.plans(account, org, query);
+  }
+  @Post("plan") async assignPlan(
+    @Param("org") org: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-plan-write:${account.id}`, 30, 60);
+    return this.service.assignPlan(account, org, body ?? {}, query);
+  }
   @Get("students") async students(
     @Param("org") org: string,
     @Query("search") search = "",

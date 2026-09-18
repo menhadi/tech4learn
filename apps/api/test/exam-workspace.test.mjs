@@ -94,9 +94,18 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
     fail = false;
   let capabilityReply,
     capabilityRevoke = false;
+  let planReply,
+    planRevoke = false;
   remote.request = async (c, o, path, body) => {
     requests.push({ o, path, body });
     if (fail) throw new Error("Provider unavailable");
+    if (path.includes("/plans?") || path.endsWith("/plan")) {
+      if (planRevoke)
+        await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
+          admin,
+        ]);
+      return planReply;
+    }
     if (path.endsWith("/capabilities")) {
       if (capabilityRevoke)
         await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
@@ -289,6 +298,94 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
     capabilityRevoke = false;
     before = requests.length;
     assert.equal((await call("/capabilities", undefined, admin)).status, 403);
+    assert.equal(requests.length, before);
+    await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
+    const revision = "a".repeat(64);
+    const planCatalogue = {
+      assignment_revision: revision,
+      items: [
+        {
+          id: 3,
+          name: "Synthetic plan",
+          selected: true,
+          revision,
+          private_data: "omit",
+        },
+      ],
+      next: null,
+      secret: "omit",
+    };
+    planReply = planCatalogue;
+    before = requests.length;
+    assert.equal((await call("/plans", undefined, member)).status, 403);
+    assert.equal((await call("/plans?after=01", undefined, admin)).status, 400);
+    assert.equal((await call("/plans?owner=10", undefined, admin)).status, 400);
+    assert.equal(requests.length, before);
+    const plans = await call("/plans", undefined, admin);
+    assert.equal(plans.status, 200);
+    assert.deepEqual(await plans.json(), {
+      assignment_revision: revision,
+      items: [{ id: 3, name: "Synthetic plan", selected: true, revision }],
+      next: null,
+    });
+    assert.equal(requests.at(-1).path, `workspace/${org}/plans?after=0`);
+    for (const bad of [
+      { items: null },
+      { assignment_revision: "bad" },
+      { next: "3" },
+      { items: [...planCatalogue.items, ...planCatalogue.items] },
+      { items: [{ ...planCatalogue.items[0], selected: 1 }] },
+    ]) {
+      planReply = { ...planCatalogue, ...bad };
+      assert.equal((await call("/plans", undefined, admin)).status, 503);
+    }
+    const assignment = {
+      request_id: randomUUID(),
+      plan_id: 3,
+      assignment_revision: revision,
+      plan_revision: revision,
+    };
+    before = requests.length;
+    assert.equal((await call("/plan", assignment, member)).status, 403);
+    assert.equal(
+      (await call("/plan", { ...assignment, actor_id: member }, admin)).status,
+      400,
+    );
+    assert.equal((await call("/plan?owner=10", assignment, admin)).status, 400);
+    assert.equal(
+      (await call("/plan", { ...assignment, plan_id: "3" }, admin)).status,
+      400,
+    );
+    assert.equal(requests.length, before);
+    planReply = {
+      saved: true,
+      plan_id: 3,
+      assignment_revision: revision,
+      secret: "omit",
+    };
+    const assigned = await call("/plan", assignment, admin);
+    assert.equal(assigned.status, 201);
+    assert.deepEqual(await assigned.json(), {
+      saved: true,
+      plan_id: 3,
+      assignment_revision: revision,
+    });
+    assert.deepEqual(requests.at(-1).body, { ...assignment, actor_id: admin });
+    assert.equal((await call("/plan", assignment, admin)).status, 201);
+    assert.deepEqual(requests.at(-1).body, requests.at(-2).body);
+    planReply = { saved: true, plan_id: 4, assignment_revision: revision };
+    assert.equal((await call("/plan", assignment, admin)).status, 503);
+    planReply = { saved: false, conflict: true };
+    assert.equal((await call("/plan", assignment, admin)).status, 409);
+    planRevoke = true;
+    planReply = planCatalogue;
+    assert.equal((await call("/plans", undefined, admin)).status, 403);
+    await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
+    planReply = { saved: true, plan_id: 3, assignment_revision: revision };
+    assert.equal((await call("/plan", assignment, admin)).status, 403);
+    planRevoke = false;
+    before = requests.length;
+    assert.equal((await call("/plan", assignment, admin)).status, 403);
     assert.equal(requests.length, before);
   } finally {
     await app.close();

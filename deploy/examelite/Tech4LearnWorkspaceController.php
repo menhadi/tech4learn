@@ -68,7 +68,11 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
         $this->uuid($body['actor_id']);$this->uuid($body['request_id']);
         abort_unless(is_int($body['plan_id'])&&$body['plan_id']>0&&$body['plan_id']<=999999999999999,422);
         foreach(['assignment_revision','plan_revision'] as $key)abort_unless(preg_match('/^[a-f0-9]{64}$/D',$body[$key]),422);
-        $result=app(\App\Services\Tech4LearnPlanAssignment::class)->assign($tenant,$org,$body['actor_id'],$body['plan_id'],$body['assignment_revision'],$body['plan_revision'],$body['request_id']);
+        try{$result=app(\App\Services\Tech4LearnPlanAssignment::class)->assign($tenant,$org,$body['actor_id'],$body['plan_id'],$body['assignment_revision'],$body['plan_revision'],$body['request_id']);}
+        catch(\Symfony\Component\HttpKernel\Exception\HttpException $error){
+            if($error->getStatusCode()!==409)throw $error;
+            return $this->reply($tenant,['saved'=>false,'conflict'=>true]);
+        }
         return $this->reply($tenant,['saved'=>true]+$result);
     }
     private function restrictions($items): array {
