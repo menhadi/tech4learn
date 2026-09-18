@@ -36,6 +36,7 @@ runuser() {
 php() {
   printf 'php %s\n' "$*" >&2
   [[ "$CASE" != runtime || "$*" != *test-pdf-worker.php* ]] || return 93
+  [[ "$CASE" != translation || "$*" != *test-translation-generation.php* ]] || return 94
   [[ "$CASE" != tests || "$*" != *test-pilot-exam-workflow.php* ]]
 }
 node() { printf 'node %s\n' "$*" >&2; [[ "$CASE" != renderer ]]; }
@@ -96,6 +97,13 @@ source "$2"
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("runuser -u examelite", result.stderr)
         self.assertNotIn("artisan", result.stderr)
+        self.assertNotIn("update-ui-template.sh", result.stderr)
+
+    def test_translation_generation_failure_stops_before_migration(self):
+        result = self.run_flow("translation")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("test-translation-generation.php", result.stderr)
+        self.assertNotIn("runuser -u examelite", result.stderr)
         self.assertNotIn("update-ui-template.sh", result.stderr)
 
 

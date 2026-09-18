@@ -89,6 +89,14 @@ lock contention. The fixture injects feature access and forbids AI-provider
 access; it does not test actual AI generation, commercial plan evaluation or
 queue transport. No application environment is bootstrapped.
 
+`test-translation-generation.php` takes the same four arguments and exercises
+the native translator's generation pipeline with a synthetic provider. It
+checks batching, transactional rollback on failed or incomplete responses,
+owner configuration selection, model answers, selective source refresh,
+language scope and repeat completion. Provider calls are replaced in process;
+it does not measure real AI translation quality or run a queue daemon. The
+user-run deployment executes this isolated fixture before migrations.
+
 ## Native multilingual passage delivery
 
 The separate `test-passage-media.php` suite takes `VENDOR_AUTOLOAD

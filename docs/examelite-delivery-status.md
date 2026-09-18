@@ -167,6 +167,17 @@ adapter milestone as a release.
    injected feature denial. Provider access is explicitly forbidden in that
    fixture; AI generation, real plan evaluation and queue transport remain
    unverified by it.
+   A separate native generation fixture now runs the real translator against a
+   synthetic provider boundary. It verifies five-question batching and remaining
+   work, transactional rollback for provider failure, invalid JSON and omitted
+   wording, owner-specific configuration selection, question/model-answer
+   persistence, source fingerprints, changed-field-only refresh and no duplicate
+   provider work after completion. Foreign/unlinked language and revoked-feature
+   checks stop before provider selection. Manual review stays unapproved after
+   completion. The user-run deployment gates migration on this fixture, and
+   eight isolated deployment-flow checks pass. This covers the native generation
+   pipeline; real provider output quality, plan evaluation and queue/daemon
+   operation still require verification.
 3. **Complete the agreed module coverage.** Finish platform module/provider
    catalogue and full plan management, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual
