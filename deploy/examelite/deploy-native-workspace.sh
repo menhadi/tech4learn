@@ -30,6 +30,7 @@ php "$source/test-native-plan-update.php" /home/examelite/public_html/vendor/aut
 php "$source/test-translated-model-answer.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-translation-generation.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-translation-worker.php" /home/examelite/public_html/vendor/autoload.php
+php "$source/test-translation-journey.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-retained-exam-translation-images.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-exam-translation-image-upload.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-translated-image-routes.php" /home/examelite/public_html/vendor/autoload.php

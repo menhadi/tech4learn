@@ -38,6 +38,7 @@ php() {
   [[ "$CASE" != runtime || "$*" != *test-pdf-worker.php* ]] || return 93
   [[ "$CASE" != translation || "$*" != *test-translation-generation.php* ]] || return 94
   [[ "$CASE" != translation_worker || "$*" != *test-translation-worker.php* ]] || return 96
+  [[ "$CASE" != translation_journey || "$*" != *test-translation-journey.php* ]] || return 97
   [[ "$CASE" != tests || "$*" != *test-pilot-exam-workflow.php* ]]
 }
 node() { printf 'node %s\n' "$*" >&2; [[ "$CASE" != renderer ]]; }
@@ -118,6 +119,13 @@ source "$2"
         result = self.run_flow("translation_worker")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("test-translation-worker.php", result.stderr)
+        self.assertNotIn("runuser -u examelite", result.stderr)
+        self.assertNotIn("update-ui-template.sh", result.stderr)
+
+    def test_translation_journey_failure_stops_before_migration(self):
+        result = self.run_flow("translation_journey")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("test-translation-journey.php", result.stderr)
         self.assertNotIn("runuser -u examelite", result.stderr)
         self.assertNotIn("update-ui-template.sh", result.stderr)
 

@@ -175,7 +175,7 @@ adapter milestone as a release.
    provider work after completion. Foreign/unlinked language and revoked-feature
    checks stop before provider selection. Manual review stays unapproved after
    completion. The user-run deployment gates migration on this fixture, and
-   ten isolated deployment-flow checks pass. This covers the native generation
+   eleven isolated deployment-flow checks pass. This covers the native generation
    pipeline; real provider output quality, plan evaluation and queue/daemon
    operation still require verification.
    Generation regression checks exposed a late-response overwrite: source or
@@ -200,6 +200,16 @@ adapter milestone as a release.
    stopping already-failed translations before provider work. Deployment includes
    this fixture before migrations. This is in-process queue verification, not a
    connected provider-to-PDF journey or production worker-daemon verification.
+   The queue and translator now also pass a connected local journey together:
+   six questions traverse native batching and delayed continuation, with owner
+   configuration selection, persisted model answers, manual approval gating and
+   no extra provider request on completed replay. A staff edit during provider
+   latency rejects the queued response, preserves reviewed wording and releases
+   both native locks; explicit retry completes using current content. The
+   provider remains synthetic and PDF dispatch is counted, so real AI quality,
+   rendered documents and daemon operation are still outstanding. Both audited
+   native job generations pass this journey; deployment stops before migrations
+   if it fails.
 3. **Complete the agreed module coverage.** Finish platform module/provider
    catalogue and full plan management, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual

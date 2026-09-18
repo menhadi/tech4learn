@@ -302,3 +302,15 @@ fixture switches to that recorded response after marking; it does not exercise
 the staff publication button. It uses synthetic scoped browser drafts and keeps
 generated transcripts in the ignored `.local` directory. Do not use real learner
 data for this fixture.
+
+## Connected native translation queue
+
+`deploy/examelite/test-translation-journey.php` runs the actual native queued job
+and translator together against isolated SQLite records and Laravel cache locks.
+It accepts the vendor, model snapshot, question controller and exam controller
+paths used by the other native fixtures, followed by optional translation-service
+and translation-job paths. It covers batching, delayed continuation, owner
+configuration, persisted answers, repeat completion, late-response rejection and
+explicit recovery. `translation-provider-fixture.php` is shared with the direct
+generation fixture and never calls an external provider. PDF dispatch is replaced;
+this check does not establish PDF rendering, production workers or AI quality.
