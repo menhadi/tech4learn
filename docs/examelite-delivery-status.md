@@ -121,8 +121,8 @@ adapter milestone as a release.
    Source review found that the native renderer treated failed image loads as
    successful waits and could publish a paper missing diagrams. The repeatable
    installer now adds a pre-print completeness/dimension check while preserving
-   the native renderer and advances its cache version so old artifacts are not
-   reused by new builds. Contract checks with a browser double cover good,
+   the native renderer. Legacy cache version 2 advances to 3; the audited newer
+   content-only cache is preserved as described below. Contract checks cover good,
    broken and incomplete images, HTTP/math readiness failures and cleanup.
    The deployment runs these checks before migrations. Actual rendered output
    is still unverified; these checks do not launch Chromium.
@@ -139,9 +139,16 @@ adapter milestone as a release.
    missing-source markers, MathJax errors and print failures. The unpatched
    current renderer fails the missing-diagram regression; both patched versions
    pass. No browser is launched and no real PDF is rendered by these checks.
-   The newer content-only fingerprint schema must still be reconciled with
-   cache invalidation. **Do not deploy yet:** the
-   installer still rejects the newer cache version rather than overwriting it.
+   Cache compatibility now recognises the audited content-only schema 1 and
+   runtime version 23, preserving its fingerprint function byte-for-byte.
+   Changing that runtime version to invalidate content would conflict with
+   native approved-artifact retention and PHP/queue handshake semantics.
+   Existing approved PDFs are retained under native publication policy; they
+   are not retrospectively certified by the new image guard. Subsequent actual
+   renders use the completeness guard. Unknown schemas, versions or fingerprint
+   layouts still stop installation. Both native cache generations and the
+   deployment-flow tests pass. **Do not deploy yet:** current worker execution
+   and actual rendering still need verification, alongside the remaining scope.
    Native translation completion now also has isolated checks for ready state,
    manual versus automatic approval, repeat completion, contended locks and
    injected feature denial. Provider access is explicitly forbidden in that

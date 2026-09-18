@@ -29,7 +29,30 @@ def require_pdf_images(text):
     return text.replace(anchor, guard + anchor)
 
 def refresh_pdf_image_cache(text):
-    """Do not reuse a PDF produced before image completeness was checked."""
+    """Upgrade legacy caching; preserve the audited content-only native schema."""
+    content_fingerprint = """    public function fingerprint(Exam $exam, ?Language $language, ?Package $package, bool $solution): string
+    {
+        $configuration = function_exists('getConfiguration') ? getConfiguration() : null;
+
+        return $this->hash([
+            'exam' => $this->examRenderState($exam, $language),
+            'questions' => $this->pdfQuestionContent($exam, $language, $solution),
+            'package' => $this->packageContentState($package, $solution),
+            'configuration' => [$configuration?->organization_name, $configuration?->logo],
+            'organization_pdf_template' => data_get($exam->organization?->settings, 'exam_pdf_template', []),
+            'solution' => $solution,
+        ]);
+    }"""
+    if 'FINGERPRINT_SCHEMA_VERSION' in text:
+        # Modern native publication retains approved artifacts independently of
+        # runtime updates. Do not invalidate every organisation's PDFs or alter
+        # the web/queue handshake to install a guard for subsequent renders.
+        if (text.count('public const FINGERPRINT_SCHEMA_VERSION = 1;') != 1
+                or text.count('public const TEMPLATE_VERSION = 23;') != 1
+                or text.count(content_fingerprint) != 1
+                or text.count('public function fingerprint(') != 1):
+            raise ValueError('Unsupported native content-only PDF cache; no files changed.')
+        return text
     before = 'public const TEMPLATE_VERSION = 2;'
     after = 'public const TEMPLATE_VERSION = 3; // Tech4Learn checked print images'
     if text.count(after) == 1 and before not in text:

@@ -7,6 +7,7 @@ import unittest
 from workspace_install import require_pdf_images, refresh_pdf_image_cache
 
 native = pathlib.Path(sys.argv.pop(1)).read_text() if len(sys.argv) > 1 else None
+cache = pathlib.Path(sys.argv.pop(1)).read_text() if len(sys.argv) > 1 else None
 
 class PdfRendererInstallTest(unittest.TestCase):
     def test_cache_invalidation(self):
@@ -16,6 +17,20 @@ class PdfRendererInstallTest(unittest.TestCase):
         self.assertEqual(refresh_pdf_image_cache(patched), patched)
         with self.assertRaises(ValueError):
             refresh_pdf_image_cache('public const TEMPLATE_VERSION = 99;')
+
+    def test_installed_cache(self):
+        if cache is None:
+            self.skipTest('Supply the native cache service to check its deployed schema.')
+        patched = refresh_pdf_image_cache(cache)
+        self.assertEqual(refresh_pdf_image_cache(patched), patched)
+        if 'FINGERPRINT_SCHEMA_VERSION' in cache:
+            self.assertEqual(patched, cache, 'Preserve native content fingerprints and approved artifacts')
+            for changed in [cache.replace('SCHEMA_VERSION = 1;', 'SCHEMA_VERSION = 2;'),
+                            cache.replace('TEMPLATE_VERSION = 23;', 'TEMPLATE_VERSION = 24;'),
+                            cache.replace("'solution' => $solution,", "'template' => self::TEMPLATE_VERSION,"),
+                            cache + cache]:
+                with self.assertRaises(ValueError):
+                    refresh_pdf_image_cache(changed)
 
     def test_checked_native_patch(self):
         self.assertIsNotNone(native, 'Supply the native renderer path.')
