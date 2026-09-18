@@ -4,6 +4,9 @@ def require_pdf_images(text):
     """Keep the native renderer, but never publish a paper with failed images."""
     anchor = "  await page.emulateMedia({ media: 'print' });"
     guard = """  // Tech4Learn: incomplete diagrams must fail the build, not disappear silently.
+  if (typeof imageWarnings !== 'undefined' && imageWarnings.length) {
+    throw new Error('A print image could not be loaded. Retry after restoring the source image.');
+  }
   await page.evaluate(() => {
     const images = Array.from(document.images);
     if (images.some((image) => !image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0)) {
@@ -14,6 +17,9 @@ def require_pdf_images(text):
     marker = '// Tech4Learn: incomplete diagrams'
     if text.count(anchor) != 1:
         raise ValueError('Unsupported native PDF renderer; no files changed.')
+    legacy_guard = guard.replace("  if (typeof imageWarnings !== 'undefined' && imageWarnings.length) {\n    throw new Error('A print image could not be loaded. Retry after restoring the source image.');\n  }\n", '')
+    if text.count(legacy_guard + anchor) == 1 and text.count(marker) == 1:
+        return text.replace(legacy_guard + anchor, guard + anchor)
     if marker in text:
         if text.count(guard + anchor) != 1 or text.count(marker) != 1:
             raise ValueError('Modified PDF image guard; no files changed.')
@@ -46,6 +52,29 @@ def protect_pdf_worker_lookup(text):
         if text.count(after) != 1 or text.count(catch_after) != 1 or text.count(marker) != 1:
             raise ValueError('Modified PDF worker cleanup guard; no files changed.')
         return text
+    modern_before = "        " + lookup + """
+        if ($build->status === 'ready' && $this->validPdf($build->current_path)) {
+            $lock->release();
+            return;
+        }
+        $temporary = null;
+        $next = null;
+        $previousPaths = array_values(array_filter([
+            $build->current_path,
+            $build->version_path,
+        ]));
+
+        try {"""
+    modern_after = after + """
+            if ($build->status === 'ready' && $this->validPdf($build->current_path)) {
+                return;
+            }
+            $previousPaths = array_values(array_filter([
+                $build->current_path,
+                $build->version_path,
+            ]));"""
+    if text.count(modern_before) == 1 and text.count(catch_before) == 1:
+        return text.replace(modern_before, modern_after).replace(catch_before, catch_after)
     if text.count(before) != 1 or text.count(catch_before) != 1:
         raise ValueError('Unsupported native PDF worker; no files changed.')
     return text.replace(before, after).replace(catch_before, catch_after)

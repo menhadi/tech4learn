@@ -126,6 +126,17 @@ adapter milestone as a release.
    broken and incomplete images, HTTP/math readiness failures and cleanup.
    The deployment runs these checks before migrations. Actual rendered output
    is still unverified; these checks do not launch Chromium.
+   A fresh read-only source audit found a newer deployed renderer, cache and
+   worker than the original local fixture. The image guard now also rejects
+   retained native image warnings after broken images have been replaced or
+   removed. The worker patch accepts the newer ready-artifact shortcut and
+   preserves its runtime retries while putting lookup under lock cleanup.
+   Both source generations pass installer repeatability/rejection checks;
+   transformed current PHP/JavaScript also pass syntax checks. Current-native
+   execution remains unverified. The newer content-only fingerprint schema
+   must still be reconciled with cache invalidation, and the renderer contract
+   double updated for the newer runtime handshake. **Do not deploy yet:** the
+   installer still rejects the newer cache version rather than overwriting it.
    Native translation completion now also has isolated checks for ready state,
    manual versus automatic approval, repeat completion, contended locks and
    injected feature denial. Provider access is explicitly forbidden in that

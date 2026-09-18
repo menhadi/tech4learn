@@ -1,6 +1,8 @@
 """Guard the native renderer without bootstrapping ExamElite or launching a browser."""
 import pathlib
+import json
 import sys
+import subprocess
 import unittest
 from workspace_install import require_pdf_images, refresh_pdf_image_cache
 
@@ -29,6 +31,29 @@ class PdfRendererInstallTest(unittest.TestCase):
             require_pdf_images('unrecognised renderer')
         with self.assertRaises(ValueError):
             require_pdf_images(native + native)
+
+    def test_native_removed_images_still_prevent_printing(self):
+        patched = require_pdf_images(native)
+        start = patched.index('  // Tech4Learn: incomplete diagrams')
+        end = patched.index("  await page.emulateMedia({ media: 'print' });", start)
+        guard = patched[start:end]
+        # The newer native renderer removes broken images before this guard.
+        # Its retained warnings must still prevent an incomplete exam paper.
+        script = "const assert = require('node:assert/strict');\n" + \
+            "const run = new Function('imageWarnings', 'page', 'document', " + \
+            json.dumps('return (async () => {\n' + guard + '\n})();') + \
+            ");\n(async () => {\n" + \
+            "const page = { evaluate: async fn => fn() };\n" + \
+            "await run([], page, { images: [] });\n" + \
+            "await run(undefined, page, { images: [] });\n" + \
+            "await assert.rejects(run(['synthetic missing diagram'], page, { images: [] }), /print image could not be loaded/);\n" + \
+            "})().catch(error => { console.error(error); process.exitCode = 1; });"
+        subprocess.run(['node', '-e', script], check=True)
+
+    def test_upgrade_previous_guard(self):
+        patched = require_pdf_images(native)
+        previous = patched.replace("  if (typeof imageWarnings !== 'undefined' && imageWarnings.length) {\n    throw new Error('A print image could not be loaded. Retry after restoring the source image.');\n  }\n", '')
+        self.assertEqual(require_pdf_images(previous), patched)
 
 if __name__ == '__main__':
     unittest.main()
