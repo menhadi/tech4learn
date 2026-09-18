@@ -23,7 +23,7 @@ checked commits when the release is ready.
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
 | Documents | Native PDF request/status/approved download adapters and screens. Actual rendering/worker completion is not yet verified. |
 
-Latest validation: `npm run check` passed with 87 tests, all workspace
+Latest validation: `npm run check` passed with 88 tests, all workspace
 typechecks and production builds. The existing large-bundle warning remains.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It
@@ -274,6 +274,14 @@ adapter milestone as a release.
    deployment runs them together with passage authoring/image retention checks.
    These routes still need the Tech4Learn gateway and shared-editor connection;
    they do not yet enable staff previews in the product interface.
+   The Tech4Learn gateway now forwards these exact-language/revision previews
+   through authenticated organisation and superadmin routes. It validates the
+   response identity and bounded raster payload, rechecks access after the native
+   request, audits successful reads and returns no-store/nosniff responses.
+   Service/handler tests cover malformed and overridden input, mismatched native
+   output and revoked access before byte release. These checks stub the remote
+   engine and access boundary; native scope tests remain separate. Shared-editor
+   previews and passage image upload controls are still pending.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,

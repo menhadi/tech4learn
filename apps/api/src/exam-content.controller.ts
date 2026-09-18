@@ -294,6 +294,82 @@ export class ExamContentController {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.send(image.buffer);
   }
+  @Get(
+    "organisations/:org/exam-content/passages/:id/languages/:language/media/:asset",
+  )
+  async passageImage(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("language") language: string,
+    @Param("asset") asset: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    return this.sendPassageImage(
+      org,
+      id,
+      language,
+      asset,
+      query,
+      cookie,
+      response,
+      false,
+    );
+  }
+  @Get(
+    "platform/exam-content/:org/central/passages/:id/languages/:language/media/:asset",
+  )
+  async centralPassageImage(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Param("language") language: string,
+    @Param("asset") asset: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    return this.sendPassageImage(
+      org,
+      id,
+      language,
+      asset,
+      query,
+      cookie,
+      response,
+      true,
+    );
+  }
+  private async sendPassageImage(
+    org: string,
+    id: string,
+    language: string,
+    asset: string,
+    query: Record<string, unknown>,
+    cookie: string | undefined,
+    response: Response,
+    central: boolean,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-${central ? "central-" : ""}passage-media:${account.id}:${org}`,
+      180,
+      60,
+    );
+    const image = await this.content.passageMedia(
+      account,
+      org,
+      id,
+      language,
+      asset,
+      query,
+      central,
+    );
+    response.setHeader("Content-Type", image.mime);
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(image.buffer);
+  }
   @Get("organisations/:org/exam-content/questions/:id/media/:asset")
   async questionImage(
     @Param("org") org: string,

@@ -1326,6 +1326,76 @@ export class ExamContentService {
   async questionMedia(user: Account, org: string, id: string, asset: string) {
     return this.authoringMedia(user, org, id, asset, "questions");
   }
+  async passageMedia(
+    user: Account,
+    org: string,
+    id: string,
+    language: string,
+    asset: string,
+    query: Record<string, unknown>,
+    central = false,
+  ) {
+    const authorize = () =>
+      central
+        ? this.centralAccess(user, org, id)
+        : this.questionAccess(user, org, id, "questions");
+    await authorize();
+    const revision = query.revision;
+    if (
+      Object.keys(query).length !== 1 ||
+      typeof revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(revision) ||
+      !/^[a-f0-9]{64}$/.test(asset) ||
+      ![id, language].every((value) => /^[1-9][0-9]{0,14}$/.test(value))
+    )
+      throw new BadRequestException("Invalid passage preview.");
+    const result = await this.remote.request(
+      await this.config(),
+      org,
+      `${central ? "central" : `authoring/${org}`}/passages/${id}/languages/${language}/media/${asset}?revision=${revision}`,
+      undefined,
+      14000000,
+      30000,
+    );
+    await authorize();
+    const data = result.data;
+    const invalid = () =>
+      new ServiceUnavailableException(
+        "This passage image could not be loaded.",
+      );
+    if (
+      !data ||
+      data.passage_id !== Number(id) ||
+      data.language_id !== Number(language) ||
+      data.asset !== asset ||
+      data.revision !== revision ||
+      ![
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/avif",
+      ].includes(data.mime) ||
+      typeof data.base64 !== "string" ||
+      data.base64.length > 13981016
+    )
+      throw invalid();
+    const buffer = Buffer.from(data.base64, "base64");
+    if (
+      !buffer.length ||
+      buffer.length > 10485760 ||
+      buffer.toString("base64") !== data.base64
+    )
+      throw invalid();
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      `exams.${central ? "central." : ""}passage.image.viewed`,
+      { passageId: Number(id), languageId: Number(language), asset },
+    );
+    return { buffer, mime: data.mime };
+  }
   async packageMedia(
     user: Account,
     org: string,
