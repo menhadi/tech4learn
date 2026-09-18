@@ -175,9 +175,21 @@ adapter milestone as a release.
    provider work after completion. Foreign/unlinked language and revoked-feature
    checks stop before provider selection. Manual review stays unapproved after
    completion. The user-run deployment gates migration on this fixture, and
-   eight isolated deployment-flow checks pass. This covers the native generation
+   nine isolated deployment-flow checks pass. This covers the native generation
    pipeline; real provider output quality, plan evaluation and queue/daemon
    operation still require verification.
+   Generation regression checks exposed a late-response overwrite: source or
+   reviewed target wording could change while the provider was running. The
+   guarded native installer now adds transaction-time source/target comparisons
+   under row locks before persistence. Changed exam/question content, removed
+   question links or newer target wording reject the response without partial
+   target writes; explicit retry uses current inputs and preserves reviewed
+   fields whose source is unchanged. Tests simulate edits during the provider
+   call for exam and question sources and targets. The original source fails
+   the regression; patched snapshots pass, including a fresh read-only copy of
+   the current native service. Installer checks cover repeat installation and
+   refusal of modified/unknown guards. These are isolated interleaving checks,
+   not production database concurrency or live deployment verification.
 3. **Complete the agreed module coverage.** Finish platform module/provider
    catalogue and full plan management, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual

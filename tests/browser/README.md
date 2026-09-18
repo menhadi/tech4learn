@@ -96,6 +96,14 @@ owner configuration selection, model answers, selective source refresh,
 language scope and repeat completion. Provider calls are replaced in process;
 it does not measure real AI translation quality or run a queue daemon. The
 user-run deployment executes this isolated fixture before migrations.
+An optional fifth argument selects a locally patched `ExamTranslationService.php`
+snapshot. The generation fixture also injects source and reviewed-target edits
+during the provider call and verifies rejection without partial writes, followed
+by a successful explicit retry. Use the installed guarded service or a local
+snapshot produced by `protect_translation_inputs`; the unpatched service fails
+that regression. `test-translation-install.py SERVICE_SOURCE` checks the pure
+installer transformation and refusal of modified guards. No live files are
+changed by these tests.
 
 ## Native multilingual passage delivery
 

@@ -44,6 +44,7 @@ python3() {
   printf 'python3 %s\n' "$*" >&2
   [[ "$*" != *install-workspace-hosts.py* ]] || return 91
   [[ "$CASE" != worker || "$*" != *test-pdf-worker-install.py* ]] || return 92
+  [[ "$CASE" != translation_guard || "$*" != *test-translation-install.py* ]] || return 95
   [[ "$CASE" != health || "$*" != *check-workspace-connection.py || "$*" == *--configuration-only* ]]
 }
 bash() { printf 'bash %s\n' "$*" >&2; }
@@ -103,6 +104,12 @@ source "$2"
         result = self.run_flow("translation")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("test-translation-generation.php", result.stderr)
+        self.assertNotIn("runuser -u examelite", result.stderr)
+        self.assertNotIn("update-ui-template.sh", result.stderr)
+
+    def test_translation_guard_failure_stops_before_migration(self):
+        result = self.run_flow("translation_guard")
+        self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("runuser -u examelite", result.stderr)
         self.assertNotIn("update-ui-template.sh", result.stderr)
 

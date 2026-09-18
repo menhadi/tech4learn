@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run explicitly as root on the server; no migrations or service restarts here."""
 import os, pathlib, pwd, shutil, subprocess, datetime
-from workspace_install import add_provider, add_navigation, fix_exam_creation_validation, allow_scoped_language_controller, add_translated_model_answer, require_pdf_images, refresh_pdf_image_cache, protect_pdf_worker_lookup
+from workspace_install import add_provider, add_navigation, fix_exam_creation_validation, allow_scoped_language_controller, add_translated_model_answer, require_pdf_images, refresh_pdf_image_cache, protect_pdf_worker_lookup, protect_translation_inputs
 
 if os.geteuid()!=0: raise SystemExit('Run as root.')
 root=pathlib.Path('/home/examelite/public_html')
@@ -53,12 +53,14 @@ app=root/'config/app.php';layout=root/'resources/views/layouts/master.blade.php'
 renderer=root/'scripts/render-exam-pdf.mjs'
 pdf_cache=root/'app/Services/ExamPdfCacheService.php'
 pdf_job=root/'app/Jobs/GenerateExamPdfJob.php'
-for p in (app,layout,exam,language,question_language,renderer,pdf_cache,pdf_job):
+translation=root/'app/Services/ExamTranslationService.php'
+for p in (app,layout,exam,language,question_language,renderer,pdf_cache,pdf_job,translation):
     if not p.is_file() or p.is_symlink(): raise SystemExit('Expected regular source: '+str(p))
 updates={app:add_provider(app.read_text()),layout:add_navigation(layout.read_text()),exam:fix_exam_creation_validation(exam.read_text()),language:allow_scoped_language_controller(language.read_text()),question_language:add_translated_model_answer(question_language.read_text())}
 updates[renderer]=require_pdf_images(renderer.read_text())
 updates[pdf_cache]=refresh_pdf_image_cache(pdf_cache.read_text())
 updates[pdf_job]=protect_pdf_worker_lookup(pdf_job.read_text())
+updates[translation]=protect_translation_inputs(translation.read_text())
 backup=pathlib.Path('/root/tech4learn-backups')/('native-workspace-'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%f'))
 backup.mkdir(parents=True,mode=0o700)
 originals={}
@@ -80,6 +82,7 @@ try:
     subprocess.run(['node','--check',str(renderer)],check=True)
     subprocess.run(['php','-l',str(pdf_cache)],check=True)
     subprocess.run(['php','-l',str(pdf_job)],check=True)
+    subprocess.run(['php','-l',str(translation)],check=True)
 except BaseException:
     for dest,content in originals.items():
         if content is None: dest.unlink(missing_ok=True)

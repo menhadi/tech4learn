@@ -5,6 +5,7 @@ namespace App\Support {
         public static array $owners=[];
         public static array $payloads=[];
         public static string $mode='valid';
+        public static $duringGeneration=null;
         public static function firstAvailable($configuration,...$args){
             self::$owners[]=(int)$configuration?->organization_id;
             return ['provider'=>'synthetic','stored_name'=>'SYNTHETIC'];
@@ -14,6 +15,7 @@ namespace App\Support {
             if(self::$mode==='invalid')return 'not a translation JSON response';
             $payload=json_decode(substr($prompt,strrpos($prompt,"\n\n")+2),true,512,JSON_THROW_ON_ERROR);
             self::$payloads[]=$payload;
+            if(self::$duringGeneration){$hook=self::$duringGeneration;self::$duringGeneration=null;$hook();}
             $translate=function(array $fields):array{
                 foreach($fields as $key=>$value)if($key!=='id'&&is_string($value)&&trim($value)!=='')$fields[$key]='[synthetic target] '.$value;
                 return $fields;
@@ -27,6 +29,7 @@ namespace App\Support {
 }
 namespace {
 // Isolated in-memory native records. Never bootstrap the installed application.
+if(isset($argv[5]))$GLOBALS['t4lTestTranslationService']=$argv[5];
 require __DIR__.'/test-exam-translations.php';
 use Illuminate\Support\Facades\{DB,Cache};
 use App\Models\{Exam,Language,Question,QuestionLang,ExamLanguageTranslation};
@@ -98,9 +101,40 @@ foreach([30,20] as $owner){
     catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===422,'Foreign or unlinked target language is rejected');}
 }
 check(count(AiProvider::$owners)===$calls,'Invalid language scope never reaches provider selection');
+$paper->update(['name'=>'Source before provider']);
+$examTarget=ExamLanguageTranslation::where('exam_id',$paper->id)->where('language_id',$language->id)->firstOrFail();
+$beforeTarget=$examTarget->getAttributes();
+AiProvider::$duringGeneration=fn()=>DB::table('exams')->where('id',$paper->id)->update(['name'=>'Source changed during provider']);
+try{$native->translateNextBatch($paper->fresh(),$language);throw new LogicException('Expected changed source rejection');}
+catch(RuntimeException $e){check(str_contains($e->getMessage(),'Translation inputs changed'),'Changed source is rejected before target writes');}
+check($examTarget->fresh()->getAttributes()===$beforeTarget&&$pivot()->translation_status==='failed','Late provider response cannot replace the translation after source changes');
+$native->translateNextBatch($paper->fresh(),$language);
+$paper->update(['instruction'=>'Instruction before provider']);
+$beforeInstruction=$examTarget->fresh()->instruction;
+AiProvider::$duringGeneration=fn()=>DB::table('exam_language_translations')->where('id',$examTarget->id)->update(['name'=>'Staff corrected exam target']);
+try{$native->translateNextBatch($paper->fresh(),$language);throw new LogicException('Expected changed exam target rejection');}
+catch(RuntimeException $e){check(str_contains($e->getMessage(),'Translation inputs changed'),'Changed exam target is rejected before generated writes');}
+check($examTarget->fresh()->name==='Staff corrected exam target'&&$examTarget->fresh()->instruction===$beforeInstruction,'Exam target correction survives without partial instruction writes');
+$native->translateNextBatch($paper->fresh(),$language);
+check($examTarget->fresh()->name==='Staff corrected exam target','Explicit exam retry retains the reviewed target name');
+$questions[0]->update(['option1'=>'Question option before provider']);
+$beforeQuestion=$before->fresh()->getAttributes();
+AiProvider::$duringGeneration=fn()=>DB::table('questions')->where('id',$questions[0]->id)->update(['question'=>'Question source changed during provider']);
+try{$native->translateNextBatch($paper->fresh(),$language);throw new LogicException('Expected changed question source rejection');}
+catch(RuntimeException $e){check(str_contains($e->getMessage(),'Translation inputs changed'),'Changed question source is rejected before generated writes');}
+check($before->fresh()->getAttributes()===$beforeQuestion,'Question source change leaves all prior target fields intact');
+$native->translateNextBatch($paper->fresh(),$language);
+$questions[0]->update(['option1'=>'Source option before provider']);
+$beforeOption=$before->fresh()->option1;
+AiProvider::$duringGeneration=fn()=>DB::table('question_langs')->where('id',$before->id)->update(['question'=>'Staff corrected target during provider']);
+try{$native->translateNextBatch($paper->fresh(),$language);throw new LogicException('Expected changed target rejection');}
+catch(RuntimeException $e){check(str_contains($e->getMessage(),'Translation inputs changed'),'Changed target is rejected before generated writes');}
+check($before->fresh()->question==='Staff corrected target during provider'&&$before->fresh()->option1===$beforeOption,'Staff correction survives the late provider response without partial writes');
+$native->translateNextBatch($paper->fresh(),$language);
+check($before->fresh()->question==='Staff corrected target during provider','Explicit retry refreshes changed source fields without overwriting the staff correction');
 $GLOBALS['t4lTestAiTranslation']=false;$calls=count(AiProvider::$owners);
 try{$native->translateNextBatch($paper->fresh(),$language);throw new LogicException('Expected plan denial');}
 catch(Symfony\Component\HttpKernel\Exception\HttpException $e){check($e->getStatusCode()===403,'Revoked native feature stops generation');}
 check(count(AiProvider::$owners)===$calls,'Feature denial happens before provider selection');
-echo "Native translation generation: synthetic-provider batching, rollback, ownership, model answers, selective refresh and repeat checks passed. Real provider quality and queue daemon operation remain unverified.\n";
+echo "Native translation generation: synthetic-provider batching, rollback, ownership, model answers, selective refresh, stale source/target protection and repeat checks passed. Real provider quality and queue daemon operation remain unverified.\n";
 }

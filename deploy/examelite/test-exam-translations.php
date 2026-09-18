@@ -9,7 +9,7 @@ namespace App\Jobs {
 namespace {
 // Synthetic data only. Native completeness/fingerprint logic runs without AI or jobs.
 require __DIR__.'/test-exam-authoring.php';
-require dirname($argv[3]).'/ExamTranslationService.php';
+require $GLOBALS['t4lTestTranslationService']??dirname($argv[3]).'/ExamTranslationService.php';
 require dirname($argv[3]).'/ExamDocumentController.php';
 require dirname($argv[3]).'/ExamDocumentBulkActionService.php';
 require $GLOBALS['t4lTestQuestionLangController']??dirname($argv[3]).'/QuestionLangController.php';

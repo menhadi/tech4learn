@@ -1,5 +1,42 @@
 """Pure additive transformations, shared by the installer and local tests."""
 
+def protect_translation_inputs(text):
+    """Reject late provider output when source or reviewed wording has changed."""
+    anchor = '            DB::transaction(function () use ($exam, $language, $questions, $translated, $provider, $needsExamContent, $examFields, $questionFields) {\n'
+    replacement = anchor.replace('$questionFields)', '$questionFields, $examTranslation)') + r'''                // Tech4Learn: provider latency must not overwrite newer source or reviewed wording.
+                $freshExam = Exam::query()->lockForUpdate()->findOrFail($exam->id);
+                $unchanged = (int) $freshExam->organization_id === (int) $exam->organization_id
+                    && $this->examFingerprint($freshExam) === $this->examFingerprint($exam);
+                $freshExamTranslation = ExamLanguageTranslation::where('exam_id', $exam->id)
+                    ->where('language_id', $language->id)->lockForUpdate()->first();
+                $unchanged = $unchanged && ($freshExamTranslation?->getAttributes() ?? []) === ($examTranslation?->getAttributes() ?? []);
+                $freshQuestions = $freshExam->questions()->whereIn('questions.id', $questions->pluck('id'))
+                    ->orderBy('questions.id')->lockForUpdate()->get()->keyBy('id');
+                foreach ($questions as $sourceQuestion) {
+                    $freshQuestion = $freshQuestions->get($sourceQuestion->id);
+                    $freshTarget = QuestionLang::where('question_id', $sourceQuestion->id)
+                        ->where('language_id', $language->id)->lockForUpdate()->first();
+                    $unchanged = $unchanged && $freshQuestion
+                        && (int) $freshQuestion->organization_id === (int) $exam->organization_id
+                        && $this->questionFingerprint($freshQuestion) === $this->questionFingerprint($sourceQuestion)
+                        && ($freshTarget?->getAttributes() ?? []) === ($sourceQuestion->langs->first()?->getAttributes() ?? []);
+                }
+                if (! $unchanged) {
+                    throw new \RuntimeException('Translation inputs changed. Retry after reviewing current content.');
+                }
+'''
+    marker = '// Tech4Learn: provider latency'
+    if marker in text:
+        if text.count(marker) != 1 or text.count(replacement) != 1 or anchor in text:
+            raise ValueError('Modified translation input guard; no files changed.')
+        return text
+    required = ['public function translateNextBatch(Exam $exam, Language $language): array',
+                '$examTranslation = ExamLanguageTranslation::where(',
+                '$translated = $this->decode($raw);']
+    if text.count(anchor) != 1 or any(part not in text for part in required):
+        raise ValueError('Unsupported native translation service; no files changed.')
+    return text.replace(anchor, replacement)
+
 def require_pdf_images(text):
     """Keep the native renderer, but never publish a paper with failed images."""
     anchor = "  await page.emulateMedia({ media: 'print' });"
