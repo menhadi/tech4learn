@@ -17,6 +17,34 @@ import { centralExamMetadata } from "./central-exam-metadata.js";
 
 @Injectable()
 export class ExamContentService {
+  private passageFields(fields: Record<string, unknown>, creating: boolean) {
+    const wording = fields.passages;
+    if (
+      Object.keys(fields).some((key) => !["name", "passages"].includes(key)) ||
+      !Object.keys(fields).length ||
+      ((creating || fields.name !== undefined) &&
+        (typeof fields.name !== "string" ||
+          !fields.name.trim() ||
+          fields.name.length > 255 ||
+          /[<>]/.test(fields.name))) ||
+      ((creating || wording !== undefined) &&
+        (!wording ||
+          typeof wording !== "object" ||
+          Array.isArray(wording) ||
+          !Object.keys(wording).length ||
+          Object.keys(wording).length > 50 ||
+          Object.entries(wording).some(
+            ([language, text]) =>
+              !/^[1-9][0-9]{0,14}$/.test(language) ||
+              typeof text !== "string" ||
+              !text.trim() ||
+              Buffer.byteLength(text, "utf8") > 200000,
+          )))
+    )
+      throw new BadRequestException(
+        "Use a passage name and wording for enabled languages.",
+      );
+  }
   private translatedImage(fields: Record<string, unknown>) {
     const allowed = [
       "language_id",
@@ -225,6 +253,7 @@ export class ExamContentService {
       throw new BadRequestException("Invalid central exam action.");
     await this.centralAccess(user, org, id, true);
     const definitions: Record<string, string[]> = {
+      passages: ["name", "passages"],
       languages: ["name", "code", "value1", "value2"],
       groups: ["group_name", "display_order"],
       subjects: ["subject_name", "group_ids", "category_ids"],
@@ -388,6 +417,8 @@ export class ExamContentService {
         throw new BadRequestException(
           "Invalid central classification changes.",
         );
+      if (kind === "passages")
+        this.passageFields(fields as Record<string, unknown>, id === "new");
       if (
         kind === "packages" &&
         Object.hasOwn(fields, "package_type") &&
@@ -652,6 +683,7 @@ export class ExamContentService {
     const parent = query.parent_id;
     if (
       ![
+        "passages",
         "exams",
         "packages",
         "package-tags",
@@ -1766,6 +1798,7 @@ export class ExamContentService {
       throw new ForbiddenException("Exam authoring is restricted.");
     if (
       ![
+        "passages",
         "exams",
         "packages",
         "categories",
@@ -1791,11 +1824,16 @@ export class ExamContentService {
       throw new BadRequestException("Invalid question lookup.");
     if (kind === "exams" && rules.restrictions.includes("exams"))
       throw new ForbiddenException("Exams are restricted.");
-    return this.remote.request(
+    if (kind === "passages" && rules.restrictions.includes("questions"))
+      throw new ForbiddenException("Passage authoring is restricted.");
+    const response = await this.remote.request(
       await this.config(),
       org,
       `authoring/${org}/choices/${kind}?search=${encodeURIComponent(search)}&after=${after}${parent ? `&parent_id=${parent}` : ""}`,
     );
+    if (kind === "passages")
+      await this.questionAccess(user, org, "new", "questions");
+    return response;
   }
   async question(user: Account, org: string, id: string) {
     await this.questionAccess(user, org, id);
@@ -1839,6 +1877,7 @@ export class ExamContentService {
   private taxonomyKind(kind: string) {
     if (
       ![
+        "passages",
         "exams",
         "languages",
         "packages",
@@ -1859,20 +1898,34 @@ export class ExamContentService {
       user,
       org,
       id,
-      kind === "exams" ? "exams" : "subjects",
+      kind === "exams"
+        ? "exams"
+        : kind === "passages"
+          ? "questions"
+          : "subjects",
     );
     if (id === "new")
       await this.workspace.launch(
         user,
         org,
-        { feature: kind === "exams" ? "exams" : "subjects" },
+        {
+          feature:
+            kind === "exams"
+              ? "exams"
+              : kind === "passages"
+                ? "questions"
+                : "subjects",
+        },
         true,
       );
-    return this.remote.request(
+    const response = await this.remote.request(
       await this.config(),
       org,
       `authoring/${org}/taxonomy/${kind}/${id}`,
     );
+    if (kind === "passages")
+      await this.questionAccess(user, org, id, "questions");
+    return response;
   }
   async saveQuestion(
     user: Account,
@@ -1914,12 +1967,11 @@ export class ExamContentService {
     )
       throw new BadRequestException("Invalid exam action.");
     if (kind !== "questions") this.taxonomyKind(kind);
-    const feature =
-      kind === "questions"
-        ? "questions"
-        : kind === "exams"
-          ? "exams"
-          : "subjects";
+    const feature = ["questions", "passages"].includes(kind)
+      ? "questions"
+      : kind === "exams"
+        ? "exams"
+        : "subjects";
     await this.questionAccess(user, org, id, feature);
     if (
       !b.fields ||
@@ -1937,6 +1989,15 @@ export class ExamContentService {
       )
     )
       throw new BadRequestException("Invalid question changes.");
+    if (kind === "passages") {
+      if (
+        Object.keys(b).some(
+          (key) => !["fields", "revision", "request_id"].includes(key),
+        )
+      )
+        throw new BadRequestException("Invalid passage request.");
+      this.passageFields(b.fields as Record<string, unknown>, id === "new");
+    }
     if (action === "set-translation-image") {
       this.translatedImage(b.fields as Record<string, unknown>);
       if (
@@ -2111,7 +2172,12 @@ export class ExamContentService {
         actor_id: user.id,
       },
     );
-    if (imageAction || languageDisable || action === "set-translation-image")
+    if (
+      kind === "passages" ||
+      imageAction ||
+      languageDisable ||
+      action === "set-translation-image"
+    )
       await this.questionAccess(user, org, id, feature);
     if (response.conflict === true)
       throw new ConflictException(
