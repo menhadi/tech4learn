@@ -2,6 +2,13 @@
 
 ## Plan permission catalogue
 
+Open `/tests/browser/exam-plan-edit.html` for the shared plan editor and
+catalogue with synthetic transport. It checks inactive/default plans, stored
+settings, assigned-organisation impact, locked uncertain writes, identical
+retries through repeated scoped draft recovery, stale revision recovery and
+organisation isolation. The API suite separately checks bounded central plan
+reads and updates with stored superadmin access before and after native calls.
+
 Open `/tests/browser/exam-plan-create.html` for the real plan-creation form
 with synthetic transport. It checks default capabilities, zero versus blank
 limits, translated API fields, exact retries across repeated draft restores,
@@ -176,7 +183,7 @@ checks exam upload controls, scoped endpoints and retry locks; the native
 and failed-save file cleanup with the same arguments. Orphan reconciliation and
 production concurrency remain unverified.
 
-## Connected plan creation and assignment check
+## Connected plan creation, editing and assignment check
 
 `plan-api-native.mjs` connects the real Nest plan endpoints to the registered
 native PHP plan routes and `SaasController` using isolated PGlite/SQLite records.
@@ -189,6 +196,8 @@ node tests/browser/plan-api-native.mjs VENDOR_AUTOLOAD MODELS_DIRECTORY QUESTION
 It verifies reading choices, assigning a different plan, replaying the exact
 request without another native audit invocation, reloading the selected plan,
 creating and discovering a new plan without duplicate creation on retry,
+reading and editing that plan with preserved untouched fields/default flag,
+one audit invocation on an identical edit retry, listing the inactive result,
 stale conflicts, injected actor denial and revoked Tech4Learn superadmin access.
 Native fixture assertions also verify unchanged organisation details and shared
 plans. It passed locally. The native audit helper is a recording test double;

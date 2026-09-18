@@ -102,7 +102,8 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
     if (
       path.includes("/plans?") ||
       path.endsWith("/plan") ||
-      path === "central/plans"
+      path === "central/plans" ||
+      path.startsWith("central/plans/")
     ) {
       if (planRevoke)
         await pg.query("UPDATE users SET is_superadmin=false WHERE id=$1", [
@@ -471,6 +472,150 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
     before = requests.length;
     assert.equal((await call("/plans", creation, admin)).status, 403);
     assert.equal(requests.length, before);
+    planRevoke = false;
+    await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
+    const centralCatalogue = {
+      items: [
+        {
+          id: 10,
+          name: "Inactive plan",
+          active: false,
+          is_default: false,
+          revision,
+        },
+      ],
+      next: null,
+    };
+    planReply = { ...centralCatalogue, secret: "omit" };
+    const centralCatalogueResponse = await call(
+      "/central-plans",
+      undefined,
+      admin,
+    );
+    assert.equal(centralCatalogueResponse.status, 200);
+    assert.deepEqual(await centralCatalogueResponse.json(), centralCatalogue);
+    assert.equal(requests.at(-1).path, "central/plans?after=0");
+    for (const bad of [
+      { next: "10" },
+      { items: [...centralCatalogue.items, ...centralCatalogue.items] },
+      { items: [{ ...centralCatalogue.items[0], active: 1 }] },
+    ]) {
+      planReply = { ...centralCatalogue, ...bad };
+      assert.equal(
+        (await call("/central-plans", undefined, admin)).status,
+        503,
+      );
+    }
+    const fields = {
+      name: "Inactive plan",
+      price: "0.00",
+      billing_cycle: "monthly",
+      status: false,
+      ...Object.fromEntries(
+        fieldSchema.features.map((key) => [`feature_${key}`, true]),
+      ),
+      ...Object.fromEntries(
+        fieldSchema.limits.map((key) => [`limit_${key}`, null]),
+      ),
+    };
+    const detail = {
+      plan_id: 10,
+      revision,
+      fields,
+      is_default: false,
+      assigned_organisations: 2,
+    };
+    planReply = { ...detail, secret: "omit" };
+    const details = await call("/central-plans/10", undefined, admin);
+    assert.equal(details.status, 200);
+    assert.deepEqual(await details.json(), detail);
+    for (const bad of [
+      { plan_id: 11 },
+      { fields: { name: "Only name" } },
+      { fields: { ...fields, status: 1 } },
+      { assigned_organisations: -1 },
+    ]) {
+      planReply = { ...detail, ...bad };
+      assert.equal(
+        (await call("/central-plans/10", undefined, admin)).status,
+        503,
+      );
+    }
+    const update = {
+      request_id: randomUUID(),
+      revision,
+      fields: { limit_students: 50 },
+    };
+    before = requests.length;
+    assert.equal((await call("/central-plans", undefined, member)).status, 403);
+    assert.equal(
+      (await call("/central-plans/10", undefined, member)).status,
+      403,
+    );
+    assert.equal((await call("/central-plans/10", update, member)).status, 403);
+    assert.equal(
+      (await call("/central-plans?after=01", undefined, admin)).status,
+      400,
+    );
+    assert.equal(
+      (await call("/central-plans/010", undefined, admin)).status,
+      400,
+    );
+    assert.equal(
+      (await call("/central-plans/10?owner=1", undefined, admin)).status,
+      400,
+    );
+    for (const bad of [
+      { actor_id: member },
+      { revision: "bad" },
+      { fields: {} },
+      { fields: { is_default: true } },
+      { fields: { limit_students: -1 } },
+    ]) {
+      assert.equal(
+        (await call("/central-plans/10", { ...update, ...bad }, admin)).status,
+        400,
+      );
+    }
+    assert.equal(requests.length, before);
+    planReply = {
+      saved: true,
+      plan_id: 10,
+      name: fields.name,
+      revision,
+      secret: "omit",
+    };
+    const updated = await call("/central-plans/10", update, admin);
+    assert.equal(updated.status, 201);
+    assert.deepEqual(await updated.json(), {
+      saved: true,
+      plan_id: 10,
+      name: fields.name,
+      revision,
+    });
+    assert.deepEqual(requests.at(-1).body, { ...update, actor_id: admin });
+    assert.equal((await call("/central-plans/10", update, admin)).status, 201);
+    assert.deepEqual(requests.at(-1).body, requests.at(-2).body);
+    planReply = { saved: false, conflict: true };
+    assert.equal((await call("/central-plans/10", update, admin)).status, 409);
+    planReply = { saved: true, plan_id: 11, name: fields.name, revision };
+    assert.equal((await call("/central-plans/10", update, admin)).status, 503);
+    planRevoke = true;
+    for (const [path, body, reply] of [
+      ["/central-plans", undefined, centralCatalogue],
+      ["/central-plans/10", undefined, detail],
+      [
+        "/central-plans/10",
+        update,
+        { saved: true, plan_id: 10, name: fields.name, revision },
+      ],
+    ]) {
+      await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [
+        admin,
+      ]);
+      planReply = reply;
+      assert.equal((await call(path, body, admin)).status, 403);
+    }
   } finally {
     await app.close();
     await pg.close();

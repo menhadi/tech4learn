@@ -191,6 +191,45 @@ try {
       .status,
     409,
   );
+  const planPath = `/central-plans/${created.data.plan_id}`;
+  const detail = await call(planPath);
+  assert.equal(detail.status, 200, JSON.stringify(detail.data));
+  assert.equal(detail.data.fields.feature_reports, false);
+  assert.equal(detail.data.fields.limit_students, 25);
+  const edit = {
+    request_id: randomUUID(),
+    revision: detail.data.revision,
+    fields: { status: false, limit_students: 50 },
+  };
+  const edited = await call(planPath, edit);
+  assert.equal(edited.status, 201, JSON.stringify(edited.data));
+  assert.deepEqual(await call(planPath, edit), edited);
+  const editedDetail = await call(planPath);
+  assert.equal(editedDetail.status, 200);
+  assert.deepEqual(editedDetail.data.fields, {
+    ...detail.data.fields,
+    ...edit.fields,
+  });
+  assert.equal(editedDetail.data.is_default, detail.data.is_default);
+  assert.equal(
+    editedDetail.data.assigned_organisations,
+    detail.data.assigned_organisations,
+  );
+  const allPlans = await call("/central-plans");
+  assert.equal(allPlans.status, 200, JSON.stringify(allPlans.data));
+  assert.equal(
+    allPlans.data.items.find((p) => p.id === created.data.plan_id).active,
+    false,
+  );
+  assert.equal(
+    (await call(planPath, { ...edit, request_id: randomUUID() })).status,
+    409,
+  );
+  const editFacts = await native("fixture/facts");
+  assert.equal(editFacts.audits, creationFacts.audits + 1);
+  assert.equal(editFacts.plan_count, creationFacts.plan_count);
+  assert.equal(editFacts.plan_id, choice.id);
+  assert.ok(editFacts.unchanged_details && editFacts.unchanged_plans);
   const callsBefore = nativeCalls;
   assert.equal(
     (await call("/plan", { ...body, actor_id: randomUUID() })).status,
@@ -202,7 +241,7 @@ try {
   assert.equal((await call("/plans", creation)).status, 403);
   assert.equal(nativeCalls, callsBefore);
   console.log(
-    "PASS: real Tech4Learn HTTP → native plan controller: catalogue, creation, assignment, exact replay, stale conflict, actor injection, revocation and unchanged organisation/shared plans.",
+    "PASS: real Tech4Learn HTTP → native plan controller: catalogue, creation, editing, assignment, exact replay, stale conflict, actor injection, revocation and unchanged organisation/shared plans.",
   );
 } finally {
   clearTimeout(deadline);

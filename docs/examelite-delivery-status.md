@@ -14,7 +14,7 @@ checked commits when the release is ready.
 | Workflow | Current boundary |
 | --- | --- |
 | Organisation and superadmin navigation | Internal Tech4Learn screens; ExamElite remains the backend engine. |
-| Feature controls | Exams module and five native feature groups; revisioned organisation controls, native plan permissions, superadmin plan creation and assignment. Existing-plan editing, billing and provider management remain unfinished. |
+| Feature controls | Exams module and five native feature groups; revisioned organisation controls, native plan permissions, superadmin plan creation, editing and assignment. Billing and provider management remain unfinished. |
 | Central distribution | Share questions to organisations and pull organisation questions into central ownership as independent copies. No student/result sharing. |
 | Questions and classifications | Native question creation/editing, taxonomy, central language creation/editing, organisation language enabling, free packages and guarded category deletion. |
 | Source media and wording | Raster upload/replacement/removal, protected previews, supported MathML replacement and literal surrounding-text edits/appends. Arbitrary native markup is not fully supported. |
@@ -189,21 +189,31 @@ adapter milestone as a release.
    retries lock editing and successful creation resets the form. Synthetic
    browser checks cover repeated draft restore, field conversion, organisation
    isolation and permission rejection. Creation leaves assignments unchanged;
-   the existing selector assigns active plans separately. Existing-plan editing,
-   billing integration and live concurrency remain unverified/unimplemented.
+   the existing selector assigns active plans separately. Billing integration
+   and live concurrency remain unverified/unimplemented.
    Existing-plan editing now has private native catalogue/detail/update routes.
    The native controller owns partial updates reconstructed from stored values;
    optimistic revisions and central actor receipts guard retries. Unknown
    stored features/limits block editing rather than being discarded. Native
    checks cover inactive plans, pagination, assignment counts, unchanged
    assignment IDs/slug/default, stale edits, actor revocation and audit rollback.
-   These editing routes are not connected to the Tech4Learn gateway/interface
-   yet. Native plan status controls catalogue availability; it is not an
+   These editing routes now connect through the stored-superadmin Tech4Learn
+   gateway and shared plan form. The catalogue includes inactive plans, and the
+   editor shows the number of assigned organisations affected by a change.
+   Scoped drafts retain the original revision and exact pending request; stale
+   edits require reopening, while uncertain writes lock editing until retried.
+   HTTP checks cover response projection, malformed settings, injected actors,
+   repeated requests and revoked access. Browser fixtures cover stored values,
+   repeated draft recovery, stale recovery and organisation isolation; creation
+   remains covered by its regression fixture. Native plan status controls catalogue availability; it is not an
    organisation access-revocation mechanism.
    The connected Nest/native fixture also now creates a plan through both real
    controllers, retries without a duplicate or second audit invocation, finds
    it in the catalogue and verifies that existing plans and organisation
-   assignments remain unchanged. Its transport is isolated PHP CLI with
+   assignments remain unchanged. It also reads and updates the created plan,
+   checks exact retry produces one audit invocation, preserves untouched fields
+   and the default flag, rejects stale revisions and lists the inactive result.
+   Its transport is isolated PHP CLI with
    synthetic databases, not production HTTP middleware.
    Central language deletion now has a native service guard for enabled copies,
    source questions, question/passage translations, exam language links and

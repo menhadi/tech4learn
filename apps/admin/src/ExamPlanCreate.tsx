@@ -6,8 +6,27 @@ type Schema = { features: string[]; limits: string[] };
 type Values = Record<string, string | boolean>;
 type Creation = {
   request_id: string;
+  revision?: string;
   fields: Record<string, string | boolean | number | null>;
 };
+export type PlanDetail = {
+  plan_id: number;
+  revision: string;
+  fields: Creation["fields"];
+  is_default: boolean;
+  assigned_organisations: number;
+};
+const planValues = (plan: PlanDetail): Values =>
+  Object.fromEntries(
+    Object.entries(plan.fields).map(([key, value]) => [
+      key,
+      key.startsWith("limit_")
+        ? value === null
+          ? ""
+          : String(value)
+        : (value as string | boolean),
+    ]),
+  );
 const label = (key: string) =>
   key
     .replaceAll("_", " ")
@@ -22,9 +41,32 @@ const defaults = (schema: Schema): Values => ({
   ...Object.fromEntries(schema.limits.map((key) => [`limit_${key}`, ""])),
 });
 
-export function ExamPlanCreate({ org }: { org: string }) {
-  const [schema, setSchema] = useState<Schema | null>(null);
-  const [values, setValues] = useState<Values>({});
+export function ExamPlanCreate({
+  org,
+  plan,
+  onClose,
+  onSaved,
+}: {
+  org: string;
+  plan?: PlanDetail;
+  onClose?: () => void;
+  onSaved?: () => void;
+}) {
+  const [schema, setSchema] = useState<Schema | null>(
+    plan
+      ? {
+          features: Object.keys(plan.fields)
+            .filter((key) => key.startsWith("feature_"))
+            .map((key) => key.slice(8)),
+          limits: Object.keys(plan.fields)
+            .filter((key) => key.startsWith("limit_"))
+            .map((key) => key.slice(6)),
+        }
+      : null,
+  );
+  const [values, setValues] = useState<Values>(plan ? planValues(plan) : {});
+  const [revision, setRevision] = useState(plan?.revision);
+  const [reloadRequired, setReloadRequired] = useState(false);
   const [pending, setPending] = useState<Creation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -47,7 +89,7 @@ export function ExamPlanCreate({ org }: { org: string }) {
   }
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    if (!schema || busy) return;
+    if (!schema || busy || reloadRequired) return;
     const fields: Creation["fields"] = {};
     for (const [key, value] of Object.entries(values))
       fields[key] = key.startsWith("limit_")
@@ -57,14 +99,26 @@ export function ExamPlanCreate({ org }: { org: string }) {
         : key === "name"
           ? String(value).trim()
           : value;
-    const body = pending ?? { request_id: crypto.randomUUID(), fields };
+    const body = pending ?? {
+      request_id: crypto.randomUUID(),
+      fields,
+      ...(plan ? { revision } : {}),
+    };
     setPending(body);
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const result = await api<{ name: string }>(`${base}/plans`, "POST", body);
+      const result = await api<{ name: string }>(
+        plan ? `${base}/central-plans/${plan.plan_id}` : `${base}/plans`,
+        "POST",
+        body,
+      );
       setPending(null);
+      if (plan) {
+        onSaved?.();
+        return;
+      }
       setValues(defaults(schema));
       setNotice(
         body.fields.status === false
@@ -73,6 +127,12 @@ export function ExamPlanCreate({ org }: { org: string }) {
       );
     } catch (cause) {
       if (
+        plan &&
+        cause instanceof ApiError &&
+        [403, 404, 409].includes(cause.status)
+      )
+        setReloadRequired(true);
+      if (
         cause instanceof ApiError &&
         [400, 403, 404, 409].includes(cause.status)
       )
@@ -80,7 +140,7 @@ export function ExamPlanCreate({ org }: { org: string }) {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Creation was not confirmed. Retry the same request.",
+          : "Save was not confirmed. Retry the same request.",
       );
     } finally {
       setBusy(false);
@@ -89,13 +149,23 @@ export function ExamPlanCreate({ org }: { org: string }) {
   const change = (key: string, value: string | boolean) =>
     setValues((previous) => ({ ...previous, [key]: value }));
   return (
-    <section aria-label="Create ExamElite plan">
-      <h4>Create exam plan</h4>
-      <p>
-        Plans are shared across the central exam service. All native
-        capabilities start enabled; choose restrictions and limits here. A plan
-        permission does not enable an unfinished Tech4Learn tool.
-      </p>
+    <section
+      aria-label={plan ? "Edit ExamElite plan" : "Create ExamElite plan"}
+    >
+      <h4>{plan ? "Edit exam plan" : "Create exam plan"}</h4>
+      {plan ? (
+        <p>
+          This shared plan is assigned to {plan.assigned_organisations}{" "}
+          organisations. Changes apply to all its assigned organisations.{" "}
+          {plan.is_default ? "This is the default plan." : ""}
+        </p>
+      ) : (
+        <p>
+          Plans are shared across the central exam service. All native
+          capabilities start enabled; choose restrictions and limits here. A
+          plan permission does not enable an unfinished Tech4Learn tool.
+        </p>
+      )}
       {!schema && (
         <button type="button" disabled={busy} onClick={() => void open()}>
           {busy ? "Loading…" : "New exam plan"}
@@ -103,12 +173,23 @@ export function ExamPlanCreate({ org }: { org: string }) {
       )}
       {schema && (
         <DraftForm
-          draftKey={`exam-plan-create-${org}`}
-          title="New exam plan"
+          draftKey={
+            plan
+              ? `exam-plan-edit-${org}-${plan.plan_id}`
+              : `exam-plan-create-${org}`
+          }
+          title={plan ? "Edit exam plan" : "New exam plan"}
           onSubmit={save}
-          draftState={{ values, pending }}
+          draftState={{ values, pending, ...(plan ? { revision } : {}) }}
           restoreState={(state) => {
             if (busy || pending) return;
+            if (
+              plan &&
+              (typeof state?.revision !== "string" ||
+                !/^[a-f0-9]{64}$/.test(state.revision))
+            )
+              return;
+            if (plan) setRevision(state.revision);
             const initial = defaults(schema);
             for (const key of Object.keys(initial))
               if (typeof state?.values?.[key] === typeof initial[key])
@@ -123,12 +204,17 @@ export function ExamPlanCreate({ org }: { org: string }) {
               typeof p.fields === "object" &&
               !Array.isArray(p.fields) &&
               Object.keys(p.fields).every((key) => key in initial) &&
-              JSON.stringify(p.fields).length <= 16384
+              JSON.stringify(p.fields).length <= 16384 &&
+              (!plan || p.revision === state.revision)
             )
-              setPending({ request_id: p.request_id, fields: p.fields });
+              setPending({
+                request_id: p.request_id,
+                fields: p.fields,
+                ...(plan ? { revision: p.revision } : {}),
+              });
           }}
         >
-          <fieldset disabled={busy || !!pending}>
+          <fieldset disabled={busy || !!pending || reloadRequired}>
             <legend>Plan details</legend>
             <label>
               Plan name
@@ -173,11 +259,11 @@ export function ExamPlanCreate({ org }: { org: string }) {
               Active plan
             </label>
             <p>
-              Price and billing cycle are plan settings. Creating this plan does
-              not charge anyone or assign it to an organisation.
+              Price and billing cycle are plan settings. Saving does not charge
+              anyone or change organisation assignments.
             </p>
           </fieldset>
-          <fieldset disabled={busy || !!pending}>
+          <fieldset disabled={busy || !!pending || reloadRequired}>
             <legend>Native capabilities</legend>
             {schema.features.map((key) => (
               <label key={key}>
@@ -191,7 +277,7 @@ export function ExamPlanCreate({ org }: { org: string }) {
               </label>
             ))}
           </fieldset>
-          <fieldset disabled={busy || !!pending}>
+          <fieldset disabled={busy || !!pending || reloadRequired}>
             <legend>Usage limits</legend>
             <p>
               Leave a limit blank for no plan limit; enter zero to allow none.
@@ -213,17 +299,38 @@ export function ExamPlanCreate({ org }: { org: string }) {
           </fieldset>
           {pending && (
             <p role="status">
-              Creation is not yet confirmed. Retry the same request before
-              creating another plan.
+              {plan
+                ? "Update is not yet confirmed. Retry the same request."
+                : "Creation is not yet confirmed. Retry the same request before creating another plan."}
             </p>
           )}
-          <button type="submit" disabled={busy}>
+          {reloadRequired && (
+            <p role="status">
+              Close this editor and reopen the plan to load current settings.
+            </p>
+          )}
+          <button type="submit" disabled={busy || reloadRequired}>
             {busy
-              ? "Creating…"
+              ? plan
+                ? "Saving…"
+                : "Creating…"
               : pending
-                ? "Retry plan creation"
-                : "Create plan"}
+                ? plan
+                  ? "Retry plan update"
+                  : "Retry plan creation"
+                : plan
+                  ? "Save plan changes"
+                  : "Create plan"}
           </button>
+          {plan && (
+            <button
+              type="button"
+              disabled={busy || !!pending}
+              onClick={onClose}
+            >
+              Close editor
+            </button>
+          )}
         </DraftForm>
       )}
       {error && <p role="alert">{error}</p>}

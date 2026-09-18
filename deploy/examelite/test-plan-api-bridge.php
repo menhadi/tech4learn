@@ -26,7 +26,7 @@ while(($line=fgets(STDIN))!==false){
    $current=App\Models\Organization::findOrFail(20)->getRawOriginal();unset($current['saas_plan_id'],$current['updated_at']);
    $emit(['status'=>200,'data'=>['unchanged_details'=>$current===$baseline,'unchanged_plans'=>App\Models\SaasPlan::whereIn('id',array_column($shared,'id'))->orderBy('id')->get()->map(fn($model)=>$model->getRawOriginal())->all()===$shared,'plan_count'=>App\Models\SaasPlan::count(),'plan_id'=>(int)App\Models\Organization::findOrFail(20)->saas_plan_id,'audits'=>count($GLOBALS['planAudit']??[])]]);continue;
   }
-  if(!is_string($path)||($path!=='central/plans'&&!preg_match('#^workspace/'.preg_quote($workspace,'#').'/(plans(?:\?after=[0-9]+)?|plan)$#D',$path)))throw new RuntimeException('Unsupported fixture path');
+  if(!is_string($path)||(!preg_match('#^central/plans(?:\?after=[0-9]+|/[1-9][0-9]*)?$#D',$path)&&!preg_match('#^workspace/'.preg_quote($workspace,'#').'/(plans(?:\?after=[0-9]+)?|plan)$#D',$path)))throw new RuntimeException('Unsupported fixture path');
   $body=$command['body']??null;
   $request=Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/'.$path,$body===null?'GET':'POST',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$bridgeToken,'CONTENT_TYPE'=>'application/json'],$body===null?null:json_encode($body,JSON_THROW_ON_ERROR));
   $route=$router->getRoutes()->match($request);$route->setContainer($app);$route->flushController();$app->instance('request',$request);

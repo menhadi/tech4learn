@@ -247,7 +247,44 @@ export class ExamWorkspaceService {
     )
       throw invalid();
     this.id(body.request_id);
-    const fields = body.fields as Record<string, unknown>;
+    const fields = this.planValues(body.fields, true);
+    const config = await this.config();
+    await this.planAdmin(user, org);
+    const response = await this.remote.request(config, org, "central/plans", {
+      request_id: body.request_id,
+      actor_id: user.id,
+      fields,
+    });
+    await this.planAdmin(user, org);
+    if (response.saved === false && response.conflict === true)
+      throw new ConflictException(
+        "Plan request changed. Reload before creating another plan.",
+      );
+    if (
+      response.saved !== true ||
+      !Number.isSafeInteger(response.plan_id) ||
+      response.plan_id < 1 ||
+      response.plan_id > 999999999999999 ||
+      response.name !== fields.name ||
+      typeof response.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(response.revision)
+    )
+      throw new ServiceUnavailableException(
+        "Plan creation was not confirmed. Retry the same request.",
+      );
+    return {
+      saved: true,
+      plan_id: response.plan_id as number,
+      name: response.name as string,
+      revision: response.revision as string,
+    };
+  }
+  private planValues(input: unknown, requireName: boolean) {
+    const invalid = () =>
+      new BadRequestException("Choose valid plan settings.");
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      throw invalid();
+    const fields = input as Record<string, unknown>;
     const featureKeys = examPlanFeatures.map((key) => `feature_${key}`);
     const limitKeys = examPlanLimits.map((key) => `limit_${key}`);
     const allowed = [
@@ -260,10 +297,12 @@ export class ExamWorkspaceService {
     ];
     if (
       Object.keys(fields).some((key) => !allowed.includes(key)) ||
-      typeof fields.name !== "string" ||
-      !fields.name.trim() ||
-      fields.name !== fields.name.trim() ||
-      fields.name.length > 255 ||
+      !Object.keys(fields).length ||
+      ((requireName || fields.name !== undefined) &&
+        (typeof fields.name !== "string" ||
+          !fields.name.trim() ||
+          fields.name !== fields.name.trim() ||
+          fields.name.length > 255)) ||
       JSON.stringify(fields).length > 16384
     )
       throw invalid();
@@ -294,33 +333,163 @@ export class ExamWorkspaceService {
       )
         throw invalid();
     }
+    return { ...fields };
+  }
+  async centralPlans(
+    user: Account,
+    org: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.planAdmin(user, org);
+    const after = query.after ?? "0";
+    if (
+      Object.keys(query).some((key) => key !== "after") ||
+      typeof after !== "string" ||
+      !/^(0|[1-9][0-9]{0,14})$/.test(after)
+    )
+      throw new BadRequestException("Invalid plan cursor.");
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `central/plans?after=${after}`,
+    );
+    await this.planAdmin(user, org);
+    const invalid = () =>
+      new ServiceUnavailableException("Invalid central plan catalogue.");
+    if (!Array.isArray(response.items) || response.items.length > 50)
+      throw invalid();
+    let previous = Number(after);
+    const items = response.items.map((p: any) => {
+      if (
+        !p ||
+        !Number.isSafeInteger(p.id) ||
+        p.id <= previous ||
+        p.id > 999999999999999 ||
+        typeof p.name !== "string" ||
+        !p.name.trim() ||
+        p.name.length > 255 ||
+        typeof p.active !== "boolean" ||
+        typeof p.is_default !== "boolean" ||
+        typeof p.revision !== "string" ||
+        !/^[a-f0-9]{64}$/.test(p.revision)
+      )
+        throw invalid();
+      previous = p.id;
+      return {
+        id: p.id as number,
+        name: p.name as string,
+        active: p.active as boolean,
+        is_default: p.is_default as boolean,
+        revision: p.revision as string,
+      };
+    });
+    if (
+      response.next !== null &&
+      (items.length !== 50 || response.next !== String(previous))
+    )
+      throw invalid();
+    return { items, next: response.next as string | null };
+  }
+  async centralPlan(
+    user: Account,
+    org: string,
+    id: string,
+    query: Record<string, unknown>,
+  ) {
+    await this.planAdmin(user, org);
+    if (!/^[1-9][0-9]{0,14}$/.test(id) || Object.keys(query).length)
+      throw new BadRequestException("Invalid plan.");
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `central/plans/${id}`,
+    );
+    await this.planAdmin(user, org);
+    const invalid = () =>
+      new ServiceUnavailableException("Invalid native plan details.");
+    if (
+      response.plan_id !== Number(id) ||
+      typeof response.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(response.revision) ||
+      typeof response.is_default !== "boolean" ||
+      !Number.isSafeInteger(response.assigned_organisations) ||
+      response.assigned_organisations < 0 ||
+      response.assigned_organisations > 1000000000
+    )
+      throw invalid();
+    let fields;
+    try {
+      fields = this.planValues(response.fields, true);
+    } catch {
+      throw invalid();
+    }
+    if (
+      Object.keys(fields).length !==
+      4 + examPlanFeatures.length + examPlanLimits.length
+    )
+      throw invalid();
+    return {
+      plan_id: Number(id),
+      revision: response.revision as string,
+      fields,
+      is_default: response.is_default as boolean,
+      assigned_organisations: response.assigned_organisations as number,
+    };
+  }
+  async updatePlan(
+    user: Account,
+    org: string,
+    id: string,
+    body: Record<string, unknown>,
+    query: Record<string, unknown>,
+  ) {
+    await this.planAdmin(user, org);
+    if (
+      !/^[1-9][0-9]{0,14}$/.test(id) ||
+      Object.keys(query).length ||
+      Object.keys(body).length !== 3 ||
+      Object.keys(body).some(
+        (key) => !["request_id", "revision", "fields"].includes(key),
+      ) ||
+      typeof body.request_id !== "string" ||
+      typeof body.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(body.revision)
+    )
+      throw new BadRequestException("Reload the plan before editing.");
+    this.id(body.request_id);
+    const fields = this.planValues(body.fields, false);
     const config = await this.config();
     await this.planAdmin(user, org);
-    const response = await this.remote.request(config, org, "central/plans", {
-      request_id: body.request_id,
-      actor_id: user.id,
-      fields,
-    });
+    const response = await this.remote.request(
+      config,
+      org,
+      `central/plans/${id}`,
+      {
+        request_id: body.request_id,
+        revision: body.revision,
+        actor_id: user.id,
+        fields,
+      },
+    );
     await this.planAdmin(user, org);
     if (response.saved === false && response.conflict === true)
-      throw new ConflictException(
-        "Plan request changed. Reload before creating another plan.",
-      );
+      throw new ConflictException("Plan changed. Reload before editing.");
     if (
       response.saved !== true ||
-      !Number.isSafeInteger(response.plan_id) ||
-      response.plan_id < 1 ||
-      response.plan_id > 999999999999999 ||
-      response.name !== fields.name ||
+      response.plan_id !== Number(id) ||
+      typeof response.name !== "string" ||
+      !response.name.trim() ||
+      response.name.length > 255 ||
+      (fields.name !== undefined && response.name !== fields.name) ||
       typeof response.revision !== "string" ||
       !/^[a-f0-9]{64}$/.test(response.revision)
     )
       throw new ServiceUnavailableException(
-        "Plan creation was not confirmed. Retry the same request.",
+        "Plan update was not confirmed. Retry the same request.",
       );
     return {
       saved: true,
-      plan_id: response.plan_id as number,
+      plan_id: Number(id),
       name: response.name as string,
       revision: response.revision as string,
     };
