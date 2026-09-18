@@ -3,7 +3,7 @@ import { api, apiBase, ApiError } from "./api";
 import { QuestionImageUpload } from "./QuestionImageUpload";
 import { DraftForm } from "./DraftForm";
 import { SmartTable } from "./DirectoryTable";
-import { FormattedField } from "./ExamQuestionEditor";
+import { ExamPassageWording } from "./ExamPassageWording";
 import {
   QuestionChoiceField,
   type QuestionChoice,
@@ -329,28 +329,25 @@ function TaxonomyEditor({
                   Choose a language to add or edit its wording. Other saved
                   language versions are preserved.
                 </p>
-                {passageLanguage !== null &&
-                  (/<(?:img|svg|math-field)\b/i.test(
-                    values.passages?.[passageLanguage] ?? "",
-                  ) ? (
-                    <p role="status">
-                      This version contains media that the passage editor does
-                      not support yet. Its saved wording will be preserved.
-                    </p>
-                  ) : (
-                    <FormattedField
-                      key={passageLanguage}
-                      label="Passage wording"
-                      value={values.passages?.[passageLanguage] ?? ""}
-                      disabled={busy || passageLocked}
-                      onChange={(value) =>
-                        set("passages", {
-                          ...(changes.passages ?? {}),
-                          [passageLanguage]: value,
-                        })
-                      }
-                    />
-                  ))}
+                {passageLanguage !== null && (
+                  <ExamPassageWording
+                    key={`${record.id}:${record.revision}:${passageLanguage}`}
+                    org={org}
+                    central={central}
+                    id={record.id}
+                    revision={record.revision}
+                    language={passageLanguage}
+                    original={record.fields.passages?.[passageLanguage] ?? ""}
+                    value={values.passages?.[passageLanguage] ?? ""}
+                    disabled={busy || passageLocked}
+                    onChange={(value) =>
+                      set("passages", {
+                        ...(changes.passages ?? {}),
+                        [passageLanguage]: value,
+                      })
+                    }
+                  />
+                )}
               </>
             )}
             {kind === "languages" && !central && !record.id && (

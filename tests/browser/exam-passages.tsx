@@ -71,6 +71,8 @@ async function run() {
     { owner: true, creating: false },
     { owner: false, creating: true },
     { owner: true, creating: true },
+    { owner: false, creating: false, images: true },
+    { owner: true, creating: false, images: true },
   ]) {
     const { owner, creating } = scenario;
     central = owner;
@@ -81,8 +83,12 @@ async function run() {
       fields: {
         name: "Synthetic passage",
         passages: {
-          3: "<p>Original wording</p>",
-          4: '<p>Preserved media</p><img src="/storage/synthetic.png">',
+          3:
+            "<p>Original wording</p>" +
+            (scenario.images
+              ? '<img src="/storage/synthetic.png" alt="Diagram">'
+              : ""),
+          4: '<p>Preserved media</p><svg><path d="M0 0"></path></svg>',
         },
       },
     };
@@ -128,8 +134,36 @@ async function run() {
     )
       throw Error("Unrelated fields exposed");
     const editor = document.querySelector('[aria-label="Passage wording"]')!;
-    editor.innerHTML = "<p>Changed wording</p>";
-    editor.dispatchEvent(new Event("input", { bubbles: true }));
+    if (scenario.images) {
+      await until(() =>
+        document.querySelector(
+          'section[aria-label="Passage wording preview"] img',
+        ),
+      );
+      const image = document.querySelector<HTMLImageElement>(
+        'section[aria-label="Passage wording preview"] img',
+      )!;
+      if (
+        !image.src.includes(
+          `${central ? "/central" : "/exam-content"}/passages/9/languages/3/media/`,
+        ) ||
+        !image.src.endsWith(`?revision=${"a".repeat(64)}`) ||
+        image.src.includes("synthetic.png")
+      )
+        throw Error("Passage preview escaped its scoped revision endpoint");
+      await until(() => image.complete && image.naturalWidth > 0);
+      const text = document.querySelector<HTMLTextAreaElement>("textarea")!;
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )!.set!.call(text, "Changed wording");
+      text.dispatchEvent(new Event("input", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      button("Apply text change").click();
+    } else {
+      editor.innerHTML = "<p>Changed wording</p>";
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+    }
     // Separate typing from the next click, as real browser input events are.
     await new Promise((resolve) => setTimeout(resolve, 0));
     if (!creating) {
@@ -206,12 +240,21 @@ async function run() {
     if (Object.keys(attempts[0].fields.passages).join() !== "3")
       throw Error("Untouched language sent as an edit");
     if (
+      scenario.images &&
+      (!attempts[0].fields.passages[3].includes("/storage/synthetic.png") ||
+        !attempts[0].fields.passages[3].includes("Changed wording") ||
+        attempts[0].fields.passages[3].includes("t4l-media:"))
+    )
+      throw Error(
+        "Passage save lost its original diagram or persisted a preview identifier",
+      );
+    if (
       creating &&
       (attempts[0].revision !== "new" ||
         attempts[0].fields.name !== "Created passage")
     )
       throw Error("New passage payload is incorrect");
-    if (!creating && !record.fields.passages[4].includes("synthetic.png"))
+    if (!creating && !record.fields.passages[4].includes("<svg>"))
       throw Error("Other language changed");
     root.render(<div />);
     await new Promise((r) => setTimeout(r, 40));

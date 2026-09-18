@@ -94,7 +94,12 @@ export async function renderExamHtml(
       throw new Error("Image reference is unavailable.");
     image.setAttribute(
       "src",
-      mediaBase + "/" + source.slice("t4l-media:".length),
+      mediaBase.split("?", 1)[0] +
+        "/" +
+        source.slice("t4l-media:".length) +
+        (mediaBase.includes("?")
+          ? mediaBase.slice(mediaBase.indexOf("?"))
+          : ""),
     );
     image.setAttribute("alt", "Question image");
     image.style.maxWidth = "100%";

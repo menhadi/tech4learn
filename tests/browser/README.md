@@ -321,12 +321,15 @@ this check does not establish PDF rendering, production workers or AI quality.
 authoring suite, then checks both owners retaining same-language diagrams while
 editing wording/formulas, exact retries, reference removal, stale/duplicate
 language records and rejected image injection. Use the usual vendor/model/native
-controller arguments. It never writes image files. The browser passage editor
-continues to keep media versions read-only pending staff previews/upload controls.
+controller arguments. It never writes image files.
 
 `deploy/examelite/test-staff-passage-media.php` includes that suite and checks
 private native preview routes for both owners: exact language/revision selection,
 rejected foreign/hidden images and duplicate wording, plus revision or access
 changes during byte reads. It uses synthetic inline PNGs and writes no files.
-It also resolves both installed GET routes. Gateway/browser preview coverage is
-still pending.
+It also resolves both installed GET routes. The passage browser fixture now
+checks retained raster previews and surrounding-text edits for both owners,
+including revision-bound URLs, preservation of original image references in
+saves and identical lost-response retry. Unsupported SVG versions remain
+read-only. These checks use synthetic transport; upload controls and connected
+native/browser acceptance remain pending.

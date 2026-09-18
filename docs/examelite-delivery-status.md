@@ -262,26 +262,30 @@ adapter milestone as a release.
    language records and stale revisions; file bytes are never deleted by wording
    changes. Both organisation and central native-controller fixtures pass,
    including exact retries and reference removal. Deployment runs this fixture
-   together with the existing passage suite. The passage UI still preserves
-   media-containing versions as read-only until protected staff previews and
-   upload controls are connected; this is a backend milestone, not full media
-   authoring availability.
+   together with the existing passage suite. Upload/replacement controls are a
+   separate remaining requirement.
    Private native staff-preview routes now read diagrams from an exact passage
    language and revision for both owners. They reject foreign records/languages,
    unknown images and duplicate wording rows, and recheck workspace restrictions,
    active ownership and wording revision after reading bytes. Native route and
    controller checks pass, including access revocation during a read. The
    deployment runs them together with passage authoring/image retention checks.
-   These routes still need the Tech4Learn gateway and shared-editor connection;
-   they do not yet enable staff previews in the product interface.
    The Tech4Learn gateway now forwards these exact-language/revision previews
    through authenticated organisation and superadmin routes. It validates the
    response identity and bounded raster payload, rechecks access after the native
    request, audits successful reads and returns no-store/nosniff responses.
    Service/handler tests cover malformed and overridden input, mismatched native
    output and revoked access before byte release. These checks stub the remote
-   engine and access boundary; native scope tests remain separate. Shared-editor
-   previews and passage image upload controls are still pending.
+   engine and access boundary; native scope tests remain separate.
+   The shared passage editor now connects those previews for organisation and
+   central owners. It hashes saved diagram references in an inert template and
+   renders only authenticated, revision-bound URLs. Existing text/formula
+   controls retain the original diagrams in saved wording, while unsupported
+   vector/interactive versions remain preserved and read-only. Synthetic browser
+   checks cover both owner paths, loaded private previews, retained source
+   references, language switching and identical retry after a lost response.
+   Native persistence and browser transport are still separate fixtures; passage
+   image upload/replacement and connected live acceptance remain unfinished.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,
