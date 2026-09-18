@@ -305,6 +305,19 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
     assert.equal(requests.length, before);
     await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
     const revision = "a".repeat(64);
+    assert.equal((await call("/plan-fields", undefined, member)).status, 403);
+    assert.equal(
+      (await call("/plan-fields?owner=1", undefined, admin)).status,
+      400,
+    );
+    const planFields = await call("/plan-fields", undefined, admin);
+    assert.equal(planFields.status, 200);
+    const fieldSchema = await planFields.json();
+    assert.ok(
+      fieldSchema.features.includes("ai_translation") &&
+        fieldSchema.limits.includes("students"),
+    );
+    assert.deepEqual(Object.keys(fieldSchema).sort(), ["features", "limits"]);
     const planCatalogue = {
       assignment_revision: revision,
       items: [
@@ -413,6 +426,7 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
       { ...creation.fields, feature_reports: 1 },
       { ...creation.fields, limit_students: -1 },
       { ...creation.fields, price: "1e6" },
+      { ...creation.fields, price: "100000000.00" },
       { ...creation.fields, billing_cycle: ["monthly"] },
       { ...creation.fields, name: " " },
       { ...creation.fields, feature_unknown: true },

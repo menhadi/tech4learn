@@ -219,6 +219,12 @@ export class ExamWorkspaceService {
       next: response.next as string | null,
     };
   }
+  async planFields(user: Account, org: string, query: Record<string, unknown>) {
+    await this.planAdmin(user, org);
+    if (Object.keys(query).length)
+      throw new BadRequestException("Invalid plan field request.");
+    return { features: [...examPlanFeatures], limits: [...examPlanLimits] };
+  }
   async createPlan(
     user: Account,
     org: string,
@@ -278,7 +284,7 @@ export class ExamWorkspaceService {
       if (
         key === "price" &&
         (typeof value !== "string" ||
-          !/^(0|[1-9][0-9]{0,8})(\.[0-9]{1,2})?$/.test(value))
+          !/^(0|[1-9][0-9]{0,7})(\.[0-9]{1,2})?$/.test(value))
       )
         throw invalid();
       if (

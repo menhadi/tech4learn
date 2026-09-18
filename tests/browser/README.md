@@ -2,6 +2,14 @@
 
 ## Plan permission catalogue
 
+Open `/tests/browser/exam-plan-create.html` for the real plan-creation form
+with synthetic transport. It checks default capabilities, zero versus blank
+limits, translated API fields, exact retries across repeated draft restores,
+successful reset, organisation isolation and definitive permission rejection.
+The plan-field endpoint and creation endpoint separately have stored-superadmin
+HTTP checks; `plan-api-native.mjs` covers actual native persistence. These are
+separate checks, not a complete browser-to-native production journey.
+
 Open `/tests/browser/exam-capabilities.html` with Vite running. The real catalogue
 component uses synthetic responses to check explicit loading, organisation
 scope, permission labels, failed-refresh clearing and remount isolation. The

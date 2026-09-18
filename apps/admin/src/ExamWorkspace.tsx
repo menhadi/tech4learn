@@ -6,6 +6,7 @@ import { ExamQuestions } from "./ExamContent";
 import { ExamTaxonomy } from "./ExamTaxonomy";
 import { ExamCapabilities } from "./ExamCapabilities";
 import { ExamPlanAssignment } from "./ExamPlanAssignment";
+import { ExamPlanCreate } from "./ExamPlanCreate";
 const ExamProctorReview = lazy(() =>
   import("./ExamProctorReview").then((module) => ({
     default: module.ExamProctorReview,
@@ -331,6 +332,7 @@ export function ExamWorkspace({
       )}
       {controls && rules && (
         <>
+          <ExamPlanCreate key={`plan-create-${org}`} org={org} />
           <ExamPlanAssignment
             key={`plan-${org}`}
             org={org}

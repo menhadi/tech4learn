@@ -14,7 +14,7 @@ checked commits when the release is ready.
 | Workflow | Current boundary |
 | --- | --- |
 | Organisation and superadmin navigation | Internal Tech4Learn screens; ExamElite remains the backend engine. |
-| Feature controls | Exams module and five native feature groups; revisioned organisation controls, native plan permissions and superadmin assignment of existing plans. Plan creation, billing and provider management remain unfinished. |
+| Feature controls | Exams module and five native feature groups; revisioned organisation controls, native plan permissions, superadmin plan creation and assignment. Existing-plan editing, billing and provider management remain unfinished. |
 | Central distribution | Share questions to organisations and pull organisation questions into central ownership as independent copies. No student/result sharing. |
 | Questions and classifications | Native question creation/editing, taxonomy, central language creation/editing, organisation language enabling, free packages and guarded category deletion. |
 | Source media and wording | Raster upload/replacement/removal, protected previews, supported MathML replacement and literal surrounding-text edits/appends. Arbitrary native markup is not fully supported. |
@@ -183,8 +183,14 @@ adapter milestone as a release.
    request IDs, rechecks access after the native response and projects only the
    created plan identity/revision. HTTP checks cover invalid settings, injected
    actors, identical retries, inconsistent responses and access revocation.
-   The same-domain plan-creation interface remains to be connected; live
-   concurrency remains unverified.
+   The same-domain superadmin form now loads supported fields, defaults native
+   capabilities to available and accepts plan details, restrictions and usage
+   limits. Its scoped draft retains the exact request after an uncertain save;
+   retries lock editing and successful creation resets the form. Synthetic
+   browser checks cover repeated draft restore, field conversion, organisation
+   isolation and permission rejection. Creation leaves assignments unchanged;
+   the existing selector assigns active plans separately. Existing-plan editing,
+   billing integration and live concurrency remain unverified/unimplemented.
    The connected Nest/native fixture also now creates a plan through both real
    controllers, retries without a duplicate or second audit invocation, finds
    it in the catalogue and verifies that existing plans and organisation
