@@ -86,7 +86,7 @@ check($expired['completed']&&$expired['attempt_id']===$timed['attempt_id'],'Clos
 Carbon::setTestNow(Carbon::parse('2026-09-13 12:05:00','UTC'));
 $beforeCount=App\Models\ExamResult::count();$beforeStudents=App\Models\Student::count();
 $originalText=$q->fresh()->question;
-foreach(['<svg><path/></svg>','<iframe src="/not-an-image"></iframe>'] as $unsupported){
+foreach(['<svg><path/></svg>','<iframe src="/not-an-image"></iframe>','<math><menclose notation="circle"><mi>x</mi></menclose></math>'] as $unsupported){
  $q->question=$unsupported;$q->save();
  rejectAnswer(fn()=>$lifecycle->run($workspace,10,'77777777-7777-7777-7777-777777777777','Synthetic media candidate',$paper->id,'start',['request_id'=>$next()]),'unsupported display rejected');
  check(App\Models\ExamResult::count()===$beforeCount&&App\Models\Student::count()===$beforeStudents,'Unsupported display rolls back attempt and student provisioning');

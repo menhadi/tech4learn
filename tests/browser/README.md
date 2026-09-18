@@ -78,6 +78,14 @@ selected translation, with source/legacy fallback, native formula normalisation
 and foreign/submitted denial. It uses the native models and an isolated database;
 images are synthetic in-memory data. Deployment runs this before migrations.
 
+`test-student-formulas.php` takes the same arguments and includes the passage
+suite. It exercises the native normaliser with MathML and recoverable MathJax
+SVG/CHTML wrappers across questions, options, hints and passages. Unsupported
+vectors, missing/ambiguous MathML, excessive nesting and native `needs_review`
+results must stop delivery. The student lifecycle suite separately checks that
+such a failure rolls back new attempt/student provisioning. Deployment runs the
+combined formula suite. These are payload checks, not browser visual parity.
+
 ## Native PDF worker state check
 
 Run `php deploy/examelite/test-pdf-worker.php VENDOR_AUTOLOAD MODELS_DIRECTORY

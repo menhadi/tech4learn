@@ -40,6 +40,16 @@ adapter milestone as a release.
    reconciliation, and inventory remaining native formula/markup formats.
    Verify organisation and central authoring, private previews, retries and
    unchanged copies together.
+   Student display now accepts legacy MathJax SVG/CHTML wrappers when they have
+   a recoverable MathML source in the native generated-wrapper shape. ExamElite's
+   normaliser converts the formula; generated graphics never enter the payload.
+   Arbitrary vector diagrams and interactive/media elements remain unsupported.
+   Native `needs_review` outcomes now stop delivery instead of passing through
+   an unconverted formula. Tests cover question/options/hints/passages, bounded
+   wrapper nesting, surrounding text, protected images and rejected shapes.
+   The continuous native exam journey confirms unsupported formula delivery
+   rolls back attempted student/attempt provisioning. This is display support;
+   arbitrary formula authoring and browser visual parity remain unfinished.
    The native translated-image action now uses the owned paper's saved
    translation, source-owner file namespace, exam/review revisions and request
    ledger. Upload, replacement and reference removal invoke the native

@@ -30,7 +30,7 @@ php "$source/test-exam-translation-image-upload.php" /home/examelite/public_html
 php "$source/test-translated-image-routes.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-proctor-evidence.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-pilot-exam-workflow.php" /home/examelite/public_html/vendor/autoload.php
-php "$source/test-passage-media.php" /home/examelite/public_html/vendor/autoload.php
+php "$source/test-student-formulas.php" /home/examelite/public_html/vendor/autoload.php
 runuser -u examelite -- php < "$source/migrate-workspace.php"
 runuser -u examelite -- php /home/examelite/public_html/artisan config:clear
 runuser -u examelite -- php /home/examelite/public_html/artisan route:clear

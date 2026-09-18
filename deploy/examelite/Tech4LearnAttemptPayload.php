@@ -17,19 +17,11 @@ final class Tech4LearnAttemptPayload
             $translated=$question->langs->firstWhere('language_id',$language);
             $content=[];
             foreach(['question','option1','option2','option3','option4','option5','option6','hint'] as $key)$content[$key]=(string)($translated?->$key??$question->$key??'');
-            foreach($content as $text)abort_unless(!preg_match('/<(?:svg|math-field|iframe|video|audio|object|embed)\b/i',$text),422,'This paper needs media or formula display that is not available yet.');
-            // Native templates use the same normaliser for legacy formulas/options.
-            $normaliser=app(MathContentNormalizer::class);
             $media=app(Tech4LearnQuestionMedia::class);
-            foreach($content as $key=>$text){
-                $text=$normaliser->normalize($media->rewrite($text,true))['content'];
-                $content[$key]=$media->restore(str_starts_with($key,'option')?$normaliser->repairOptionForDisplay($text):$normaliser->repairForDisplay($text));
-            }
+            foreach($content as $key=>$text)$content[$key]=$this->display($text,str_starts_with($key,'option'));
             $passageContent=$media->passageWording($question,$language);
             if($passageContent){
-                abort_unless(!preg_match('/<(?:svg|math-field|iframe|video|audio|object|embed)\b/i',$passageContent['content']),422,'This paper needs media or formula display that is not available yet.');
-                $text=$normaliser->normalize($media->rewrite($passageContent['content'],true))['content'];
-                $passageContent['content']=$media->restore($normaliser->repairForDisplay($text));
+                $passageContent['content']=$this->display($passageContent['content']);
             }
             $optionOrder=collect(range(1,6))->filter(fn($n)=>$content['option'.$n]!=='');
             if($exam->option_shuffle)$optionOrder=$optionOrder->shuffle();
@@ -58,5 +50,44 @@ final class Tech4LearnAttemptPayload
                 'tolerance_count'=>(int)$exam->tolerance_count,'proctor'=>(bool)$exam->proctor,
             ],
         ];
+    }
+    /** Native conversion is authoritative; never silently discard an unconvertible formula. */
+    private function display(string $html,bool $option=false):string {
+        $message='This paper needs media or formula review before it can be taken.';
+        abort_unless(strlen($html)<=2000000&&!preg_match('/<(?:math-field|iframe|video|audio|object|embed)\b/i',$html),422,$message);
+        if(preg_match('/<(?:svg|mjx-)/i',$html)){
+            $document=new \DOMDocument();$previous=libxml_use_internal_errors(true);
+            try{$document->loadHTML('<?xml encoding="UTF-8"><html><body>'.$html.'</body></html>',LIBXML_NONET|LIBXML_NOERROR|LIBXML_NOWARNING);}
+            finally{libxml_clear_errors();libxml_use_internal_errors($previous);}
+            $checked=[];
+            abort_unless($document->getElementsByTagName('*')->length<=20000,422,$message);
+            foreach($document->getElementsByTagName('*') as $element){
+                $tag=strtolower($element->tagName);
+                if($tag!=='svg'&&!str_starts_with($tag,'mjx-'))continue;
+                $container=$element;$depth=0;
+                while($container instanceof \DOMElement&&strtolower($container->tagName)!=='mjx-container'){
+                    abort_unless(++$depth<=64,422,$message);$container=$container->parentNode;
+                }
+                abort_unless($container instanceof \DOMElement&&strtolower($container->tagName)==='mjx-container',422,$message);
+                $identity=spl_object_id($container);if(isset($checked[$identity]))continue;
+                $math=$container->getElementsByTagName('math');
+                abort_unless($math->length===1&&trim($math->item(0)->textContent)!==''&&$container->getElementsByTagName('svg')->length<=1,422,$message);
+                // This is the exact generated-wrapper shape consumed by the native normaliser.
+                $parent=$math->item(0)->parentNode;$depth=0;
+                while($parent instanceof \DOMElement&&$parent!==$container){
+                    abort_unless(++$depth<=64,422,$message);
+                    $class=strtolower($parent->getAttribute('class'));
+                    abort_unless(str_starts_with(strtolower($parent->tagName),'mjx-')||str_contains($class,'mathjax-mathml')||str_contains($class,'mjx-assistive-mml'),422,$message);
+                    $parent=$parent->parentNode;
+                }
+                abort_unless($parent===$container,422,$message);
+                $checked[$identity]=$container;
+            }
+        }
+        $normaliser=app(MathContentNormalizer::class);$media=app(Tech4LearnQuestionMedia::class);
+        $result=$normaliser->normalize($media->rewrite($html,true));
+        abort_unless(in_array($result['status']??null,['clean','converted','sanitized'],true)&&is_string($result['content']??null),422,$message);
+        $text=$result['content'];
+        return $media->restore($option?$normaliser->repairOptionForDisplay($text):$normaliser->repairForDisplay($text));
     }
 }
