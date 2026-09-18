@@ -266,6 +266,14 @@ adapter milestone as a release.
    media-containing versions as read-only until protected staff previews and
    upload controls are connected; this is a backend milestone, not full media
    authoring availability.
+   Private native staff-preview routes now read diagrams from an exact passage
+   language and revision for both owners. They reject foreign records/languages,
+   unknown images and duplicate wording rows, and recheck workspace restrictions,
+   active ownership and wording revision after reading bytes. Native route and
+   controller checks pass, including access revocation during a read. The
+   deployment runs them together with passage authoring/image retention checks.
+   These routes still need the Tech4Learn gateway and shared-editor connection;
+   they do not yet enable staff previews in the product interface.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,

@@ -113,6 +113,31 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         abort_unless(hash_equals($asset,hash('sha256',trim((string)$current->photo))),409);
         return $this->reply($central,$data);
     }
+    public function passageMedia(Request $r,string $org,string $id,string $language,string $asset){
+        return $this->ownedPassageMedia($r,fn()=>$this->workspace($r,$org,'questions'),$id,$language,$asset);
+    }
+    public function centralPassageMedia(Request $r,string $id,string $language,string $asset){
+        return $this->ownedPassageMedia($r,function()use($r){
+            $owner=(int)$this->configuration($r)['_platform']['organization_id'];return [$owner,$owner];
+        },$id,$language,$asset);
+    }
+    private function ownedPassageMedia(Request $r,callable $scope,string $id,string $language,string $asset){
+        abort_unless(array_keys($r->query())===['revision']&&is_string($r->query('revision'))&&preg_match('/^[a-f0-9]{64}$/D',$r->query('revision')),422);
+        foreach([$id,$language] as $value)abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$value),422);
+        [$central,$owner]=$scope();
+        \App\Models\Organization::where('status','active')->findOrFail($owner);
+        $service=app(Tech4LearnQuestionAuthoring::class);
+        $passage=$service->owned('passages',$owner)->findOrFail($id);$revision=$r->query('revision');
+        abort_unless(hash_equals($service->record('passages',$passage)['revision'],$revision),409);
+        $data=app(\App\Services\Tech4LearnQuestionMedia::class)->readPassage($passage,$owner,(int)$language,$asset);
+        // Recheck current credential/mapping, restriction and version before releasing bytes.
+        [$currentCentral,$currentOwner]=$scope();abort_unless($currentCentral===$central&&$currentOwner===$owner,403);
+        \App\Models\Organization::where('status','active')->findOrFail($owner);
+        \App\Models\Language::where('organization_id',$owner)->findOrFail((int)$language);
+        $current=$service->owned('passages',$owner)->findOrFail($id);
+        abort_unless(hash_equals($service->record('passages',$current)['revision'],$revision),409);
+        return $this->reply($central,$data+['revision'=>$revision]);
+    }
     public function examAction(Request $r,string $org,string $id,string $action){
         abort_unless($r->query()===[]&&!array_diff(array_keys($r->all()),['actor_id','fields','revision','request_id']),422);
         abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id)&&isset(Tech4LearnQuestionAuthoring::EXAM_ACTIONS[$action]),422);

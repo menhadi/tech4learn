@@ -323,3 +323,10 @@ editing wording/formulas, exact retries, reference removal, stale/duplicate
 language records and rejected image injection. Use the usual vendor/model/native
 controller arguments. It never writes image files. The browser passage editor
 continues to keep media versions read-only pending staff previews/upload controls.
+
+`deploy/examelite/test-staff-passage-media.php` includes that suite and checks
+private native preview routes for both owners: exact language/revision selection,
+rejected foreign/hidden images and duplicate wording, plus revision or access
+changes during byte reads. It uses synthetic inline PNGs and writes no files.
+It also resolves both installed GET routes. Gateway/browser preview coverage is
+still pending.

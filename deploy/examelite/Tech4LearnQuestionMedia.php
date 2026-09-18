@@ -9,6 +9,14 @@ class Tech4LearnQuestionMedia
 {
  public const AUTHORING_FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','si_answer1'];
  public const MAX_BYTES=10485760;
+ /** Staff preview has no fallback: only the requested owned passage language. */
+ public function readPassage(\App\Models\Passage $passage,int $owner,int $language,string $key):array {
+  abort_unless($owner>0&&(int)$passage->organization_id===$owner,403);
+  \App\Models\Language::where('organization_id',$owner)->findOrFail($language);
+  $targets=$passage->langs()->where('language_id',$language)->get();
+  abort_unless($targets->count()===1,$targets->isEmpty()?404:409);
+  return $this->readReferenced([$targets->first()->passage],$key)+['passage_id'=>(int)$passage->id,'language_id'=>$language];
+ }
  /** Read only the current, owned native package photo; never a caller-supplied path. */
  public function readPackage(\App\Models\Package $package,int $owner,string $key):array {
   abort_unless($owner>0&&(int)$package->organization_id===$owner,403);
