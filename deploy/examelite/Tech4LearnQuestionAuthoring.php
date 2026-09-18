@@ -194,8 +194,9 @@ final class Tech4LearnQuestionAuthoring
     }
     private function translationFields(array &$fields,?string $action):void {
         if($action==='set-translation-image'){
-            abort_unless(is_int($fields['question_id']??null)&&$fields['question_id']>0,422);
-            abort_unless(in_array($fields['field']??null,Tech4LearnTranslationEdits::FIELDS,true)&&in_array($fields['field'],Tech4LearnQuestionMedia::AUTHORING_FIELDS,true),422);
+            abort_unless(is_int($fields['question_id']??null)&&$fields['question_id']>=0,422);
+            $allowed=$fields['question_id']===0?['instruction','syllabus']:array_intersect(Tech4LearnTranslationEdits::FIELDS,Tech4LearnQuestionMedia::AUTHORING_FIELDS);
+            abort_unless(in_array($fields['field']??null,$allowed,true),422);
             abort_unless(!array_key_exists('remove',$fields)||$fields['remove']===true,422);
             if(($fields['remove']??false)===true)abort_unless(!array_key_exists('image',$fields)&&isset($fields['asset']),422);
             else Tech4LearnQuestionImageUpload::decode($fields['image']??null);
@@ -389,7 +390,8 @@ final class Tech4LearnQuestionAuthoring
                 return $this->record($kind,$question->fresh());
             }
             if($action==='set-translation-image'){
-                app(Tech4LearnTranslationEdits::class)->applyImage($question,$fields,$request,$storedImage);
+                if($fields['question_id']===0)app(Tech4LearnTranslationEdits::class)->applyExamImage($question,$fields,$storedImage);
+                else app(Tech4LearnTranslationEdits::class)->applyImage($question,$fields,$request,$storedImage);
                 return $this->record($kind,$question->fresh());
             }
             if($action==='refresh-translation'){

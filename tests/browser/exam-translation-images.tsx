@@ -98,13 +98,13 @@ async function run() {
     await until(() => saved === count + 1);
     if (JSON.stringify(writes[before]) !== JSON.stringify(writes[before + 1]))
       throw Error("Retry changed exam image wording");
-    if (document.querySelector('input[type="file"]'))
-      throw Error("Unimplemented exam image uploads exposed");
+    if (!document.querySelector('input[type="file"]'))
+      throw Error("Exam image upload control missing");
   }
   document.body.prepend(
     Object.assign(document.createElement("h1"), {
       textContent:
-        "PASS: organisation and central translated exam text editing retains images and exact retry without exposing uploads",
+        "PASS: organisation and central translated exam text editing retains images and exact retry",
     }),
   );
 }

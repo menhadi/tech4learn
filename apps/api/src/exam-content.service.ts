@@ -29,27 +29,34 @@ export class ExamContentService {
     ];
     if (
       Object.keys(fields).some((key) => !allowed.includes(key)) ||
-      ![fields.language_id, fields.question_id].every(
+      ![fields.language_id].every(
         (value) =>
           Number.isSafeInteger(value) &&
           Number(value) > 0 &&
           Number(value) < 1e15,
       ) ||
+      !Number.isSafeInteger(fields.question_id) ||
+      Number(fields.question_id) < 0 ||
+      Number(fields.question_id) >= 1e15 ||
       typeof fields.translation_revision !== "string" ||
       !/^[a-f0-9]{64}$/.test(fields.translation_revision) ||
       typeof fields.field !== "string" ||
-      ![
-        "question",
-        "option1",
-        "option2",
-        "option3",
-        "option4",
-        "option5",
-        "option6",
-        "hint",
-        "explanation",
-        "si_answer1",
-      ].includes(fields.field) ||
+      !(
+        fields.question_id === 0
+          ? ["instruction", "syllabus"]
+          : [
+              "question",
+              "option1",
+              "option2",
+              "option3",
+              "option4",
+              "option5",
+              "option6",
+              "hint",
+              "explanation",
+              "si_answer1",
+            ]
+      ).includes(fields.field) ||
       (fields.asset !== undefined &&
         (typeof fields.asset !== "string" ||
           !/^[a-f0-9]{64}$/.test(fields.asset))) ||

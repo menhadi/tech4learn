@@ -29,7 +29,10 @@ export function QuestionImageUpload({
   onSaved: (record: Snapshot & { photo_asset?: string | null }) => void;
   onReload: () => void;
 }) {
-  const [field, setField] = useState(kind === "package" ? "photo" : "question"),
+  const recordLabel = translation?.questionId === 0 ? "exam" : kind;
+  const [field, setField] = useState(
+      kind === "package" ? "photo" : (translation?.fields[0] ?? "question"),
+    ),
     [asset, setAsset] = useState(
       kind === "package" ? (record.photo_asset ?? "") : "",
     );
@@ -90,7 +93,7 @@ export function QuestionImageUpload({
       draftKey={`${central ? "central-" : ""}${translation ? `translation-${translation.languageId}-${translation.questionId}-${translation.revision}-` : ""}${kind}-image-${record.id}-${record.revision}`}
       title={
         translation
-          ? "Translated question image"
+          ? `Translated ${recordLabel} image`
           : kind === "package"
             ? "Package image"
             : "Question image"
@@ -148,7 +151,7 @@ export function QuestionImageUpload({
             (cause instanceof Error
               ? cause.message
               : "Image could not be saved.") +
-              ` Retry the same upload or reload the saved ${kind} before changing it.`,
+              ` Retry the same upload or reload the saved ${recordLabel} before changing it.`,
           );
           throw cause;
         } finally {
@@ -157,7 +160,7 @@ export function QuestionImageUpload({
       }}
     >
       <p>
-        PNG, JPEG or WebP, up to 512 KB. Save other {kind} changes first. The
+        PNG, JPEG or WebP, up to 512 KB. Save other {recordLabel} changes first. The
         selected file stays in this tab and is not stored in a recovered draft.
       </p>
       {error && (
@@ -257,7 +260,7 @@ export function QuestionImageUpload({
       {preview && !removing && (
         <img
           src={preview}
-          alt={`Selected ${kind} image`}
+          alt={`Selected ${recordLabel} image`}
           style={{ maxWidth: "100%", maxHeight: 240 }}
         />
       )}
@@ -274,7 +277,7 @@ export function QuestionImageUpload({
       </button>
       {pending && (
         <button type="button" disabled={busy} onClick={onReload}>
-          Reload saved {kind}
+          Reload saved {recordLabel}
         </button>
       )}
     </DraftForm>

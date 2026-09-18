@@ -129,8 +129,11 @@ php deploy/examelite/test-retained-exam-translation-images.php VENDOR_AUTOLOAD M
 
 That suite also covers formula edits, same-field image resolution, source and
 other-field preservation, approval invalidation, stale revisions and missing
-translations. Both checks passed locally. New translated exam image uploads and
-replacement controls remain unfinished.
+translations. Both checks passed locally. `exam-image-upload.html` separately
+checks exam upload controls, scoped endpoints and retry locks; the native
+`test-exam-translation-image-upload.php` suite covers upload/read/replace/remove
+and failed-save file cleanup with the same arguments. Orphan reconciliation and
+production concurrency remain unverified.
 
 ## Connected plan assignment check
 

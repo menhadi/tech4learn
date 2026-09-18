@@ -237,7 +237,7 @@ export function ExamTranslationEditor({
               : "Save translated wording"}
         </button>
       </DraftForm>
-      {mode === "question" && question.translation && (
+      {question.translation && (
         <QuestionImageUpload
           key={`${examRevision}-${translationRevision}`}
           base={`${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/exams/${examId}`}
@@ -255,15 +255,18 @@ export function ExamTranslationEditor({
           }}
           translation={{
             languageId,
-            questionId: question.question_id,
+            questionId: mode === "exam" ? 0 : question.question_id,
             revision: translationRevision,
-            fields: questionFields.filter(
-              (field) =>
-                field !== "fill_blank" &&
-                (field === "question" ||
-                  question.source[field] ||
-                  question.translation?.[field]),
-            ),
+            fields:
+              mode === "exam"
+                ? ["instruction", "syllabus"]
+                : questionFields.filter(
+                    (field) =>
+                      field !== "fill_blank" &&
+                      (field === "question" ||
+                        question.source[field] ||
+                        question.translation?.[field]),
+                  ),
           }}
           disabled={busy || pending !== null || Object.keys(changes).length > 0}
           onPending={setImagePending}

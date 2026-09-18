@@ -1,7 +1,7 @@
 <?php
 namespace App\Services;
 
-use App\Models\{Question,QuestionLang};
+use App\Models\{Question,QuestionLang,Exam,ExamLanguageTranslation};
 use Illuminate\Support\Facades\Storage;
 
 /** A bounded image write used only after authoring scope and revision checks. */
@@ -17,12 +17,16 @@ final class Tech4LearnQuestionImageUpload
   abort_unless(in_array($input['field']??null,Tech4LearnTranslationEdits::FIELDS,true),422);
   return $this->applyField((int)$source->organization_id,$target->getAttributes(),$input,$stored);
  }
- private function applyField(int $owner,array $wording,array $input,?string &$stored):array {
+ public function applyExamTranslation(Exam $source,ExamLanguageTranslation $target,array $input,?string &$stored):array {
+  abort_unless($source->exists&&$target->exists&&(int)$source->id===(int)$target->exam_id,422);
+  return $this->applyField((int)$source->organization_id,$target->getAttributes(),$input,$stored,['instruction','syllabus']);
+ }
+ private function applyField(int $owner,array $wording,array $input,?string &$stored,array $allowed=Tech4LearnQuestionMedia::AUTHORING_FIELDS):array {
   abort_unless($owner>0,422);
   $field=$input['field']??null;$encoded=$input['image']??null;$replace=$input['asset']??null;
   $remove=($input['remove']??false)===true;
   abort_unless(!array_key_exists('remove',$input)||$input['remove']===true,422);
-  abort_unless(is_string($field)&&in_array($field,Tech4LearnQuestionMedia::AUTHORING_FIELDS,true),422);
+  abort_unless(is_string($field)&&in_array($field,$allowed,true),422);
   if($remove)abort_unless(!array_key_exists('image',$input)&&$replace!==null,422);
   else {
   [$bytes,$extension]=self::decode($encoded);

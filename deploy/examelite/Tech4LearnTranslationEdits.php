@@ -36,12 +36,22 @@ final class Tech4LearnTranslationEdits
     }
     /** The native engine has no manual exam-language form controller. */
     public function applyExam(Exam $exam,array $fields):void {
+        $stored=null;$this->saveExam($exam,$fields,false,$stored);
+    }
+    public function applyExamImage(Exam $exam,array $fields,?string &$stored):void {
+        $this->saveExam($exam,$fields,true,$stored);
+    }
+    private function saveExam(Exam $exam,array $fields,bool $image,?string &$stored):void {
         $language=Language::enabledForOrganization($exam->organization_id)->whereHas('exams',fn($q)=>$q->where('exams.id',$exam->id))->findOrFail($fields['language_id']);
         abort_unless(strtolower((string)$language->code)!=='en',422,'Edit English wording in the exam editor.');
         $targets=ExamLanguageTranslation::where('exam_id',$exam->id)->where('language_id',$language->id)->lockForUpdate()->get();
         abort_unless($targets->count()<=1,409,'This exam has duplicate translations. Resolve them before editing.');
         $target=$targets->first();
-        $fields['wording']=$this->retainedImages($target,$fields['wording']);
+        if($image){
+            abort_unless($target!==null,409,'Save and review translated exam wording before adding images.');
+            $fields['wording']=app(Tech4LearnQuestionImageUpload::class)->applyExamTranslation($exam,$target,$fields,$stored);
+            foreach($fields['wording'] as $html)abort_unless(strlen($html)<=200000,422,'Translated wording is too large.');
+        }else $fields['wording']=$this->retainedImages($target,$fields['wording']);
         $values=array_replace(array_fill_keys(self::EXAM_FIELDS,null),$target?->only(self::EXAM_FIELDS)??[],$fields['wording']);
         validator($values,['name'=>'required|string|max:255','instruction'=>'nullable|string','syllabus'=>'nullable|string'])->validate();
         $native=app(ExamTranslationService::class);

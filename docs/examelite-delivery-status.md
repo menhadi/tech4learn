@@ -18,7 +18,7 @@ checked commits when the release is ready.
 | Central distribution | Share questions to organisations and pull organisation questions into central ownership as independent copies. No student/result sharing. |
 | Questions and classifications | Native question creation/editing, taxonomy, central language creation/editing, organisation language enabling, free packages and guarded category deletion. |
 | Source media and wording | Raster upload/replacement/removal, protected previews, supported MathML replacement and literal surrounding-text edits/appends. Arbitrary native markup is not fully supported. |
-| Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved translated questions support raster upload, replacement and reference removal. |
+| Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved question and exam translations support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
 | Documents | Native PDF request/status/approved download adapters and screens. Actual rendering/worker completion is not yet verified. |
@@ -62,8 +62,15 @@ adapter milestone as a release.
    tests cover both owners, source/other-field preservation, invalid references,
    stale review, missing targets and approval invalidation. The shared editor
    enables these retained-image edits, with browser checks for both owner paths
-   and identical retries. New translated exam image uploads/replacements remain
-   outside these question controls.
+   and identical retries. Translated exam instructions and syllabus now support
+   the same upload/replace/remove workflow through exam media identity zero.
+   Native checks cover both owners, protected reading of uploaded bytes,
+   unchanged source/other fields, exact retries, invalid destinations and cleanup
+   after an oversized native save fails. The gateway distinguishes question and
+   exam destinations, and the shared editor locks wording during uncertain
+   image writes. Browser checks cover both owner endpoints, default destination
+   and identical retry. Removed references preserve old shared bytes; orphan
+   reconciliation and production concurrency remain unfinished.
    A further native gap was confirmed in the inspected controller snapshot:
    `QuestionLang` and native translation fingerprints include `si_answer1`
    (the subjective model answer), but `QuestionLangController::store/update`

@@ -1137,6 +1137,32 @@ test("central question sharing requires superadmin; organisation reads respect m
       assert.equal(requests.length, before);
     }
     const translationImageWritePath = `/organisations/${org}/exam-content/exams/9/actions/set-translation-image`;
+    const examImage = {
+      ...translationImageWrite,
+      question_id: 0,
+      field: "instruction",
+    };
+    assert.equal(
+      (
+        await call(
+          translationImageWritePath,
+          { ...edit, fields: examImage },
+          member,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(requests.at(-1).body.fields.question_id, 0);
+    assert.equal(
+      (
+        await call(
+          translationImageWritePath,
+          { ...edit, fields: { ...examImage, field: "name" } },
+          member,
+        )
+      ).status,
+      400,
+    );
     const translationImageRemove = {
       ...translationImageWrite,
       remove: true,
@@ -2546,6 +2572,26 @@ test("central question sharing requires superadmin; organisation reads respect m
         assert.deepEqual(requests.at(-1).body, { ...body, actor_id: admin });
       }
       // Start the invalid-input/provider scenarios in a fresh rate-limit window.
+      const centralExamImage = {
+        ...taxBody,
+        fields: {
+          language_id: 5,
+          question_id: 0,
+          translation_revision: "b".repeat(64),
+          field: "syllabus",
+          image: "aW1hZ2U=",
+        },
+      };
+      assert.equal(
+        (
+          await call(
+            platform + "/central/exams/7/actions/set-translation-image",
+            centralExamImage,
+          )
+        ).status,
+        201,
+      );
+      assert.deepEqual(requests.at(-1).body.fields, centralExamImage.fields);
       await pg.query("UPDATE auth_limits SET expires_at=now() WHERE key=$1", [
         digest(`exam-central-paper-write:${admin}`),
       ]);
