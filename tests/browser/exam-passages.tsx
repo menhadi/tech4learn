@@ -118,6 +118,18 @@ async function run() {
     await until(
       () => attempts.length === 1 && document.querySelector('[role="alert"]'),
     );
+    if (
+      !button("Back to classification").disabled ||
+      !button("Reload saved classification").disabled ||
+      !document.querySelector<HTMLInputElement>('input[maxlength="255"]')
+        ?.disabled ||
+      !document.querySelector<HTMLSelectElement>("select")?.disabled ||
+      document
+        .querySelector('[aria-label="Passage wording"]')
+        ?.getAttribute("contenteditable") !== "false" ||
+      button("Save classification").disabled
+    )
+      throw Error("Uncertain passage save did not lock edits and retain retry");
     button("Save classification").click();
     await until(
       () =>

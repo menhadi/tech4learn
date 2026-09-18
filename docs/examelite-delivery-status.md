@@ -196,6 +196,11 @@ adapter milestone as a release.
    passage, reject a foreign reference without changing the question, and
    invalidate both referring questions after a wording edit. The picker browser
    fixture is written but its execution is pending browser availability.
+   Passage saves now freeze wording, language, navigation and draft restoration
+   while a write is unconfirmed, keeping the original request for retry.
+   Validation/conflict responses reopen editing; connection/server failures and
+   access changes retain the pending request. The browser fixture now asserts
+   these locks, but this extended check also awaits browser availability.
    Connected browser acceptance, passage media and actual PDF regeneration
    verification remain pending.
    A private native capability reader now inventories the installed engine's

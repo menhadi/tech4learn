@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, apiBase } from "./api";
+import { api, apiBase, ApiError } from "./api";
 import { QuestionImageUpload } from "./QuestionImageUpload";
 import { DraftForm } from "./DraftForm";
 import { SmartTable } from "./DirectoryTable";
@@ -139,8 +139,10 @@ function TaxonomyEditor({
   useEffect(() => {
     void load();
   }, [org, central, kind, id]);
+  const passageLocked = kind === "passages" && request !== null;
   const set = (key: string, value: any) => {
-    if (pendingDisable || pendingDelete || imagePending) return;
+    if (pendingDisable || pendingDelete || imagePending || passageLocked)
+      return;
     setChanges((old) => ({ ...old, [key]: value }));
     setRequest(null);
     setNotice("");
@@ -174,7 +176,8 @@ function TaxonomyEditor({
           busy ||
           Boolean(pendingDisable) ||
           Boolean(pendingDelete) ||
-          imagePending
+          imagePending ||
+          passageLocked
         }
         onClick={onClose}
       >
@@ -186,6 +189,12 @@ function TaxonomyEditor({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {passageLocked && !busy && (
+        <p role="status">
+          The save has not been confirmed. Retry Save classification to check
+          the same request before editing further.
+        </p>
+      )}
       {!record && !busy && error && (
         <button type="button" onClick={() => void load()}>
           Retry loading classification
@@ -204,7 +213,13 @@ function TaxonomyEditor({
             passageLanguage,
           }}
           restoreState={(s) => {
-            if (pendingDisable || pendingDelete || imagePending) return;
+            if (
+              pendingDisable ||
+              pendingDelete ||
+              imagePending ||
+              passageLocked
+            )
+              return;
             if (
               s?.revision === record.revision &&
               s.changes &&
@@ -263,6 +278,12 @@ function TaxonomyEditor({
                   : "Classification saved in your organisation.",
               );
             } catch (e) {
+              if (
+                kind === "passages" &&
+                e instanceof ApiError &&
+                [400, 409, 422].includes(e.status)
+              )
+                setRequest(null);
               setError(e instanceof Error ? e.message : "Unable to save.");
               throw e;
             } finally {
@@ -287,7 +308,7 @@ function TaxonomyEditor({
                   required
                   maxLength={kind === "sections" ? 191 : 255}
                   value={values[name] ?? ""}
-                  disabled={busy}
+                  disabled={busy || passageLocked}
                   onChange={(e) => set(name, e.target.value)}
                 />
               </label>
@@ -301,7 +322,7 @@ function TaxonomyEditor({
                   label="Passage language"
                   value={passageLanguage}
                   required
-                  disabled={busy}
+                  disabled={busy || passageLocked}
                   onChange={(value) => setPassageLanguage(value)}
                 />
                 <p>
@@ -321,7 +342,7 @@ function TaxonomyEditor({
                       key={passageLanguage}
                       label="Passage wording"
                       value={values.passages?.[passageLanguage] ?? ""}
-                      disabled={busy}
+                      disabled={busy || passageLocked}
                       onChange={(value) =>
                         set("passages", {
                           ...(changes.passages ?? {}),
@@ -713,7 +734,7 @@ function TaxonomyEditor({
           <button
             className="secondary"
             type="button"
-            disabled={busy}
+            disabled={busy || passageLocked}
             onClick={() => void load()}
           >
             Reload saved classification
