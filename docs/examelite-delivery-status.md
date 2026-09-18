@@ -133,9 +133,14 @@ adapter milestone as a release.
    preserves its runtime retries while putting lookup under lock cleanup.
    Both source generations pass installer repeatability/rejection checks;
    transformed current PHP/JavaScript also pass syntax checks. Current-native
-   execution remains unverified. The newer content-only fingerprint schema
-   must still be reconciled with cache invalidation, and the renderer contract
-   double updated for the newer runtime handshake. **Do not deploy yet:** the
+   worker execution remains unverified. The renderer contract double now runs
+   both complete source generations, including the current runtime handshake,
+   version-mismatch recovery/exhaustion, native image replacement, pre-existing
+   missing-source markers, MathJax errors and print failures. The unpatched
+   current renderer fails the missing-diagram regression; both patched versions
+   pass. No browser is launched and no real PDF is rendered by these checks.
+   The newer content-only fingerprint schema must still be reconciled with
+   cache invalidation. **Do not deploy yet:** the
    installer still rejects the newer cache version rather than overwriting it.
    Native translation completion now also has isolated checks for ready state,
    manual versus automatic approval, repeat completion, contended locks and
