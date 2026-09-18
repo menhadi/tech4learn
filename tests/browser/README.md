@@ -114,6 +114,24 @@ check. Native HTTP/TLS transport, Laravel middleware, production databases,
 concurrent sessions, representative devices and PDF/AI workers are outside this
 check. No fixture endpoint is part of the production app.
 
+## Retained translated exam images
+
+`exam-translation-images.html` exercises the real shared translation editor for
+organisation and central exam instructions containing opaque images. It edits
+surrounding text, verifies the image identity stays in the submitted wording,
+and repeats an uncertain save with an identical request. Transport is synthetic;
+this fixture does not verify actual image bytes or uploads. Run the corresponding
+native check with:
+
+```text
+php deploy/examelite/test-retained-exam-translation-images.php VENDOR_AUTOLOAD MODELS_DIRECTORY QUESTION_CONTROLLER EXAM_CONTROLLER
+```
+
+That suite also covers formula edits, same-field image resolution, source and
+other-field preservation, approval invalidation, stale revisions and missing
+translations. Both checks passed locally. New translated exam image uploads and
+replacement controls remain unfinished.
+
 ## Connected plan assignment check
 
 `plan-api-native.mjs` connects the real Nest plan endpoints to the registered

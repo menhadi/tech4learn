@@ -80,11 +80,11 @@ export function ExamTranslationEditor({
         ) ||
           ((canReplaceExistingFormula(
             question.translation?.[key] ?? "",
-            mode === "question",
+            mode === "question" || key !== "name",
           ) ||
             canEditExistingText(
               question.translation?.[key] ?? "",
-              mode === "question",
+              mode === "question" || key !== "name",
             )) &&
             (!/<img\b/i.test(question.translation?.[key] ?? "") ||
               (typeof text === "string" &&
@@ -207,7 +207,7 @@ export function ExamTranslationEditor({
                       : (question.translation?.[field] ?? "")
                 }
                 originalImageWording={
-                  mode === "question"
+                  mode === "question" || field !== "name"
                     ? (question.translation?.[field] ?? "")
                     : undefined
                 }

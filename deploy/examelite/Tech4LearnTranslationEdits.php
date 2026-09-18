@@ -13,7 +13,7 @@ final class Tech4LearnTranslationEdits
     public const FIELDS=['question','option1','option2','option3','option4','option5','option6','hint','explanation','fill_blank','si_answer1'];
     public const EXAM_FIELDS=['name','instruction','syllabus'];
     /** Resolve only opaque images already in the locked translation's same field. */
-    private function retainedImages(?QuestionLang $target,array $wording):array {
+    private function retainedImages(QuestionLang|ExamLanguageTranslation|null $target,array $wording):array {
         $media=app(Tech4LearnQuestionMedia::class);
         foreach($wording as $field=>$html){
             if(!is_string($html)||!str_contains(strtolower($html),'<img'))continue;
@@ -41,6 +41,7 @@ final class Tech4LearnTranslationEdits
         $targets=ExamLanguageTranslation::where('exam_id',$exam->id)->where('language_id',$language->id)->lockForUpdate()->get();
         abort_unless($targets->count()<=1,409,'This exam has duplicate translations. Resolve them before editing.');
         $target=$targets->first();
+        $fields['wording']=$this->retainedImages($target,$fields['wording']);
         $values=array_replace(array_fill_keys(self::EXAM_FIELDS,null),$target?->only(self::EXAM_FIELDS)??[],$fields['wording']);
         validator($values,['name'=>'required|string|max:255','instruction'=>'nullable|string','syllabus'=>'nullable|string'])->validate();
         $native=app(ExamTranslationService::class);

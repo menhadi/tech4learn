@@ -22,6 +22,7 @@ python3 -B "$source/install-workspace.py"
 php "$source/test-central-languages.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-native-plan-assignment.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-translated-model-answer.php" /home/examelite/public_html/vendor/autoload.php
+php "$source/test-retained-exam-translation-images.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-translated-image-routes.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-proctor-evidence.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-pilot-exam-workflow.php" /home/examelite/public_html/vendor/autoload.php

@@ -18,7 +18,7 @@ checked commits when the release is ready.
 | Central distribution | Share questions to organisations and pull organisation questions into central ownership as independent copies. No student/result sharing. |
 | Questions and classifications | Native question creation/editing, taxonomy, central language creation/editing, organisation language enabling, free packages and guarded category deletion. |
 | Source media and wording | Raster upload/replacement/removal, protected previews, supported MathML replacement and literal surrounding-text edits/appends. Arbitrary native markup is not fully supported. |
-| Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing text/formulas, including subjective model answers. Saved translated questions support raster upload, replacement and reference removal. |
+| Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved translated questions support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
 | Documents | Native PDF request/status/approved download adapters and screens. Actual rendering/worker completion is not yet verified. |
@@ -56,7 +56,13 @@ adapter milestone as a release.
    locks wording while an image write is uncertain and preserves identical retry
    requests. Drafts contain destination choices only, not file bytes. Synthetic
    browser checks cover both owners, upload/replacement/removal, retry, locks,
-   byte exclusion and missing-translation gating. Translated exam images remain
+   byte exclusion and missing-translation gating. Existing images in translated
+   exam instructions and syllabus now also survive text/formula edits: opaque
+   identities resolve only against the same locked translated field. Native
+   tests cover both owners, source/other-field preservation, invalid references,
+   stale review, missing targets and approval invalidation. The shared editor
+   enables these retained-image edits, with browser checks for both owner paths
+   and identical retries. New translated exam image uploads/replacements remain
    outside these question controls.
    A further native gap was confirmed in the inspected controller snapshot:
    `QuestionLang` and native translation fingerprints include `si_answer1`
