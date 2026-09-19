@@ -12,6 +12,7 @@ namespace App\Models {
 // Minimal storage models: the actual controller and Laravel validation/filesystem run.
 class ExamResult extends \Illuminate\Database\Eloquent\Model {protected $table='exam_results';protected $guarded=[];public $timestamps=false;}
 class ExamStats extends \Illuminate\Database\Eloquent\Model {protected $table='exam_stats';protected $guarded=[];public $timestamps=false;}
+class Exam extends \Illuminate\Database\Eloquent\Model {protected $table='exams';protected $guarded=[];public $timestamps=false;}
 }
 namespace {
 require $argv[2];
@@ -23,10 +24,13 @@ $app=new Illuminate\Foundation\Application(__DIR__);
 $db=new Manager($app);$db->addConnection(['driver'=>'sqlite','database'=>':memory:']);$db->setAsGlobal();$db->bootEloquent();
 $schema=$db->schema();
 $schema->create('questions',fn($t)=>$t->integer('id')->primary());
-$schema->create('exam_results',function($t){$t->integer('id')->primary();$t->integer('student_id');$t->integer('organization_id');});
-$schema->create('exam_stats',function($t){$t->integer('id')->primary();$t->integer('exam_result_id');$t->integer('question_id');$t->integer('organization_id');$t->text('uploaded_answer_path')->nullable();});
+$schema->create('exams',function($t){$t->integer('id')->primary();$t->integer('organization_id');$t->boolean('allow_answer_change')->nullable();$t->integer('duration')->default(60);$t->text('end_date')->nullable();});
+$schema->create('exam_results',function($t){$t->integer('id')->primary();$t->integer('student_id');$t->integer('organization_id');$t->integer('exam_id');$t->text('end_time')->nullable();$t->text('start_time');$t->integer('total_test_time')->nullable();});
+$schema->create('exam_stats',function($t){$t->integer('id')->primary();$t->integer('exam_result_id');$t->integer('question_id');$t->integer('organization_id');$t->text('uploaded_answer_path')->nullable();$t->text('answer_locked_at')->nullable();});
 $db->table('questions')->insert(['id'=>10]);
-foreach([1,2] as $id){$db->table('exam_results')->insert(['id'=>$id,'student_id'=>$id,'organization_id'=>20]);$db->table('exam_stats')->insert(['id'=>$id,'exam_result_id'=>$id,'question_id'=>10,'organization_id'=>20]);}
+$db->table('exams')->insert(['id'=>1,'organization_id'=>20,'allow_answer_change'=>true]);
+Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-09-19 12:00:00','UTC'));
+foreach([1,2] as $id){$db->table('exam_results')->insert(['id'=>$id,'student_id'=>$id,'organization_id'=>20,'exam_id'=>1,'start_time'=>'2026-09-19 11:45:00','total_test_time'=>60]);$db->table('exam_stats')->insert(['id'=>$id,'exam_result_id'=>$id,'question_id'=>10,'organization_id'=>20]);}
 $root=sys_get_temp_dir().'/t4l-answer-upload-'.bin2hex(random_bytes(12));mkdir($root,0700,true);
 $app->instance('config',new Illuminate\Config\Repository(['filesystems'=>['disks'=>['public'=>['driver'=>'local','root'=>$root.'/stored','throw'=>false]]]]));
 $app['config']->set('database.default','default');
@@ -64,10 +68,33 @@ try {
  $failed=$send(2,'Synthetic failed disk write.',true);
  checkUpload(!$failed['success']&&App\Models\ExamStats::find(2)->uploaded_answer_path===$before,'Failed storage does not erase the saved answer path');
  $denied=$send(1,'Foreign answer attempt.');checkUpload(!$denied['success'],'Native ownership check denies another student attempt');
- echo "PASS: native subjective controller uses isolated filenames, preserves other uploads and rejects failed storage/foreign attempts.\n";
+ $count=count($filesystem->allFiles($root.'/stored'));
+ $db->table('exam_results')->where('id',2)->update(['end_time'=>'2026-09-19 12:00:00']);
+ $closed=$send(2,'After submission.');checkUpload(!$closed['success'],'Submitted attempts cannot replace an attachment');
+ $db->table('exam_results')->where('id',2)->update(['end_time'=>null]);
+ $db->table('exams')->where('id',1)->update(['allow_answer_change'=>false]);
+ $db->table('exam_stats')->where('id',2)->update(['answer_locked_at'=>'2026-09-19 12:00:00']);
+ $locked=$send(2,'After answer locking.');checkUpload(!$locked['success'],'Locked answers cannot replace an attachment');
+ checkUpload(count($filesystem->allFiles($root.'/stored'))===$count&&App\Models\ExamStats::find(2)->uploaded_answer_path===$before,'Rejected writes create no file and preserve the saved answer');
+ $db->table('exams')->where('id',1)->update(['allow_answer_change'=>true]);
+ $allowed=$send(2,'Changes explicitly allowed.');checkUpload($allowed['success'],'Native allow-answer-change setting permits attachment replacement');
+ $db->table('exams')->where('id',1)->update(['allow_answer_change'=>null]);
+ checkUpload($send(2,'Legacy setting defaults to allow.')['success'],'Null setting matches native answer persistence default');
+ $before=App\Models\ExamStats::find(2)->uploaded_answer_path;$count=count($filesystem->allFiles($root.'/stored'));
+ $db->table('exams')->where('id',1)->update(['duration'=>120]);
+ $db->table('exam_results')->where('id',2)->update(['start_time'=>'2026-09-19 11:00:00']);
+ checkUpload(!$send(2,'At exact original deadline.')['success'],'Captured attempt duration is not extended by later exam edits');
+ $db->table('exam_results')->where('id',2)->update(['start_time'=>'2026-09-19 12:01:00']);
+ checkUpload(!$send(2,'Before start.')['success'],'Future start cannot accept an attachment');
+ $db->table('exam_results')->where('id',2)->update(['start_time'=>'2026-09-19 11:45:00']);
+ $db->table('exams')->where('id',1)->update(['end_date'=>'2026-09-19 12:00:00']);
+ checkUpload(!$send(2,'At exam closing time.')['success'],'Exam closing deadline rejects uploads');
+ checkUpload(count($filesystem->allFiles($root.'/stored'))===$count&&App\Models\ExamStats::find(2)->uploaded_answer_path===$before,'Deadline rejection preserves both files and saved path');
+ echo "PASS: native subjective uploads isolate files and reject failed storage, foreign, submitted, locked and expired writes.\n";
 } finally {
  $resolved=realpath($root);$temp=realpath(sys_get_temp_dir());
  if(!$resolved||!$temp||!str_starts_with($resolved,$temp.DIRECTORY_SEPARATOR.'t4l-answer-upload-'))throw new RuntimeException('Unsafe fixture cleanup path');
  $filesystem->deleteDirectory($root);
+ Carbon\Carbon::setTestNow();
 }
 }

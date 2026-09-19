@@ -261,6 +261,16 @@ adapter milestone as a release.
    the same-domain student upload/extraction/review flow is still unfinished,
    including private file access, revision checks and safe retries. No upload
    control has been enabled in Tech4Learn by this patch.
+   A second guarded native upload patch now wraps the attachment operation in a
+   database transaction and locks the attempt and answer rows. Submitted attempts,
+   locked answers when changes are disabled, expired captured durations, future
+   start times and the exam closing deadline reject the upload before storage.
+   Legacy null change settings retain native default-allow behaviour. The prior
+   filename-only controller fails the submitted-attempt regression; the combined
+   patch passes controller tests and repeat-install/modified-source checks.
+   Tests use SQLite and do not establish production row-lock concurrency. Scoped
+   section timing, private delivery, extraction and idempotent retries still need
+   the same-domain adapter; these controls remain unavailable to T4L students.
    Passage authoring now has a native service foundation using the inspected
    PassageController for creation and language-specific edits. Its snapshots
    include wording in concurrency revisions; bounded text/formula input rejects

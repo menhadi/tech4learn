@@ -164,6 +164,17 @@ It has not been deployed. Protected same-domain upload/extraction/review,
 submission/revision guards and idempotent retries still need integration before
 student attachment controls become available.
 
+The native installer also now adds an attachment-state transaction with locked
+attempt and answer reads. It refuses uploads after submission, after answer
+locking when changes are disabled, at the original captured duration deadline,
+before the attempt start, or at the exam closing time. Later exam duration edits
+do not extend an existing attempt. Rejected writes create no stored file and
+preserve the previous answer path; the native null/default change setting remains
+allowed. The filename-only source fails the submitted-attempt regression, while
+the combined guarded patch passes the expanded isolated controller tests.
+Production row-lock concurrency and same-domain section/revision/retry controls
+are not established by this SQLite fixture. No student upload UI is enabled yet.
+
 ## Continuous native pilot verification
 
 `test-pilot-exam-workflow.php` extends the existing native lifecycle and marking suites with one newly authored subjective question and exam. It creates and assembles the paper through authoring, explicitly enables online visibility, activates it, starts a mapped student, saves and retries a written answer, resumes, submits, marks the actual pending answer, publishes the result and reads student history. It never seeds a completed attempt or pending mark for this added flow. Answer, marking and submission retries preserve the outcome. The deployment script runs this suite in place of the marking-only entry point; all preceding checks remain included. It passed locally against the native controller snapshots. This proves the native vertical workflow with isolated storage, not a combined live-browser or production deployment test.

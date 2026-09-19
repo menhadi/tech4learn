@@ -97,6 +97,48 @@ def refresh_pdf_image_cache(text):
     if text.count(before) != 1 or 'Tech4Learn checked print images' in text:
         raise ValueError('Unsupported native PDF cache version; no files changed.')
     return text.replace(before, after)
+def protect_subjective_upload_state(text):
+    """Keep attachment writes inside the attempt/answer transaction boundary."""
+    marker = '// Tech4Learn: serialize attachment writes with attempt and answer updates.'
+    edits = [
+        ('        try {', '        try {\n            ' + marker + '\n            return \\Illuminate\\Support\\Facades\\DB::transaction(function () use ($request) {'),
+        ("                    $query->where('organization_id', $tenantId);\n                })\n                ->first();", "                    $query->where('organization_id', $tenantId);\n                })\n                ->lockForUpdate()\n                ->first();"),
+        ('        } catch (\\Exception $e) {', '            });\n        } catch (\\Exception $e) {'),
+    ]
+    guard_anchor = '            // Tech4Learn: isolate each answer upload; never reuse a timestamp filename.'
+    guard = """            if ($examResult->end_time) {
+                return response()->json(['success' => false, 'message' => 'This attempt has already been submitted.'], 409);
+            }
+            $exam = \\App\\Models\\Exam::query()
+                ->where('organization_id', $examResult->organization_id)
+                ->find($examResult->exam_id);
+            if (! $exam || (! (bool) ($exam->allow_answer_change ?? true) && $stat->answer_locked_at)) {
+                return response()->json(['success' => false, 'message' => 'This answer cannot be changed.'], 409);
+            }
+            $now = now();
+            $start = $examResult->start_time ? \\Carbon\\Carbon::parse($examResult->start_time) : null;
+            $minutes = (float) ($examResult->total_test_time ?? $exam->duration ?? 0);
+            if (! $start || $start->greaterThan($now) || $minutes < 0
+                || ($minutes > 0 && $now->greaterThanOrEqualTo($start->copy()->addSeconds((int) ($minutes * 60))))
+                || ($exam->end_date && $now->greaterThanOrEqualTo(\\Carbon\\Carbon::parse($exam->end_date)))) {
+                return response()->json(['success' => false, 'message' => 'The time for this attempt has ended.'], 409);
+            }
+
+""" + guard_anchor
+    # The query anchor intentionally occurs once for the result and once for its stat.
+    if marker in text:
+        if text.count(marker) != 1 or text.count(edits[0][1]) != 1 or text.count(edits[1][1]) != 2 or text.count(edits[2][1]) != 1 or text.count(guard) != 1:
+            raise ValueError('Modified subjective upload state guard; no files changed.')
+        return text
+    for index, (before, _) in enumerate(edits):
+        if text.count(before) != (2 if index == 1 else 1):
+            raise ValueError('Unsupported subjective upload transaction layout; no files changed.')
+    if text.count(guard_anchor) != 1:
+        raise ValueError('Install isolated upload names before the state guard.')
+    for before, after in edits:
+        text = text.replace(before, after)
+    return text.replace(guard_anchor, guard)
+
 def isolate_subjective_upload_names(text):
     """Prevent students uploading the same question in one second sharing a file."""
     before = "            $fileName = time() . '_' . $questionId . '.' . $file->getClientOriginalExtension();"
