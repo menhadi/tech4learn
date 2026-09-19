@@ -280,6 +280,16 @@ adapter milestone as a release.
    A forged request attribute cannot cause deletion of another stored answer.
    This covers failed writes, not retention/reconciliation of superseded files
    after successful replacement; private same-domain upload delivery is pending.
+   An internal private-file transport now invokes the same native upload
+   controller while storing T4L attachment bytes outside the public disk. It
+   retains native validation/state checks and persistence, uses a fresh Laravel
+   request to avoid cached file conversion selecting the public transport, and
+   cleans private files after failed native saves. Controller-backed fixtures
+   verify stored bytes/references, zero public writes, prior-file preservation,
+   request preservation and foreign-attempt denial. The helper is installed but
+   has no browser/API route yet. Scoped upload coordination, revision/retry
+   receipts, private download/review and native extraction compatibility remain
+   required before enabling attachments.
    Passage authoring now has a native service foundation using the inspected
    PassageController for creation and language-specific edits. Its snapshots
    include wording in concurrency revisions; bounded text/formula input rejects

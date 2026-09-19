@@ -16,6 +16,7 @@ class Exam extends \Illuminate\Database\Eloquent\Model {protected $table='exams'
 }
 namespace {
 require $argv[2];
+require __DIR__.'/Tech4LearnPrivateAnswerUpload.php';
 use Illuminate\Database\Capsule\Manager;
 use Illuminate\Http\{Request,UploadedFile};
 use Illuminate\Support\Facades\Facade;
@@ -32,6 +33,7 @@ $db->table('exams')->insert(['id'=>1,'organization_id'=>20,'allow_answer_change'
 Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-09-19 12:00:00','UTC'));
 foreach([1,2] as $id){$db->table('exam_results')->insert(['id'=>$id,'student_id'=>$id,'organization_id'=>20,'exam_id'=>1,'start_time'=>'2026-09-19 11:45:00','total_test_time'=>60]);$db->table('exam_stats')->insert(['id'=>$id,'exam_result_id'=>$id,'question_id'=>10,'organization_id'=>20]);}
 $root=sys_get_temp_dir().'/t4l-answer-upload-'.bin2hex(random_bytes(12));mkdir($root,0700,true);
+$app->useStoragePath($root.'/storage');
 $app->instance('config',new Illuminate\Config\Repository(['filesystems'=>['disks'=>['public'=>['driver'=>'local','root'=>$root.'/stored','throw'=>false]]]]));
 $app['config']->set('database.default','default');
 $app['config']->set('database.connections.default',['driver'=>'sqlite','database'=>':memory:']);
@@ -49,12 +51,14 @@ $validator=new Illuminate\Validation\Factory(new Illuminate\Translation\Translat
 $validator->setPresenceVerifier(new Illuminate\Validation\DatabasePresenceVerifier($db->getDatabaseManager()));
 Request::macro('validate',function($rules)use($validator){return $validator->make($this->all(),$rules)->validate();});
 $controller=new App\Http\Controllers\SubjectiveUploadController();
-$send=function(int $attempt,string $text,bool $fail=false,?string $forgedPath=null)use($root,$controller){
+$send=function(int $attempt,string $text,bool $fail=false,?string $forgedPath=null,bool $private=false)use($root,$controller){
  $tmp=tempnam($root,'source-');file_put_contents($tmp,$text);
  $file=$fail?new class($tmp,'answer.txt','text/plain',null,true) extends UploadedFile {public function storeAs($path,$name=null,$options=[]){return false;}}:new UploadedFile($tmp,'answer.txt','text/plain',null,true);
  $request=Request::create('https://owned.example.test/subjective-upload','POST',['question_id'=>10,'exam_result_id'=>$attempt],[],['answer_file'=>$file]);
  if($forgedPath!==null)$request->attributes->set('t4l_new_answer_file',$forgedPath);
- return $controller->upload($request)->getData(true);
+ $response=$private?App\Services\Tech4LearnPrivateAnswerUpload::run($request):$controller->upload($request);
+ checkUpload($request->file('answer_file')===$file,'Private transport restores the original request file');
+ return $response->getData(true);
 };
 try {
  $first=$send(1,'First synthetic student answer.');$guard->student=2;
@@ -101,7 +105,19 @@ try {
  $failSave=false;
  checkUpload(!$send(999,'Invalid attempt.',false,$first['path'])['success'],'Invalid attempt is rejected before storage');
  checkUpload(file_get_contents($root.'/stored/'.$first['path'])==='First synthetic student answer.','Caller attribute cannot redirect cleanup to an older file');
- echo "PASS: native upload scope, state, deadlines, unique files and failed database-write cleanup.\n";
+ $private=$send(2,'Private synthetic attachment.',false,null,true);
+ checkUpload($private['success']&&str_starts_with($private['path'],'t4l-private-answers/'),'Native controller saves through the private transport');
+ $privateRoot=$root.'/storage/app';
+ checkUpload(file_get_contents($privateRoot.'/'.$private['path'])==='Private synthetic attachment.','Private answer bytes are retained');
+ checkUpload(!file_exists($root.'/stored/'.$private['path'])&&count($filesystem->allFiles($root.'/stored'))===$count,'Private upload creates no public file');
+ checkUpload(App\Models\ExamStats::find(2)->uploaded_answer_path===$private['path'],'Native answer record stores the private reference');
+ $failSave=true;
+ checkUpload(!$send(2,'Failed private replacement.',false,null,true)['success'],'Private transport reports native persistence failure');
+ checkUpload(count($filesystem->allFiles($privateRoot.'/t4l-private-answers'))===1&&file_get_contents($privateRoot.'/'.$private['path'])==='Private synthetic attachment.','Failed private write removes only its new file');
+ checkUpload(App\Models\ExamStats::find(2)->uploaded_answer_path===$private['path'],'Private save rollback preserves the prior reference');
+ $failSave=false;
+ checkUpload(!$send(1,'Foreign private attempt.',false,null,true)['success'],'Private transport retains native ownership denial');
+ echo "PASS: native upload scope/state/deadlines, unique files, failure cleanup and private file transport.\n";
 } finally {
  $resolved=realpath($root);$temp=realpath(sys_get_temp_dir());
  if(!$resolved||!$temp||!str_starts_with($resolved,$temp.DIRECTORY_SEPARATOR.'t4l-answer-upload-'))throw new RuntimeException('Unsafe fixture cleanup path');

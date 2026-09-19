@@ -186,6 +186,19 @@ redirect cleanup. The previous state-only patch fails this regression; the full
 patch and repeat-install guards pass. Successful replacement still retains old
 files pending a separately verified retention/reconciliation workflow.
 
+`Tech4LearnPrivateAnswerUpload` is an internal storage transport for the future
+same-domain attachment action. It invokes the native upload controller with a
+fresh Laravel request and an uploaded-file transport that writes to
+`storage/app/t4l-private-answers`, outside the public disk. Native validation,
+attempt checks and answer-record updates still run. The original request remains
+unchanged; failed native persistence removes the new private file and preserves
+the previous reference/bytes. The real-filesystem fixture covers these cases
+and verifies that no public copy is written, including after Laravel has already
+cached the original request file. This helper is not a public endpoint and does
+not itself authorise a T4L learner grant or implement request replay. Private
+reading, native text extraction compatibility and the scoped upload coordinator
+remain unfinished; no attachment controls are exposed yet.
+
 ## Continuous native pilot verification
 
 `test-pilot-exam-workflow.php` extends the existing native lifecycle and marking suites with one newly authored subjective question and exam. It creates and assembles the paper through authoring, explicitly enables online visibility, activates it, starts a mapped student, saves and retries a written answer, resumes, submits, marks the actual pending answer, publishes the result and reads student history. It never seeds a completed attempt or pending mark for this added flow. Answer, marking and submission retries preserve the outcome. The deployment script runs this suite in place of the marking-only entry point; all preceding checks remain included. It passed locally against the native controller snapshots. This proves the native vertical workflow with isolated storage, not a combined live-browser or production deployment test.
