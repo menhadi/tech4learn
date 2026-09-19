@@ -133,15 +133,13 @@ test("central question sharing requires superadmin; organisation reads respect m
           admin,
         ]);
       return {
-        data: {
-          package_id: centralMode === "wrong" ? 8 : 7,
-          asset: "c".repeat(64),
-          mime: centralMode === "mime" ? "image/svg+xml" : "image/png",
-          base64:
-            centralMode === "base64"
-              ? "!"
-              : Buffer.from("synthetic raster").toString("base64"),
-        },
+        package_id: centralMode === "wrong" ? 8 : 7,
+        asset: "c".repeat(64),
+        mime: centralMode === "mime" ? "image/svg+xml" : "image/png",
+        base64:
+          centralMode === "base64"
+            ? "!"
+            : Buffer.from("synthetic raster").toString("base64"),
       };
     }
     const centralDocument =
@@ -461,16 +459,14 @@ test("central question sharing requires superadmin; organisation reads respect m
           [member, org],
         );
       return {
-        data: {
-          [path.includes("/packages/") ? "package_id" : "question_id"]:
-            mediaMode === "wrong" ? 10 : 9,
-          asset: "a".repeat(64),
-          mime: mediaMode === "mime" ? "text/html" : "image/png",
-          base64:
-            mediaMode === "base64"
-              ? "!!!"
-              : Buffer.from("synthetic image bytes").toString("base64"),
-        },
+        [path.includes("/packages/") ? "package_id" : "question_id"]:
+          mediaMode === "wrong" ? 10 : 9,
+        asset: "a".repeat(64),
+        mime: mediaMode === "mime" ? "text/html" : "image/png",
+        base64:
+          mediaMode === "base64"
+            ? "!!!"
+            : Buffer.from("synthetic image bytes").toString("base64"),
       };
     }
     if (/packages\/9\/image$/.test(path)) {

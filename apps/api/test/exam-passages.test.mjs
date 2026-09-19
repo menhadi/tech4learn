@@ -189,7 +189,7 @@ test("passage previews bind owner, language and revision and withhold bytes afte
         ),
       );
       if (revoke) revoked = true;
-      return { data: payload };
+      return payload;
     },
   };
   const service = new ExamContentService(
@@ -372,4 +372,69 @@ test("passage gateway bounds wording, derives actors and rechecks access after r
     ),
     /revoked/,
   );
+});
+
+test("authoring question and package previews consume the native flat envelope", async () => {
+  const user = { id: randomUUID() },
+    org = randomUUID(),
+    asset = "a".repeat(64);
+  let envelope,
+    revoked = false,
+    revoke = false,
+    audits = 0;
+  const service = new ExamContentService(
+    {},
+    {
+      audit: async () => {
+        audits++;
+      },
+    },
+    {
+      request: async () => {
+        if (revoke) revoked = true;
+        return envelope;
+      },
+    },
+    {},
+  );
+  service.config = async () => ({});
+  service.centralAccess = service.questionAccess = async () => {
+    if (revoked) throw Error("revoked");
+  };
+  for (const kind of ["questions", "packages", "central-packages"]) {
+    const payload = {
+      version: 1,
+      organization_id: 10,
+      asset,
+      mime: "image/png",
+      [kind === "questions" ? "question_id" : "package_id"]: 7,
+      base64: Buffer.from("synthetic raster").toString("base64"),
+    };
+    const read = () =>
+      kind === "questions"
+        ? service.questionMedia(user, org, "7", asset)
+        : service.packageMedia(
+            user,
+            org,
+            "7",
+            asset,
+            {},
+            kind === "central-packages",
+          );
+    envelope = payload;
+    assert.deepEqual(await read(), {
+      buffer: Buffer.from("synthetic raster"),
+      mime: "image/png",
+    });
+    envelope = { data: payload };
+    await assert.rejects(read(), /could not be loaded/);
+    envelope = { ...payload, asset: "b".repeat(64) };
+    await assert.rejects(read(), /could not be loaded/);
+    envelope = payload;
+    const before = audits;
+    revoke = true;
+    await assert.rejects(read(), /revoked/);
+    assert.equal(audits, before);
+    revoke = revoked = false;
+  }
 });

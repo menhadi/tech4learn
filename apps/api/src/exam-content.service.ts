@@ -1358,7 +1358,8 @@ export class ExamContentService {
       30000,
     );
     await authorize();
-    const data = result.data;
+    // Native authoring previews use the top-level versioned response envelope.
+    const data = result;
     const invalid = () =>
       new ServiceUnavailableException(
         "This passage image could not be loaded.",
@@ -1572,7 +1573,7 @@ export class ExamContentService {
         id,
         kind === "packages" ? "subjects" : "questions",
       );
-    const data = response.data;
+    const data = response;
     const invalid = () =>
       new ServiceUnavailableException("This image could not be loaded.");
     if (

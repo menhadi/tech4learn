@@ -23,8 +23,11 @@ checked commits when the release is ready.
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
 | Documents | Native PDF request/status/approved download adapters and screens. Actual rendering/worker completion is not yet verified. |
 
-Latest validation: `npm run check` passed with 89 tests, all workspace
-typechecks and production builds. The existing large-bundle warning remains.
+Latest validation: all 90 tests passed across the full suite and a targeted
+rerun after correcting an outdated mocked media envelope. `npm run check`
+passed all workspace typechecks; its initial suite had that one fixture failure.
+The corrected fixture and connected native/browser journeys passed; production
+builds were run separately. The existing large-bundle warning remains.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It
 does not establish production Laravel middleware/TLS, concurrency, device
@@ -313,6 +316,18 @@ adapter milestone as a release.
    retry locks and byte exclusion. Existing passage creation, retained diagrams
    and draft recovery regression checks also pass. Native persistence remains
    separately tested; orphan reconciliation and real PDF regeneration are open.
+   A connected authoring-to-student check now stores synthetic image bytes on
+   an isolated real local disk through native passage/question controllers,
+   reads them through authenticated Tech4Learn preview endpoints, replaces and
+   removes passage references, and delivers the final diagram to a granted
+   student before submission and staff marking. This uncovered an actual
+   response-envelope mismatch: authoring image readers expected nested `data`,
+   while native passage, question and package previews return top-level fields.
+   The gateway now follows those native envelopes while retaining identity,
+   byte bounds and post-read access checks. The connected HTTP/native journey
+   and browser answer/submit/mark/publish journey pass with the uploaded diagram.
+   The bridge still uses isolated databases and CLI native transport; production
+   middleware/TLS, concurrency and PDF rendering are not established by it.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,

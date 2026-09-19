@@ -6,6 +6,19 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 DB::table('qtypes')->insert(['id'=>5,'question_type'=>'Subjective','type'=>'S']);
+// Exercise real local-disk image persistence and the protected byte reader.
+require_once dirname($argv[3]).'/PassageController.php';
+foreach(['index'=>'passages','create'=>'passages/create','edit'=>'passages/{passage}/edit'] as $name=>$path)
+ $routes->add((new Illuminate\Routing\Route(['GET'],$path,fn()=>null))->name('passages.'.$name));
+$mediaRoot=sys_get_temp_dir().'/t4l-pilot-media-'.bin2hex(random_bytes(12));
+mkdir($mediaRoot,0700);
+$app['config']->set('filesystems.disks.public',['driver'=>'local','root'=>$mediaRoot,'throw'=>true]);
+$app->instance('filesystem',new Illuminate\Filesystem\FilesystemManager($app));
+Illuminate\Support\Facades\Storage::clearResolvedInstance('filesystem');
+register_shutdown_function(function()use($mediaRoot){
+ if(is_dir($mediaRoot)&&(bool)preg_match('#[/\\\\]t4l-pilot-media-[a-f0-9]{24}$#D',$mediaRoot))
+  (new Illuminate\Filesystem\Filesystem())->deleteDirectory($mediaRoot);
+});
 $workspace=$next();$actor=$next();
 DB::table('tech4learn_workspaces')->insert(['id'=>$workspace,'source_organization_id'=>10,'organization_id'=>20,'restrictions'=>'[]']);
 DB::table('tech4learn_workspace_users')->insert(['workspace_id'=>$workspace,'local_id'=>$actor,'kind'=>'staff','external_id'=>1]);

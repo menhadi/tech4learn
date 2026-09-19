@@ -4,7 +4,7 @@ import "reflect-metadata";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { migration } from "../../apps/api/dist/schema.js";
@@ -151,8 +151,11 @@ try {
       nativeCalls++;
       php.stdin.write(JSON.stringify({ path, body }) + "\n");
       const reply = await receive();
+      if (reply.status !== 200)
+        console.error("Native fixture failure:", path, reply.failure);
       assert.equal(reply.status, 200, reply.failure);
       assert.equal(reply.data.organization_id, 10);
+
       return reply.data;
     });
     queue = request.catch(() => {});
@@ -181,7 +184,63 @@ try {
   };
   const save = (path, fields, revision = "new") =>
     call(root + path, { fields, revision, request_id: randomUUID() });
-  const question = await save("/exam-content/questions/new", {
+  const imageBytes = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=",
+    "base64",
+  );
+  let passage = await save("/exam-content/taxonomy/passages/new", {
+    name: "Synthetic pilot diagram",
+    passages: { [fixture.language]: "<p>Two pairs make four.</p>" },
+  });
+  const imagePath = root + `/exam-content/passages/${passage.id}/image`;
+  const upload = async (fields) => {
+    const request = {
+      fields: { language_id: fixture.language, ...fields },
+      revision: passage.revision,
+      request_id: randomUUID(),
+    };
+    const saved = await call(imagePath, request);
+    assert.deepEqual(
+      await call(imagePath, request),
+      saved,
+      "Native image retry must return the original snapshot",
+    );
+    passage = saved;
+  };
+  const assetFrom = () => {
+    const source = /<img[^>]+src="([^"]+)"/.exec(
+      passage.fields.passages[fixture.language],
+    )?.[1];
+    assert.match(
+      source ?? "",
+      /^\/storage\/images\/upload\/t4l\/20\/[a-f0-9]{40}\.png$/,
+    );
+    return createHash("sha256").update(source).digest("hex");
+  };
+  const preview = async (asset) => {
+    const r = await response(
+      root +
+        `/exam-content/passages/${passage.id}/languages/${fixture.language}/media/${asset}?revision=${passage.revision}`,
+    );
+    assert.equal(r.status, 200, r.ok ? undefined : await r.text());
+    assert.match(r.headers.get("content-type"), /image\/png/);
+    assert.match(r.headers.get("cache-control"), /no-store/);
+    assert.deepEqual(Buffer.from(await r.arrayBuffer()), imageBytes);
+  };
+  await upload({ image: imageBytes.toString("base64") });
+  const firstAsset = assetFrom();
+  await preview(firstAsset);
+  await upload({ image: imageBytes.toString("base64"), asset: firstAsset });
+  const replacedAsset = assetFrom();
+  assert.notEqual(replacedAsset, firstAsset);
+  await preview(replacedAsset);
+  await upload({ asset: replacedAsset, remove: true });
+  assert.doesNotMatch(passage.fields.passages[fixture.language], /<img/);
+  await upload({ image: imageBytes.toString("base64") });
+  const passageAsset = assetFrom();
+  await preview(passageAsset);
+  let question = await save("/exam-content/questions/new", {
+    passage_id: passage.id,
     qtype_id: 5,
     question: "<p>Explain why two plus two is four.</p>",
     si_answer1: "Two pairs contain four items.",
@@ -191,6 +250,27 @@ try {
     group_ids: [fixture.group],
     status: "Yes",
   });
+  const questionImageRequest = {
+    fields: { field: "hint", image: imageBytes.toString("base64") },
+    revision: question.revision,
+    request_id: randomUUID(),
+  };
+  question = await call(
+    root + `/exam-content/questions/${question.id}/image`,
+    questionImageRequest,
+  );
+  const questionSource = /<img[^>]+src="([^"]+)"/.exec(
+    question.fields.hint,
+  )?.[1];
+  assert.ok(questionSource);
+  const questionAsset = createHash("sha256")
+    .update(questionSource)
+    .digest("hex");
+  const questionImage = await response(
+    root + `/exam-content/questions/${question.id}/media/${questionAsset}`,
+  );
+  assert.equal(questionImage.status, 200);
+  assert.deepEqual(Buffer.from(await questionImage.arrayBuffer()), imageBytes);
   const defaults = await call(root + "/exam-content/taxonomy/exams/new");
   let exam = await save("/exam-content/taxonomy/exams/new", {
     ...defaults.fields,
@@ -314,6 +394,17 @@ try {
     await run("prepare");
     const started = await run("start");
     assert.equal(started.questions[0].id, question.id);
+    assert.match(
+      started.questions[0].passage.content,
+      new RegExp("t4l-media:" + passageAsset),
+    );
+    const mediaUrl =
+      root +
+      `/student-exam/media/${started.attempt_id}/${question.id}/${passageAsset}`;
+    const studentImage = await response(mediaUrl, undefined, studentCookie);
+    assert.equal(studentImage.status, 200);
+    assert.deepEqual(Buffer.from(await studentImage.arrayBuffer()), imageBytes);
+
     const answer = {
       request_id: randomUUID(),
       attempt_id: started.attempt_id,
@@ -367,7 +458,7 @@ try {
     );
     assert.equal(nativeCalls, beforeRevoked);
     console.log(
-      `PASS: real Tech4Learn HTTP → native ExamElite controllers (${nativeCalls} calls): create, assign, take, resume, retry, submit, mark, publish, history and revoke.`,
+      `PASS: real Tech4Learn HTTP → native ExamElite controllers (${nativeCalls} calls): create, passage image upload/replace/remove/private preview, assign, take with protected diagram, resume, retry, submit, mark, publish, history and revoke.`,
     );
   }
 } finally {

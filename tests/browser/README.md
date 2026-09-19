@@ -349,3 +349,11 @@ removal, exact retry after a lost acknowledgement, language and wording locks,
 and exclusion of uploaded bytes from recovered drafts. Run `exam-passages.html`
 alongside it for retained-diagram and wording/draft regression coverage. Native
 persistence and production transport require their separate acceptance checks.
+
+The connected `pilot-api-native.mjs` journey also creates a saved-language passage,
+uploads/replaces/removes/reuploads a synthetic PNG through native controllers,
+and verifies exact bytes through the Tech4Learn staff and student media routes.
+Question hint uploads use the same real temporary local disk. It runs the native
+filesystem reader rather than a media response double. The temporary public disk
+is removed on normal PHP shutdown; no production configuration is bootstrapped.
+The browser variant exercises the existing student/marking flow with that diagram.
