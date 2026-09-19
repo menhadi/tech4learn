@@ -36,6 +36,14 @@ Extraction failures now distinguish unreadable text, oversized extracted answers
 and timeouts, with a manual-answer fallback. Native error messages and traces
 are not forwarded to students; only known error codes with matching statuses
 select the guidance.
+The native extraction adapter now reads a bounded language catalogue from
+ExamElite's existing OCR configuration, returning only codes and display names.
+It rejects unknown and compound codes instead of allowing the native script's
+silent English fallback. Local tests cover configuration precedence, duplicate
+codes, malformed/oversized configuration, label minimisation and propagation
+of a configured code to the extractor. Student language selection is not wired
+yet; the current interface still uses English. Actual multilingual OCR output
+and provider availability remain unverified.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It
 does not establish production Laravel middleware/TLS, concurrency, device
