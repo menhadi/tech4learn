@@ -59,6 +59,16 @@ class Tech4LearnWorkspaceController extends Tech4LearnPlatformController
         ]);
     }
     /** Private server credential only; T4L must reauthorise its superadmin. */
+    /** Dedicated central credential only; the T4L gateway must reauthorise its superadmin. */
+    public function centralAiSettings(Request $r) {
+        $tenant=(int)$this->configuration($r)['_platform']['organization_id'];
+        abort_unless($r->all()===[]&&$r->getContent()==='',422);
+        Organization::where('status','active')->findOrFail($tenant);
+        $configuration=\App\Models\Configuration::where('organization_id',$tenant)->first();
+        // Never use the native global/tenant fallback when reading this owner.
+        $configuration??=new \App\Models\Configuration(['organization_id'=>$tenant]);
+        return $this->reply($tenant,app(\App\Services\Tech4LearnAiSettingsView::class)->read($configuration,$tenant));
+    }
     public function centralPlans(Request $r) {
         $tenant=(int)$this->configuration($r)['_platform']['organization_id'];
         Organization::where('status','active')->findOrFail($tenant);

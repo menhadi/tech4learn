@@ -17,6 +17,7 @@ php "$source/test-content-api.php" /home/examelite/public_html/vendor/autoload.p
 php "$source/test-question-authoring.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-launch-tickets.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-workspace-gate.php" /home/examelite/public_html/vendor/autoload.php
+php "$source/test-ai-settings-route.php" /home/examelite/public_html/vendor/autoload.php /home/examelite/public_html/app
 python3 -B "$source/install-read-connector.py"
 python3 -B "$source/install-workspace.py"
 python3 -B "$source/test-pdf-renderer-install.py" /home/examelite/public_html/scripts/render-exam-pdf.mjs /home/examelite/public_html/app/Services/ExamPdfCacheService.php

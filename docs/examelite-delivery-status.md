@@ -277,8 +277,15 @@ adapter milestone as a release.
    names and credential-presence booleans only. It rejects a mismatched owner,
    omits unrelated settings and credentials, and leaves native settings intact.
    A missing configured model stays null; it does not advertise a hardcoded
-   current provider default. This helper has no route or UI yet. Superadmin
-   authorisation, revisioned edits, credential replacement, native configuration
+   current provider default. A private central read route now binds the
+   configuration owner to the authenticated server credential and host, rejects
+   client owner overrides and returns empty configured values if that owner's
+   row is missing. It never falls back to another organisation or creates a row.
+   Isolated route checks cover those boundaries and an inactive owner; the host
+   resolver is a fixture, while credential validation and the controller execute.
+   Installation and route verification include this adapter, and the user-run
+   deployment checks it before installation. There is no Tech4Learn UI yet.
+   Superadmin gateway authorisation, revisioned edits, credential replacement, native configuration
    persistence and organisation fallback controls remain outstanding. A saved
    credential flag does not establish provider connectivity or validity.
    The native subjective-upload audit found a filename collision: student uploads

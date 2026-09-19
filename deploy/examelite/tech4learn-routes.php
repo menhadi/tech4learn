@@ -82,6 +82,7 @@ Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::post('/workspace/{org}/plan', [Tech4LearnWorkspaceController::class, 'assignPlan']);
     Route::post('/central/plans', [Tech4LearnWorkspaceController::class, 'createPlan']);
     Route::get('/central/plans', [Tech4LearnWorkspaceController::class, 'centralPlans']);
+    Route::get('/central/ai-settings', [Tech4LearnWorkspaceController::class, 'centralAiSettings']);
     Route::get('/central/plans/{id}', [Tech4LearnWorkspaceController::class, 'centralPlan']);
     Route::post('/central/plans/{id}', [Tech4LearnWorkspaceController::class, 'updatePlan']);
     Route::post('/workspace/{org}/restrictions', [Tech4LearnWorkspaceController::class, 'restrict']);

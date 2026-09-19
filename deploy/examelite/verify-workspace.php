@@ -58,6 +58,7 @@ foreach([
  ['POST','api/tech4learn/v1/workspace/11111111-1111-4111-8111-111111111111/plan','Tech4LearnWorkspaceController@assignPlan'],
  ['POST','api/tech4learn/v1/central/plans','Tech4LearnWorkspaceController@createPlan'],
  ['GET','api/tech4learn/v1/central/plans','Tech4LearnWorkspaceController@centralPlans'],
+ ['GET','api/tech4learn/v1/central/ai-settings','Tech4LearnWorkspaceController@centralAiSettings'],
  ['GET','api/tech4learn/v1/central/plans/1','Tech4LearnWorkspaceController@centralPlan'],
  ['POST','api/tech4learn/v1/central/plans/1','Tech4LearnWorkspaceController@updatePlan'],
  ['GET','api/tech4learn/v1/content/11111111-1111-1111-1111-111111111111/questions','Tech4LearnContentController@questions'],
