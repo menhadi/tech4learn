@@ -150,6 +150,13 @@ export class ExamStudentAccessController {
   ) {
     return this.attempts.attachment(org, examSession(cookies), "extract", body);
   }
+  @Post("student-exam/attachments/languages") @HttpCode(200) async attachmentLanguages(
+    @Param("org") org: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookies?: string,
+  ) {
+    return this.attempts.attachment(org, examSession(cookies), "languages", body);
+  }
   @Post("student-exam/attempt/:action") @HttpCode(200) async attempt(
     @Param("org") org: string,
     @Param("action") action: string,

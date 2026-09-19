@@ -426,7 +426,9 @@ try {
     assert.match(download.headers.get("content-disposition"), /^attachment;/);
     assert.equal(await download.text(), replacementText);
     const extractBody = { attempt_id: started.attempt_id, question_id: question.id, asset: attachment.asset };
-    const extracted = await call(attachmentPath + "/extract", extractBody, studentCookie);
+    const languageCatalogue = await call(attachmentPath + "/languages", extractBody, studentCookie);
+    assert.deepEqual(languageCatalogue, { ...extractBody, languages: [{ code: "eng", name: "English" }] });
+    const extracted = await call(attachmentPath + "/extract", { ...extractBody, language: languageCatalogue.languages[0].code }, studentCookie);
     assert.equal(extracted.text, replacementText);
     const resumedFile = await run("start");
     assert.equal(resumedFile.questions[0].attachment_asset, attachment.asset);

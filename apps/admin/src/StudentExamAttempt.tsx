@@ -48,6 +48,7 @@ type Attempt = {
   result?: { status: string; score_percent: number } | null;
 };
 export function StudentExamAttempt({ base }: { base: string }) {
+  const [extractionLanguages, setExtractionLanguages] = useState<{ asset: string; items: { code: string; name: string }[]; selected: string } | null>(null);
   const [history, setHistory] = useState<
     | {
         attempt_id: number;
@@ -111,17 +112,19 @@ export function StudentExamAttempt({ base }: { base: string }) {
       body: {
         ...body,
         ...(action === "start" ? { camera_ready: cameraReady } : {}),
-        ...(action === "extract" ? {} : { request_id: crypto.randomUUID() }),
+        ...(["extract", "languages"].includes(action) ? {} : { request_id: crypto.randomUUID() }),
       },
     };
     try {
       const request = pending.current;
       const result = await api<any>(
-        request.action === "attachment" ? `${base}/attachments` : request.action === "extract" ? `${base}/attachments/extract` : `${base}/attempt/${request.action}`,
+        request.action === "attachment" ? `${base}/attachments` : ["extract", "languages"].includes(request.action) ? `${base}/attachments/${request.action}` : `${base}/attempt/${request.action}`,
         "POST",
         request.body,
       );
-      if (request.action === "extract") {
+      if (request.action === "languages") {
+        setExtractionLanguages({ asset: result.asset, items: result.languages, selected: result.languages.some((item: { code: string }) => item.code === "eng") ? "eng" : result.languages[0].code });
+      } else if (request.action === "extract") {
         setAnswer(result.text);
         setDirty(true);
         setNotice("Review the extracted text, then save your answer. The text has not been saved yet.");
@@ -641,9 +644,17 @@ export function StudentExamAttempt({ base }: { base: string }) {
                       {dirty && <p>Save your written changes before attaching or extracting a file. For exams that lock answers, attach your file before saving.</p>}
                       {q.attachment_asset && /^[a-f0-9]{64}$/.test(q.attachment_asset) && <>
                         <a href={`${apiBase}${base}/attachments/${attempt.attempt_id}/${q.id}/${q.attachment_asset}`} download>Download saved answer file</a>
+                        {extractionLanguages?.asset === q.attachment_asset ? <label>Text extraction language
+                          <select disabled={frozen || dirty} value={extractionLanguages.selected}
+                            onChange={e => setExtractionLanguages({ ...extractionLanguages, selected: e.target.value })}>
+                            {extractionLanguages.items.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}
+                          </select>
+                        </label> : <button type="button" className="secondary" disabled={frozen || dirty}
+                          onClick={() => void send("languages", { attempt_id: attempt.attempt_id, question_id: q.id, asset: q.attachment_asset })}>Choose extraction language</button>}
                         <button type="button" className="secondary" disabled={frozen || dirty}
-                          onClick={() => void send("extract", { attempt_id: attempt.attempt_id, question_id: q.id, asset: q.attachment_asset })}>Extract text from saved file</button>
-                        <p>Extraction uses English by default. Review the text before saving.</p>
+                          onClick={() => void send("extract", { attempt_id: attempt.attempt_id, question_id: q.id, asset: q.attachment_asset,
+                            ...(extractionLanguages && extractionLanguages.asset === q.attachment_asset ? { language: extractionLanguages.selected } : {}) })}>Extract text from saved file</button>
+                        <p>English is the default. Choose another configured language for your file if needed, then review the extracted text before saving.</p>
                       </>}
                     </section>}</>
                   )}

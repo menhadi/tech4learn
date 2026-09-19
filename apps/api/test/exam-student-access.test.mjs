@@ -364,6 +364,24 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
     const extraction = await call(extractPath, extractBody, studentCookie);
     assert.equal(extraction.status, 200);
     assert.deepEqual(await extraction.json(), { ...extractBody, text: extracted.text });
+    const languagesPath = attachmentPath + "/languages";
+    const languages = [{ code: "eng", name: "English" }, { code: "hin", name: "Hindi" }];
+    engine.request = async (config, owner, path, payload) => {
+      assert.equal(owner, org); assert.equal(path, `attachments/${org}/languages`);
+      assert.deepEqual(payload, { ...extractBody, learner_id: learner, exam_id: 7 });
+      return { data: { ...extracted, languages: languages.map(item => ({ ...item, private: "never return" })) } };
+    };
+    assert.equal((await call(languagesPath, extractBody, staff)).status, 401);
+    const catalogue = await call(languagesPath, extractBody, studentCookie);
+    assert.equal(catalogue.status, 200);
+    assert.deepEqual(await catalogue.json(), { ...extractBody, languages });
+    engine.request = async () => ({ data: { ...extracted, languages: [languages[0], languages[0]] } });
+    assert.equal((await call(languagesPath, extractBody, studentCookie)).status, 503);
+    assert.equal((await call(extractPath, { ...extractBody, language: "hin;cmd" }, studentCookie)).status, 400);
+    engine.request = async (config, owner, path, payload) => {
+      assert.equal(payload.language, "hin"); return { data: extracted };
+    };
+    assert.equal((await call(extractPath, { ...extractBody, language: "hin" }, studentCookie)).status, 200);
     for (const [code, status, text] of [["extraction_empty", 422, "No readable text"], ["extraction_too_long", 422, "too long"], ["extraction_timeout", 503, "timed out"]]) {
       engine.request = async () => ({ error: { status, code, message: "PRIVATE native trace" } });
       const failedExtraction = await call(extractPath, extractBody, studentCookie);

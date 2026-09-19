@@ -18,9 +18,12 @@ window.fetch = async (input, options = {}) => {
     uploaded = true;
     if (uploads.length === 1) throw Error("Synthetic lost upload acknowledgement");
     result = { saved: true, attempt_id: 11, question_id: 4, revision: "c".repeat(64), asset };
+  } else if (url.endsWith("/languages")) {
+    if (body.asset !== asset || "request_id" in body) throw Error("Wrong language catalogue request");
+    result = { attempt_id: 11, question_id: 4, asset, languages: [{ code: "eng", name: "English" }, { code: "hin", name: "Hindi" }] };
   } else if (url.endsWith("/extract")) {
     extractions.push(JSON.stringify(body));
-    if (JSON.stringify(Object.keys(body).sort()) !== JSON.stringify(["asset", "attempt_id", "question_id"]) || body.asset !== asset) throw Error("Wrong extraction identity");
+    if (JSON.stringify(Object.keys(body).sort()) !== JSON.stringify(["asset", "attempt_id", "language", "question_id"]) || body.asset !== asset || body.language !== "hin") throw Error("Wrong extraction identity or language");
     if (extractions.length === 1) throw Error("Synthetic extraction failure");
     result = { attempt_id: 11, question_id: 4, asset, text: "Extracted synthetic answer." };
   } else if (url.endsWith("/answer")) {
@@ -44,11 +47,17 @@ async function run() {
   await until(() => root.querySelector('a[download]'));
   if (uploads.length !== 2 || uploads[0] !== uploads[1]) throw Error("Upload retry changed");
   if (!root.querySelector('a[download]')!.getAttribute("href")!.endsWith(`/attachments/11/4/${asset}`)) throw Error("Wrong private download URL");
+  button("Choose extraction language").click();
+  await until(() => root.querySelector("select"));
+  const language = root.querySelector("select")!;
+  language.value = "hin"; language.dispatchEvent(new Event("change", { bubbles: true }));
+  await new Promise(resolve => setTimeout(resolve, 50));
   button("Extract text from saved file").click();
   await until(() => button("Retry last request")); button("Retry last request").click();
   await until(() => root.querySelector("textarea")!.value === "Extracted synthetic answer.");
   if (answers.length || extractions.length !== 2 || extractions[0] !== extractions[1]) throw Error("Extraction saved implicitly or retry changed");
   if (!root.querySelector<HTMLInputElement>('input[type="file"]')!.disabled) throw Error("Unsaved draft permits conflicting upload");
+  if (!language.disabled) throw Error("Unsaved draft permits changing extraction language");
   button("Save answer").click();
   await until(() => root.textContent!.includes("This answer is locked"));
   if (answers.length !== 1 || !root.querySelector("fieldset")!.disabled) throw Error("Native answer lock was not preserved");

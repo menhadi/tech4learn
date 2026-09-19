@@ -13,13 +13,14 @@ class Tech4LearnAttachmentController extends Tech4LearnPlatformController
  public function attachment(Request $r,string $org,string $action){
   $central=$this->configuration($r)['_platform']['organization_id'];
   $this->uuid($org);
-  abort_unless(in_array($action,['upload','read','review','extract'],true),404);
+  abort_unless(in_array($action,['upload','read','review','extract','languages'],true),404);
   abort_unless(strlen($r->getContent())<=($action==='upload'?14000000:3000),422);
   try{$input=json_decode($r->getContent(),true,16,JSON_THROW_ON_ERROR);}catch(\JsonException){abort(422);}
   abort_unless(is_array($input),422);
   $keys=['learner_id','exam_id','attempt_id','question_id'];
   $keys=array_merge($keys,$action==='upload'?['request_id','revision','base64']:['asset']);
   if($action==='review')$keys[]='actor_id';
+  if($action==='extract')$keys[]='language';
   abort_unless(array_diff(array_keys($input),$keys)===[]&&is_string($input['learner_id']??null),422);
   $this->uuid($input['learner_id']);
   if($action==='review'){abort_unless(is_string($input['actor_id']??null),422);$this->uuid($input['actor_id']);}
@@ -36,9 +37,14 @@ class Tech4LearnAttachmentController extends Tech4LearnPlatformController
     abort_unless(is_string($temp),503);
     abort_unless(chmod($temp,0600)&&file_put_contents($temp,$bytes)===strlen($bytes),503);
     $data=app(Tech4LearnAnswerUploadCoordinator::class)->save($org,$central,$input['learner_id'],$input['attempt_id'],$input['question_id'],array_intersect_key($input,array_flip(['exam_id','request_id','revision'])),new UploadedFile($temp,'answer','application/octet-stream',null,true));
-   }elseif($action==='extract'){
+   }elseif(in_array($action,['extract','languages'],true)){
     abort_unless(is_string($input['asset']??null),422);
-    $data=app(\App\Services\Tech4LearnAnswerExtraction::class)->extract($org,$central,$input['learner_id'],$input['attempt_id'],$input['question_id'],$input['asset'],$input['exam_id']);
+    $args=[$org,$central,$input['learner_id'],$input['attempt_id'],$input['question_id'],$input['asset'],$input['exam_id']];
+    if($action==='extract'){
+     $language=$input['language']??'eng';abort_unless(is_string($language)&&preg_match('/^[a-z]{3}$/D',$language),422);
+     $args[]=$language;
+    }
+    $data=app(\App\Services\Tech4LearnAnswerExtraction::class)->$action(...$args);
    }else{
     abort_unless(is_string($input['asset']??null),422);
     $data=$action==='review'

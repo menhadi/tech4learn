@@ -57,11 +57,14 @@ try {
  check($call('upload',$body)['data']===$saved,'Credential-authenticated upload replays the native receipt');
  check(base64_decode($call('read',$identity+['asset'=>$saved['asset']])['data']['base64'])==='Synthetic attachment one.','Credential-authenticated attachment read returns exact private bytes');
  $extractBody=$identity+['asset'=>$saved['asset']];
+ check($call('languages',$extractBody)['data']===['exam_id'=>$identity['exam_id'],'attempt_id'=>$uploadAttempt->id,'question_id'=>$uploadQuestion->id,'asset'=>$saved['asset'],'languages'=>[['code'=>'eng','name'=>'English']]],'Language catalogue is bound to the saved owned attachment');
  $beforeExtraction=$uploadStat->fresh()->getAttributes();
  check($call('extract',$extractBody)['data']===['exam_id'=>$identity['exam_id'],'attempt_id'=>$uploadAttempt->id,'question_id'=>$uploadQuestion->id,'asset'=>$saved['asset'],'text'=>'Synthetic attachment one.'],'Native extraction returns only a scoped text draft');
+ check($call('extract',$extractBody+['language'=>'zzz'])['error']['status']===422,'Unknown OCR language cannot silently fall back');
  check($uploadStat->fresh()->getAttributes()===$beforeExtraction,'Extraction does not save, lock or grade an answer');
  $GLOBALS['t4lTestSubjectiveAllowed']=false;
  check($call('extract',$extractBody)['error']['status']===403,'Disabled native extraction feature is enforced');
+ check($call('languages',$extractBody)['error']['status']===403,'Disabled feature cannot read OCR configuration');
  $GLOBALS['t4lTestSubjectiveAllowed']=true;
  $app->instance(App\Services\Tech4LearnNativeAnswerExtraction::class,new class extends App\Services\Tech4LearnNativeAnswerExtraction {
   public function text(string $bytes,string $mime,string $language='eng'):array {DB::table('tech4learn_workspaces')->update(['restrictions'=>'["taking"]']);return ['text'=>'never return revoked content'];}
@@ -82,7 +85,7 @@ try {
  rejectAnswer(fn()=>$call('upload',$body+['path'=>'outside.txt']),'Client cannot supply a storage path');
  $router=new Illuminate\Routing\Router(new Illuminate\Events\Dispatcher($app),$app);$app->instance('router',$router);Illuminate\Support\Facades\Route::clearResolvedInstance('router');
  $router->prefix('api')->middleware('api')->group(function(){require __DIR__.'/tech4learn-routes.php';});
- foreach(['upload','read','review','extract'] as $action){
+ foreach(['upload','read','review','extract','languages'] as $action){
   $route=$router->getRoutes()->match(Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/attachments/'.$workspace.'/'.$action,'POST'));
   check(str_ends_with($route->getActionName(),'Tech4LearnAttachmentController@attachment')&&in_array('throttle:120,1,t4l-answer-attachments:',$route->gatherMiddleware(),true),'Private attachment route and separate bounded throttle are registered');
  }
@@ -113,6 +116,7 @@ try {
  check($uploadStat->fresh()->uploaded_answer_path===$currentPath&&count($files->allFiles($directory))===$count,'Late access denial rolls back the native reference and private file');
  $uploadAttempt->end_time=now();$uploadAttempt->save();
  check($call('extract',$extractBody)['error']['status']===403,'Submitted attempts cannot extract a new answer draft');
+ check($call('languages',$extractBody)['error']['status']===403,'Submitted attempts cannot load extraction languages');
  $reviewBody=$identity+['asset'=>$saved['asset'],'actor_id'=>$actor];
  check(base64_decode($call('review',$reviewBody)['data']['base64'])==='Synthetic attachment one.','Submitted attachment available to the review endpoint');
  rejectAnswer(fn()=>$call('review',$identity+['asset'=>$saved['asset']]),'Review requires a mapped staff actor');

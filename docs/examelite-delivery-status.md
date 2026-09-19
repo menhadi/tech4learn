@@ -29,7 +29,8 @@ check and `npm run check` passed: workspace typechecks, all 90 tests together,
 and API/admin production builds. The connected native/browser journeys were checked in earlier
 milestones. The connected non-browser pilot now also passes private upload,
 replacement/retry, native text extraction, reviewed save, staff file download
-and marking through 47 real gateway/native calls. Browser upload acceptance
+and marking through 48 real gateway/native calls, including scoped language
+selection. Browser upload acceptance
 remains pending. The existing large-bundle
 warning remains.
 Extraction failures now distinguish unreadable text, oversized extracted answers
@@ -41,9 +42,15 @@ ExamElite's existing OCR configuration, returning only codes and display names.
 It rejects unknown and compound codes instead of allowing the native script's
 silent English fallback. Local tests cover configuration precedence, duplicate
 codes, malformed/oversized configuration, label minimisation and propagation
-of a configured code to the extractor. Student language selection is not wired
-yet; the current interface still uses English. Actual multilingual OCR output
-and provider availability remain unverified.
+of a configured code to the extractor. Student language selection is now wired
+through an attachment-scoped catalogue and extraction request: current learner,
+paper, saved-file identity and native feature permissions are checked before
+and after the catalogue read. The gateway returns only bounded codes/names.
+The student can choose a configured language, with English as the default;
+retry retains that choice and extracted text remains an unsaved draft.
+The browser fixture covers selection and retry but has not run because of the
+existing browser verification blocker. Actual multilingual OCR output and
+provider availability remain unverified.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It
 does not establish production Laravel middleware/TLS, concurrency, device

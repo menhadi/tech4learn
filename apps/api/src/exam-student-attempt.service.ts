@@ -16,13 +16,13 @@ export class ExamStudentAttemptService {
   async attachment(
     org: string,
     cookie: string | undefined,
-    action: "upload" | "read" | "extract",
+    action: "upload" | "read" | "extract" | "languages",
     body: Record<string, unknown>,
   ) {
     const context = await this.access.context(org, cookie);
     const allowed = action === "upload"
       ? ["attempt_id", "question_id", "request_id", "revision", "base64"]
-      : ["attempt_id", "question_id", "asset"];
+      : ["attempt_id", "question_id", "asset", ...(action === "extract" ? ["language"] : [])];
     if (!body || Array.isArray(body) || Object.keys(body).some(key => !allowed.includes(key)) ||
       !Number.isSafeInteger(body.attempt_id) || Number(body.attempt_id) <= 0 ||
       !Number.isSafeInteger(body.question_id) || Number(body.question_id) <= 0)
@@ -38,13 +38,16 @@ export class ExamStudentAttemptService {
       if (!bytes.length || bytes.length > 10485760 || bytes.toString("base64") !== body.base64)
         throw new BadRequestException("Upload a file no larger than 10 MB.");
     } else if (!hash(body.asset)) throw new BadRequestException("Invalid answer attachment.");
+    if (action === "extract" && body.language !== undefined &&
+      (typeof body.language !== "string" || !/^[a-z]{3}$/.test(body.language)))
+      throw new BadRequestException("Invalid extraction language.");
     await this.identity.limit(`exam-attachment:${context.grant_id}`, 30, 60);
     const config = await this.remote.configuration("_platform");
     if (!config?.central) throw new ServiceUnavailableException("Answer attachments are unavailable.");
     const exam = Number(context.external_exam_id);
     const response = await this.remote.request(config, org, `attachments/${org}/${action}`, {
       ...body, learner_id: context.learner_id, exam_id: exam,
-    }, action === "read" ? 14000000 : action === "extract" ? 128000 : 4096, 30000);
+    }, action === "read" ? 14000000 : action === "extract" || action === "languages" ? 128000 : 4096, 30000);
     const current = await this.access.context(org, cookie);
     if (current.grant_id !== context.grant_id) throw new HttpException("Exam access changed.", 403);
     if (response.error) {
@@ -73,6 +76,17 @@ export class ExamStudentAttemptService {
     const invalid = () => new ServiceUnavailableException("Invalid answer attachment response.");
     if (!data || data.exam_id !== exam || data.attempt_id !== body.attempt_id ||
       data.question_id !== body.question_id || !hash(data.asset)) throw invalid();
+    if (action === "languages") {
+      if (data.asset !== body.asset || !Array.isArray(data.languages) || !data.languages.length || data.languages.length > 201) throw invalid();
+      const codes = new Set<string>();
+      const languages = data.languages.map((language: any) => {
+        if (!language || typeof language.code !== "string" || !/^[a-z]{3}$/.test(language.code) || codes.has(language.code) ||
+          typeof language.name !== "string" || !language.name.trim() || Buffer.byteLength(language.name, "utf8") > 120 || /[\x00-\x1f\x7f]/.test(language.name)) throw invalid();
+        codes.add(language.code);
+        return { code: language.code, name: language.name };
+      });
+      return { attempt_id: data.attempt_id, question_id: data.question_id, asset: data.asset, languages };
+    }
     if (action === "extract") {
       if (data.asset !== body.asset || typeof data.text !== "string" || !data.text.trim() ||
         Buffer.byteLength(data.text, "utf8") > 20000 || data.text.includes("\0")) throw invalid();
