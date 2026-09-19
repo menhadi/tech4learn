@@ -32,3 +32,31 @@ Generated artifacts remain in ignored local storage and are not committed.
 This is not a complete PDF release gate. Native Blade pages, real MathJax
 loading, signed print requests, queued worker-to-renderer execution, template
 revision changes and production worker setup still need connected acceptance.
+
+## Queue-to-renderer journey
+
+`test-pdf-worker-render.mjs` runs the real native job and renderer together:
+
+```text
+node deploy/examelite/test-pdf-worker-render.mjs RENDERER PLAYWRIGHT_ENTRY NEW_OUTPUT_DIRECTORY VENDOR MODELS QUESTION_CONTROLLER EXAM_CONTROLLER JOB CACHE LIFECYCLE
+```
+
+The final seven arguments are the same explicit local dependency/source paths
+used by the native worker fixture. Use the current compatible renderer, job,
+cache and lifecycle versions. The synthetic print handshake uses version 23.
+The output directory must not exist. No dependency is installed or production
+configuration loaded.
+
+The PHP fixture first runs existing native worker/queue regressions, then uses
+Laravel's actual database queue and Worker to invoke the native job. That job
+starts its normal renderer subprocess, publishes a real PDF and records size
+and fingerprint. Ready replay does not render again. A changed source with a
+broken diagram fails without replacing the published PDF; lock release,
+temporary-file cleanup and explicit successful recovery are verified. On
+19 September 2026 all checks passed, and `output/current.pdf` was reopened as
+two A4 pages and visually inspected.
+
+This advances the worker/render boundary, but the print page, lifecycle URL
+and directory are synthetic and the lock is tracked in memory. Native Blade
+rendering, signed requests, real shared locks, MathJax loading and daemon
+operation still need separate acceptance.
