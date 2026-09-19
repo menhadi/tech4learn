@@ -299,6 +299,17 @@ adapter milestone as a release.
    restrictions, inactive ownership, submission transition, unsafe/legacy paths
    and missing files. There is still no public endpoint: outer staff/grant
    authentication, response download headers and the interface remain to be wired.
+   A native upload coordinator now checks the stored workspace/student mapping,
+   Taking and native capability restrictions, owned attempt/question, subjective
+   type, section clock and answer revision before invoking private native storage.
+   It records a content-bound receipt in the same transaction as the answer path.
+   Exact retries do not create another file, including an accepted retry after
+   submission; changed bytes and revoked access are rejected. A forced receipt
+   insertion failure rolls back the native answer reference and removes the new
+   private bytes. The connected native-model/controller fixture passes these
+   cases plus foreign source/unmapped learner/non-subjective denial. The user-run
+   installer includes this check before migrations. Gateway routes, private native
+   extraction and the student/reviewer interface remain unfinished.
    Passage authoring now has a native service foundation using the inspected
    PassageController for creation and language-specific edits. Its snapshots
    include wording in concurrency revisions; bounded text/formula input rejects

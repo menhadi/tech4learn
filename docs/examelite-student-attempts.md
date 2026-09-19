@@ -213,6 +213,31 @@ Tech4Learn browser session or staff role: those checks, same-domain download
 headers and the UI still belong to the future gateway endpoint. Native AI
 extraction of this private storage format also remains to be integrated.
 
+The private `Tech4LearnAnswerUploadCoordinator` now binds an upload to the stored
+workspace/source/student mapping, owned attempt and subjective question. It
+checks Taking/native feature availability, section timing and the current answer
+revision, then calls the native upload through the private transport. File hash,
+target and revision bind the request receipt. The receipt and native answer path
+commit together; failed receipt persistence rolls back the reference and removes
+the fresh file. Exact replay acknowledges the original upload without another
+write, including after submission; new uploads after submission are denied.
+Revoked mappings/capabilities cannot use replay to bypass access checks.
+
+`test-answer-upload-coordinator.php` uses the native models, answer revision
+service, student context and patched controller with isolated SQLite/storage.
+It checks exact replay, changed bytes, stale revisions, disabled capabilities,
+Taking restrictions, foreign source/unmapped learner and non-subjective denial,
+plus forced receipt-insert failure and post-submission behaviour. It reuses the
+existing native authoring/answer checks. This coordinator is not yet connected to
+a public API or UI; outer learner-grant authentication, protected response headers,
+review controls and native extraction remain integration work.
+
+The coordinator also repeats mapping, capability and organisation checks before
+the receipt commits. A synthetic database trigger changes Taking access during
+the native save; the receipt is denied and both the saved reference and fresh
+file are rolled back. This is an isolated interleaving check, not production
+database concurrency verification.
+
 ## Continuous native pilot verification
 
 `test-pilot-exam-workflow.php` extends the existing native lifecycle and marking suites with one newly authored subjective question and exam. It creates and assembles the paper through authoring, explicitly enables online visibility, activates it, starts a mapped student, saves and retries a written answer, resumes, submits, marks the actual pending answer, publishes the result and reads student history. It never seeds a completed attempt or pending mark for this added flow. Answer, marking and submission retries preserve the outcome. The deployment script runs this suite in place of the marking-only entry point; all preceding checks remain included. It passed locally against the native controller snapshots. This proves the native vertical workflow with isolated storage, not a combined live-browser or production deployment test.

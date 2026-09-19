@@ -10,6 +10,7 @@ owner=pwd.getpwnam('examelite')
 targets={
  'Tech4LearnPrivateAnswerUpload.php':'app/Services/Tech4LearnPrivateAnswerUpload.php',
  'Tech4LearnAnswerAttachments.php':'app/Services/Tech4LearnAnswerAttachments.php',
+ 'Tech4LearnAnswerUploadCoordinator.php':'app/Services/Tech4LearnAnswerUploadCoordinator.php',
  'Tech4LearnCentralLanguageController.php':'app/Http/Controllers/Tech4LearnCentralLanguageController.php',
  'Tech4LearnExamDocuments.php':'app/Services/Tech4LearnExamDocuments.php',
  'Tech4LearnExamTranslations.php':'app/Services/Tech4LearnExamTranslations.php',

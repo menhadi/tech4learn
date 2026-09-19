@@ -3,7 +3,7 @@ namespace App\Services;
 
 use App\Http\Controllers\SubjectiveUploadController;
 use Illuminate\Http\{Request,UploadedFile,JsonResponse};
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\{Storage,DB};
 
 /** Internal transport only: caller must authorise the mapped attempt and revision. */
 final class Tech4LearnPrivateAnswerUpload extends UploadedFile
@@ -32,7 +32,7 @@ final class Tech4LearnPrivateAnswerUpload extends UploadedFile
  }
 
  /** Keep native validation, attempt locks and persistence; replace only file transport. */
- public static function run(Request $request):JsonResponse {
+ public static function run(Request $request,?callable $before=null,?callable $complete=null):JsonResponse {
   $original=$request->file('answer_file');abort_unless($original instanceof UploadedFile&&!($original instanceof self),422);
   $upload=static::createFromBase($original,$original->isValid());
   // A fresh request avoids Laravel's cached convertedFiles retaining the public
@@ -40,14 +40,21 @@ final class Tech4LearnPrivateAnswerUpload extends UploadedFile
   $nativeRequest=Request::createFrom($request);
   $nativeRequest->files->set('answer_file',$upload);
   try {
-   $response=app(SubjectiveUploadController::class)->upload($nativeRequest);
+   $response=DB::transaction(function()use($nativeRequest,$before,$complete){
+    $early=$before? $before($nativeRequest):null;
+    if($early!==null){abort_unless($early instanceof JsonResponse,503);return $early;}
+    $native=app(SubjectiveUploadController::class)->upload($nativeRequest);
+    abort_unless($native instanceof JsonResponse,503);
+    if(($native->getData(true)['success']??false)===true&&$complete){$native=$complete($native);abort_unless($native instanceof JsonResponse,503);}
+    return $native;
+   });
    if(!$response instanceof JsonResponse||($response->getData(true)['success']??false)!==true){
     $upload->discard();
    }
    abort_unless($response instanceof JsonResponse,503);
    return $response;
   } catch(\Throwable $error) {
-   try{$upload->discard();}catch(\Throwable $cleanup){report($cleanup);}
+   try{$upload->discard();}catch(\Throwable $cleanup){try{report($cleanup);}catch(\Throwable $loggingFailure){}}
    throw $error;
   }
  }

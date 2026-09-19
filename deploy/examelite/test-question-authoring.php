@@ -8,7 +8,7 @@ namespace App\Support {
   public static function id(){return self::$tenant??self::resolve()->id;}
   public static function hostId($host){return self::resolve($host)->id;}
  }
- class SaasAccess {public static function abortIfLimitReached($feature):void{} public static function organization(){return \App\Models\Organization::find(Tenant::id());} public static function isPlatformAdmin():bool{return $GLOBALS['t4lTestPlatformAdmin']??false;} public static function isPlatformOwner():bool{return false;} public static function featureEnabled($feature,$organisation=null):bool{return $feature==='ai_translation'?($GLOBALS['t4lTestAiTranslation']??true):true;}}
+ class SaasAccess {public static function abortIfFeatureDisabled($feature):void{abort_unless(self::featureEnabled($feature),403);} public static function abortIfLimitReached($feature):void{} public static function organization(){return \App\Models\Organization::find(Tenant::id());} public static function isPlatformAdmin():bool{return $GLOBALS['t4lTestPlatformAdmin']??false;} public static function isPlatformOwner():bool{return false;} public static function featureEnabled($feature,$organisation=null):bool{return $feature==='ai_subjective_analysis'?($GLOBALS['t4lTestSubjectiveAllowed']??true):($feature==='ai_translation'?($GLOBALS['t4lTestAiTranslation']??true):true);}}
 }
 namespace {
 // The native controller consults this organisation configuration helper.

@@ -24,6 +24,7 @@ python3 -B "$source/test-pdf-worker-install.py" /home/examelite/public_html/app/
 python3 -B "$source/test-translation-install.py" /home/examelite/public_html/app/Services/ExamTranslationService.php
 python3 -B "$source/test-subjective-upload-install.py" /home/examelite/public_html/app/Http/Controllers/SubjectiveUploadController.php
 php "$source/test-subjective-upload.php" /home/examelite/public_html/vendor/autoload.php /home/examelite/public_html/app/Http/Controllers/SubjectiveUploadController.php
+php "$source/test-answer-upload-coordinator.php" /home/examelite/public_html/vendor/autoload.php /home/examelite/public_html/app/Models /home/examelite/public_html/app/Http/Controllers/QuestionController.php /home/examelite/public_html/app/Http/Controllers/ExamController.php /home/examelite/public_html/app/Http/Controllers/SubjectiveUploadController.php
 node "$source/test-pdf-renderer.mjs" /home/examelite/public_html/scripts/render-exam-pdf.mjs
 php "$source/test-pdf-worker.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-central-languages.php" /home/examelite/public_html/vendor/autoload.php
