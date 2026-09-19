@@ -34,7 +34,9 @@ class Tech4LearnNativeAnswerExtraction
    abort_unless($process->isSuccessful(),503);
    try{$result=json_decode($output,true,16,JSON_THROW_ON_ERROR);}catch(\JsonException){abort(503);}
    abort_unless(is_array($result)&&($result['success']??false)===true&&is_string($result['text']??null),422,'Text could not be extracted.');
-   $text=$result['text'];abort_unless(trim($text)!==''&&strlen($text)<=20000&&!str_contains($text,"\0"),422,'Extracted text exceeds the answer limit.');
+   $text=$result['text'];
+   abort_unless(strlen($text)<=20000,422,'Extracted text exceeds the answer limit.');
+   abort_unless(trim($text)!==''&&!str_contains($text,"\0"),422,'Text could not be extracted.');
    return ['text'=>$text];
   }catch(\Symfony\Component\Process\Exception\ProcessTimedOutException){
    abort(503,'Text extraction timed out.');

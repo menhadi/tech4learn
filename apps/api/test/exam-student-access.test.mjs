@@ -364,6 +364,13 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
     const extraction = await call(extractPath, extractBody, studentCookie);
     assert.equal(extraction.status, 200);
     assert.deepEqual(await extraction.json(), { ...extractBody, text: extracted.text });
+    for (const [code, status, text] of [["extraction_empty", 422, "No readable text"], ["extraction_too_long", 422, "too long"], ["extraction_timeout", 503, "timed out"]]) {
+      engine.request = async () => ({ error: { status, code, message: "PRIVATE native trace" } });
+      const failedExtraction = await call(extractPath, extractBody, studentCookie);
+      assert.equal(failedExtraction.status, status);
+      const errorText = await failedExtraction.text();
+      assert.ok(errorText.includes(text)); assert.ok(!errorText.includes("PRIVATE"));
+    }
     for (const invalid of [{ asset: "f".repeat(64) }, { text: "" }, { text: "\0" }, { text: "x".repeat(20001) }]) {
       engine.request = async () => ({ data: { ...extracted, ...invalid } });
       assert.equal((await call(extractPath, extractBody, studentCookie)).status, 503);

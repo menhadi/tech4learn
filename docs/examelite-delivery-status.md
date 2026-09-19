@@ -32,6 +32,10 @@ replacement/retry, native text extraction, reviewed save, staff file download
 and marking through 47 real gateway/native calls. Browser upload acceptance
 remains pending. The existing large-bundle
 warning remains.
+Extraction failures now distinguish unreadable text, oversized extracted answers
+and timeouts, with a manual-answer fallback. Native error messages and traces
+are not forwarded to students; only known error codes with matching statuses
+select the guidance.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It
 does not establish production Laravel middleware/TLS, concurrency, device

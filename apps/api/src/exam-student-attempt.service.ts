@@ -49,11 +49,21 @@ export class ExamStudentAttemptService {
     if (current.grant_id !== context.grant_id) throw new HttpException("Exam access changed.", 403);
     if (response.error) {
       const status = response.error.status;
+      if (action === "extract") {
+        const extractionErrors: Record<string, { status: number; message: string }> = {
+          extraction_empty: { status: 422, message: "No readable text was found. Enter your written answer or try another file." },
+          extraction_too_long: { status: 422, message: "The extracted text is too long. Use a shorter file or enter a shorter written answer." },
+          extraction_timeout: { status: 503, message: "Text extraction timed out. Retry or enter your written answer." },
+        };
+        const known = typeof response.error.code === "string" && Object.hasOwn(extractionErrors, response.error.code)
+          ? extractionErrors[response.error.code] : undefined;
+        if (known && status === known.status) throw new HttpException(known.message, known.status);
+      }
       const messages: Record<number, string> = {
         403: "This answer attachment is no longer available.",
         404: "This answer attachment was not found.",
         409: "The answer changed. Resume saved answers before uploading again.",
-        422: "The file or attempt does not allow this upload.",
+        422: action === "extract" ? "Text could not be extracted from this file. Enter your written answer or try a text file." : "The file or attempt does not allow this upload.",
         429: "Please wait before retrying the attachment.",
       };
       if (Object.hasOwn(messages, status)) throw new HttpException(messages[status], status);

@@ -48,7 +48,13 @@ class Tech4LearnAttachmentController extends Tech4LearnPlatformController
    return $this->reply($central,['data'=>$data]);
   }catch(HttpExceptionInterface $e){
    $status=$e->getStatusCode();if(!in_array($status,[403,404,409,422,429,503],true))throw $e;
-   return $this->reply($central,['error'=>['status'=>$status]]);
+   $code=$action==='extract'?match($e->getMessage()){
+    'Text could not be extracted.'=>'extraction_empty',
+    'Extracted text exceeds the answer limit.'=>'extraction_too_long',
+    'Text extraction timed out.'=>'extraction_timeout',
+    default=>null,
+   }:null;
+   return $this->reply($central,['error'=>['status'=>$status,'code'=>$code]]);
   }catch(\Illuminate\Database\Eloquent\ModelNotFoundException){
    return $this->reply($central,['error'=>['status'=>404]]);
   }finally{

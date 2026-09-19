@@ -68,6 +68,13 @@ try {
  });
  check($call('extract',$extractBody)['error']['status']===403,'Revocation during extraction suppresses text');
  DB::table('tech4learn_workspaces')->update(['restrictions'=>'[]']);
+ foreach([[422,'Text could not be extracted.','extraction_empty'],[422,'Extracted text exceeds the answer limit.','extraction_too_long'],[503,'Text extraction timed out.','extraction_timeout']] as [$status,$message,$code]){
+  $app->instance(App\Services\Tech4LearnNativeAnswerExtraction::class,new class($status,$message) extends App\Services\Tech4LearnNativeAnswerExtraction {
+   public function __construct(private int $status,private string $message){}
+   public function text(string $bytes,string $mime,string $language='eng'):array {abort($this->status,$this->message);}
+  });
+  check($call('extract',$extractBody)['error']===['status'=>$status,'code'=>$code],'Extraction failure exposes only the bounded public error code');
+ }
  $app->instance(App\Services\Tech4LearnNativeAnswerExtraction::class,$nativeExtractor);
  check($call('review',$identity+['asset'=>$saved['asset'],'actor_id'=>$actor])['error']['status']===409,'Review cannot read an open attempt');
  check($call('read',array_replace($identity,['exam_id'=>$identity['exam_id']+1])+['asset'=>$saved['asset']])['error']['status']===404,'Reader endpoint requires the granted exam');
