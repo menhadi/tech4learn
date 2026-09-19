@@ -271,6 +271,15 @@ adapter milestone as a release.
    Tests use SQLite and do not establish production row-lock concurrency. Scoped
    section timing, private delivery, extraction and idempotent retries still need
    the same-domain adapter; these controls remain unavailable to T4L students.
+   Failed native attachment saves now clean up only their newly generated file.
+   The installer adds a request-local path tracked before storage, clears stale
+   attributes before validation, restricts cleanup to the managed filename shape,
+   and preserves the original failure if cleanup itself fails. An injected native
+   database-save failure reproduces an orphan with the previous patch and passes
+   with cleanup: the old answer path/bytes remain while the fresh file is removed.
+   A forged request attribute cannot cause deletion of another stored answer.
+   This covers failed writes, not retention/reconciliation of superseded files
+   after successful replacement; private same-domain upload delivery is pending.
    Passage authoring now has a native service foundation using the inspected
    PassageController for creation and language-specific edits. Its snapshots
    include wording in concurrency revisions; bounded text/formula input rejects

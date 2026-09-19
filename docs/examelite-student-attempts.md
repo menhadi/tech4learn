@@ -175,6 +175,17 @@ the combined guarded patch passes the expanded isolated controller tests.
 Production row-lock concurrency and same-domain section/revision/retry controls
 are not established by this SQLite fixture. No student upload UI is enabled yet.
 
+An additional native installer guard removes the newly created managed file if
+its database save fails. The path is tracked within the current request before
+storage, initialized before validation, and checked against the generated filename
+format before cleanup. Previous attachments are retained, and cleanup errors do
+not replace the original save error. The controller fixture injects a database
+failure after storage and confirms rollback, new-file removal and preservation of
+older bytes. It also verifies that a caller-provided request attribute cannot
+redirect cleanup. The previous state-only patch fails this regression; the full
+patch and repeat-install guards pass. Successful replacement still retains old
+files pending a separately verified retention/reconciliation workflow.
+
 ## Continuous native pilot verification
 
 `test-pilot-exam-workflow.php` extends the existing native lifecycle and marking suites with one newly authored subjective question and exam. It creates and assembles the paper through authoring, explicitly enables online visibility, activates it, starts a mapped student, saves and retries a written answer, resumes, submits, marks the actual pending answer, publishes the result and reads student history. It never seeds a completed attempt or pending mark for this added flow. Answer, marking and submission retries preserve the outcome. The deployment script runs this suite in place of the marking-only entry point; all preceding checks remain included. It passed locally against the native controller snapshots. This proves the native vertical workflow with isolated storage, not a combined live-browser or production deployment test.

@@ -97,6 +97,34 @@ def refresh_pdf_image_cache(text):
     if text.count(before) != 1 or 'Tech4Learn checked print images' in text:
         raise ValueError('Unsupported native PDF cache version; no files changed.')
     return text.replace(before, after)
+def clean_failed_subjective_upload(text):
+    """Remove only the fresh managed file when its native database save fails."""
+    marker = '// Tech4Learn: clean only this request\'s newly generated answer file.'
+    store = "            $path = $file->storeAs('student_answers', $fileName, 'public');"
+    tracked = "            $request->attributes->set('t4l_new_answer_file', 'student_answers/' . $fileName);\n" + store
+    begin = "        try {"
+    initialized = "        $request->attributes->remove('t4l_new_answer_file');\n" + begin
+    catch = "        } catch (\\Exception $e) {"
+    cleanup = catch + r'''
+            // Tech4Learn: clean only this request's newly generated answer file.
+            $newPath = $request->attributes->get('t4l_new_answer_file');
+            if (is_string($newPath) && preg_match('#^student_answers/[0-9]+_[0-9]+_[0-9]+_[0-9]+_[a-f0-9]{40}\.(jpg|jpeg|png|pdf|doc|docx|txt)$#D', $newPath)) {
+                try {
+                    if (! \Illuminate\Support\Facades\Storage::disk('public')->delete($newPath)) {
+                        Log::error('Failed answer upload needs storage cleanup.');
+                    }
+                } catch (\Throwable $cleanupError) {
+                    Log::error('Failed answer upload needs storage cleanup.');
+                }
+            }'''
+    if marker in text:
+        if text.count(marker) != 1 or text.count(tracked) != 1 or text.count(initialized) != 1 or text.count(cleanup) != 1:
+            raise ValueError('Modified failed answer upload cleanup; no files changed.')
+        return text
+    if text.count(store) != 1 or text.count(begin) != 1 or text.count(catch) != 1:
+        raise ValueError('Unsupported answer upload cleanup layout; no files changed.')
+    return text.replace(begin, initialized).replace(store, tracked).replace(catch, cleanup)
+
 def protect_subjective_upload_state(text):
     """Keep attachment writes inside the attempt/answer transaction boundary."""
     marker = '// Tech4Learn: serialize attachment writes with attempt and answer updates.'

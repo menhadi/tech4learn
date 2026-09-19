@@ -49,10 +49,11 @@ $validator=new Illuminate\Validation\Factory(new Illuminate\Translation\Translat
 $validator->setPresenceVerifier(new Illuminate\Validation\DatabasePresenceVerifier($db->getDatabaseManager()));
 Request::macro('validate',function($rules)use($validator){return $validator->make($this->all(),$rules)->validate();});
 $controller=new App\Http\Controllers\SubjectiveUploadController();
-$send=function(int $attempt,string $text,bool $fail=false)use($root,$controller){
+$send=function(int $attempt,string $text,bool $fail=false,?string $forgedPath=null)use($root,$controller){
  $tmp=tempnam($root,'source-');file_put_contents($tmp,$text);
  $file=$fail?new class($tmp,'answer.txt','text/plain',null,true) extends UploadedFile {public function storeAs($path,$name=null,$options=[]){return false;}}:new UploadedFile($tmp,'answer.txt','text/plain',null,true);
  $request=Request::create('https://owned.example.test/subjective-upload','POST',['question_id'=>10,'exam_result_id'=>$attempt],[],['answer_file'=>$file]);
+ if($forgedPath!==null)$request->attributes->set('t4l_new_answer_file',$forgedPath);
  return $controller->upload($request)->getData(true);
 };
 try {
@@ -90,7 +91,17 @@ try {
  $db->table('exams')->where('id',1)->update(['end_date'=>'2026-09-19 12:00:00']);
  checkUpload(!$send(2,'At exam closing time.')['success'],'Exam closing deadline rejects uploads');
  checkUpload(count($filesystem->allFiles($root.'/stored'))===$count&&App\Models\ExamStats::find(2)->uploaded_answer_path===$before,'Deadline rejection preserves both files and saved path');
- echo "PASS: native subjective uploads isolate files and reject failed storage, foreign, submitted, locked and expired writes.\n";
+ $db->table('exams')->where('id',1)->update(['end_date'=>null]);
+ Illuminate\Database\Eloquent\Model::setEventDispatcher(new Illuminate\Events\Dispatcher($app));
+ $failSave=true;
+ App\Models\ExamStats::saving(function()use(&$failSave){if($failSave)throw new RuntimeException('Synthetic database save failure.');});
+ $failedSave=$send(2,'New file with failed database update.');
+ checkUpload(!$failedSave['success']&&App\Models\ExamStats::find(2)->uploaded_answer_path===$before,'Failed native database save retains the prior answer path');
+ checkUpload(count($filesystem->allFiles($root.'/stored'))===$count,'Database failure removes only the fresh upload file');
+ $failSave=false;
+ checkUpload(!$send(999,'Invalid attempt.',false,$first['path'])['success'],'Invalid attempt is rejected before storage');
+ checkUpload(file_get_contents($root.'/stored/'.$first['path'])==='First synthetic student answer.','Caller attribute cannot redirect cleanup to an older file');
+ echo "PASS: native upload scope, state, deadlines, unique files and failed database-write cleanup.\n";
 } finally {
  $resolved=realpath($root);$temp=realpath(sys_get_temp_dir());
  if(!$resolved||!$temp||!str_starts_with($resolved,$temp.DIRECTORY_SEPARATOR.'t4l-answer-upload-'))throw new RuntimeException('Unsafe fixture cleanup path');

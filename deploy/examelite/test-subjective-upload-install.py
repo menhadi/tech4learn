@@ -2,11 +2,17 @@
 import pathlib
 import sys
 import unittest
-from workspace_install import isolate_subjective_upload_names, protect_subjective_upload_state
+from workspace_install import isolate_subjective_upload_names, protect_subjective_upload_state, clean_failed_subjective_upload
 
 source = pathlib.Path(sys.argv.pop(1)).read_text() if len(sys.argv) > 1 else ''
 
 class SubjectiveUploadInstallTest(unittest.TestCase):
+    def test_cleanup_is_repeatable_and_guarded(self):
+        patched = clean_failed_subjective_upload(protect_subjective_upload_state(isolate_subjective_upload_names(source)))
+        self.assertEqual(clean_failed_subjective_upload(protect_subjective_upload_state(isolate_subjective_upload_names(patched))), patched)
+        for bad in [patched.replace("->delete($newPath)", "->delete('other')"), patched.replace("->remove('t4l_new_answer_file')", "->remove('other')"), patched + patched]:
+            with self.assertRaises(ValueError):
+                clean_failed_subjective_upload(bad)
     def test_state_guard_is_repeatable_and_fails_closed(self):
         patched = protect_subjective_upload_state(isolate_subjective_upload_names(source))
         self.assertEqual(protect_subjective_upload_state(patched), patched)

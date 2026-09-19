@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run explicitly as root on the server; no migrations or service restarts here."""
 import os, pathlib, pwd, shutil, subprocess, datetime
-from workspace_install import add_provider, add_navigation, fix_exam_creation_validation, allow_scoped_language_controller, add_translated_model_answer, require_pdf_images, refresh_pdf_image_cache, protect_pdf_worker_lookup, protect_translation_inputs, isolate_subjective_upload_names, protect_subjective_upload_state
+from workspace_install import add_provider, add_navigation, fix_exam_creation_validation, allow_scoped_language_controller, add_translated_model_answer, require_pdf_images, refresh_pdf_image_cache, protect_pdf_worker_lookup, protect_translation_inputs, isolate_subjective_upload_names, protect_subjective_upload_state, clean_failed_subjective_upload
 
 if os.geteuid()!=0: raise SystemExit('Run as root.')
 root=pathlib.Path('/home/examelite/public_html')
@@ -62,7 +62,7 @@ updates[renderer]=require_pdf_images(renderer.read_text())
 updates[pdf_cache]=refresh_pdf_image_cache(pdf_cache.read_text())
 updates[pdf_job]=protect_pdf_worker_lookup(pdf_job.read_text())
 updates[translation]=protect_translation_inputs(translation.read_text())
-updates[subjective_upload]=protect_subjective_upload_state(isolate_subjective_upload_names(subjective_upload.read_text()))
+updates[subjective_upload]=clean_failed_subjective_upload(protect_subjective_upload_state(isolate_subjective_upload_names(subjective_upload.read_text())))
 backup=pathlib.Path('/root/tech4learn-backups')/('native-workspace-'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%f'))
 backup.mkdir(parents=True,mode=0o700)
 originals={}
