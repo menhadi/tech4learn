@@ -240,8 +240,20 @@ The coordinator fixture now exercises a new upload through the real attachment
 controller, exact retry, private read, open/submitted review rules, wrong exam,
 invalid credential/encoding, forbidden path input and all three registered
 routes. The installer includes the controller and route verification. The
-Tech4Learn learner-grant/staff gateway, download headers, browser controls and
-native text extraction remain unfinished; no attachment UI is enabled yet.
+Tech4Learn staff gateway, browser controls and native text extraction remain
+unfinished; no attachment UI is enabled yet.
+
+The same-domain student gateway now accepts bounded uploads under the existing
+exam cookie and serves private downloads with no-store, nosniff and attachment
+headers. Learner and exam IDs come only from the current grant; supplied identity
+or path overrides are rejected. Access is checked again after the native call.
+The upload route alone accepts the larger JSON envelope needed for a 10 MB file;
+ordinary writes retain the 1 MB parser limit. Native acknowledgements and file
+responses are validated against the requested exam, attempt, question and asset.
+HTTP tests cover larger uploads, retry forwarding, identity/credential/origin
+denial, limits, malformed native replies, safe error messages and revocation
+during both uploads and downloads. Native text extraction and the student/staff
+UI still need to be connected before offering file answers to learners.
 
 The coordinator also repeats mapping, capability and organisation checks before
 the receipt commits. A synthetic database trigger changes Taking access during

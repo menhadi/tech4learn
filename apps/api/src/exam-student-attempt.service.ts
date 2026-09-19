@@ -13,6 +13,69 @@ import { randomUUID } from "node:crypto";
 
 @Injectable()
 export class ExamStudentAttemptService {
+  async attachment(
+    org: string,
+    cookie: string | undefined,
+    action: "upload" | "read",
+    body: Record<string, unknown>,
+  ) {
+    const context = await this.access.context(org, cookie);
+    const allowed = action === "upload"
+      ? ["attempt_id", "question_id", "request_id", "revision", "base64"]
+      : ["attempt_id", "question_id", "asset"];
+    if (!body || Array.isArray(body) || Object.keys(body).some(key => !allowed.includes(key)) ||
+      !Number.isSafeInteger(body.attempt_id) || Number(body.attempt_id) <= 0 ||
+      !Number.isSafeInteger(body.question_id) || Number(body.question_id) <= 0)
+      throw new BadRequestException("Invalid answer attachment.");
+    const hash = (value: unknown) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+    if (action === "upload") {
+      if (typeof body.request_id !== "string" || !hash(body.revision) ||
+        typeof body.base64 !== "string" || body.base64.length > 13981016 ||
+        !/^[a-zA-Z0-9+/]*={0,2}$/.test(body.base64))
+        throw new BadRequestException("Invalid answer attachment.");
+      uuid(body.request_id);
+      const bytes = Buffer.from(body.base64, "base64");
+      if (!bytes.length || bytes.length > 10485760 || bytes.toString("base64") !== body.base64)
+        throw new BadRequestException("Upload a file no larger than 10 MB.");
+    } else if (!hash(body.asset)) throw new BadRequestException("Invalid answer attachment.");
+    await this.identity.limit(`exam-attachment:${context.grant_id}`, 30, 60);
+    const config = await this.remote.configuration("_platform");
+    if (!config?.central) throw new ServiceUnavailableException("Answer attachments are unavailable.");
+    const exam = Number(context.external_exam_id);
+    const response = await this.remote.request(config, org, `attachments/${org}/${action}`, {
+      ...body, learner_id: context.learner_id, exam_id: exam,
+    }, action === "read" ? 14000000 : 4096, 30000);
+    const current = await this.access.context(org, cookie);
+    if (current.grant_id !== context.grant_id) throw new HttpException("Exam access changed.", 403);
+    if (response.error) {
+      const status = response.error.status;
+      const messages: Record<number, string> = {
+        403: "This answer attachment is no longer available.",
+        404: "This answer attachment was not found.",
+        409: "The answer changed. Resume saved answers before uploading again.",
+        422: "The file or attempt does not allow this upload.",
+        429: "Please wait before retrying the attachment.",
+      };
+      if (Object.hasOwn(messages, status)) throw new HttpException(messages[status], status);
+      throw new ServiceUnavailableException("Answer attachments are unavailable.");
+    }
+    const data = response.data;
+    const invalid = () => new ServiceUnavailableException("Invalid answer attachment response.");
+    if (!data || data.exam_id !== exam || data.attempt_id !== body.attempt_id ||
+      data.question_id !== body.question_id || !hash(data.asset)) throw invalid();
+    if (action === "upload") {
+      if (data.success !== true || data.saved !== true || !hash(data.revision)) throw invalid();
+      return { saved: true, attempt_id: data.attempt_id, question_id: data.question_id,
+        asset: data.asset, revision: data.revision };
+    }
+    if (data.asset !== body.asset || !["text/plain", "application/pdf", "image/jpeg", "image/png",
+      "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/octet-stream"].includes(data.mime) || typeof data.base64 !== "string" ||
+      data.base64.length > 13981016 || !/^[a-zA-Z0-9+/]*={0,2}$/.test(data.base64)) throw invalid();
+    const buffer = Buffer.from(data.base64, "base64");
+    if (!buffer.length || buffer.length > 10485760 || buffer.toString("base64") !== data.base64) throw invalid();
+    return { buffer, mime: data.mime };
+  }
   async media(
     org: string,
     cookie: string | undefined,

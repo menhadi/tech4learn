@@ -118,6 +118,31 @@ export class ExamStudentAccessController {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.send(image.buffer);
   }
+  @Post("student-exam/attachments") @HttpCode(200) async uploadAttachment(
+    @Param("org") org: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookies?: string,
+  ) {
+    return this.attempts.attachment(org, examSession(cookies), "upload", body);
+  }
+  @Get("student-exam/attachments/:attempt/:question/:asset") async attachment(
+    @Param("org") org: string,
+    @Param("attempt") attempt: string,
+    @Param("question") question: string,
+    @Param("asset") asset: string,
+    @Headers("cookie") cookies: string | undefined,
+    @Res() response: Response,
+  ) {
+    const file = await this.attempts.attachment(org, examSession(cookies), "read", {
+      attempt_id: /^[1-9][0-9]{0,14}$/.test(attempt) ? Number(attempt) : null,
+      question_id: /^[1-9][0-9]{0,14}$/.test(question) ? Number(question) : null, asset,
+    });
+    response.setHeader("Content-Type", file.mime);
+    response.setHeader("Content-Disposition", 'attachment; filename="answer-attachment"');
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(file.buffer);
+  }
   @Post("student-exam/attempt/:action") @HttpCode(200) async attempt(
     @Param("org") org: string,
     @Param("action") action: string,

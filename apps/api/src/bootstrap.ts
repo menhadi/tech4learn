@@ -6,6 +6,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import type { Request, Response, NextFunction } from "express";
+import { json } from "express";
 import type { Database } from "./database.js";
 
 export async function createApp(
@@ -34,6 +35,10 @@ export async function createApp(
     { logger: ["error", "warn", "log"] },
   );
   app.setGlobalPrefix("api/v1");
+  // Only the bounded answer-upload endpoint accepts a 10 MB file as base64.
+  app.use(json({ limit: 14000000, type: req => req.method === "POST" &&
+    /^\/api\/v1\/organisations\/[a-f0-9-]{36}\/student-exam\/attachments\/?(?:\?.*)?$/.test(req.url ?? "") &&
+    /^application\/json(?:;|$)/i.test(String(req.headers["content-type"] ?? "")) }));
   app.useBodyParser("json", { limit: "1mb" });
   app.enableCors({
     origin,

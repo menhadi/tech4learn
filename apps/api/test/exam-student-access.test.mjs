@@ -284,6 +284,72 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
     };
     assert.equal((await call(mediaPath, undefined, studentCookie)).status, 401);
     await pg.query("UPDATE learners SET archived=false WHERE id=$1", [learner]);
+    const attachmentPath = root + "/student-exam/attachments";
+    const attachmentBody = { attempt_id: 11, question_id: 4, request_id: randomUUID(),
+      revision: "c".repeat(64), base64: Buffer.alloc(800000, 65).toString("base64") };
+    const receipt = { success: true, saved: true, exam_id: 7, attempt_id: 11,
+      question_id: 4, revision: "d".repeat(64), asset };
+    let attachmentCalls = 0;
+    engine.request = async (config, owner, path, payload, limit, timeout) => {
+      attachmentCalls++;
+      assert.equal(owner, org);
+      assert.equal(path, `attachments/${org}/upload`);
+      assert.deepEqual(payload, { ...attachmentBody, learner_id: learner, exam_id: 7 });
+      assert.equal(limit, 4096); assert.equal(timeout, 30000);
+      return { data: { ...receipt, path: "must-not-be-forwarded" } };
+    };
+    assert.equal((await call(attachmentPath, attachmentBody, staff)).status, 401);
+    assert.equal((await call(attachmentPath, attachmentBody, studentCookie, "https://evil.test")).status, 403);
+    for (const extra of [{ exam_id: 99 }, { learner_id: foreign }, { path: "unsafe" }])
+      assert.equal((await call(attachmentPath, { ...attachmentBody, ...extra }, studentCookie)).status, 400);
+    assert.equal((await call(attachmentPath, { ...attachmentBody, base64: "!!!" }, studentCookie)).status, 400);
+    assert.equal(attachmentCalls, 0);
+    const uploaded = await call(attachmentPath, attachmentBody, studentCookie);
+    assert.equal(uploaded.status, 200);
+    assert.deepEqual(await uploaded.json(), { saved: true, attempt_id: 11, question_id: 4,
+      revision: receipt.revision, asset });
+    assert.equal((await call(attachmentPath, attachmentBody, studentCookie)).status, 200);
+    assert.equal(attachmentCalls, 2);
+    // The larger parser allowance must not extend to ordinary writes.
+    assert.equal((await call(startPath, { request_id: randomUUID(), padding: attachmentBody.base64 }, studentCookie)).status, 413);
+    assert.equal((await call(attachmentPath, { ...attachmentBody, base64: Buffer.alloc(10485761, 65).toString("base64") }, studentCookie)).status, 400);
+    for (const invalid of [{ exam_id: 99 }, { attempt_id: 12 }, { question_id: 5 },
+      { saved: false }, { asset: "bad" }, { revision: "bad" }]) {
+      engine.request = async () => ({ data: { ...receipt, ...invalid } });
+      assert.equal((await call(attachmentPath, attachmentBody, studentCookie)).status, 503);
+    }
+    engine.request = async () => ({ error: { status: 409, message: "private trace" } });
+    const attachmentConflict = await call(attachmentPath, attachmentBody, studentCookie);
+    assert.equal(attachmentConflict.status, 409);
+    assert.ok(!(await attachmentConflict.text()).includes("private trace"));
+    const downloadPath = attachmentPath + `/11/4/${asset}`;
+    const attachmentData = { ...media, exam_id: 7, mime: "text/plain", base64: Buffer.from("Synthetic answer").toString("base64") };
+    engine.request = async (config, owner, path, payload, limit, timeout) => {
+      assert.equal(owner, org); assert.equal(path, `attachments/${org}/read`);
+      assert.deepEqual(payload, { learner_id: learner, exam_id: 7, attempt_id: 11, question_id: 4, asset });
+      assert.equal(limit, 14000000); assert.equal(timeout, 30000);
+      return { data: attachmentData };
+    };
+    const download = await call(downloadPath, undefined, studentCookie);
+    assert.equal(download.status, 200);
+    assert.equal(download.headers.get("cache-control"), "no-store");
+    assert.equal(download.headers.get("x-content-type-options"), "nosniff");
+    assert.match(download.headers.get("content-disposition"), /^attachment;/);
+    assert.equal(await download.text(), "Synthetic answer");
+    assert.equal((await call(downloadPath, undefined, staff)).status, 401);
+    assert.equal((await call(`/organisations/${other}/student-exam/attachments/11/4/${asset}`, undefined, studentCookie)).status, 401);
+    for (const invalid of [{ exam_id: 99 }, { asset: "e".repeat(64) }, { mime: "text/html" }, { base64: "YQ=" }]) {
+      engine.request = async () => ({ data: { ...attachmentData, ...invalid } });
+      assert.equal((await call(downloadPath, undefined, studentCookie)).status, 503);
+    }
+    for (const [path, body, data] of [[attachmentPath, attachmentBody, receipt], [downloadPath, undefined, attachmentData]]) {
+      engine.request = async () => {
+        await pg.query("UPDATE learners SET archived=true WHERE id=$1", [learner]);
+        return { data };
+      };
+      assert.equal((await call(path, body, studentCookie)).status, 401);
+      await pg.query("UPDATE learners SET archived=false WHERE id=$1", [learner]);
+    }
     const visibilityPath = root + "/student-exam/attempt/visibility";
     const visibilityBody = {
       request_id: randomUUID(),
