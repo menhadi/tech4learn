@@ -92,3 +92,25 @@ On 19 September 2026 these checks passed. The one-page PDF was reopened,
 its question/options/formula text checked, and the page visually inspected.
 This covers an English MCQ with a TeX formula, not every language, question
 type, solution signature, image source or template variation.
+
+## Native solution signatures
+
+```text
+php deploy/examelite/test-native-print-signatures.php VENDOR MODELS QUESTION_CONTROLLER EXAM_CONTROLLER CACHE LIFECYCLE IMAGE_RESOLVER NEW_QUESTION_HTML NEW_SOLUTION_HTML
+```
+
+This extends the print fixture with the actual lifecycle `printUrl` method,
+Laravel URL signing and Laravel's request-signature registration. Only the key
+and domain are synthetic. `QuestionAnswerEvaluator.php` is also required beside
+the question-controller snapshot. A valid signature renders the native correct
+option and explanation; unsigned, expired, changed-host, changed-language and
+changed-signature requests are rejected. Even a valid signature for a foreign
+organisation cannot expose the paper. The generated solution HTML can be passed
+to `test-native-print-render.mjs` for the same actual MathJax rendering check.
+On 19 September 2026 the signature cases passed, and the generated solution
+paper rendered successfully with real MathJax. The one-page PDF was reopened
+and visually inspected, including the correct option and explanation formula.
+
+These checks exercise the native signing and controller boundary directly.
+They do not establish deployed route middleware, reverse-proxy host handling,
+TLS, production keys, shared worker locks or a running production daemon.

@@ -21,7 +21,7 @@ checked commits when the release is ready.
 | Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved question and exam translations support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
-| Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. A separate actual native print-template check renders an English MCQ with real MathJax assets; signed requests, shared locks and production daemon acceptance remain unverified. |
+| Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. Actual native question/solution templates render an English MCQ with real MathJax; native signature rejection is checked. Deployed middleware, shared locks and production daemon acceptance remain unverified. |
 
 Latest validation: all 90 tests passed across the full suite and a targeted
 rerun after correcting an outdated mocked media envelope. `npm run check`
@@ -119,8 +119,14 @@ adapter milestone as a release.
    the actual inline HTML for an English MCQ, including native normalisation,
    grouping, option zero and foreign-organisation denial. The native renderer
    consumes that HTML with actual local MathJax assets; formula and layout were
-   visually checked in the resulting PDF. Signed-route behavior, broader print
-   variants, real lock contention and daemon operation remain acceptance work.
+   visually checked in the resulting PDF. The native lifecycle URL signer and
+   Laravel signature validation now also run against the solution print action:
+   valid requests show the correct option/explanation, and unsigned, expired,
+   changed-host/language/signature requests fail. A valid signature for another
+   organisation cannot expose the paper. The native solution PDF and its formula
+   were rendered and visually checked. Deployed route/proxy behavior, broader
+   print variants, real lock contention and daemon operation remain acceptance
+   work.
    The native PDF worker has an isolated cached-artifact check covering ready
    activation, repeat execution, approval failure, lock release and preservation
    of the previous artifact. It now uses the native fingerprint service too,
