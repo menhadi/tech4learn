@@ -36,6 +36,7 @@ foreach([
  ['POST','api/tech4learn/v1/attachments/11111111-1111-1111-1111-111111111111/upload','Tech4LearnAttachmentController@attachment'],
  ['POST','api/tech4learn/v1/attachments/11111111-1111-1111-1111-111111111111/read','Tech4LearnAttachmentController@attachment'],
  ['POST','api/tech4learn/v1/attachments/11111111-1111-1111-1111-111111111111/review','Tech4LearnAttachmentController@attachment'],
+ ['POST','api/tech4learn/v1/attachments/11111111-1111-1111-1111-111111111111/extract','Tech4LearnAttachmentController@attachment'],
  ['GET','api/tech4learn/v1/results/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts/1/media/1/'.str_repeat('a',64),'Tech4LearnResultController@media'],
  ['GET','api/tech4learn/v1/results/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts','Tech4LearnResultController@attempts'],
  ['GET','api/tech4learn/v1/results/11111111-1111-1111-1111-111111111111/learners/22222222-2222-2222-2222-222222222222/attempts/1','Tech4LearnResultController@review'],

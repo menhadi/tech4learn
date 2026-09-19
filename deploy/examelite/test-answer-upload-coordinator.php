@@ -9,6 +9,8 @@ require_once __DIR__.'/Tech4LearnPlatformController.php';
 require __DIR__.'/Tech4LearnAnswerAttachments.php';
 require __DIR__.'/Tech4LearnAttachmentController.php';
 require __DIR__.'/Tech4LearnResultMarking.php';
+require __DIR__.'/Tech4LearnNativeAnswerExtraction.php';
+require __DIR__.'/Tech4LearnAnswerExtraction.php';
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
 use App\Models\{Question,ExamResult,ExamStat};
@@ -34,6 +36,10 @@ DB::table('organizations')->where('id',10)->update(['domain'=>'central.example.t
 $controller=new class($configFile) extends App\Http\Controllers\Tech4LearnAttachmentController {
  public function __construct(private string $path){}protected function configPath():string{return $this->path;}
 };
+$nativeExtractor=new class(dirname($argv[1],2).'/public/extract_file.php') extends App\Services\Tech4LearnNativeAnswerExtraction {
+ public function __construct(private string $source){}protected function script():string{return $this->source;}
+};
+$app->instance(App\Services\Tech4LearnNativeAnswerExtraction::class,$nativeExtractor);
 $call=function(string $action,array $body,?string $token=null)use($credential,$controller,$workspace){
  $request=Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/attachments/'.$workspace.'/'.$action,'POST',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.($token??$credential),'CONTENT_TYPE'=>'application/json'],json_encode($body));
  return $controller->attachment($request,$workspace,$action)->getData(true);
@@ -50,13 +56,26 @@ try {
  $saved=$call('upload',$body)['data'];
  check($call('upload',$body)['data']===$saved,'Credential-authenticated upload replays the native receipt');
  check(base64_decode($call('read',$identity+['asset'=>$saved['asset']])['data']['base64'])==='Synthetic attachment one.','Credential-authenticated attachment read returns exact private bytes');
+ $extractBody=$identity+['asset'=>$saved['asset']];
+ $beforeExtraction=$uploadStat->fresh()->getAttributes();
+ check($call('extract',$extractBody)['data']===['exam_id'=>$identity['exam_id'],'attempt_id'=>$uploadAttempt->id,'question_id'=>$uploadQuestion->id,'asset'=>$saved['asset'],'text'=>'Synthetic attachment one.'],'Native extraction returns only a scoped text draft');
+ check($uploadStat->fresh()->getAttributes()===$beforeExtraction,'Extraction does not save, lock or grade an answer');
+ $GLOBALS['t4lTestSubjectiveAllowed']=false;
+ check($call('extract',$extractBody)['error']['status']===403,'Disabled native extraction feature is enforced');
+ $GLOBALS['t4lTestSubjectiveAllowed']=true;
+ $app->instance(App\Services\Tech4LearnNativeAnswerExtraction::class,new class extends App\Services\Tech4LearnNativeAnswerExtraction {
+  public function text(string $bytes,string $mime,string $language='eng'):array {DB::table('tech4learn_workspaces')->update(['restrictions'=>'["taking"]']);return ['text'=>'never return revoked content'];}
+ });
+ check($call('extract',$extractBody)['error']['status']===403,'Revocation during extraction suppresses text');
+ DB::table('tech4learn_workspaces')->update(['restrictions'=>'[]']);
+ $app->instance(App\Services\Tech4LearnNativeAnswerExtraction::class,$nativeExtractor);
  check($call('review',$identity+['asset'=>$saved['asset'],'actor_id'=>$actor])['error']['status']===409,'Review cannot read an open attempt');
  check($call('read',array_replace($identity,['exam_id'=>$identity['exam_id']+1])+['asset'=>$saved['asset']])['error']['status']===404,'Reader endpoint requires the granted exam');
  check($call('upload',array_replace($body,['base64'=>'not base64!']))['error']['status']===422,'Malformed attachment encoding is rejected');
  rejectAnswer(fn()=>$call('upload',$body+['path'=>'outside.txt']),'Client cannot supply a storage path');
  $router=new Illuminate\Routing\Router(new Illuminate\Events\Dispatcher($app),$app);$app->instance('router',$router);Illuminate\Support\Facades\Route::clearResolvedInstance('router');
  $router->prefix('api')->middleware('api')->group(function(){require __DIR__.'/tech4learn-routes.php';});
- foreach(['upload','read','review'] as $action){
+ foreach(['upload','read','review','extract'] as $action){
   $route=$router->getRoutes()->match(Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/attachments/'.$workspace.'/'.$action,'POST'));
   check(str_ends_with($route->getActionName(),'Tech4LearnAttachmentController@attachment')&&in_array('throttle:120,1,t4l-answer-attachments:',$route->gatherMiddleware(),true),'Private attachment route and separate bounded throttle are registered');
  }
@@ -86,6 +105,7 @@ try {
  DB::statement('DROP TRIGGER revoke_upload_access');
  check($uploadStat->fresh()->uploaded_answer_path===$currentPath&&count($files->allFiles($directory))===$count,'Late access denial rolls back the native reference and private file');
  $uploadAttempt->end_time=now();$uploadAttempt->save();
+ check($call('extract',$extractBody)['error']['status']===403,'Submitted attempts cannot extract a new answer draft');
  $reviewBody=$identity+['asset'=>$saved['asset'],'actor_id'=>$actor];
  check(base64_decode($call('review',$reviewBody)['data']['base64'])==='Synthetic attachment one.','Submitted attachment available to the review endpoint');
  rejectAnswer(fn()=>$call('review',$identity+['asset'=>$saved['asset']]),'Review requires a mapped staff actor');

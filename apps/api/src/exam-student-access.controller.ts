@@ -143,6 +143,13 @@ export class ExamStudentAccessController {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.send(file.buffer);
   }
+  @Post("student-exam/attachments/extract") @HttpCode(200) async extractAttachment(
+    @Param("org") org: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("cookie") cookies?: string,
+  ) {
+    return this.attempts.attachment(org, examSession(cookies), "extract", body);
+  }
   @Post("student-exam/attempt/:action") @HttpCode(200) async attempt(
     @Param("org") org: string,
     @Param("action") action: string,

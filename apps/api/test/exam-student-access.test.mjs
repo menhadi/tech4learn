@@ -350,6 +350,30 @@ test("student exam links are single-use, paper-scoped and immediately revocable 
       assert.equal((await call(path, body, studentCookie)).status, 401);
       await pg.query("UPDATE learners SET archived=false WHERE id=$1", [learner]);
     }
+    const extractPath = attachmentPath + "/extract";
+    const extractBody = { attempt_id: 11, question_id: 4, asset };
+    const extracted = { exam_id: 7, ...extractBody, text: "Synthetic extracted draft" };
+    engine.request = async (config, owner, path, payload, limit, timeout) => {
+      assert.equal(owner, org); assert.equal(path, `attachments/${org}/extract`);
+      assert.deepEqual(payload, { ...extractBody, learner_id: learner, exam_id: 7 });
+      assert.equal(limit, 128000); assert.equal(timeout, 30000);
+      return { data: { ...extracted, private_path: "never return" } };
+    };
+    assert.equal((await call(extractPath, extractBody, staff)).status, 401);
+    assert.equal((await call(extractPath, { ...extractBody, learner_id: foreign }, studentCookie)).status, 400);
+    const extraction = await call(extractPath, extractBody, studentCookie);
+    assert.equal(extraction.status, 200);
+    assert.deepEqual(await extraction.json(), { ...extractBody, text: extracted.text });
+    for (const invalid of [{ asset: "f".repeat(64) }, { text: "" }, { text: "\0" }, { text: "x".repeat(20001) }]) {
+      engine.request = async () => ({ data: { ...extracted, ...invalid } });
+      assert.equal((await call(extractPath, extractBody, studentCookie)).status, 503);
+    }
+    engine.request = async () => {
+      await pg.query("UPDATE learners SET archived=true WHERE id=$1", [learner]);
+      return { data: extracted };
+    };
+    assert.equal((await call(extractPath, extractBody, studentCookie)).status, 401);
+    await pg.query("UPDATE learners SET archived=false WHERE id=$1", [learner]);
     const visibilityPath = root + "/student-exam/attempt/visibility";
     const visibilityBody = {
       request_id: randomUUID(),

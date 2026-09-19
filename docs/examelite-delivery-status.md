@@ -23,7 +23,7 @@ checked commits when the release is ready.
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
 | Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. Actual native question/solution templates render an English MCQ with real MathJax; native signatures and cross-process local file locks are checked. Deployed middleware/cache and production daemon acceptance remain unverified. |
 
-Latest validation: the student and staff attachment gateways passed targeted HTTP
+Latest validation: the student/staff attachment and student extraction gateways passed targeted HTTP
 check and `npm run check` passed: workspace typechecks, all 90 tests together,
 and API/admin production builds. The connected native/browser journeys were checked in earlier
 milestones; this attachment gateway currently has separate HTTP and native

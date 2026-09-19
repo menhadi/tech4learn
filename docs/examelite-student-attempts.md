@@ -265,6 +265,24 @@ overrides and mismatched native file envelopes are rejected. Native fixture
 checks cover missing/student/revoked staff actors; HTTP checks cover current
 permissions, foreign organisations, restriction/revocation, headers and audits.
 
+The native attachment extraction action now invokes ExamElite's existing
+`public/extract_file.php` in a separate bounded PHP process. It uses private
+temporary input, a 20-second process deadline, bounded output and cleanup of
+its temporary directory; native extras and error details are not returned.
+The mapped active student, Taking restriction and native subjective feature
+are checked before and after extraction. The ordinary answer save remains
+responsible for storing, timing and locking the student's reviewed draft;
+extraction itself never changes or grades an answer.
+
+The same-domain student endpoint derives exam/learner identity from the grant,
+validates the returned attachment and draft, and rechecks access after the call.
+Tests run the actual native extractor on synthetic text, and cover excessive
+input/output, malformed results, process failure/timeouts, temporary cleanup,
+revoked access and submitted-attempt denial. PDF/document/OCR tool execution,
+provider configuration, subprocess descendants on production and multilingual
+selection are not yet verified; the adapter currently uses native English
+defaults. The browser extraction/upload workflow remains to be connected.
+
 The coordinator also repeats mapping, capability and organisation checks before
 the receipt commits. A synthetic database trigger changes Taking access during
 the native save; the receipt is denied and both the saved reference and fresh

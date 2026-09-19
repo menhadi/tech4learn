@@ -13,7 +13,7 @@ class Tech4LearnAttachmentController extends Tech4LearnPlatformController
  public function attachment(Request $r,string $org,string $action){
   $central=$this->configuration($r)['_platform']['organization_id'];
   $this->uuid($org);
-  abort_unless(in_array($action,['upload','read','review'],true),404);
+  abort_unless(in_array($action,['upload','read','review','extract'],true),404);
   abort_unless(strlen($r->getContent())<=($action==='upload'?14000000:3000),422);
   try{$input=json_decode($r->getContent(),true,16,JSON_THROW_ON_ERROR);}catch(\JsonException){abort(422);}
   abort_unless(is_array($input),422);
@@ -36,6 +36,9 @@ class Tech4LearnAttachmentController extends Tech4LearnPlatformController
     abort_unless(is_string($temp),503);
     abort_unless(chmod($temp,0600)&&file_put_contents($temp,$bytes)===strlen($bytes),503);
     $data=app(Tech4LearnAnswerUploadCoordinator::class)->save($org,$central,$input['learner_id'],$input['attempt_id'],$input['question_id'],array_intersect_key($input,array_flip(['exam_id','request_id','revision'])),new UploadedFile($temp,'answer','application/octet-stream',null,true));
+   }elseif($action==='extract'){
+    abort_unless(is_string($input['asset']??null),422);
+    $data=app(\App\Services\Tech4LearnAnswerExtraction::class)->extract($org,$central,$input['learner_id'],$input['attempt_id'],$input['question_id'],$input['asset'],$input['exam_id']);
    }else{
     abort_unless(is_string($input['asset']??null),422);
     $data=$action==='review'

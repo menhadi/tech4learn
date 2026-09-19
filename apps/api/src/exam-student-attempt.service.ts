@@ -16,7 +16,7 @@ export class ExamStudentAttemptService {
   async attachment(
     org: string,
     cookie: string | undefined,
-    action: "upload" | "read",
+    action: "upload" | "read" | "extract",
     body: Record<string, unknown>,
   ) {
     const context = await this.access.context(org, cookie);
@@ -44,7 +44,7 @@ export class ExamStudentAttemptService {
     const exam = Number(context.external_exam_id);
     const response = await this.remote.request(config, org, `attachments/${org}/${action}`, {
       ...body, learner_id: context.learner_id, exam_id: exam,
-    }, action === "read" ? 14000000 : 4096, 30000);
+    }, action === "read" ? 14000000 : action === "extract" ? 128000 : 4096, 30000);
     const current = await this.access.context(org, cookie);
     if (current.grant_id !== context.grant_id) throw new HttpException("Exam access changed.", 403);
     if (response.error) {
@@ -63,6 +63,11 @@ export class ExamStudentAttemptService {
     const invalid = () => new ServiceUnavailableException("Invalid answer attachment response.");
     if (!data || data.exam_id !== exam || data.attempt_id !== body.attempt_id ||
       data.question_id !== body.question_id || !hash(data.asset)) throw invalid();
+    if (action === "extract") {
+      if (data.asset !== body.asset || typeof data.text !== "string" || !data.text.trim() ||
+        Buffer.byteLength(data.text, "utf8") > 20000 || data.text.includes("\0")) throw invalid();
+      return { attempt_id: data.attempt_id, question_id: data.question_id, asset: data.asset, text: data.text };
+    }
     if (action === "upload") {
       if (data.success !== true || data.saved !== true || !hash(data.revision)) throw invalid();
       return { saved: true, attempt_id: data.attempt_id, question_id: data.question_id,
