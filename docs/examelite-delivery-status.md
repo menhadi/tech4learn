@@ -23,7 +23,7 @@ checked commits when the release is ready.
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
 | Documents | Native PDF request/status/approved download adapters and screens. Actual rendering/worker completion is not yet verified. |
 
-Latest validation: `npm run check` passed with 88 tests, all workspace
+Latest validation: `npm run check` passed with 89 tests, all workspace
 typechecks and production builds. The existing large-bundle warning remains.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It
@@ -292,9 +292,18 @@ adapter milestone as a release.
    shared old bytes, and cleans only newly written files after failed or oversized
    saves. Private organisation/central routes and isolated tests cover both
    owners, untouched languages, stale or changed retries and revoked access on
-   receipt replay. Deployment includes this combined passage suite. Tech4Learn
-   gateway and editor upload controls remain pending; orphan reconciliation and
+   receipt replay. Deployment includes this combined passage suite. Editor
+   upload controls remain pending; orphan reconciliation and
    actual passage PDF regeneration are separate unfinished work.
+   The passage image actions now have authenticated Tech4Learn gateway routes
+   for both owners. They validate bounded image/language payloads, derive the
+   native actor from the signed-in account, preserve retry identifiers and
+   recheck permissions before returning the saved record. Response projection
+   checks the passage and requested language; audits exclude uploaded bytes.
+   Service/handler tests cover owner overrides, malformed input, conflicts,
+   unverified native outcomes, identical retry and revoked access. These are
+   isolated gateway checks; editor upload controls and complete connected
+   upload-to-preview acceptance remain pending.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,

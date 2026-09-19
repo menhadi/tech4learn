@@ -294,6 +294,45 @@ export class ExamContentController {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.send(image.buffer);
   }
+  @Post("organisations/:org/exam-content/passages/:id/image")
+  async passageImageWrite(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-passage-image:${account.id}:${org}`,
+      30,
+      60,
+    );
+    return this.content.passageImageWrite(account, org, id, body ?? {}, query);
+  }
+  @Post("platform/exam-content/:org/central/passages/:id/image")
+  async centralPassageImageWrite(
+    @Param("org") org: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(
+      `exam-central-passage-image:${account.id}:${org}`,
+      30,
+      60,
+    );
+    return this.content.passageImageWrite(
+      account,
+      org,
+      id,
+      body ?? {},
+      query,
+      true,
+    );
+  }
   @Get(
     "organisations/:org/exam-content/passages/:id/languages/:language/media/:asset",
   )

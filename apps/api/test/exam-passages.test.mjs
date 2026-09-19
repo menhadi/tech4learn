@@ -5,6 +5,157 @@ import { randomUUID } from "node:crypto";
 import { ExamContentService } from "../dist/exam-content.service.js";
 import { ExamContentController } from "../dist/exam-content.controller.js";
 
+test("passage image writes bound payloads, retain retry identity and recheck access", async () => {
+  const user = { id: randomUUID() },
+    org = randomUUID(),
+    revision = "a".repeat(64),
+    asset = "b".repeat(64);
+  const record = {
+    id: 7,
+    revision: "c".repeat(64),
+    fields: {
+      name: "Synthetic passage",
+      passages: { 3: "<p>Saved wording</p>" },
+    },
+  };
+  const requests = [],
+    launches = [],
+    audits = [];
+  let revoked = false,
+    revokeOnResponse = false,
+    outcome = "ok",
+    checks = 0;
+  const remote = {
+    request: async (_config, _org, path, body) => {
+      requests.push({ path, body });
+      if (revokeOnResponse) revoked = true;
+      if (outcome === "conflict") return { saved: false, conflict: true };
+      if (outcome === "invalid")
+        return {
+          saved: true,
+          question: { ...record, id: 8 },
+          record: { ...record, id: 8 },
+        };
+      if (outcome === "rejected") return { saved: false };
+      if (outcome === "unknown") return {};
+      return { saved: true, question: record, record };
+    },
+  };
+  const service = new ExamContentService(
+    {},
+    { audit: async (...args) => audits.push(args) },
+    remote,
+    { launch: async (_user, _org, settings) => launches.push(settings) },
+  );
+  service.config = async () => ({});
+  service.questionAccess = async (_user, _org, _id, feature) => {
+    assert.equal(feature, "questions");
+    checks++;
+    if (revoked) throw Error("revoked");
+  };
+  service.centralAccess = async () => {
+    checks++;
+    if (revoked) throw Error("revoked");
+  };
+  for (const central of [false, true]) {
+    const body = {
+      fields: {
+        language_id: 3,
+        image: Buffer.from("synthetic").toString("base64"),
+      },
+      revision,
+      request_id: randomUUID(),
+    };
+    const send = (data = body, query = {}, id = "7") =>
+      service.passageImageWrite(user, org, id, data, query, central);
+    const before = checks;
+    assert.deepEqual(await send(), record);
+    assert.equal(checks, before + 2);
+    const first = requests.at(-1);
+    assert.equal(first.body.actor_id, user.id);
+    assert.equal(
+      first.path,
+      `${central ? "central" : `authoring/${org}`}/passages/7/image`,
+    );
+    assert.deepEqual(await send(), record);
+    assert.deepEqual(requests.at(-1), first);
+    const count = requests.length;
+    for (const patch of [
+      { language_id: 0 },
+      { language_id: "3" },
+      { language_id: 1e16 },
+      { image: "%%%" },
+      { image: "A".repeat(699056) },
+      { remove: false },
+      { remove: true },
+      { asset: "wrong" },
+      { field: "question" },
+      { organization_id: 99 },
+    ])
+      await assert.rejects(
+        send({ ...body, fields: { ...body.fields, ...patch } }),
+      );
+    await assert.rejects(send({ ...body, actor_id: randomUUID() }));
+    await assert.rejects(send(body, { owner: 99 }));
+    await assert.rejects(send(body, {}, "new"));
+    await assert.rejects(send({ ...body, request_id: "invalid" }));
+    assert.equal(requests.length, count);
+    await send({
+      ...body,
+      request_id: randomUUID(),
+      fields: { language_id: 3, remove: true, asset },
+    });
+    assert.equal(requests.at(-1).body.fields.image, undefined);
+    for (const mode of ["conflict", "invalid", "rejected", "unknown"]) {
+      outcome = mode;
+      const beforeAudit = audits.length;
+      await assert.rejects(
+        send(),
+        (error) =>
+          error.getStatus() ===
+          (mode === "conflict" ? 409 : mode === "rejected" ? 400 : 503),
+      );
+      assert.equal(audits.length, beforeAudit);
+    }
+    outcome = "ok";
+    revokeOnResponse = true;
+    const beforeAudit = audits.length;
+    await assert.rejects(send(), /revoked/);
+    assert.equal(audits.length, beforeAudit);
+    revoked = false;
+    revokeOnResponse = false;
+  }
+  assert.ok(launches.every((settings) => settings.feature === "questions"));
+  const controller = Object.create(ExamContentController.prototype);
+  controller.content = service;
+  controller.identity = {
+    account: async () => user,
+    limit: async (_key, n, seconds) => {
+      assert.equal(n, 30);
+      assert.equal(seconds, 60);
+    },
+  };
+  for (const name of ["passageImageWrite", "centralPassageImageWrite"]) {
+    assert.deepEqual(
+      await controller[name](
+        org,
+        "7",
+        {
+          fields: { language_id: 3, remove: true, asset },
+          revision,
+          request_id: randomUUID(),
+        },
+        {},
+      ),
+      record,
+    );
+    assert.match(
+      Reflect.getMetadata("path", controller[name]),
+      /passages\/:id\/image$/,
+    );
+  }
+});
+
 test("passage previews bind owner, language and revision and withhold bytes after revocation", async () => {
   const user = { id: randomUUID() },
     org = randomUUID(),

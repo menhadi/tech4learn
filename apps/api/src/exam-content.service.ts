@@ -1396,6 +1396,132 @@ export class ExamContentService {
     );
     return { buffer, mime: data.mime };
   }
+  async passageImageWrite(
+    user: Account,
+    org: string,
+    id: string,
+    body: Record<string, unknown>,
+    query: Record<string, unknown>,
+    central = false,
+  ) {
+    const authorize = () =>
+      central
+        ? this.centralAccess(user, org, id)
+        : this.questionAccess(user, org, id, "questions");
+    await authorize();
+    const fields = body.fields as Record<string, unknown> | undefined;
+    if (
+      !/^[1-9][0-9]{0,14}$/.test(id) ||
+      Object.keys(query).length ||
+      Object.keys(body).some(
+        (key) => !["fields", "revision", "request_id"].includes(key),
+      ) ||
+      typeof body.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(body.revision) ||
+      typeof body.request_id !== "string" ||
+      !fields ||
+      typeof fields !== "object" ||
+      Array.isArray(fields) ||
+      Object.keys(fields).some(
+        (key) => !["language_id", "image", "asset", "remove"].includes(key),
+      ) ||
+      !Number.isSafeInteger(fields.language_id) ||
+      Number(fields.language_id) <= 0 ||
+      Number(fields.language_id) > 999999999999999 ||
+      (fields.remove !== undefined && fields.remove !== true) ||
+      (fields.asset !== undefined &&
+        (typeof fields.asset !== "string" ||
+          !/^[a-f0-9]{64}$/.test(fields.asset))) ||
+      (fields.remove === true
+        ? fields.image !== undefined || fields.asset === undefined
+        : typeof fields.image !== "string" ||
+          !fields.image.length ||
+          fields.image.length > 699052)
+    )
+      throw new BadRequestException(
+        "Invalid passage image. Use PNG, JPEG or WebP up to 512 KB.",
+      );
+    uuid(body.request_id);
+    if (typeof fields.image === "string") {
+      const bytes = Buffer.from(fields.image, "base64");
+      if (
+        !bytes.length ||
+        bytes.length > 524288 ||
+        bytes.toString("base64") !== fields.image
+      )
+        throw new BadRequestException("Invalid passage image encoding.");
+    }
+    if (!central)
+      await this.workspace.launch(user, org, { feature: "questions" }, true);
+    const response = await this.remote.request(
+      await this.config(),
+      org,
+      `${central ? "central" : `authoring/${org}`}/passages/${id}/image`,
+      {
+        fields,
+        revision: body.revision,
+        request_id: body.request_id,
+        actor_id: user.id,
+      },
+      11000000,
+      30000,
+    );
+    await authorize();
+    if (response.conflict === true)
+      throw new ConflictException(
+        "Passage changed. Reload before saving again.",
+      );
+    if (response.saved !== true && response.saved !== false)
+      throw new ServiceUnavailableException(
+        "Passage image save could not be verified. Retry the same request.",
+      );
+    if (response.saved === false)
+      throw new BadRequestException(
+        "ExamElite could not save the passage image. Check its language and image.",
+      );
+    const record = central ? response.record : response.question;
+    if (
+      !record ||
+      record.id !== Number(id) ||
+      typeof record.revision !== "string" ||
+      !/^[a-f0-9]{64}$/.test(record.revision) ||
+      !record.fields ||
+      typeof record.fields !== "object" ||
+      Array.isArray(record.fields)
+    )
+      throw new ServiceUnavailableException(
+        "Unable to verify the saved passage image. Retry or reload.",
+      );
+    try {
+      this.passageFields(record.fields, true);
+    } catch {
+      throw new ServiceUnavailableException(
+        "Unable to verify saved passage wording. Retry or reload.",
+      );
+    }
+    if (
+      typeof record.fields.passages?.[String(fields.language_id)] !== "string"
+    )
+      throw new ServiceUnavailableException(
+        "Saved passage language is unavailable. Retry or reload.",
+      );
+    await this.access.audit(
+      this.db,
+      user,
+      org,
+      `exams.${central ? "central." : ""}passage.image.updated`,
+      {
+        passageId: Number(id),
+        languageId: fields.language_id,
+        requestId: body.request_id,
+      },
+    );
+    return {
+      id: record.id,
+      revision: record.revision,
+      fields: { name: record.fields.name, passages: record.fields.passages },
+    };
+  }
   async packageMedia(
     user: Account,
     org: string,
