@@ -271,6 +271,16 @@ adapter milestone as a release.
    catalogue and full plan management, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual
    native capabilities before exposing controls; retain native engine ownership.
+   Native AI settings source review identified four provider configurations and
+   nine task-specific priority lists. A new, locally tested read projection uses
+   ExamElite's `AiProvider::priority` for ordering and exposes configured model
+   names and credential-presence booleans only. It rejects a mismatched owner,
+   omits unrelated settings and credentials, and leaves native settings intact.
+   A missing configured model stays null; it does not advertise a hardcoded
+   current provider default. This helper has no route or UI yet. Superadmin
+   authorisation, revisioned edits, credential replacement, native configuration
+   persistence and organisation fallback controls remain outstanding. A saved
+   credential flag does not establish provider connectivity or validity.
    The native subjective-upload audit found a filename collision: student uploads
    for the same question within one second used the same public storage path.
    The unchanged native controller fails a new isolated regression. A guarded,
