@@ -2043,6 +2043,42 @@ test("central question sharing requires superadmin; organisation reads respect m
       "DELETE FROM examelite_workspaces WHERE organisation_id=$1",
       [org],
     );
+    const attachmentPath = `/organisations/${org}/exam-results/${learner}/exams/8/attempts/19/attachments/4/${"e".repeat(64)}`;
+    const attachmentData = { exam_id: 8, attempt_id: 19, question_id: 4, asset: "e".repeat(64),
+      mime: "text/plain", base64: Buffer.from("Synthetic submitted answer").toString("base64") };
+    remote.request = async (c, o, path, payload, limit, timeout) => {
+      assert.equal(o, org); assert.equal(path, `attachments/${org}/review`);
+      assert.deepEqual(payload, { actor_id: member, learner_id: learner, exam_id: 8,
+        attempt_id: 19, question_id: 4, asset: attachmentData.asset });
+      assert.equal(limit, 14000000); assert.equal(timeout, 30000);
+      return { data: attachmentData };
+    };
+    const attachmentReply = await call(attachmentPath, undefined, member);
+    assert.equal(attachmentReply.status, 200);
+    assert.equal(await attachmentReply.text(), "Synthetic submitted answer");
+    assert.match(attachmentReply.headers.get("content-disposition"), /^attachment;/);
+    assert.equal(attachmentReply.headers.get("cache-control"), "no-store");
+    assert.equal(attachmentReply.headers.get("x-content-type-options"), "nosniff");
+    assert.equal((await fetch(base + attachmentPath)).status, 401);
+    assert.equal((await call(attachmentPath.replace(org, other), undefined, member)).status, 404);
+    assert.equal((await call(attachmentPath + `?actor_id=${admin}`, undefined, member)).status, 400);
+    for (const invalid of [{ exam_id: 9 }, { question_id: 5 }, { attempt_id: 20 },
+      { asset: "f".repeat(64) }, { mime: "text/html" }, { base64: "YQ=" }]) {
+      remote.request = async () => ({ data: { ...attachmentData, ...invalid } });
+      assert.equal((await call(attachmentPath, undefined, member)).status, 503);
+    }
+    remote.request = async () => {
+      await pg.query("UPDATE memberships SET status='suspended' WHERE user_id=$1 AND organisation_id=$2", [member, org]);
+      return { data: attachmentData };
+    };
+    assert.equal((await call(attachmentPath, undefined, member)).status, 404);
+    await pg.query("UPDATE memberships SET status='active' WHERE user_id=$1 AND organisation_id=$2", [member, org]);
+    await pg.query("INSERT INTO examelite_workspaces(organisation_id,restrictions) VALUES($1,$2)", [org, ["results"]]);
+    assert.equal((await call(attachmentPath, undefined, member)).status, 403);
+    await pg.query("DELETE FROM examelite_workspaces WHERE organisation_id=$1", [org]);
+    const attachmentAudit = await pg.query("SELECT details FROM audit_events WHERE organisation_id=$1 AND action='exams.result.attachment.viewed'", [org]);
+    assert.deepEqual(attachmentAudit.rows.map(row => row.details), [{ learnerId: learner, examId: 8,
+      attemptId: 19, questionId: 4, asset: attachmentData.asset }]);
     const markingAudit = await pg.query(
       "SELECT details FROM audit_events WHERE organisation_id=$1 AND action='exams.result.marked'",
       [org],

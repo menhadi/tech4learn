@@ -19,8 +19,10 @@ class Tech4LearnAttachmentController extends Tech4LearnPlatformController
   abort_unless(is_array($input),422);
   $keys=['learner_id','exam_id','attempt_id','question_id'];
   $keys=array_merge($keys,$action==='upload'?['request_id','revision','base64']:['asset']);
+  if($action==='review')$keys[]='actor_id';
   abort_unless(array_diff(array_keys($input),$keys)===[]&&is_string($input['learner_id']??null),422);
   $this->uuid($input['learner_id']);
+  if($action==='review'){abort_unless(is_string($input['actor_id']??null),422);$this->uuid($input['actor_id']);}
   foreach(['exam_id','attempt_id','question_id'] as $key)abort_unless(is_int($input[$key]??null)&&$input[$key]>0,422);
   $temp=null;
   try {
@@ -36,7 +38,9 @@ class Tech4LearnAttachmentController extends Tech4LearnPlatformController
     $data=app(Tech4LearnAnswerUploadCoordinator::class)->save($org,$central,$input['learner_id'],$input['attempt_id'],$input['question_id'],array_intersect_key($input,array_flip(['exam_id','request_id','revision'])),new UploadedFile($temp,'answer','application/octet-stream',null,true));
    }else{
     abort_unless(is_string($input['asset']??null),422);
-    $data=app(Tech4LearnAnswerAttachments::class)->read($org,$central,$input['learner_id'],$input['attempt_id'],$input['question_id'],$input['asset'],$input['exam_id'],$action==='review');
+    $data=$action==='review'
+     ?app(\App\Services\Tech4LearnResultMarking::class)->attachment($org,$central,$input['actor_id'],$input['learner_id'],$input['attempt_id'],$input['question_id'],$input['asset'],$input['exam_id'])
+     :app(Tech4LearnAnswerAttachments::class)->read($org,$central,$input['learner_id'],$input['attempt_id'],$input['question_id'],$input['asset'],$input['exam_id']);
    }
    return $this->reply($central,['data'=>$data]);
   }catch(HttpExceptionInterface $e){

@@ -460,6 +460,27 @@ export class ExamContentController {
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.send(image.buffer);
   }
+  @Get("organisations/:org/exam-results/:learner/exams/:exam/attempts/:attempt/attachments/:question/:asset")
+  async resultAttachment(
+    @Param("org") org: string,
+    @Param("learner") learner: string,
+    @Param("exam") exam: string,
+    @Param("attempt") attempt: string,
+    @Param("question") question: string,
+    @Param("asset") asset: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie: string | undefined,
+    @Res() response: Response,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-result-attachment:${account.id}:${org}`, 60, 60);
+    const file = await this.content.resultAttachment(account, org, learner, exam, attempt, question, asset, query);
+    response.setHeader("Content-Type", file.mime);
+    response.setHeader("Content-Disposition", 'attachment; filename="answer-attachment"');
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(file.buffer);
+  }
   @Get("organisations/:org/exam-results/:learner/attempts")
   async resultAttempts(
     @Param("org") org: string,

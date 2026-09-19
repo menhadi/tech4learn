@@ -1610,6 +1610,34 @@ export class ExamContentService {
     );
     return { buffer, mime: data.mime };
   }
+  async resultAttachment(
+    user: Account, org: string, learner: string, exam: string,
+    attempt: string, question: string, asset: string,
+    query: Record<string, unknown> = {},
+  ) {
+    await this.proctorAccess(user, org);
+    uuid(learner);
+    if (Object.keys(query).length || ![exam, attempt, question].every(value => /^[1-9][0-9]{0,14}$/.test(value)) ||
+      !/^[a-f0-9]{64}$/.test(asset)) throw new BadRequestException("Invalid answer attachment.");
+    const response = await this.remote.request(await this.config(), org, `attachments/${org}/review`, {
+      actor_id: user.id, learner_id: learner, exam_id: Number(exam),
+      attempt_id: Number(attempt), question_id: Number(question), asset,
+    }, 14000000, 30000);
+    await this.proctorAccess(user, org);
+    const data = response.data;
+    const invalid = () => new ServiceUnavailableException("This answer attachment could not be loaded.");
+    if (!data || data.exam_id !== Number(exam) || data.attempt_id !== Number(attempt) ||
+      data.question_id !== Number(question) || data.asset !== asset ||
+      !["text/plain", "application/pdf", "image/jpeg", "image/png", "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/octet-stream"].includes(data.mime) ||
+      typeof data.base64 !== "string" || data.base64.length > 13981016) throw invalid();
+    const buffer = Buffer.from(data.base64, "base64");
+    if (!buffer.length || buffer.length > 10485760 || buffer.toString("base64") !== data.base64) throw invalid();
+    await this.access.audit(this.db, user, org, "exams.result.attachment.viewed", {
+      learnerId: learner, examId: Number(exam), attemptId: Number(attempt), questionId: Number(question), asset,
+    });
+    return { buffer, mime: data.mime };
+  }
   async resultMedia(
     user: Account,
     org: string,

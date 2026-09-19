@@ -92,6 +92,15 @@ final class Tech4LearnResultMarking
    })->all()];
   });
  }
+ public function attachment(string $workspace,int $source,string $actor,string $learner,int $id,int $question,string $asset,int $examId):array {
+  return DB::transaction(function()use($workspace,$source,$actor,$learner,$id,$question,$asset,$examId){
+   [$owner,,$student]=$this->scope($workspace,$source,$actor,$learner);
+   $attempt=$this->attempt($owner,$student,$id);abort_unless((int)$attempt->exam_id===$examId,404);
+   $data=app(Tech4LearnAnswerAttachments::class)->read($workspace,$source,$learner,$id,$question,$asset,$examId,true);
+   $this->scope($workspace,$source,$actor,$learner);
+   return $data;
+  });
+ }
  public function media(string $workspace,int $source,string $actor,string $learner,int $id,int $statId,string $asset):array {
   return DB::transaction(function()use($workspace,$source,$actor,$learner,$id,$statId,$asset){
    [$owner,,$student]=$this->scope($workspace,$source,$actor,$learner);$attempt=$this->attempt($owner,$student,$id);
