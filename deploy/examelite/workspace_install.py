@@ -97,6 +97,31 @@ def refresh_pdf_image_cache(text):
     if text.count(before) != 1 or 'Tech4Learn checked print images' in text:
         raise ValueError('Unsupported native PDF cache version; no files changed.')
     return text.replace(before, after)
+def isolate_subjective_upload_names(text):
+    """Prevent students uploading the same question in one second sharing a file."""
+    before = "            $fileName = time() . '_' . $questionId . '.' . $file->getClientOriginalExtension();"
+    after = """            // Tech4Learn: isolate each answer upload; never reuse a timestamp filename.
+            $extension = strtolower((string) $file->extension());
+            if (! in_array($extension, ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'txt'], true)) {
+                throw new \\RuntimeException('Unsupported answer file type.');
+            }
+            $fileName = (int) $examResult->organization_id . '_' . (int) $studentId . '_'
+                . (int) $examResultId . '_' . (int) $questionId . '_'
+                . bin2hex(random_bytes(20)) . '.' . $extension;"""
+    store = "            $path = $file->storeAs('student_answers', $fileName, 'public');"
+    stored = store + """
+            if (! is_string($path) || $path === '') {
+                throw new \\RuntimeException('Answer file could not be saved.');
+            }"""
+    marker = '// Tech4Learn: isolate each answer upload;'
+    if marker in text:
+        if text.count(after) != 1 or text.count(stored) != 1 or text.count(marker) != 1:
+            raise ValueError('Modified subjective upload guard; no files changed.')
+        return text
+    if text.count(before) != 1 or text.count(store) != 1:
+        raise ValueError('Unsupported subjective upload controller; no files changed.')
+    return text.replace(before, after).replace(store, stored)
+
 def protect_pdf_worker_lookup(text):
     """Release the acquired native PDF lock even when the build lookup fails."""
     lookup = "$build = ExamPdfBuild::with(['exam.organization', 'package', 'language'])->findOrFail($this->buildId);"

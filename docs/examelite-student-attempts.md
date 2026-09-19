@@ -149,6 +149,21 @@ Stored reference-answer raster images now use the same private reader, with an a
 
 Images embedded in student answers, unsupported media types and broader exam workflow verification remain unfinished. The adapter does not fetch arbitrary student-supplied image references.
 
+The native subjective upload is a separate file attachment plus browser-side text
+extraction flow, not an image embedded into the saved text answer. A read-only
+audit found its timestamp/question filename could overwrite another student's
+upload in the same second. The local installer now applies a guarded native
+controller patch: unique owner/student/attempt/question/random filenames,
+MIME-derived allowed extensions, and a storage-success check before saving the
+path. `test-subjective-upload.php` reproduces the original collision and passes
+against the patched controller using real Laravel validation and filesystem
+storage with isolated SQLite model doubles. It also checks repeated uploads,
+preservation of old bytes, disk-write failure and foreign-attempt denial.
+The patch installer is repeatable and refuses unknown or modified source shapes.
+It has not been deployed. Protected same-domain upload/extraction/review,
+submission/revision guards and idempotent retries still need integration before
+student attachment controls become available.
+
 ## Continuous native pilot verification
 
 `test-pilot-exam-workflow.php` extends the existing native lifecycle and marking suites with one newly authored subjective question and exam. It creates and assembles the paper through authoring, explicitly enables online visibility, activates it, starts a mapped student, saves and retries a written answer, resumes, submits, marks the actual pending answer, publishes the result and reads student history. It never seeds a completed attempt or pending mark for this added flow. Answer, marking and submission retries preserve the outcome. The deployment script runs this suite in place of the marking-only entry point; all preceding checks remain included. It passed locally against the native controller snapshots. This proves the native vertical workflow with isolated storage, not a combined live-browser or production deployment test.

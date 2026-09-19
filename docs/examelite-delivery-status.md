@@ -248,6 +248,19 @@ adapter milestone as a release.
    catalogue and full plan management, paid-package workflows, OMR, student answer
    file/media uploads and remaining reports/portal workflows. Inventory actual
    native capabilities before exposing controls; retain native engine ownership.
+   The native subjective-upload audit found a filename collision: student uploads
+   for the same question within one second used the same public storage path.
+   The unchanged native controller fails a new isolated regression. A guarded,
+   repeatable installer patch now uses owner/student/attempt/question identifiers
+   plus 20 random bytes and a MIME-derived allowed extension. Failed storage is
+   rejected before replacing the saved answer path. The patched controller passes
+   real Laravel validation/filesystem checks with isolated SQLite storage models,
+   covering two students, repeated uploads, old-byte preservation, storage failure
+   and foreign-attempt denial. Installation backs up the native source and runs
+   both patch and controller checks before migrations. This is local groundwork:
+   the same-domain student upload/extraction/review flow is still unfinished,
+   including private file access, revision checks and safe retries. No upload
+   control has been enabled in Tech4Learn by this patch.
    Passage authoring now has a native service foundation using the inspected
    PassageController for creation and language-specific edits. Its snapshots
    include wording in concurrency revisions; bounded text/formula input rejects
