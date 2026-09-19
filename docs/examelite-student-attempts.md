@@ -228,9 +228,20 @@ service, student context and patched controller with isolated SQLite/storage.
 It checks exact replay, changed bytes, stale revisions, disabled capabilities,
 Taking restrictions, foreign source/unmapped learner and non-subjective denial,
 plus forced receipt-insert failure and post-submission behaviour. It reuses the
-existing native authoring/answer checks. This coordinator is not yet connected to
-a public API or UI; outer learner-grant authentication, protected response headers,
-review controls and native extraction remain integration work.
+existing native authoring/answer checks. The credential-authenticated native
+attachment API now exposes bounded upload, read and review actions. Upload and
+read both bind the owned attempt to an explicit expected exam ID, so a future
+learner grant cannot be reused across the student's exams. JSON uploads accept
+only canonical base64 up to 10 MB, use a private temporary file and return no
+storage path. Native validation determines the actual file type. Responses use
+the existing no-store envelope and expose only bounded status codes.
+
+The coordinator fixture now exercises a new upload through the real attachment
+controller, exact retry, private read, open/submitted review rules, wrong exam,
+invalid credential/encoding, forbidden path input and all three registered
+routes. The installer includes the controller and route verification. The
+Tech4Learn learner-grant/staff gateway, download headers, browser controls and
+native text extraction remain unfinished; no attachment UI is enabled yet.
 
 The coordinator also repeats mapping, capability and organisation checks before
 the receipt commits. A synthetic database trigger changes Taking access during

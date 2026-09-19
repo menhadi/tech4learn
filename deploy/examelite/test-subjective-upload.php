@@ -128,13 +128,14 @@ try {
  $db->table('tech4learn_workspaces')->insert(['id'=>$workspace,'source_organization_id'=>10,'organization_id'=>20,'restrictions'=>'[]']);
  $db->table('tech4learn_workspace_users')->insert(['workspace_id'=>$workspace,'local_id'=>$learner,'kind'=>'student','external_id'=>2]);
  $reader=new App\Services\Tech4LearnAnswerAttachments();$asset=hash('sha256',$private['path']);
- $read=fn($review=false)=>$reader->read($workspace,10,$learner,2,10,$asset,$review);
+ $read=fn($review=false)=>$reader->read($workspace,10,$learner,2,10,$asset,1,$review);
  $expectDenied=function($work){try{$work();throw new RuntimeException('Expected attachment denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException|Illuminate\Database\Eloquent\ModelNotFoundException $error){}};
  $bytes=$read();checkUpload(base64_decode($bytes['base64'])==='Private synthetic attachment.'&&$bytes['mime']==='text/plain'&&!isset($bytes['path']),'Mapped learner reads current private attachment without a storage path');
- $expectDenied(fn()=>$reader->read($workspace,11,$learner,2,10,$asset));
- $expectDenied(fn()=>$reader->read($workspace,10,$learner,1,10,$asset));
- $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,11,$asset));
- $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,10,str_repeat('0',64)));
+ $expectDenied(fn()=>$reader->read($workspace,11,$learner,2,10,$asset,1));
+ $expectDenied(fn()=>$reader->read($workspace,10,$learner,1,10,$asset,1));
+ $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,11,$asset,1));
+ $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,10,$asset,2));
+ $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,10,str_repeat('0',64),1));
  $expectDenied(fn()=>$read(true));
  $db->table('tech4learn_workspaces')->update(['restrictions'=>'["taking"]']);$expectDenied(fn()=>$read());
  $db->table('tech4learn_workspaces')->update(['restrictions'=>'[]']);
@@ -145,7 +146,7 @@ try {
  $db->table('organizations')->update(['status'=>'inactive']);$expectDenied(fn()=>$read(true));$db->table('organizations')->update(['status'=>'active']);
  foreach(['student_answers/legacy.txt','t4l-private-answers/20_1_1_10_'.str_repeat('a',40).'.txt','t4l-private-answers/20_2_2_10_../secret.txt'] as $bad){
   $db->table('exam_stats')->where('id',2)->update(['uploaded_answer_path'=>$bad]);
-  $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,10,hash('sha256',$bad),true));
+  $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,10,hash('sha256',$bad),1,true));
  }
  $db->table('exam_stats')->where('id',2)->update(['uploaded_answer_path'=>$private['path']]);
  unlink($privateRoot.'/'.$private['path']);$expectDenied(fn()=>$read(true));

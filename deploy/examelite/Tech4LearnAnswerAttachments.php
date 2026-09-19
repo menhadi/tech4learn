@@ -8,10 +8,10 @@ final class Tech4LearnAnswerAttachments
 {
  private const MAX_BYTES=10485760;
 
- public function read(string $workspace,int $source,string $learner,int $attempt,int $question,string $asset,bool $review=false):array {
+ public function read(string $workspace,int $source,string $learner,int $attempt,int $question,string $asset,int $examId,bool $review=false):array {
   foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
-  abort_unless($source>0&&$attempt>0&&$question>0&&preg_match('/^[a-f0-9]{64}$/D',$asset),422);
-  $record=$this->record($workspace,$source,$learner,$attempt,$question,$review);
+  abort_unless($source>0&&$attempt>0&&$question>0&&$examId>0&&preg_match('/^[a-f0-9]{64}$/D',$asset),422);
+  $record=$this->record($workspace,$source,$learner,$attempt,$question,$examId,$review);
   $reference=$record->uploaded_answer_path;
   abort_unless(is_string($reference)&&hash_equals(hash('sha256',$reference),$asset),404);
   $prefix='t4l-private-answers/'.$record->organization_id.'_'.$record->student_id.'_'.$attempt.'_'.$question.'_';
@@ -23,14 +23,14 @@ final class Tech4LearnAnswerAttachments
   $bytes=file_get_contents($resolved,false,null,0,self::MAX_BYTES+1);
   abort_unless(is_string($bytes)&&strlen($bytes)===$size,503);
   // Recheck native membership, restrictions, attempt state and reference after I/O.
-  $fresh=$this->record($workspace,$source,$learner,$attempt,$question,$review);
+  $fresh=$this->record($workspace,$source,$learner,$attempt,$question,$examId,$review);
   abort_unless($fresh->id===$record->id&&$fresh->uploaded_answer_path===$reference,409,'The attachment changed. Reload it.');
   $mime=(new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
   if(!in_array($mime,['text/plain','application/pdf','image/jpeg','image/png','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],true))$mime='application/octet-stream';
-  return ['attempt_id'=>$attempt,'question_id'=>$question,'asset'=>$asset,'mime'=>$mime,'base64'=>base64_encode($bytes)];
+  return ['exam_id'=>$examId,'attempt_id'=>$attempt,'question_id'=>$question,'asset'=>$asset,'mime'=>$mime,'base64'=>base64_encode($bytes)];
  }
 
- private function record(string $workspace,int $source,string $learner,int $attempt,int $question,bool $review):object {
+ private function record(string $workspace,int $source,string $learner,int $attempt,int $question,int $examId,bool $review):object {
   $w=DB::table('tech4learn_workspaces')->where('id',$workspace)->where('source_organization_id',$source)->first();abort_unless($w&&$w->organization_id,404);
   abort_unless(DB::table('organizations')->where('id',$w->organization_id)->where('status','active')->exists(),403);
   abort_unless(!in_array($review?'results':'taking',json_decode($w->restrictions,true,512,JSON_THROW_ON_ERROR),true),403);
@@ -38,7 +38,7 @@ final class Tech4LearnAnswerAttachments
   $studentQuery=DB::table('students')->where('id',$student)->where('organization_id',$w->organization_id);
   if(!$review)$studentQuery->where('status','Active');
   abort_unless($studentQuery->exists(),403);
-  $result=DB::table('exam_results')->where('id',$attempt)->where('organization_id',$w->organization_id)->where('student_id',$student)->first();abort_unless($result,404);
+  $result=DB::table('exam_results')->where('id',$attempt)->where('exam_id',$examId)->where('organization_id',$w->organization_id)->where('student_id',$student)->first();abort_unless($result,404);
   abort_unless($review?(bool)$result->end_time:!$result->end_time,403);
   $exam=\App\Models\Exam::where('organization_id',$w->organization_id)->findOrFail($result->exam_id);
   if(!$review)abort_unless($exam->status==='Active'&&$exam->isFrontendVisible()&&$exam->allowsOnlineAttempt(),403);
