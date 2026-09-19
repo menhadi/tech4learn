@@ -290,6 +290,15 @@ adapter milestone as a release.
    has no browser/API route yet. Scoped upload coordination, revision/retry
    receipts, private download/review and native extraction compatibility remain
    required before enabling attachments.
+   A scoped internal attachment reader now resolves the native workspace, mapped
+   learner, attempt and answer before reading its current private reference.
+   Filename ownership, bounded bytes, non-symlink local paths and a second access
+   check guard file reads. Students can read open attempts; the review path accepts
+   submitted attempts and checks Results restrictions. The expanded controller
+   fixture covers current bytes, foreign source/attempt/question, wrong assets,
+   restrictions, inactive ownership, submission transition, unsafe/legacy paths
+   and missing files. There is still no public endpoint: outer staff/grant
+   authentication, response download headers and the interface remain to be wired.
    Passage authoring now has a native service foundation using the inspected
    PassageController for creation and language-specific edits. Its snapshots
    include wording in concurrency revisions; bounded text/formula input rejects

@@ -199,6 +199,20 @@ not itself authorise a T4L learner grant or implement request replay. Private
 reading, native text extraction compatibility and the scoped upload coordinator
 remain unfinished; no attachment controls are exposed yet.
 
+`Tech4LearnAnswerAttachments` supplies an internal read boundary for the current
+private attachment. It resolves the workspace/source, native student mapping,
+organisation, exam, attempt and answer together; a path hash must match the saved
+reference, and its generated filename must match that owner/student/attempt/
+question. It rejects public legacy paths, traversal, symlinks, missing files and
+oversized reads, then repeats scope/reference checks after file I/O. Open student
+reads require active exam delivery; submitted review reads require Results
+availability. Bytes return with bounded metadata and no filesystem path.
+The isolated fixture verifies these scope/state restrictions against a file
+produced by the real native upload controller. It does not authenticate a
+Tech4Learn browser session or staff role: those checks, same-domain download
+headers and the UI still belong to the future gateway endpoint. Native AI
+extraction of this private storage format also remains to be integrated.
+
 ## Continuous native pilot verification
 
 `test-pilot-exam-workflow.php` extends the existing native lifecycle and marking suites with one newly authored subjective question and exam. It creates and assembles the paper through authoring, explicitly enables online visibility, activates it, starts a mapped student, saves and retries a written answer, resumes, submits, marks the actual pending answer, publishes the result and reads student history. It never seeds a completed attempt or pending mark for this added flow. Answer, marking and submission retries preserve the outcome. The deployment script runs this suite in place of the marking-only entry point; all preceding checks remain included. It passed locally against the native controller snapshots. This proves the native vertical workflow with isolated storage, not a combined live-browser or production deployment test.

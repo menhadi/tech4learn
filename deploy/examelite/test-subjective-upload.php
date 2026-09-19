@@ -12,11 +12,12 @@ namespace App\Models {
 // Minimal storage models: the actual controller and Laravel validation/filesystem run.
 class ExamResult extends \Illuminate\Database\Eloquent\Model {protected $table='exam_results';protected $guarded=[];public $timestamps=false;}
 class ExamStats extends \Illuminate\Database\Eloquent\Model {protected $table='exam_stats';protected $guarded=[];public $timestamps=false;}
-class Exam extends \Illuminate\Database\Eloquent\Model {protected $table='exams';protected $guarded=[];public $timestamps=false;}
+class Exam extends \Illuminate\Database\Eloquent\Model {protected $table='exams';protected $guarded=[];public $timestamps=false;public function isFrontendVisible(){return true;}public function allowsOnlineAttempt(){return true;}}
 }
 namespace {
 require $argv[2];
 require __DIR__.'/Tech4LearnPrivateAnswerUpload.php';
+require __DIR__.'/Tech4LearnAnswerAttachments.php';
 use Illuminate\Database\Capsule\Manager;
 use Illuminate\Http\{Request,UploadedFile};
 use Illuminate\Support\Facades\Facade;
@@ -25,13 +26,13 @@ $app=new Illuminate\Foundation\Application(__DIR__);
 $db=new Manager($app);$db->addConnection(['driver'=>'sqlite','database'=>':memory:']);$db->setAsGlobal();$db->bootEloquent();
 $schema=$db->schema();
 $schema->create('questions',fn($t)=>$t->integer('id')->primary());
-$schema->create('exams',function($t){$t->integer('id')->primary();$t->integer('organization_id');$t->boolean('allow_answer_change')->nullable();$t->integer('duration')->default(60);$t->text('end_date')->nullable();});
+$schema->create('exams',function($t){$t->integer('id')->primary();$t->integer('organization_id');$t->boolean('allow_answer_change')->nullable();$t->integer('duration')->default(60);$t->text('end_date')->nullable();$t->text('status')->default('Active');});
 $schema->create('exam_results',function($t){$t->integer('id')->primary();$t->integer('student_id');$t->integer('organization_id');$t->integer('exam_id');$t->text('end_time')->nullable();$t->text('start_time');$t->integer('total_test_time')->nullable();});
-$schema->create('exam_stats',function($t){$t->integer('id')->primary();$t->integer('exam_result_id');$t->integer('question_id');$t->integer('organization_id');$t->text('uploaded_answer_path')->nullable();$t->text('answer_locked_at')->nullable();});
+$schema->create('exam_stats',function($t){$t->integer('id')->primary();$t->integer('exam_result_id');$t->integer('question_id');$t->integer('organization_id');$t->integer('student_id');$t->integer('exam_id');$t->text('uploaded_answer_path')->nullable();$t->text('answer_locked_at')->nullable();});
 $db->table('questions')->insert(['id'=>10]);
 $db->table('exams')->insert(['id'=>1,'organization_id'=>20,'allow_answer_change'=>true]);
 Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-09-19 12:00:00','UTC'));
-foreach([1,2] as $id){$db->table('exam_results')->insert(['id'=>$id,'student_id'=>$id,'organization_id'=>20,'exam_id'=>1,'start_time'=>'2026-09-19 11:45:00','total_test_time'=>60]);$db->table('exam_stats')->insert(['id'=>$id,'exam_result_id'=>$id,'question_id'=>10,'organization_id'=>20]);}
+foreach([1,2] as $id){$db->table('exam_results')->insert(['id'=>$id,'student_id'=>$id,'organization_id'=>20,'exam_id'=>1,'start_time'=>'2026-09-19 11:45:00','total_test_time'=>60]);$db->table('exam_stats')->insert(['id'=>$id,'exam_result_id'=>$id,'question_id'=>10,'organization_id'=>20,'student_id'=>$id,'exam_id'=>1]);}
 $root=sys_get_temp_dir().'/t4l-answer-upload-'.bin2hex(random_bytes(12));mkdir($root,0700,true);
 $app->useStoragePath($root.'/storage');
 $app->instance('config',new Illuminate\Config\Repository(['filesystems'=>['disks'=>['public'=>['driver'=>'local','root'=>$root.'/stored','throw'=>false]]]]));
@@ -117,7 +118,38 @@ try {
  checkUpload(App\Models\ExamStats::find(2)->uploaded_answer_path===$private['path'],'Private save rollback preserves the prior reference');
  $failSave=false;
  checkUpload(!$send(1,'Foreign private attempt.',false,null,true)['success'],'Private transport retains native ownership denial');
- echo "PASS: native upload scope/state/deadlines, unique files, failure cleanup and private file transport.\n";
+ $schema->create('organizations',function($t){$t->integer('id')->primary();$t->text('status');});
+ $schema->create('students',function($t){$t->integer('id')->primary();$t->integer('organization_id');$t->text('status');});
+ $schema->create('tech4learn_workspaces',function($t){$t->text('id')->primary();$t->integer('source_organization_id');$t->integer('organization_id');$t->text('restrictions');});
+ $schema->create('tech4learn_workspace_users',function($t){$t->text('workspace_id');$t->text('local_id');$t->text('kind');$t->integer('external_id');});
+ $workspace='11111111-1111-1111-1111-111111111111';$learner='22222222-2222-2222-2222-222222222222';
+ $db->table('organizations')->insert(['id'=>20,'status'=>'active']);
+ $db->table('students')->insert(['id'=>2,'organization_id'=>20,'status'=>'Active']);
+ $db->table('tech4learn_workspaces')->insert(['id'=>$workspace,'source_organization_id'=>10,'organization_id'=>20,'restrictions'=>'[]']);
+ $db->table('tech4learn_workspace_users')->insert(['workspace_id'=>$workspace,'local_id'=>$learner,'kind'=>'student','external_id'=>2]);
+ $reader=new App\Services\Tech4LearnAnswerAttachments();$asset=hash('sha256',$private['path']);
+ $read=fn($review=false)=>$reader->read($workspace,10,$learner,2,10,$asset,$review);
+ $expectDenied=function($work){try{$work();throw new RuntimeException('Expected attachment denial');}catch(Symfony\Component\HttpKernel\Exception\HttpException|Illuminate\Database\Eloquent\ModelNotFoundException $error){}};
+ $bytes=$read();checkUpload(base64_decode($bytes['base64'])==='Private synthetic attachment.'&&$bytes['mime']==='text/plain'&&!isset($bytes['path']),'Mapped learner reads current private attachment without a storage path');
+ $expectDenied(fn()=>$reader->read($workspace,11,$learner,2,10,$asset));
+ $expectDenied(fn()=>$reader->read($workspace,10,$learner,1,10,$asset));
+ $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,11,$asset));
+ $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,10,str_repeat('0',64)));
+ $expectDenied(fn()=>$read(true));
+ $db->table('tech4learn_workspaces')->update(['restrictions'=>'["taking"]']);$expectDenied(fn()=>$read());
+ $db->table('tech4learn_workspaces')->update(['restrictions'=>'[]']);
+ $db->table('exam_results')->where('id',2)->update(['end_time'=>'2026-09-19 12:00:00']);
+ $expectDenied(fn()=>$read());checkUpload($read(true)['base64']===$bytes['base64'],'Submitted attachment becomes available to the internal review reader');
+ $db->table('tech4learn_workspaces')->update(['restrictions'=>'["results"]']);$expectDenied(fn()=>$read(true));
+ $db->table('tech4learn_workspaces')->update(['restrictions'=>'[]']);
+ $db->table('organizations')->update(['status'=>'inactive']);$expectDenied(fn()=>$read(true));$db->table('organizations')->update(['status'=>'active']);
+ foreach(['student_answers/legacy.txt','t4l-private-answers/20_1_1_10_'.str_repeat('a',40).'.txt','t4l-private-answers/20_2_2_10_../secret.txt'] as $bad){
+  $db->table('exam_stats')->where('id',2)->update(['uploaded_answer_path'=>$bad]);
+  $expectDenied(fn()=>$reader->read($workspace,10,$learner,2,10,hash('sha256',$bad),true));
+ }
+ $db->table('exam_stats')->where('id',2)->update(['uploaded_answer_path'=>$private['path']]);
+ unlink($privateRoot.'/'.$private['path']);$expectDenied(fn()=>$read(true));
+ echo "PASS: native upload transport and scoped current-attachment reads, restrictions, state, path and ownership denials.\n";
 } finally {
  $resolved=realpath($root);$temp=realpath(sys_get_temp_dir());
  if(!$resolved||!$temp||!str_starts_with($resolved,$temp.DIRECTORY_SEPARATOR.'t4l-answer-upload-'))throw new RuntimeException('Unsafe fixture cleanup path');
