@@ -21,7 +21,7 @@ checked commits when the release is ready.
 | Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved question and exam translations support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
-| Documents | Native PDF request/status/approved download adapters and screens. Actual rendering/worker completion is not yet verified. |
+| Documents | Native PDF request/status/approved download adapters and screens. The standalone renderer produces a checked PDF from synthetic pages; native template and worker completion remain unverified. |
 
 Latest validation: all 90 tests passed across the full suite and a targeted
 rerun after correcting an outdated mocked media envelope. `npm run check`
@@ -99,6 +99,15 @@ adapter milestone as a release.
    translation completion in isolated local worker fixtures, including failure,
    approval invalidation and repeat requests. A queued request alone is not a
    completed document or translation.
+   The installed renderer source now also has a real subprocess smoke check
+   against loopback-only synthetic print pages, using the existing ExamElite
+   Playwright dependency. It produced a two-page A4 PDF; text, the embedded raster
+   and rendered page images were inspected locally. Missing diagrams and
+   an explicit math-render error fail without creating a PDF. Only the module
+   import path is resolved differently in the temporary entrypoint; rendering
+   logic is unchanged. This verifies the standalone PDF command, not the native
+   Blade template, real MathJax loading, queued job or production daemon. Those
+   remain the next connected acceptance boundary.
    The native PDF worker has an isolated cached-artifact check covering ready
    activation, repeat execution, approval failure, lock release and preservation
    of the previous artifact. It now uses the native fingerprint service too,
