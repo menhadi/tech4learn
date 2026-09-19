@@ -29,9 +29,10 @@ renderer passed all three cases. PyMuPDF confirmed two A4 pages, question and
 solution text and an embedded raster; both pages were rendered and inspected.
 Generated artifacts remain in ignored local storage and are not committed.
 
-This is not a complete PDF release gate. Native Blade pages, real MathJax
-loading, signed print requests, queued worker-to-renderer execution, template
-revision changes and production worker setup still need connected acceptance.
+This is not a complete PDF release gate. The additional checks below cover
+the worker/render boundary and actual native print HTML with MathJax.
+Signed print requests, shared locks and production worker setup still need
+connected acceptance.
 
 ## Queue-to-renderer journey
 
@@ -57,6 +58,37 @@ temporary-file cleanup and explicit successful recovery are verified. On
 two A4 pages and visually inspected.
 
 This advances the worker/render boundary, but the print page, lifecycle URL
-and directory are synthetic and the lock is tracked in memory. Native Blade
-rendering, signed requests, real shared locks, MathJax loading and daemon
-operation still need separate acceptance.
+and directory are synthetic and the lock is tracked in memory. Signed requests,
+real shared locks and daemon operation still need separate acceptance.
+
+## Actual native print template and MathJax
+
+The current native `ExamPrintController::print` generates HTML directly; this
+path does not use a Blade template. An additional opt-in check invokes that
+unchanged method against isolated SQLite records:
+
+```text
+php deploy/examelite/test-native-print-page.php VENDOR MODELS QUESTION_CONTROLLER EXAM_CONTROLLER CACHE LIFECYCLE IMAGE_RESOLVER NEW_HTML_PATH
+node deploy/examelite/test-native-print-render.mjs RENDERER PLAYWRIGHT_ENTRY GENERATED_HTML NATIVE_PUBLIC NEW_OUTPUT_DIRECTORY
+```
+
+Place compatible native `ExamPrintController`, `ExamGroupingService`,
+`MathContentNormalizer` and `ExamPdfImageEmbedder` source definitions beside
+the question-controller snapshot. The first command reuses the native authoring
+fixture. It checks a question paper, language/grouping integration, a TeX
+polynomial, preservation of option `0`, absence of solutions and denial of the
+paper to the other synthetic organisation. It bypasses constructor injection
+only: the unused download helper is not needed by the print method. Native
+tenant context uses the existing isolated fixture double.
+
+The second command runs the native renderer against that generated HTML and
+serves only local native MathJax/font assets. A restrictive content security
+policy blocks remote assets. It requires actual MathJax loader and output
+processor requests and rejects missing assets. Fresh output paths prevent
+stale artifacts from passing. No production database or application environment
+is loaded; the native public directory is read-only.
+
+On 19 September 2026 these checks passed. The one-page PDF was reopened,
+its question/options/formula text checked, and the page visually inspected.
+This covers an English MCQ with a TeX formula, not every language, question
+type, solution signature, image source or template variation.

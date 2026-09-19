@@ -21,7 +21,7 @@ checked commits when the release is ready.
 | Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved question and exam translations support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
-| Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages; native template and production daemon acceptance remain unverified. |
+| Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. A separate actual native print-template check renders an English MCQ with real MathJax assets; signed requests, shared locks and production daemon acceptance remain unverified. |
 
 Latest validation: all 90 tests passed across the full suite and a targeted
 rerun after correcting an outdated mocked media envelope. `npm run check`
@@ -105,9 +105,8 @@ adapter milestone as a release.
    and rendered page images were inspected locally. Missing diagrams and
    an explicit math-render error fail without creating a PDF. Only the module
    import path is resolved differently in the temporary entrypoint; rendering
-   logic is unchanged. This verifies the standalone PDF command, not the native
-   Blade template, real MathJax loading, queued job or production daemon. Those
-   remain the next connected acceptance boundary.
+   logic is unchanged. This verifies the standalone PDF command; subsequent
+   checks below extend coverage to the queued job and native print template.
    A further real-render journey now reserves and processes the native job through
    Laravel's database queue and Worker, invokes its actual renderer subprocess,
    and verifies publication of the generated PDF with size and fingerprint.
@@ -116,8 +115,12 @@ adapter milestone as a release.
    an explicit request then renders and publishes the changed source version.
    The resulting two A4 pages were reopened and visually inspected. The print
    HTML and lifecycle URL/directory are synthetic, with isolated SQLite and a
-   tracked lock fixture. Native Blade/signed-route behavior, real lock contention
-   and daemon operation remain separate acceptance work.
+   tracked lock fixture. A separate native print-controller fixture now generates
+   the actual inline HTML for an English MCQ, including native normalisation,
+   grouping, option zero and foreign-organisation denial. The native renderer
+   consumes that HTML with actual local MathJax assets; formula and layout were
+   visually checked in the resulting PDF. Signed-route behavior, broader print
+   variants, real lock contention and daemon operation remain acceptance work.
    The native PDF worker has an isolated cached-artifact check covering ready
    activation, repeat execution, approval failure, lock release and preservation
    of the previous artifact. It now uses the native fingerprint service too,
