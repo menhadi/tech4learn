@@ -8,6 +8,16 @@ use Illuminate\Support\Facades\Storage;
 final class Tech4LearnQuestionImageUpload
 {
  public const MAX_BYTES=524288;
+ public function applyPassage(\App\Models\Passage $passage,array $input,?string &$stored):array {
+  $language=$input['language_id']??null;
+  abort_unless(is_int($language)&&$language>0&&$passage->exists,422);
+  abort_unless(\App\Models\Language::enabledForOrganization($passage->organization_id)->whereKey($language)->exists(),422,'Choose an enabled passage language.');
+  $rows=$passage->langs()->where('language_id',$language)->lockForUpdate()->get();
+  abort_unless($rows->count()===1,409,'Save one passage language version before adding images.');
+  $patch=$this->applyField((int)$passage->organization_id,['passage'=>$rows->first()->passage],array_merge($input,['field'=>'passage']),$stored,['passage']);
+  abort_unless(strlen($patch['passage'])<=200000,422,'Passage wording is too large.');
+  return ['passages'=>[$language=>$patch['passage']]];
+ }
  public function apply(Question $question,array $input,?string &$stored):array {
   return $this->applyField((int)$question->organization_id,$question->getAttributes(),$input,$stored);
  }

@@ -333,3 +333,9 @@ including revision-bound URLs, preservation of original image references in
 saves and identical lost-response retry. Unsupported SVG versions remain
 read-only. These checks use synthetic transport; upload controls and connected
 native/browser acceptance remain pending.
+
+`deploy/examelite/test-passage-image-upload.php` includes all native passage
+checks and exercises both private upload routes with a synthetic storage disk:
+upload, replacement, removal, identical retries, preserved other languages,
+revocation before receipt replay and cleanup after native/size failures. No real
+files or service credentials are used. UI upload wiring remains pending.

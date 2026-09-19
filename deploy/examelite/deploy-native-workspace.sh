@@ -25,7 +25,7 @@ python3 -B "$source/test-translation-install.py" /home/examelite/public_html/app
 node "$source/test-pdf-renderer.mjs" /home/examelite/public_html/scripts/render-exam-pdf.mjs
 php "$source/test-pdf-worker.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-central-languages.php" /home/examelite/public_html/vendor/autoload.php
-php "$source/test-staff-passage-media.php" /home/examelite/public_html/vendor/autoload.php
+php "$source/test-passage-image-upload.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-native-plan-update.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-translated-model-answer.php" /home/examelite/public_html/vendor/autoload.php
 php "$source/test-translation-generation.php" /home/examelite/public_html/vendor/autoload.php

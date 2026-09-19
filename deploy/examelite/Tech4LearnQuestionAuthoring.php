@@ -118,6 +118,9 @@ final class Tech4LearnQuestionAuthoring
         abort_unless(in_array($kind,['groups','subjects','topics','subtopics','sections','categories','subcategories','packages','exams','languages','passages'],true),422);
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,$kind);
     }
+    public function saveCentralPassageImage(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
+        return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'passages','set-image');
+    }
     public function saveCentralPackageImage(int $central,string $actor,int $id,array $fields,string $revision,string $requestId):array {
         return $this->saveCentralRecord($central,$actor,$id,$fields,$revision,$requestId,'packages','set-image');
     }
@@ -136,11 +139,11 @@ final class Tech4LearnQuestionAuthoring
         $recordDelete=$action==='delete-category'&&in_array($kind,['categories','subcategories'],true)&&$id>0;
         $recordDelete=$recordDelete||($action==='delete-language'&&$kind==='languages'&&$id>0);
         abort_unless($central>0&&$id>=0&&($recordDelete||count($fields)>0),422);
-        abort_unless($recordDelete||$action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation','set-translation-image','generate-document'],true)))),422);
+        abort_unless($recordDelete||$action===null||($id>0&&(($action==='set-image'&&in_array($kind,['questions','packages','passages'],true))||($kind==='exams'&&in_array($action,['add-questions','remove-questions','create-section','update-section','remove-section','assign-section','subject-timers','set-status','set-result-status','approve-translation','refresh-translation','save-question-translation','save-exam-translation','set-translation-image','generate-document'],true)))),422);
         $imageAction=$action==='set-image';
         foreach([$actor,$requestId] as $uuid)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$uuid),422);
         abort_unless($revision==='new'||preg_match('/^[a-f0-9]{64}$/D',$revision),422);
-        if(array_diff(array_keys($fields),$recordDelete?[]:($imageAction?($kind==='packages'?['image','asset','remove']:['field','image','asset','remove']):($action!==null?self::EXAM_ACTIONS[$action]:($kind==='languages'?['name','code','value1','value2']:$this->definition($kind)[2]))))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>(($imageAction||$action==='set-translation-image')?750000:250000))
+        if(array_diff(array_keys($fields),$recordDelete?[]:($imageAction?($kind==='packages'?['image','asset','remove']:($kind==='passages'?['language_id','image','asset','remove']:['field','image','asset','remove'])):($action!==null?self::EXAM_ACTIONS[$action]:($kind==='languages'?['name','code','value1','value2']:$this->definition($kind)[2]))))||strlen(json_encode($fields,JSON_THROW_ON_ERROR))>(($imageAction||$action==='set-translation-image')?750000:250000))
             throw ValidationException::withMessages(['fields'=>'Unsupported or oversized question fields.']);
         if($kind==='languages')foreach($fields as $field=>$value){
             abort_unless(($value===null&&in_array($field,['value1','value2'],true))||(is_string($value)&&mb_strlen($value)<=($field==='code'?20:255)&&strip_tags($value)===$value),422,'Use plain language names, codes and labels.');
@@ -170,7 +173,8 @@ final class Tech4LearnQuestionAuthoring
             $question=$id?$this->owned($kind,$central)->lockForUpdate()->findOrFail($id):null;
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Central record changed. Reload before saving.');
             else abort_unless($revision==='new',422);
-            if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
+            if($imageAction&&$kind==='passages')$fields=app(Tech4LearnQuestionImageUpload::class)->applyPassage($question,$fields,$storedImage);
+            elseif($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             elseif($kind==='questions'&&$question)$this->validateRetainedImages($question,$fields);
             elseif($kind==='passages'&&$question)$this->validatePassageImages($question,$fields);
             $values=$question?array_replace($this->record($kind,$question)['fields'],$fields):$fields;
@@ -267,11 +271,11 @@ final class Tech4LearnQuestionAuthoring
     public function save(string $workspace,int $tenant,string $actor,int $id,array $fields,string $revision,string $requestId,string $kind='questions',?string $action=null):array {
         [$modelClass,$controllerClass,$allowedFields]=$this->definition($kind);
         abort_unless($id>=0,422);
-        $imageAction=in_array($kind,['questions','packages'],true)&&$action==='set-image'&&$id>0;
+        $imageAction=in_array($kind,['questions','packages','passages'],true)&&$action==='set-image'&&$id>0;
         $languageDisable=$kind==='languages'&&$action==='disable-language'&&$id>0;
         $categoryDelete=in_array($kind,['categories','subcategories'],true)&&$action==='delete-category'&&$id>0;
         if($languageDisable||$categoryDelete)$allowedFields=[];
-        elseif($imageAction)$allowedFields=$kind==='packages'?['image','asset','remove']:['field','image','asset','remove'];
+        elseif($imageAction)$allowedFields=$kind==='packages'?['image','asset','remove']:($kind==='passages'?['language_id','image','asset','remove']:['field','image','asset','remove']);
         elseif($action!==null){abort_unless($kind==='exams'&&$id>0&&isset(self::EXAM_ACTIONS[$action]),422);$allowedFields=self::EXAM_ACTIONS[$action];}
 
         if(array_diff(array_keys($fields),$allowedFields))throw ValidationException::withMessages(['fields'=>'Unsupported question fields.']);
@@ -303,7 +307,8 @@ final class Tech4LearnQuestionAuthoring
             $question=$id?$this->owned($kind,$tenant)->lockForUpdate()->findOrFail($id):null;
             if($question)abort_unless(hash_equals($this->record($kind,$question)['revision'],$revision),409,'Question changed. Reload before saving.');
             else abort_unless($revision==='new',422);
-            if($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
+            if($imageAction&&$kind==='passages')$fields=app(Tech4LearnQuestionImageUpload::class)->applyPassage($question,$fields,$storedImage);
+            elseif($imageAction)$fields=app($kind==='packages'?Tech4LearnPackageImageUpload::class:Tech4LearnQuestionImageUpload::class)->apply($question,$fields,$storedImage);
             elseif($kind==='questions'&&$question)$this->validateRetainedImages($question,$fields);
             elseif($kind==='passages'&&$question)$this->validatePassageImages($question,$fields);
             $this->validateExamAction($tenant,$question,$fields,$action);

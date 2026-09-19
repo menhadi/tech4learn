@@ -11,6 +11,7 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
 {
     public function centralImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image');}
     public function centralPackageImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image','packages');}
+    public function centralPassageImageWrite(Request $r,string $id) {return $this->centralWrite($r,$id,'set-image','passages');}
     public function centralExamAction(Request $r,string $id,string $action) {
         abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id)&&isset(\App\Services\Tech4LearnQuestionAuthoring::EXAM_ACTIONS[$action]),422);
         return $this->centralWrite($r,$id,$action,'exams');
@@ -51,6 +52,10 @@ class Tech4LearnContentController extends Tech4LearnPlatformController
         abort_unless(is_array($r->input('fields')),422);
         try {
             $service=app(\App\Services\Tech4LearnQuestionAuthoring::class);
+            if($kind==='passages'&&$action==='set-image'){
+                $result=$service->saveCentralPassageImage($central,$r->input('actor_id'),(int)$id,$r->input('fields'),$r->input('revision'),$r->input('request_id'));
+                return $this->reply($central,['saved'=>true,'kind'=>'passages','record'=>$result]);
+            }
             if($action==='delete-language'){
                 abort_unless($kind==='languages'&&$r->input('fields')===[],422);
                 $result=$service->deleteCentralLanguage($central,$r->input('actor_id'),(int)$id,$r->input('revision'),$r->input('request_id'));

@@ -27,6 +27,7 @@ Route::prefix('tech4learn/v1')->withoutMiddleware('throttle:api')->middleware('t
     Route::get('/authoring/{org}/questions/{id}/media/{asset}', [Tech4LearnAuthoringController::class, 'questionMedia']);
     Route::get('/authoring/{org}/packages/{id}/media/{asset}', [Tech4LearnAuthoringController::class, 'packageMedia']);
     Route::get('/authoring/{org}/passages/{id}/languages/{language}/media/{asset}', [Tech4LearnAuthoringController::class, 'passageMedia']);
+    Route::post('/authoring/{org}/passages/{id}/image', [Tech4LearnAuthoringController::class, 'passageImageWrite']);
 });
 Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::get('/central/choices/{kind}', [Tech4LearnAuthoringController::class, 'centralChoices']);
@@ -40,6 +41,7 @@ Route::prefix('tech4learn/v1')->middleware('throttle:30,1')->group(function () {
     Route::post('/central/questions/{id}/image', [Tech4LearnContentController::class, 'centralImageWrite']);
     Route::get('/central/packages/{id}/media/{asset}', [Tech4LearnContentController::class, 'centralPackageMedia']);
     Route::get('/central/passages/{id}/languages/{language}/media/{asset}', [Tech4LearnAuthoringController::class, 'centralPassageMedia']);
+    Route::post('/central/passages/{id}/image', [Tech4LearnContentController::class, 'centralPassageImageWrite']);
     Route::post('/central/packages/{id}/image', [Tech4LearnContentController::class, 'centralPackageImageWrite']);
     Route::post('/central/exams/{id}/actions/{action}', [Tech4LearnContentController::class, 'centralExamAction']);
     Route::get('/central/exams/{id}/questions', [Tech4LearnAuthoringController::class, 'centralExamQuestions']);

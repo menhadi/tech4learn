@@ -150,6 +150,10 @@ class Tech4LearnAuthoringController extends Tech4LearnPlatformController
         return $this->save($r,$org,$id,$kind,'delete-category');
     }
     public function packageImageWrite(Request $r,string $org,string $id){return $this->save($r,$org,$id,'packages','set-image');}
+    public function passageImageWrite(Request $r,string $org,string $id){
+        abort_unless($r->query()===[]&&!array_diff(array_keys($r->all()),['actor_id','fields','revision','request_id']),422);
+        return $this->save($r,$org,$id,'passages','set-image');
+    }
     public function questionImageWrite(Request $r,string $org,string $id){return $this->save($r,$org,$id,'questions','set-image');}
     public function examQuestions(Request $r,string $org,string $id){
         [$central,$owner]=$this->workspace($r,$org,'exams');abort_unless(preg_match('/^[1-9][0-9]{0,14}$/D',$id),422);

@@ -286,6 +286,15 @@ adapter milestone as a release.
    references, language switching and identical retry after a lost response.
    Native persistence and browser transport are still separate fixtures; passage
    image upload/replacement and connected live acceptance remain unfinished.
+   The native passage upload action now supports bounded raster upload,
+   replacement and reference removal for an existing enabled language version.
+   It uses the native passage controller and document invalidation, retains
+   shared old bytes, and cleans only newly written files after failed or oversized
+   saves. Private organisation/central routes and isolated tests cover both
+   owners, untouched languages, stale or changed retries and revoked access on
+   receipt replay. Deployment includes this combined passage suite. Tech4Learn
+   gateway and editor upload controls remain pending; orphan reconciliation and
+   actual passage PDF regeneration are separate unfinished work.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,
