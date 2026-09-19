@@ -114,3 +114,24 @@ and visually inspected, including the correct option and explanation formula.
 These checks exercise the native signing and controller boundary directly.
 They do not establish deployed route middleware, reverse-proxy host handling,
 TLS, production keys, shared worker locks or a running production daemon.
+
+## Cross-process file locks
+
+```text
+php deploy/examelite/test-pdf-file-locks.php VENDOR MODELS QUESTION_CONTROLLER EXAM_CONTROLLER JOB CACHE LIFECYCLE
+```
+
+This runs the worker/queue regressions, then replaces the lock counter with
+Laravel's real file cache lock store in a fresh temporary directory. Independent
+PHP processes verify that the held build lock is busy, a different build key
+is available, a wrong owner cannot release the lock, and owner release makes
+it available again. The native worker leaves a contended build unchanged and
+releases real locks after missing-build and translation-approval failures.
+All cases passed locally on 19 September 2026. Fixture files are removed only
+after checking their resolved path is inside the expected temporary root.
+
+This verifies local shared-file locking, not a deployed cache driver, distributed
+hosts, a crashed process waiting for lock expiry, or daemon configuration. The
+current native worker acknowledges duplicate queued jobs during contention;
+its existing scheduled build processor remains the production fallback. This
+fixture does not change that native scheduling policy.

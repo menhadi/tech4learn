@@ -21,7 +21,7 @@ checked commits when the release is ready.
 | Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved question and exam translations support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
-| Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. Actual native question/solution templates render an English MCQ with real MathJax; native signature rejection is checked. Deployed middleware, shared locks and production daemon acceptance remain unverified. |
+| Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. Actual native question/solution templates render an English MCQ with real MathJax; native signatures and cross-process local file locks are checked. Deployed middleware/cache and production daemon acceptance remain unverified. |
 
 Latest validation: all 90 tests passed across the full suite and a targeted
 rerun after correcting an outdated mocked media envelope. `npm run check`
@@ -124,9 +124,12 @@ adapter milestone as a release.
    valid requests show the correct option/explanation, and unsigned, expired,
    changed-host/language/signature requests fail. A valid signature for another
    organisation cannot expose the paper. The native solution PDF and its formula
-   were rendered and visually checked. Deployed route/proxy behavior, broader
-   print variants, real lock contention and daemon operation remain acceptance
-   work.
+   were rendered and visually checked. A further fixture uses Laravel's real
+   file lock store with independent PHP processes: contention leaves the build
+   unchanged, wrong owners cannot unlock it, distinct build keys remain
+   available, and native missing-build/approval failures release acquired locks.
+   Deployed route/proxy/cache behavior, broader print variants, crash/expiry
+   recovery and daemon operation remain acceptance work.
    The native PDF worker has an isolated cached-artifact check covering ready
    activation, repeat execution, approval failure, lock release and preservation
    of the previous artifact. It now uses the native fingerprint service too,
