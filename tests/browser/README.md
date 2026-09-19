@@ -357,3 +357,13 @@ Question hint uploads use the same real temporary local disk. It runs the native
 filesystem reader rather than a media response double. The temporary public disk
 is removed on normal PHP shutdown; no production configuration is bootstrapped.
 The browser variant exercises the existing student/marking flow with that diagram.
+
+The non-browser connected pilot also checks private answer file upload,
+replacement, exact retries, superseded-file denial, student download, native
+text extraction without an implicit answer save, resumed attachment metadata,
+explicit answer save, submitted student denial and mapped staff download before
+marking. It uses the native subjective upload controller and existing text
+extractor with an isolated temporary storage root. The browser variant has not
+yet been extended to this upload path. `exam-answer-files.html` is the synthetic
+UI fixture for retry, extraction-draft and answer-lock behaviour; its browser
+execution is pending while browser automation is unavailable.

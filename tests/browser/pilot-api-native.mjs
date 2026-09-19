@@ -405,13 +405,41 @@ try {
     assert.equal(studentImage.status, 200);
     assert.deepEqual(Buffer.from(await studentImage.arrayBuffer()), imageBytes);
 
+    const attachmentPath = root + "/student-exam/attachments";
+    assert.equal(started.questions[0].attachments_enabled, true);
+    assert.equal(started.questions[0].attachment_asset, null);
+    const originalUpload = { request_id: randomUUID(), attempt_id: started.attempt_id,
+      question_id: question.id, revision: started.questions[0].revision,
+      base64: Buffer.from("First synthetic answer draft.").toString("base64") };
+    const firstUpload = await call(attachmentPath, originalUpload, studentCookie);
+    assert.deepEqual(await call(attachmentPath, originalUpload, studentCookie), firstUpload);
+    const replacementText = "Two pairs each have two items, giving four.";
+    const replacement = { ...originalUpload, request_id: randomUUID(), revision: firstUpload.revision,
+      base64: Buffer.from(replacementText).toString("base64") };
+    const attachment = await call(attachmentPath, replacement, studentCookie);
+    assert.notEqual(attachment.asset, firstUpload.asset);
+    assert.deepEqual(await call(attachmentPath, replacement, studentCookie), attachment);
+    const fileUrl = asset => `${attachmentPath}/${started.attempt_id}/${question.id}/${asset}`;
+    assert.equal((await response(fileUrl(firstUpload.asset), undefined, studentCookie)).status, 404);
+    const download = await response(fileUrl(attachment.asset), undefined, studentCookie);
+    assert.equal(download.status, 200);
+    assert.match(download.headers.get("content-disposition"), /^attachment;/);
+    assert.equal(await download.text(), replacementText);
+    const extractBody = { attempt_id: started.attempt_id, question_id: question.id, asset: attachment.asset };
+    const extracted = await call(attachmentPath + "/extract", extractBody, studentCookie);
+    assert.equal(extracted.text, replacementText);
+    const resumedFile = await run("start");
+    assert.equal(resumedFile.questions[0].attachment_asset, attachment.asset);
+    assert.equal(resumedFile.questions[0].revision, attachment.revision);
+    assert.equal(resumedFile.questions[0].answer || "", "", "Extraction must not save the written draft");
+
     const answer = {
       request_id: randomUUID(),
       attempt_id: started.attempt_id,
       question_id: question.id,
-      revision: started.questions[0].revision,
+      revision: attachment.revision,
       fields: {
-        option_selected: "Two pairs each have two items, giving four.",
+        option_selected: extracted.text,
       },
     };
     const saved = await run("answer", answer);
@@ -426,6 +454,13 @@ try {
       root + `/exam-results/${learner}/attempts/${started.attempt_id}`;
     const review = await call(reviewPath);
     assert.match(review.questions[0].answer_html, /Two pairs/);
+    assert.equal(review.questions[0].attachment_asset, attachment.asset);
+    const staffAttachmentPath = root + `/exam-results/${learner}/exams/${exam.id}/attempts/${started.attempt_id}/attachments/${question.id}/${attachment.asset}`;
+    const staffAttachment = await response(staffAttachmentPath);
+    assert.equal(staffAttachment.status, 200);
+    assert.equal(await staffAttachment.text(), replacementText);
+    assert.equal((await response(fileUrl(attachment.asset), undefined, studentCookie)).status, 403);
+    assert.equal((await response(attachmentPath + "/extract", extractBody, studentCookie)).status, 403);
     const mark = {
       marks: { [review.questions[0].stat_id]: 7 },
       revision: review.revision,
@@ -458,7 +493,7 @@ try {
     );
     assert.equal(nativeCalls, beforeRevoked);
     console.log(
-      `PASS: real Tech4Learn HTTP → native ExamElite controllers (${nativeCalls} calls): create, passage image upload/replace/remove/private preview, assign, take with protected diagram, resume, retry, submit, mark, publish, history and revoke.`,
+      `PASS: real Tech4Learn HTTP → native ExamElite controllers (${nativeCalls} calls): create, passage media, private answer upload/replace/retry/download, native extraction draft, resume, save, submit, staff file review, mark, publish, history and revoke.`,
     );
   }
 } finally {

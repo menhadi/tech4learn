@@ -27,8 +27,10 @@ checked commits when the release is ready.
 Latest validation: the student/staff attachment and student extraction gateways passed targeted HTTP
 check and `npm run check` passed: workspace typechecks, all 90 tests together,
 and API/admin production builds. The connected native/browser journeys were checked in earlier
-milestones; this attachment gateway currently has separate HTTP and native
-coverage, not a combined browser upload journey. The existing large-bundle
+milestones. The connected non-browser pilot now also passes private upload,
+replacement/retry, native text extraction, reviewed save, staff file download
+and marking through 47 real gateway/native calls. Browser upload acceptance
+remains pending. The existing large-bundle
 warning remains.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It

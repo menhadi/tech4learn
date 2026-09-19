@@ -300,6 +300,16 @@ blocked by automatic approval policy. Do not treat this UI as browser-accepted
 or the integration as release-ready until that fixture and the connected
 native/browser upload journey pass.
 
+The non-browser connected pilot now passes the complete private file path
+through real Nest HTTP and native PHP controllers: upload, replacement, exact
+retry, rejection of the superseded asset, private download, native text
+extraction, resume with the current asset/revision, explicit written-answer save,
+submission, mapped staff file download, marking and publication. It confirms
+that extraction alone leaves the written answer empty and that submission
+closes student download/extraction access. All 47 engine calls use isolated
+synthetic databases and private temporary files. Browser interaction,
+production HTTP middleware/TLS and document/OCR formats remain separate checks.
+
 The coordinator also repeats mapping, capability and organisation checks before
 the receipt commits. A synthetic database trigger changes Taking access during
 the native save; the receipt is denied and both the saved reference and fresh

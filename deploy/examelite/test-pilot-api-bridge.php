@@ -8,10 +8,21 @@ use Carbon\Carbon;
 DB::table('qtypes')->insert(['id'=>5,'question_type'=>'Subjective','type'=>'S']);
 // Exercise real local-disk image persistence and the protected byte reader.
 require_once dirname($argv[3]).'/PassageController.php';
+require_once rtrim($argv[2],'/\\').'/ExamStats.php';
+$uploadController=dirname($argv[3]).'/SubjectiveUploadController.checked.php';
+require is_file($uploadController)?$uploadController:dirname($argv[3]).'/SubjectiveUploadController.php';
+foreach(['Tech4LearnPrivateAnswerUpload','Tech4LearnAnswerUploadCoordinator','Tech4LearnNativeAnswerExtraction','Tech4LearnAnswerExtraction'] as $service)require_once __DIR__.'/'.$service.'.php';
+require_once __DIR__.'/Tech4LearnAttachmentController.php';
+if(!DB::getSchemaBuilder()->hasColumn('exam_stats','uploaded_answer_path'))DB::statement('ALTER TABLE exam_stats ADD COLUMN uploaded_answer_path TEXT');
+$app->instance(App\Services\Tech4LearnNativeAnswerExtraction::class,new class(dirname($argv[1],2).'/public/extract_file.php') extends App\Services\Tech4LearnNativeAnswerExtraction {
+ public function __construct(private string $source){}protected function script():string{return $this->source;}
+});
 foreach(['index'=>'passages','create'=>'passages/create','edit'=>'passages/{passage}/edit'] as $name=>$path)
  $routes->add((new Illuminate\Routing\Route(['GET'],$path,fn()=>null))->name('passages.'.$name));
 $mediaRoot=sys_get_temp_dir().'/t4l-pilot-media-'.bin2hex(random_bytes(12));
 mkdir($mediaRoot,0700);
+$app->useStoragePath($mediaRoot.'/private-storage');
+$app->instance('log',new Psr\Log\NullLogger());Illuminate\Support\Facades\Log::clearResolvedInstance('log');
 $app['config']->set('filesystems.disks.public',['driver'=>'local','root'=>$mediaRoot,'throw'=>true]);
 $app->instance('filesystem',new Illuminate\Filesystem\FilesystemManager($app));
 Illuminate\Support\Facades\Storage::clearResolvedInstance('filesystem');
@@ -36,13 +47,16 @@ $app->instance(App\Http\Controllers\Tech4LearnStudentController::class,new class
 $app->instance(App\Http\Controllers\Tech4LearnResultController::class,new class($bridgeConfig) extends App\Http\Controllers\Tech4LearnResultController {
     public function __construct(private string $file){} protected function configPath():string{return $this->file;}
 });
+$app->instance(App\Http\Controllers\Tech4LearnAttachmentController::class,new class($bridgeConfig) extends App\Http\Controllers\Tech4LearnAttachmentController {
+    public function __construct(private string $file){} protected function configPath():string{return $this->file;}
+});
 $emit=function(array $data){echo 'PILOT_JSON '.json_encode($data,JSON_THROW_ON_ERROR)."\n";flush();};
 $emit(['ready'=>true,'org'=>$workspace,'actor'=>$actor,'group'=>$group->id,'language'=>$language->id]);
 while(($line=fgets(STDIN))!==false){
     try {
         $command=json_decode($line,true,32,JSON_THROW_ON_ERROR);
         $path=$command['path']??'';
-        if(!is_string($path)||!preg_match('#^(student|results|authoring)/'.preg_quote($workspace,'#').'/#',$path))throw new RuntimeException('Unsupported fixture path');
+        if(!is_string($path)||!preg_match('#^(student|results|authoring|attachments)/'.preg_quote($workspace,'#').'/#',$path))throw new RuntimeException('Unsupported fixture path');
         $body=$command['body']??null;
         $request=Illuminate\Http\Request::create('https://central.example.test/api/tech4learn/v1/'.$path,$body===null?'GET':'POST',[],[],[],['HTTP_AUTHORIZATION'=>'Bearer '.$bridgeToken,'CONTENT_TYPE'=>'application/json'],$body===null?null:json_encode($body,JSON_THROW_ON_ERROR));
         // Real registered controller/credential checks; HTTP middleware is outside this CLI transport.
