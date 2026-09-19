@@ -283,6 +283,23 @@ provider configuration, subprocess descendants on production and multilingual
 selection are not yet verified; the adapter currently uses native English
 defaults. The browser extraction/upload workflow remains to be connected.
 
+Student controls are now wired locally for file upload, private download and
+text extraction. Uploads preserve the exact request and bytes after a lost
+acknowledgement. Extraction creates an unsaved written draft for review; the
+ordinary Save answer operation applies native revision and answer-lock rules.
+Unsaved writing prevents conflicting uploads/extraction, and files stay out of
+browser draft storage. Native payloads expose only an ownership-bound opaque
+attachment asset and the native subjective feature flag. Staff marking offers
+the private attachment download alongside the written answer.
+
+Native and scaffold checks cover these changes. The new self-running fixture
+`tests/browser/exam-answer-files.html` covers upload/extraction retries, the
+download URL, explicit draft saving and locks, but its browser run is pending:
+the in-app browser did not attach and the separate Chrome test launch was
+blocked by automatic approval policy. Do not treat this UI as browser-accepted
+or the integration as release-ready until that fixture and the connected
+native/browser upload journey pass.
+
 The coordinator also repeats mapping, capability and organisation checks before
 the receipt commits. A synthetic database trigger changes Taking access during
 the native save; the receipt is denied and both the saved reference and fresh

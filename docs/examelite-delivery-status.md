@@ -21,6 +21,7 @@ checked commits when the release is ready.
 | Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved question and exam translations support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
+| Answer files | Private upload/download and native text extraction adapters checked locally. Student controls and staff download links are wired; browser acceptance is pending because browser automation could not attach and the alternative test launch was policy-blocked. |
 | Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. Actual native question/solution templates render an English MCQ with real MathJax; native signatures and cross-process local file locks are checked. Deployed middleware/cache and production daemon acceptance remain unverified. |
 
 Latest validation: the student/staff attachment and student extraction gateways passed targeted HTTP

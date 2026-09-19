@@ -8,12 +8,20 @@ final class Tech4LearnAnswerAttachments
 {
  private const MAX_BYTES=10485760;
 
+ public static function asset(object $record):?string {
+  $reference=$record->uploaded_answer_path??null;
+  if(!is_string($reference))return null;
+  $ids=[];foreach(['organization_id','student_id','exam_result_id','question_id'] as $field){$id=(int)($record->$field??0);if($id<=0)return null;$ids[]=$id;}
+  $prefix='t4l-private-answers/'.implode('_',$ids).'_';
+  return str_starts_with($reference,$prefix)&&preg_match('/^[a-f0-9]{40}\.(jpg|jpeg|png|pdf|doc|docx|txt)$/D',substr($reference,strlen($prefix)))?hash('sha256',$reference):null;
+ }
+
  public function read(string $workspace,int $source,string $learner,int $attempt,int $question,string $asset,int $examId,bool $review=false):array {
   foreach([$workspace,$learner] as $id)abort_unless(preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D',$id),422);
   abort_unless($source>0&&$attempt>0&&$question>0&&$examId>0&&preg_match('/^[a-f0-9]{64}$/D',$asset),422);
   $record=$this->record($workspace,$source,$learner,$attempt,$question,$examId,$review);
   $reference=$record->uploaded_answer_path;
-  abort_unless(is_string($reference)&&hash_equals(hash('sha256',$reference),$asset),404);
+  $current=self::asset($record);abort_unless(is_string($current)&&hash_equals($current,$asset),404);
   $prefix='t4l-private-answers/'.$record->organization_id.'_'.$record->student_id.'_'.$attempt.'_'.$question.'_';
   abort_unless(str_starts_with($reference,$prefix)&&preg_match('/^[a-f0-9]{40}\.(jpg|jpeg|png|pdf|doc|docx|txt)$/D',substr($reference,strlen($prefix))),404);
   $root=storage_path('app/t4l-private-answers');$base=realpath($root);

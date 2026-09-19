@@ -73,6 +73,7 @@ foreach([
 Carbon::setTestNow();
 if(isset($argv[3])){$file=dirname($argv[3]).'/MathContentNormalizer.php';if(is_file($file))require_once $file;}
 require __DIR__.'/Tech4LearnAttemptPayload.php';
+require_once __DIR__.'/Tech4LearnAnswerAttachments.php';
 require_once __DIR__.'/Tech4LearnQuestionMedia.php';
 $display=$q->fresh();$display->question_type='nat';$display->prefilled_answer='8';$display->answer_locked=false;
 $display->explanation='PRIVATE EXPLANATION';$display->nat_config=['value'=>'PRIVATE CORRECT VALUE'];
@@ -83,6 +84,11 @@ $native=['exam'=>$paper,'examResult'=>$attempt,'examStats'=>collect([$q->id=>$st
 $projection=new App\Services\Tech4LearnAttemptPayload();$payload=$projection->fromNativeView($native,20,$student->id);
 check($payload['questions'][0]['answer']==='8'&&$payload['questions'][0]['content']['question']==='Translated student question','Student receives own answer and selected translation');
 check(!str_contains(json_encode($payload),'PRIVATE')&&!str_contains(json_encode($payload),'DO NOT EXPOSE'),'Native models, answer keys, grading configuration and configuration are excluded');
+check($payload['questions'][0]['attachment_asset']===null&&$payload['questions'][0]['attachments_enabled']===false,'Numerical questions never offer file uploads');
+$fileStat=clone $stat;$reference='t4l-private-answers/20_'.$student->id.'_'.$attempt->id.'_'.$q->id.'_'.str_repeat('a',40).'.txt';
+$fileStat->uploaded_answer_path=$reference;
+check(App\Services\Tech4LearnAnswerAttachments::asset($fileStat)===hash('sha256',$reference),'Private answer descriptor binds the stat ownership');
+foreach(['student_answers/legacy.txt','t4l-private-answers/../outside.txt',str_replace('20_','99_',$reference)] as $badReference){$fileStat->uploaded_answer_path=$badReference;check(App\Services\Tech4LearnAnswerAttachments::asset($fileStat)===null,'Legacy, traversal and foreign references are not advertised');}
 rejectAnswer(fn()=>$projection->fromNativeView($native,10,$student->id),'payload tenant mismatch');
 rejectAnswer(fn()=>$projection->fromNativeView($native,20,$student->id+1),'payload student mismatch');
 echo "Native attempt answers: identity scope, deadlines, submitted locks, revisions, retries, native answer locks and response minimisation passed.\n";

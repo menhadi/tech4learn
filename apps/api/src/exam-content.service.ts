@@ -1824,6 +1824,8 @@ export class ExamContentService {
             typeof row.reference_html !== "string" ||
             row.reference_html.length > 100000 ||
             typeof row.review_supported !== "boolean" ||
+            (row.attachment_asset != null && (typeof row.attachment_asset !== "string" ||
+              !/^[a-f0-9]{64}$/.test(row.attachment_asset) || !positive(row.exam_id))) ||
             (row.passage !== null &&
               (!row.passage ||
                 typeof row.passage.name !== "string" ||
@@ -1842,6 +1844,8 @@ export class ExamContentService {
             answer_html: row.answer_html,
             reference_html: row.reference_html,
             review_supported: row.review_supported,
+            attachment_asset: row.attachment_asset ?? null,
+            exam_id: row.attachment_asset ? row.exam_id : null,
             passage:
               row.passage === null
                 ? null

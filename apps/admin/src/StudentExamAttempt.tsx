@@ -16,6 +16,8 @@ type Question = {
   review: boolean;
   answer_locked: boolean;
   revision: string;
+  attachment_asset?: string | null;
+  attachments_enabled?: boolean;
 };
 type Attempt = {
   attempt_id: number;
@@ -109,17 +111,26 @@ export function StudentExamAttempt({ base }: { base: string }) {
       body: {
         ...body,
         ...(action === "start" ? { camera_ready: cameraReady } : {}),
-        request_id: crypto.randomUUID(),
+        ...(action === "extract" ? {} : { request_id: crypto.randomUUID() }),
       },
     };
     try {
       const request = pending.current;
       const result = await api<any>(
-        `${base}/attempt/${request.action}`,
+        request.action === "attachment" ? `${base}/attachments` : request.action === "extract" ? `${base}/attachments/extract` : `${base}/attempt/${request.action}`,
         "POST",
         request.body,
       );
-      if (request.action === "prepare") {
+      if (request.action === "extract") {
+        setAnswer(result.text);
+        setDirty(true);
+        setNotice("Review the extracted text, then save your answer. The text has not been saved yet.");
+      } else if (request.action === "attachment") {
+        const updated = { ...attempt!, questions: attempt!.questions.map(question => question.id === result.question_id
+          ? { ...question, revision: result.revision, attachment_asset: result.asset } : question) };
+        setAttempt(updated);
+        setNotice("File saved. Extract its text or enter your written answer, then save the answer.");
+      } else if (request.action === "prepare") {
         setPrepared(result);
       } else if (request.action === "history") {
         setHistory(result.items);
@@ -221,14 +232,14 @@ export function StudentExamAttempt({ base }: { base: string }) {
   }, [sectionRemaining, busy]);
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
-      if (dirty || pending.current || visibilityQueued) {
+      if (dirty || busy || pending.current || visibilityQueued) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, visibilityQueued]);
+  }, [dirty, busy, visibilityQueued]);
   useEffect(() => {
     if (
       !attempt ||
@@ -303,6 +314,21 @@ export function StudentExamAttempt({ base }: { base: string }) {
     setAnswer(value);
     setDirty(true);
   };
+  async function upload(file: File | undefined) {
+    if (!file || !q || !attempt || frozen || dirty) return;
+    if (!file.size || file.size > 10485760) { setError("Choose a file no larger than 10 MB."); return; }
+    setBusy(true); setError("");
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1]);
+        reader.onerror = () => reject(new Error("The file could not be read."));
+        reader.readAsDataURL(file);
+      });
+      await send("attachment", { attempt_id: attempt.attempt_id, question_id: q.id, revision: q.revision, base64 });
+    } catch (e) { setError(e instanceof Error ? e.message : "The file could not be read."); }
+    finally { setBusy(false); }
+  }
   return (
     <section aria-label="Exam attempt">
       {notice && <p role="status">{notice}</p>}
@@ -599,7 +625,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
                     </label>
                   )}
                   {q.type === "subjective" && (
-                    <label>
+                    <><label>
                       Written answer
                       <textarea
                         maxLength={20000}
@@ -607,6 +633,19 @@ export function StudentExamAttempt({ base }: { base: string }) {
                         onChange={(e) => edit(e.target.value)}
                       />
                     </label>
+                    {q.attachments_enabled && <section aria-label="Answer file">
+                      <label>Attach answer file (up to 10 MB)
+                        <input type="file" accept=".txt,.pdf,.jpg,.jpeg,.png,.doc,.docx" disabled={frozen || dirty}
+                          onChange={e => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ""; void upload(file); }} />
+                      </label>
+                      {dirty && <p>Save your written changes before attaching or extracting a file. For exams that lock answers, attach your file before saving.</p>}
+                      {q.attachment_asset && /^[a-f0-9]{64}$/.test(q.attachment_asset) && <>
+                        <a href={`${apiBase}${base}/attachments/${attempt.attempt_id}/${q.id}/${q.attachment_asset}`} download>Download saved answer file</a>
+                        <button type="button" className="secondary" disabled={frozen || dirty}
+                          onClick={() => void send("extract", { attempt_id: attempt.attempt_id, question_id: q.id, asset: q.attachment_asset })}>Extract text from saved file</button>
+                        <p>Extraction uses English by default. Review the text before saving.</p>
+                      </>}
+                    </section>}</>
                   )}
                   {q.type === "fill_blank" &&
                     Array.from({ length: q.blank_count }, (_, i) => (

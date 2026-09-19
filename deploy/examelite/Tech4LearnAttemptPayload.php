@@ -35,6 +35,8 @@ final class Tech4LearnAttemptPayload
                 'answer'=>$question->prefilled_answer,'answered'=>(bool)$stat->answered,
                 'review'=>(bool)$stat->review,'bookmark'=>(bool)$stat->bookmark,'opened'=>(bool)$stat->opened,
                 'answer_locked'=>(bool)$question->answer_locked,'revision'=>app(Tech4LearnAttemptAnswers::class)->revision($stat),
+                'attachment_asset'=>Tech4LearnAnswerAttachments::asset($stat),
+                'attachments_enabled'=>$type==='subjective'&&\App\Support\SaasAccess::featureEnabled('ai_subjective_analysis'),
             ];
         }
         return [

@@ -1947,6 +1947,8 @@ test("central question sharing requires superadmin; organisation reads respect m
                 private_extra: "omit",
               },
               maximum_marks: 10,
+              attachment_asset: "e".repeat(64),
+              exam_id: 8,
               correct_answer: "omit",
             },
           ],
@@ -1986,6 +1988,8 @@ test("central question sharing requires superadmin; organisation reads respect m
       404,
     );
     assert.equal(markingReview.questions[0].answer_html, "Synthetic answer");
+    assert.equal(markingReview.questions[0].attachment_asset, "e".repeat(64));
+    assert.equal(markingReview.questions[0].exam_id, 8);
     assert.equal(JSON.stringify(markingReview).includes("omit"), false);
     const markingBody = {
       marks: { 3: 5 },

@@ -88,7 +88,7 @@ final class Tech4LearnResultMarking
     $display=$this->content($question,$attempt);
     $media=app(Tech4LearnQuestionMedia::class);$display['question_html']=$media->rewrite($display['question_html']);
     if($display['passage'])$display['passage']['html']=$media->rewrite($display['passage']['html']);
-    return $display+['stat_id'=>(int)$row->id,'question_id'=>(int)$row->question_id,'answer_html'=>$this->html($row->answer),'reference_html'=>$media->rewrite($media->reference((string)$row->correct_answer)),'review_supported'=>$this->formattedSupported($display,$row),'maximum_marks'=>(float)$row->marks];
+    return $display+['stat_id'=>(int)$row->id,'question_id'=>(int)$row->question_id,'answer_html'=>$this->html($row->answer),'reference_html'=>$media->rewrite($media->reference((string)$row->correct_answer)),'review_supported'=>$this->formattedSupported($display,$row),'maximum_marks'=>(float)$row->marks,'attachment_asset'=>Tech4LearnAnswerAttachments::asset($row),'exam_id'=>(int)$attempt->exam_id];
    })->all()];
   });
  }

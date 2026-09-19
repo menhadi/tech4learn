@@ -30,6 +30,8 @@ type Review = {
     review_supported: boolean;
     passage: { name: string; html: string } | null;
     maximum_marks: number;
+    attachment_asset?: string | null;
+    exam_id?: number | null;
   }[];
 };
 
@@ -386,6 +388,9 @@ function Marking({
                         value={q.answer_html || "No written answer"}
                         onReady={(value) => track(`${q.stat_id}:answer`, value)}
                       />
+                      {q.attachment_asset && q.exam_id && <p>
+                        <a href={`${apiBase}${base.replace(/\/attempts\/[0-9]+$/, "")}/exams/${q.exam_id}/attempts/${review.summary.attempt_id}/attachments/${q.question_id}/${q.attachment_asset}`} download>Download student answer file</a>
+                      </p>}
                       {q.reference_html && (
                         <>
                           <p>

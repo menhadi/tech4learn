@@ -6,7 +6,7 @@ require __DIR__.'/Tech4LearnStudentContext.php';
 require __DIR__.'/Tech4LearnPrivateAnswerUpload.php';
 require __DIR__.'/Tech4LearnAnswerUploadCoordinator.php';
 require_once __DIR__.'/Tech4LearnPlatformController.php';
-require __DIR__.'/Tech4LearnAnswerAttachments.php';
+require_once __DIR__.'/Tech4LearnAnswerAttachments.php';
 require __DIR__.'/Tech4LearnAttachmentController.php';
 require __DIR__.'/Tech4LearnResultMarking.php';
 require __DIR__.'/Tech4LearnNativeAnswerExtraction.php';
