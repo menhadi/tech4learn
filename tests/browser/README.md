@@ -339,3 +339,13 @@ checks and exercises both private upload routes with a synthetic storage disk:
 upload, replacement, removal, identical retries, preserved other languages,
 revocation before receipt replay and cleanup after native/size failures. No real
 files or service credentials are used. UI upload wiring remains pending.
+
+### Passage image actions
+
+Open `exam-passage-images.html` through the local Vite fixture server. It uses
+synthetic records and raster bytes, exercises the real taxonomy/editor controls
+with mocked transport, and checks organisation/central upload, replacement,
+removal, exact retry after a lost acknowledgement, language and wording locks,
+and exclusion of uploaded bytes from recovered drafts. Run `exam-passages.html`
+alongside it for retained-diagram and wording/draft regression coverage. Native
+persistence and production transport require their separate acceptance checks.

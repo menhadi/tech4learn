@@ -3,6 +3,7 @@ import { api, apiBase, ApiError } from "./api";
 import { QuestionImageUpload } from "./QuestionImageUpload";
 import { DraftForm } from "./DraftForm";
 import { SmartTable } from "./DirectoryTable";
+import { usePassagePreview } from "./usePassagePreview";
 import { ExamPassageWording } from "./ExamPassageWording";
 import {
   QuestionChoiceField,
@@ -105,6 +106,11 @@ function TaxonomyEditor({
     [imageVersion, setImageVersion] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [passageLanguage, setPassageLanguage] = useState<number | null>(null);
+  const passagePreview = usePassagePreview(
+    kind === "passages" && passageLanguage !== null
+      ? (record?.fields.passages?.[passageLanguage] ?? "")
+      : "",
+  );
   const [pendingDelete, setPendingDelete] = useState<{
     revision: string;
     request_id: string;
@@ -308,7 +314,7 @@ function TaxonomyEditor({
                   required
                   maxLength={kind === "sections" ? 191 : 255}
                   value={values[name] ?? ""}
-                  disabled={busy || passageLocked}
+                  disabled={busy || passageLocked || imagePending}
                   onChange={(e) => set(name, e.target.value)}
                 />
               </label>
@@ -322,7 +328,7 @@ function TaxonomyEditor({
                   label="Passage language"
                   value={passageLanguage}
                   required
-                  disabled={busy || passageLocked}
+                  disabled={busy || passageLocked || imagePending}
                   onChange={(value) => setPassageLanguage(value)}
                 />
                 <p>
@@ -339,7 +345,7 @@ function TaxonomyEditor({
                     language={passageLanguage}
                     original={record.fields.passages?.[passageLanguage] ?? ""}
                     value={values.passages?.[passageLanguage] ?? ""}
-                    disabled={busy || passageLocked}
+                    disabled={busy || passageLocked || imagePending}
                     onChange={(value) =>
                       set("passages", {
                         ...(changes.passages ?? {}),
@@ -731,13 +737,44 @@ function TaxonomyEditor({
           <button
             className="secondary"
             type="button"
-            disabled={busy || passageLocked}
+            disabled={busy || passageLocked || imagePending}
             onClick={() => void load()}
           >
             Reload saved classification
           </button>
         </DraftForm>
       )}
+      {kind === "passages" &&
+        record &&
+        record.id > 0 &&
+        passageLanguage !== null &&
+        typeof record.fields.passages?.[passageLanguage] === "string" && (
+          <QuestionImageUpload
+            key={`${record.revision}-${passageLanguage}-${imageVersion}`}
+            kind="passage"
+            passageLanguage={passageLanguage}
+            central={central}
+            base={`${central ? `/platform/exam-content/${org}/central` : `/organisations/${org}/exam-content`}/passages/${record.id}`}
+            record={{
+              ...record,
+              preview_fields: { passage: passagePreview ?? "" },
+            }}
+            disabled={
+              busy ||
+              Object.keys(changes).length > 0 ||
+              Boolean(request) ||
+              (/<img\b/i.test(record.fields.passages[passageLanguage]) &&
+                passagePreview === undefined)
+            }
+            onPending={setImagePending}
+            onReload={() => void load()}
+            onSaved={(saved) => {
+              setRecord(saved);
+              setImagePending(false);
+              setNotice("Passage image saved.");
+            }}
+          />
+        )}
       {kind === "packages" &&
         record &&
         record.id > 0 &&

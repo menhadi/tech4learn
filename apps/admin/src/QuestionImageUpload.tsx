@@ -8,6 +8,7 @@ export function QuestionImageUpload({
   kind = "question",
   central = false,
   translation,
+  passageLanguage,
   record,
   disabled,
   onPending,
@@ -15,7 +16,8 @@ export function QuestionImageUpload({
   onReload,
 }: {
   base: string;
-  kind?: "question" | "package";
+  kind?: "question" | "package" | "passage";
+  passageLanguage?: number;
   central?: boolean;
   translation?: {
     languageId: number;
@@ -31,7 +33,11 @@ export function QuestionImageUpload({
 }) {
   const recordLabel = translation?.questionId === 0 ? "exam" : kind;
   const [field, setField] = useState(
-      kind === "package" ? "photo" : (translation?.fields[0] ?? "question"),
+      kind === "package"
+        ? "photo"
+        : kind === "passage"
+          ? "passage"
+          : (translation?.fields[0] ?? "question"),
     ),
     [asset, setAsset] = useState(
       kind === "package" ? (record.photo_asset ?? "") : "",
@@ -58,22 +64,24 @@ export function QuestionImageUpload({
   const fields =
     kind === "package"
       ? [["photo", "Package image"]]
-      : translation
-        ? translation.fields.map((key) => [
-            key,
-            key === "si_answer1"
-              ? "Model answer"
-              : key.replace("option", "Option "),
-          ])
-        : [
-            ["question", "Question"],
-            ["hint", "Hint"],
-            ["explanation", "Explanation"],
-            ...(record.type === "S" ? [["si_answer1", "Model answer"]] : []),
-            ...(record.type === "M"
-              ? [1, 2, 3, 4, 5, 6].map((n) => ["option" + n, "Option " + n])
-              : []),
-          ];
+      : kind === "passage"
+        ? [["passage", "Passage"]]
+        : translation
+          ? translation.fields.map((key) => [
+              key,
+              key === "si_answer1"
+                ? "Model answer"
+                : key.replace("option", "Option "),
+            ])
+          : [
+              ["question", "Question"],
+              ["hint", "Hint"],
+              ["explanation", "Explanation"],
+              ...(record.type === "S" ? [["si_answer1", "Model answer"]] : []),
+              ...(record.type === "M"
+                ? [1, 2, 3, 4, 5, 6].map((n) => ["option" + n, "Option " + n])
+                : []),
+            ];
   const assets =
     kind === "package"
       ? record.photo_asset
@@ -90,13 +98,15 @@ export function QuestionImageUpload({
         ];
   return (
     <DraftForm
-      draftKey={`${central ? "central-" : ""}${translation ? `translation-${translation.languageId}-${translation.questionId}-${translation.revision}-` : ""}${kind}-image-${record.id}-${record.revision}`}
+      draftKey={`${central ? "central-" : ""}${translation ? `translation-${translation.languageId}-${translation.questionId}-${translation.revision}-` : ""}${kind}${kind === "passage" ? `-${passageLanguage}` : ""}-image-${record.id}-${record.revision}`}
       title={
         translation
           ? `Translated ${recordLabel} image`
           : kind === "package"
             ? "Package image"
-            : "Question image"
+            : kind === "passage"
+              ? "Passage image"
+              : "Question image"
       }
       draftState={{ field, asset }}
       restoreState={(state) => {
@@ -130,6 +140,8 @@ export function QuestionImageUpload({
             question_id: translation.questionId,
             translation_revision: translation.revision,
           });
+        if (kind === "passage" && !pending)
+          request.fields.language_id = passageLanguage;
         setPending(request);
         onPending(true);
         setBusy(true);
@@ -160,8 +172,9 @@ export function QuestionImageUpload({
       }}
     >
       <p>
-        PNG, JPEG or WebP, up to 512 KB. Save other {recordLabel} changes first. The
-        selected file stays in this tab and is not stored in a recovered draft.
+        PNG, JPEG or WebP, up to 512 KB. Save other {recordLabel} changes first.
+        The selected file stays in this tab and is not stored in a recovered
+        draft.
       </p>
       {error && (
         <p role="alert" className="error">
@@ -191,7 +204,7 @@ export function QuestionImageUpload({
         <label>
           Action
           <select value={asset} onChange={(e) => setAsset(e.target.value)}>
-            {(kind === "question" || !assets.length) && (
+            {(kind !== "package" || !assets.length) && (
               <option value="">
                 {kind === "package" ? "Add package image" : "Append new image"}
               </option>

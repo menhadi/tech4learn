@@ -302,8 +302,17 @@ adapter milestone as a release.
    checks the passage and requested language; audits exclude uploaded bytes.
    Service/handler tests cover owner overrides, malformed input, conflicts,
    unverified native outcomes, identical retry and revoked access. These are
-   isolated gateway checks; editor upload controls and complete connected
-   upload-to-preview acceptance remain pending.
+   isolated gateway checks; complete connected upload-to-preview acceptance
+   remains pending.
+   The shared passage editor now exposes language-scoped upload, replacement
+   and reference removal for both owners. It reuses private preview identities,
+   requires other wording changes to be saved first and locks wording/language
+   changes while an image result is uncertain. Identical retries keep the same
+   bytes and request ID; recovered drafts contain choices only. Synthetic
+   browser checks cover all three actions for both owners, scoped destinations,
+   retry locks and byte exclusion. Existing passage creation, retained diagrams
+   and draft recovery regression checks also pass. Native persistence remains
+   separately tested; orphan reconciliation and real PDF regeneration are open.
    A private native capability reader now inventories the installed engine's
    plan feature keys and evaluates the mapped organisation's entitlements using
    native `SaasAccess`. It reports the five workspace restrictions separately,
