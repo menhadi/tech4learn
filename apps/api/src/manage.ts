@@ -2,6 +2,7 @@ import { attendanceTestingMigration } from "./migration-attendance-testing.js";
 import { examEliteMigration } from "./migration-examelite.js";
 import { examWorkspaceMigration } from "./migration-exam-workspace.js";
 import { examStudentAccessMigration } from "./migration-exam-student-access.js";
+import { omrMigration } from "./migration-omr.js";
 import { photoNamesMigration } from "./migration-photo-names.js";
 import { faceControlMigration } from "./migration-face-control.js";
 import { bulkAttendanceMigration } from "./migration-bulk-attendance.js";
@@ -173,8 +174,10 @@ try {
         ).rows.length
       )
         await sql.query(examStudentAccessMigration);
+      if (!(await sql.query("SELECT version FROM schema_versions WHERE version=16")).rows.length)
+        await sql.query(omrMigration);
     });
-    console.log("Database migrations through version 15 are applied.");
+    console.log("Database migrations through version 16 are applied.");
   } else if (command === "demo-academic") {
     const confirmation = process.argv[4] || "";
     if (!confirmation.startsWith("--confirm-name="))

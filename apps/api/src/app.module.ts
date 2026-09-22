@@ -9,6 +9,8 @@ import { ExamElitePlatformController } from "./examelite-platform.controller.js"
 import { ExamEliteService } from "./examelite.service.js";
 import { ExamWorkspaceService } from "./exam-workspace.service.js";
 import { ExamWorkspaceController } from "./exam-workspace.controller.js";
+import { ExamOmrController } from "./exam-omr.controller.js";
+import { ExamOmrService } from "./exam-omr.service.js";
 import {
   FaceControlService,
   FaceControlClient,
@@ -45,6 +47,7 @@ export class AppModule {
         ExamEliteController,
         ExamElitePlatformController,
         ExamWorkspaceController,
+        ExamOmrController,
         FaceControlController,
         LearnerPhotosController,
         AcademicController,
@@ -61,6 +64,7 @@ export class AppModule {
         ExamContentService,
         ExamEliteService,
         ExamWorkspaceService,
+        ExamOmrService,
         FaceControlService,
         FaceControlClient,
         LearnerPhotosService,
