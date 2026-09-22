@@ -16,7 +16,7 @@ type Sharing = {
   revision: number;
   students: Student[];
 };
-export function ExamElitePlatform() {
+export function CentralExamPlatform() {
   const [status, setStatus] = useState<{
     connected: boolean;
     message?: string;

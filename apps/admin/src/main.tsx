@@ -5,7 +5,7 @@ import { DraftScope } from "./DraftForm";
 import { clearDrafts } from "./form-drafts";
 import { DraftForm } from "./DraftForm";
 import { FaceEngine } from "./FaceEngine";
-import { ExamElitePlatform } from "./ExamElitePlatform";
+import { CentralExamPlatform } from "./CentralExamPlatform";
 import { OrganisationTypeSelect } from "./OrganisationTypeSelect";
 import {
   StrictMode,
@@ -472,7 +472,7 @@ function App() {
           )}
         </header>
         {feedback}
-        {page === 'examelite' && superadmin ? <ExamElitePlatform/> : page === "face-engine" && superadmin ? (
+        {page === 'examelite' && superadmin ? <CentralExamPlatform/> : page === "face-engine" && superadmin ? (
           <FaceEngine />
         ) : page === "password" ? (
           <section className="panel narrow">
