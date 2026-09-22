@@ -1150,6 +1150,13 @@ footer {
 .omr-bubbles li { display: flex; align-items: center; gap: .35rem; min-width: 0; }
 .omr-number { width: 2rem; font-weight: 700; }
 .omr-bubble { display: inline-grid; width: 1.55rem; height: 1.55rem; border: 1px solid #0f172a; border-radius: 50%; place-items: center; font-size: .75rem; }
+.omr-review { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #cbd5e1; }
+.omr-review input[type="file"] { display: block; margin-top: .35rem; }
+.omr-scan-list { display: grid; gap: .5rem; padding: 0; list-style: none; }
+.omr-scan-list li { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.75rem; padding:.75rem; background:#f4f8f6; }
+.omr-answer-review { margin-top:1rem; padding:1rem; background:#f7faf8; border:1px solid #cbdcd5; }
+.omr-answer-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(4rem,1fr)); gap:.5rem; max-height:24rem; overflow:auto; margin:1rem 0; }
+.omr-answer-grid label { display:grid; gap:.25rem; font-size:.8rem; }
 @media print { .omr-sheet { border: 0; margin: 0; max-width: none; } .omr-sheet button { display: none; } .omr-bubbles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .workspace > aside { background:color-mix(in srgb,var(--org-colour,#175d50) 5%,white); padding:24px 14px; gap:20px; }
 .grouped-menu { gap:6px; }
