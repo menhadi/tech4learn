@@ -28,6 +28,12 @@ export class ExamOmrService {
     await this.access.require(user, org, "exams.manage");
     return (await this.db.query<Scan>("SELECT id,learner_id,content_type,answers,status,revision,created_at,updated_at FROM exam_omr_scans WHERE organisation_id=$1 AND exam_id=$2 ORDER BY created_at DESC", [org, Number(examId)])).rows;
   }
+  async content(user: Account, org: string, scan: string) {
+    const row = (await this.db.query<{ learner_id: string; content: Buffer; content_type: string }>("SELECT learner_id,content,content_type FROM exam_omr_scans WHERE id=$1 AND organisation_id=$2", [uuid(scan), org])).rows[0];
+    if (!row) throw new NotFoundException("OMR scan not found.");
+    await this.permitted(user, org, row.learner_id);
+    return row;
+  }
   async upload(user: Account, org: string, examId: string, body: Record<string, unknown>) {
     if (!Number.isSafeInteger(Number(examId)) || Number(examId) < 1 || typeof body.learner_id !== "string") throw new BadRequestException("Choose an exam and student.");
     const learnerId = body.learner_id;

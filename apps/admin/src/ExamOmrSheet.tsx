@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "./api";
+import { api, apiBase } from "./api";
 import type { Exam } from "./ExamBuilder";
 import { ExamLearnerPicker, type ExamLearner } from "./ExamLearnerPicker";
 
@@ -142,7 +142,7 @@ export function ExamOmrSheet({
         <label>Completed scan<input type="file" accept="image/jpeg,image/png,application/pdf" disabled={busy || disabled} onChange={(event) => setScanFile(event.target.files?.[0] ?? null)} /></label>
         <button type="button" disabled={busy || disabled || !learner || !scanFile} onClick={() => void uploadScan()}>{busy ? "Saving…" : "Upload completed sheet"}</button>
         <button type="button" className="secondary" disabled={busy} onClick={() => void loadScans()}>Refresh scans</button>
-        {!!scans.length && <ul className="omr-scan-list">{scans.map((scan) => <li key={scan.id}><span>{scan.status === "reviewed" ? "Reviewed" : "Needs review"} · {new Date(scan.created_at).toLocaleString()}</span><button type="button" className="secondary" disabled={busy} onClick={() => { setReview(scan); setAnswers(scan.answers || {}); }}>Review answers</button></li>)}</ul>}
+        {!!scans.length && <ul className="omr-scan-list">{scans.map((scan) => <li key={scan.id}><span>{scan.status === "reviewed" ? "Reviewed" : "Needs review"} · {new Date(scan.created_at).toLocaleString()}</span><a className="button secondary" href={`${apiBase}${base}/exams/omr-scans/${scan.id}`} target="_blank" rel="noreferrer">Open scan</a><button type="button" className="secondary" disabled={busy} onClick={() => { setReview(scan); setAnswers(scan.answers || {}); }}>Review answers</button></li>)}</ul>}
         {review && <div className="omr-answer-review"><h5>Review completed sheet</h5><p>Enter only the choices marked on the paper. Question numbers use the printed sheet.</p><div className="omr-answer-grid">{Array.from({ length: Math.min(questions?.length ?? 200, 200) }, (_, index) => <label key={index}>{index + 1}<select value={answers[String(index + 1)] || ""} onChange={(event) => setAnswers((old) => ({ ...old, [String(index + 1)]: event.target.value }))}><option value="">—</option>{["A", "B", "C", "D", "E", "F"].slice(0, options).map((choice) => <option key={choice} value={choice}>{choice}</option>)}</select></label>)}</div><button type="button" disabled={busy} onClick={() => void saveReview()}>Save manual answers</button><button type="button" className="secondary" disabled={busy} onClick={() => setReview(null)}>Cancel</button></div>}
       </section>}
     </section>
