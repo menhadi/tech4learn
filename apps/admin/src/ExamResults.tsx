@@ -34,6 +34,13 @@ type Review = {
     exam_id?: number | null;
   }[];
 };
+function printCertificate(student: string, attempt: Attempt) {
+  const escape = (value: string | number) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] || char);
+  const popup = window.open("", "_blank", "noopener,noreferrer");
+  if (!popup) return;
+  popup.document.write(`<!doctype html><title>Exam result certificate</title><style>body{font-family:Arial,sans-serif;background:#f4f7f5;margin:0;padding:40px}.certificate{max-width:800px;margin:auto;padding:64px;background:#fff;border:12px solid #175d50;text-align:center}.mark{color:#175d50;font-size:20px;letter-spacing:3px;text-transform:uppercase}.name{font:700 40px Georgia,serif;margin:30px 0}.exam{font-size:24px;font-weight:700}.score{font-size:20px;margin-top:30px}@media print{body{padding:0;background:#fff}.certificate{border-width:8px}}</style><main class="certificate"><p class="mark">Tech4Learn examination record</p><h1>Certificate of completion</h1><p>This confirms that</p><p class="name">${escape(student)}</p><p>completed the examination</p><p class="exam">${escape(attempt.exam_name)}</p><p class="score">Result: <strong>${escape(attempt.result)}</strong> · ${escape(attempt.obtained_marks)} / ${escape(attempt.total_marks)} marks (${escape(attempt.score_percent)}%)</p><p>Completed: ${escape(new Date(attempt.finished_at).toLocaleString())}</p></main><script>window.print()</script>`);
+  popup.document.close();
+}
 
 export function ExamResults({ org }: { org: string }) {
   const [learner, setLearner] = useState<ExamLearner | null>(null);
@@ -61,6 +68,7 @@ export function ExamResults({ org }: { org: string }) {
             key={`${org}:${learner.id}`}
             org={org}
             learner={learner.id}
+            learnerName={learner.name}
             onBusy={setBusy}
           />
         </>
@@ -78,10 +86,12 @@ export function ExamResults({ org }: { org: string }) {
 function StudentResults({
   org,
   learner,
+  learnerName,
   onBusy,
 }: {
   org: string;
   learner: string;
+  learnerName: string;
   onBusy: (value: boolean) => void;
 }) {
   const base = `/organisations/${org}/exam-results/${learner}/attempts`;
@@ -170,6 +180,9 @@ function StudentResults({
               <td>
                 <button disabled={busy} onClick={() => setAttempt(row)}>
                   Review result
+                </button>
+                <button className="secondary" disabled={busy} onClick={() => printCertificate(learnerName, row)}>
+                  Print certificate
                 </button>
               </td>
             </tr>
