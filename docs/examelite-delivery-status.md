@@ -630,6 +630,20 @@ against these deliverables, and identify any external dependency explicitly.
 
 ## Detailed evidence
 
+## OMR paper handling
+
+The first same-domain OMR workflow is implemented locally. Staff can print a
+blank 4–6 choice answer sheet for a saved organisation exam, select an
+authorised Tech4Learn student, upload a completed JPEG, PNG or PDF sheet (up to
+10 MB), and record the marked A–F choices manually. Files, answer entries and
+audit events are stored with the organisation and student scope; reviewer saves
+use a revision check to prevent overwriting another review.
+
+This is deliberately a manual-review workflow. It does not perform automatic
+bubble detection and it does not yet create or score an ExamElite paper attempt.
+Those two operations need an approved native engine adapter; they must not be
+represented as working merely because a scan and answers were recorded.
+
 - [Central content and authoring](examelite-central-content.md)
 - [Student delivery and marking](examelite-student-attempts.md)
 - [Repeatable connected/browser checks](../tests/browser/README.md)
