@@ -24,6 +24,24 @@ checked commits when the release is ready.
 | Answer files | Private upload/download and native text extraction adapters checked locally. Student controls and staff download links are wired; browser acceptance is pending because browser automation could not attach and the alternative test launch was policy-blocked. |
 | Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. Actual native question/solution templates render an English MCQ with real MathJax; native signatures and cross-process local file locks are checked. Deployed middleware/cache and production daemon acceptance remain unverified. |
 
+## First-release scope and confirmed engine gaps
+
+The first release is limited to the standard Tech4Learn exam lifecycle: central
+module control, organisation-owned question and exam authoring, online delivery,
+staff marking, result publication and approved paper downloads. The engine is a
+private implementation detail; no user-facing Tech4Learn screen may name it or
+send a user to another domain.
+
+A read-only source inventory on 22 September 2026 confirmed that the current
+engine has **no physical OMR capability**. Its `show_answer_sheet` setting is an
+online-answer-sheet display option only. There is no OMR template generator,
+registration-mark scanner, scan upload queue, bubble detector, confidence
+review or paper-attempt-to-result adapter. It also has no certificate rendering
+workflow. Those functions are therefore planned work, not existing features
+that can be enabled by a connector. An OMR addition must use the existing exam
+definition and final-marking rules, retain scans privately with organisation
+scope, and require staff review before marks are published.
+
 Latest validation: the student/staff attachment and student extraction gateways passed targeted HTTP
 check and `npm run check` passed: workspace typechecks, all 90 tests together,
 and API/admin production builds. The connected native/browser journeys were checked in earlier
