@@ -4,6 +4,7 @@ import { SmartTable } from "./DirectoryTable";
 import { ExamBuilder } from "./ExamBuilder";
 import { ExamTaxonomy } from "./ExamTaxonomy";
 import { ExamWorkspace } from "./ExamWorkspace";
+import { ExamAiSettings } from "./ExamAiSettings";
 import { ExamModuleControl, ExamQuestions } from "./ExamContent";
 
 type Organisation = { id: string; name: string; enabled: boolean };
@@ -24,7 +25,7 @@ export function ExamElitePlatform() {
   const [org, setOrg] = useState("");
   return (
     <section className="panel">
-      <h2>ExamElite connection</h2>
+      <h2>Central exam service</h2>
       <p>
         Manage the shared exam catalogue and each organisation’s exam access.
         Student records and attendance stay in Tech4Learn.
@@ -45,13 +46,14 @@ export function ExamElitePlatform() {
           </label>
           {org && (
             <div key={org}>
+              <ExamAiSettings org={org} />
               <ExamModuleControl org={org} />
               <ExamWorkspace org={org} controls />
               <ExamQuestions org={org} central />
               <ExamTaxonomy org={org} central />
               <ExamBuilder org={org} central />
               <details>
-                <summary>Catalogue and pilot student links</summary>
+                <summary>Legacy catalogue and student links</summary>
                 <OrganisationSharing org={org} />
               </details>
             </div>
@@ -73,7 +75,7 @@ function ConnectionStatus({ onStatus }: { onStatus: (s: any) => void }) {
       .then((s) => {
         if (active) {
           onStatus(s);
-          setText(s.connected ? "Connected to ExamElite." : s.message);
+          setText(s.connected ? "Central exam service is connected." : s.message);
         }
       })
       .catch((e) => {
@@ -185,7 +187,7 @@ function OrganisationSharing({ org }: { org: string }) {
             }}
           >
             <label>
-              Find an ExamElite exam
+              Find an exam
               <input
                 value={search}
                 maxLength={150}
@@ -196,7 +198,7 @@ function OrganisationSharing({ org }: { org: string }) {
             <button disabled={busy}>Search catalogue</button>
           </form>
           <SmartTable>
-            <caption>ExamElite catalogue</caption>
+            <caption>Exam catalogue</caption>
             <thead>
               <tr>
                 <th>Exam</th>
@@ -292,7 +294,7 @@ function OrganisationSharing({ org }: { org: string }) {
           <p>
             Connect creates an exam identity automatically or reuses a
             previously reviewed link. It does not send attendance records,
-            photos or login emails. Existing ExamElite students are not
+            photos or login emails. Existing external exam students are not
             imported.
           </p>
           <p>
@@ -355,7 +357,7 @@ function OrganisationSharing({ org }: { org: string }) {
                           setSharing((old) =>
                             old ? { ...old, students: data.students } : old,
                           );
-                          setNotice(`${s.name} is connected to ExamElite.`);
+                          setNotice(`${s.name} is connected to the central exam service.`);
                         })
                       }
                     >

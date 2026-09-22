@@ -420,7 +420,7 @@ export function ExamQuestionEditor({
               />
             ))}
             <p>
-              ExamElite validates that subjects, topics and sections belong to
+              The exam service validates that subjects, topics and sections belong to
               the selected exam groups.
             </p>
           </details>

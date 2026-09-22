@@ -185,7 +185,7 @@ export function ExamTranslationReview({
       setMessage(
         action === "approve-translation"
           ? "Translation approved. Reload the review to see its current status. Automatic PDFs follow the saved exam settings."
-          : "Translation refresh requested. The ExamElite worker must finish before the new wording can be reviewed. Reload to check progress.",
+          : "Translation refresh requested. The translation worker must finish before the new wording can be reviewed. Reload to check progress.",
       );
     } catch (error) {
       if (version !== request.current) return;
@@ -315,7 +315,7 @@ export function ExamTranslationReview({
             !pending && (
               <div>
                 <p>
-                  Refresh uses the ExamElite AI translation service configured
+                  Refresh uses the centrally configured AI translation service
                   for {central ? "the central bank" : "this organisation"}.
                   Automatic approval and PDFs follow its saved automation
                   settings.

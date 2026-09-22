@@ -503,7 +503,7 @@ function TaxonomyEditor({
             {kind === "subcategories" && (
               <p>
                 Subcategories inherit their parent category’s exam groups.
-                Saving follows the configured ExamElite subcategory setting.
+                Saving follows the configured subcategory setting.
               </p>
             )}
             {(kind === "categories" ||
@@ -665,7 +665,7 @@ function TaxonomyEditor({
                 <details>
                   <summary>Paper and solution PDF settings</summary>
                   <p>
-                    These settings apply when ExamElite generates this package's
+                    These settings apply when the exam service generates this package's
                     documents. Downloading them inside Tech4Learn is still being
                     integrated.
                   </p>
@@ -858,7 +858,7 @@ function TaxonomyEditor({
             <p>
               {kind === "languages"
                 ? "Delete this language only if it is unused. English and languages referenced by organisation copies, questions, translations, exams, results or document builds are protected."
-                : `Delete this ${kind === "categories" ? "category" : "subcategory"} only if it is no longer needed. ExamElite prevents deletion while child categories, exams, packages or flashcards use it.`}
+                : `Delete this ${kind === "categories" ? "category" : "subcategory"} only if it is no longer needed. Deletion is prevented while child categories, exams, packages or flashcards use it.`}
             </p>
             <label>
               <input

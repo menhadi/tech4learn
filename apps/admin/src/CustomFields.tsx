@@ -149,7 +149,7 @@ export function CustomFields({
       {["fln", "exams"].includes(module) && (
         <p>
           These are draft field definitions for a planned module. No assessment,
-          attendance or ExamElite record is created here.
+          attendance or exam record is created here.
         </p>
       )}
       <DirectoryTable title="Custom fields" columns={["Field","Key","Type","Required","Status","Actions"]}>{defs.map(f=><tr key={f.id}><th scope="row">{f.label}</th><td>{f.key}</td><td>{f.kind}</td><td>{f.required?"Yes":"No"}</td><td>{f.archived?"Archived":"Active"}</td><td>{can("fields.manage")&&<button type="button" onClick={()=>setEdit(f)}>Edit field</button>}</td></tr>)}</DirectoryTable>

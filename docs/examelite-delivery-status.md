@@ -284,10 +284,24 @@ adapter milestone as a release.
    Isolated route checks cover those boundaries and an inactive owner; the host
    resolver is a fixture, while credential validation and the controller execute.
    Installation and route verification include this adapter, and the user-run
-   deployment checks it before installation. There is no Tech4Learn UI yet.
-   Superadmin gateway authorisation, revisioned edits, credential replacement, native configuration
+   deployment checks it before installation. The superadmin gateway now rechecks
+   current platform authority before and after the native read, bounds the
+   four-provider/nine-task response and strips unknown fields. HTTP checks cover
+   ordinary-admin denial, owner override rejection, malformed provider data and
+   revocation during the read. A read-only screen in the central ExamElite
+   panel shows saved-credential flags, configured models and native priorities
+   using shared tables. It clears previous values on reload and explicitly
+   distinguishes saved credentials from tested connectivity. Browser visual
+   acceptance remains pending. Revisioned edits, credential replacement, native configuration
    persistence and organisation fallback controls remain outstanding. A saved
    credential flag does not establish provider connectivity or validity.
+   The native AI update controller replaces all four keys and also writes
+   Mathpix, image-cleanup, regeneration-prompt and study-card settings. A future
+   partial editor must preserve omitted values on the server before invoking
+   that controller; forwarding just the visible provider fields would erase
+   unrelated configuration. Its native audit helper records model identity,
+   not the configuration attributes. No credential-editing endpoint is enabled
+   by the read screen.
    The native subjective-upload audit found a filename collision: student uploads
    for the same question within one second used the same public storage path.
    The unchanged native controller fails a new isolated regression. A guarded,

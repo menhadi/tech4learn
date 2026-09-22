@@ -150,7 +150,7 @@ export function ExamPlanCreate({
     setValues((previous) => ({ ...previous, [key]: value }));
   return (
     <section
-      aria-label={plan ? "Edit ExamElite plan" : "Create ExamElite plan"}
+      aria-label={plan ? "Edit exam plan" : "Create exam plan"}
     >
       <h4>{plan ? "Edit exam plan" : "Create exam plan"}</h4>
       {plan ? (

@@ -62,6 +62,15 @@ export class ExamWorkspaceController {
     await this.identity.limit(`exam-plan-create:${account.id}`, 30, 60);
     return this.service.createPlan(account, org, body ?? {}, query);
   }
+  @Get("central-ai-settings") async centralAiSettings(
+    @Param("org") org: string,
+    @Query() query: Record<string, unknown>,
+    @Headers("cookie") cookie?: string,
+  ) {
+    const account = await this.identity.account(session(cookie));
+    await this.identity.limit(`exam-central-ai-settings:${account.id}`, 30, 60);
+    return this.service.centralAiSettings(account, org, query);
+  }
   @Get("central-plans") async centralPlans(
     @Param("org") org: string,
     @Query() query: Record<string, unknown>,

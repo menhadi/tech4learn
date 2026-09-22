@@ -42,7 +42,7 @@ export function ExamResults({ org }: { org: string }) {
     <section className="panel">
       <h3>Results and marking</h3>
       <p>
-        Review submitted exams and mark pending written answers. ExamElite
+        Review submitted exams and mark pending written answers. The exam service
         calculates the result using the paper’s settings.
       </p>
       {learner ? (

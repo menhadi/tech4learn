@@ -9,10 +9,10 @@ export function ExamCapabilities({ org }: { org: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
-    <section aria-label="ExamElite plan permissions">
-      <h4>ExamElite plan permissions</h4>
+    <section aria-label="Exam plan permissions">
+      <h4>Exam plan permissions</h4>
       <p>
-        These permissions show what the connected ExamElite plan allows. They do
+        These permissions show what the organisation plan allows. They do
         not mean every feature is available in Tech4Learn. Use the feature
         coverage above to check available tools.
       </p>

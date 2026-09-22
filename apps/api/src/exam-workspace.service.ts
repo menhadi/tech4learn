@@ -335,6 +335,33 @@ export class ExamWorkspaceService {
     }
     return { ...fields };
   }
+  async centralAiSettings(user: Account, org: string, query: Record<string, unknown>) {
+    await this.planAdmin(user, org);
+    if (Object.keys(query).length) throw new BadRequestException("Invalid AI settings request.");
+    const response = await this.remote.request(await this.config(), org, "central/ai-settings");
+    await this.planAdmin(user, org);
+    const invalid = () => new ServiceUnavailableException("Invalid central AI settings response.");
+    const codes = ["google", "openai", "deepseek", "anthropic"];
+    const tasks = ["translation", "academic_review", "source_text_audit", "image_audit", "answer_explanation", "question_generation", "question_regeneration", "content_seo", "subjective_assessment"];
+    const priority = (value: unknown): string[] => {
+      if (!Array.isArray(value) || !value.length || value.length > 4 || value.some(code => !codes.includes(code)) || new Set(value).size !== value.length) throw invalid();
+      return value;
+    };
+    const model = (value: unknown): string | null => {
+      if (value === null) return null;
+      if (typeof value !== "string" || !value.length || Buffer.byteLength(value, "utf8") > 120 || /[\x00-\x1f\x7f]/.test(value)) throw invalid();
+      return value;
+    };
+    if (!response || !Array.isArray(response.providers) || response.providers.length !== 4) throw invalid();
+    const seen = new Set<string>();
+    const providers = response.providers.map((provider: any) => {
+      if (!provider || !codes.includes(provider.code) || seen.has(provider.code) || typeof provider.credential_saved !== "boolean") throw invalid();
+      seen.add(provider.code);
+      return { code: provider.code, credential_saved: provider.credential_saved, configured_model: model(provider.configured_model), configured_vision_model: model(provider.configured_vision_model) };
+    });
+    if (!response.task_priorities || typeof response.task_priorities !== "object" || Array.isArray(response.task_priorities)) throw invalid();
+    return { providers, priority: priority(response.priority), task_priorities: Object.fromEntries(tasks.map(task => [task, priority(response.task_priorities[task])])) };
+  }
   async centralPlans(
     user: Account,
     org: string,

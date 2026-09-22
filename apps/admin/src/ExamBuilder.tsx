@@ -240,7 +240,7 @@ function ExamQuestionsEditor({
             onChange={setSectionDefinition}
           />
           <p>
-            Choose a question section linked to an exam group. ExamElite creates
+            Choose a question section linked to an exam group. The exam service creates
             its matching exam section when needed; edit its duration above.
           </p>
           <button

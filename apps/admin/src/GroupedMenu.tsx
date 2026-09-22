@@ -106,12 +106,12 @@ export const plannedPages: Record<
   { title: string; description: string; items: string[]; academics?: boolean }
 > = {
   "Exam workspace": {
-    title: "Exams · ExamElite",
+    title: "Exams",
     description:
-      "Exam creation will start from a class or section and continue through ExamElite. The integration is not connected in Tech4Learn yet.",
+      "Create exams from a class or section and manage them in this workspace.",
     items: [
       "Select a class or section and its students",
-      "Configure question types and build the exam in ExamElite",
+      "Configure question types and build the exam",
       "Return to the same class context for results",
     ],
     academics: true,
@@ -119,7 +119,7 @@ export const plannedPages: Record<
   "Exam results": {
     title: "Results & performance",
     description:
-      "ExamElite results will appear against the correct student and class after identity mapping and result synchronisation are implemented.",
+      "Exam results appear against the correct student and class after marking and publication.",
     items: [
       "Exam attempts and scores",
       "Student performance history",
@@ -219,7 +219,7 @@ export function organisationMenu(
       label: "Exams & results",
       icon: "▥",
       items: [
-        item("Exam workspace", "ExamElite workspace"),
+        item("Exam workspace", "Exam workspace"),
         item("Exam results", "Results & performance"),
       ],
     },

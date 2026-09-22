@@ -405,7 +405,7 @@ function App() {
         </span>
         <GroupedMenu label="Administration" active={page} groups={[
           {id:"platform-workspaces",label:superadmin?"Platform":"Workspace",icon:"▦",items:[{id:"organisations",label:superadmin?"Organisations":"My organisation"}]},
-          {id:"platform-settings",label:"System & account",icon:"⚙",items:[...(superadmin?[{id:"face-engine",label:"Face engine"},{id:"examelite",label:"ExamElite connection"}]:[]),{id:"password",label:"Account security"}]},
+          {id:"platform-settings",label:"System & account",icon:"⚙",items:[...(superadmin?[{id:"face-engine",label:"Face engine"},{id:"examelite",label:"Central exam service"}]:[]),{id:"password",label:"Account security"}]},
         ]} onSelect={(next)=>{setPage(next as typeof page);setError("");}} />
         <button
           className="mobile-org-menu secondary"
@@ -451,7 +451,7 @@ function App() {
                 : org?.name || "Your workspace"}
             </p>
             <h1>
-              {page === 'examelite' ? 'ExamElite connection' : page === "face-engine"
+              {page === 'examelite' ? 'Central exam service' : page === "face-engine"
                 ? "Face engine"
                 : page === "password"
                   ? "Account security"
@@ -669,7 +669,7 @@ function App() {
                       <p>
                         Photo attendance is available when enabled by your
                         platform administrator. Interactive learning assessments
-                        and ExamElite integration are planned.
+                        and integrated exams are planned.
                       </p>
                     </section>
                   </div>

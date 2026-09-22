@@ -102,7 +102,7 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
     if (
       path.includes("/plans?") ||
       path.endsWith("/plan") ||
-      path === "central/plans" ||
+      path === "central/plans" || path === "central/ai-settings" ||
       path.startsWith("central/plans/")
     ) {
       if (planRevoke)
@@ -486,6 +486,27 @@ test("native exam entry enforces dedicated permission, tenant scope, restriction
       ],
       next: null,
     };
+    const aiCodes = ["google", "openai", "deepseek", "anthropic"];
+    const aiTasks = ["translation", "academic_review", "source_text_audit", "image_audit", "answer_explanation", "question_generation", "question_regeneration", "content_seo", "subjective_assessment"];
+    const aiSettings = { providers: aiCodes.map(code => ({ code, credential_saved: code === "openai", configured_model: null, configured_vision_model: null })),
+      priority: aiCodes, task_priorities: Object.fromEntries(aiTasks.map(task => [task, aiCodes])) };
+    planReply = { ...aiSettings, secret: "omit", providers: aiSettings.providers.map(provider => ({ ...provider, api_key: "omit" })) };
+    before = requests.length;
+    assert.equal((await call("/central-ai-settings", undefined, member)).status, 403);
+    assert.equal((await call("/central-ai-settings?owner=20", undefined, admin)).status, 400);
+    assert.equal(requests.length, before);
+    const aiRead = await call("/central-ai-settings", undefined, admin);
+    assert.equal(aiRead.status, 200); assert.deepEqual(await aiRead.json(), aiSettings);
+    assert.equal(requests.at(-1).path, "central/ai-settings");
+    for (const bad of [{ providers: [aiSettings.providers[0]] }, { priority: ["openai", "openai"] }, { task_priorities: {} },
+      { providers: aiSettings.providers.map(provider => ({ ...provider, credential_saved: "yes" })) }]) {
+      planReply = { ...aiSettings, ...bad };
+      assert.equal((await call("/central-ai-settings", undefined, admin)).status, 503);
+    }
+    planReply = aiSettings; planRevoke = true;
+    assert.equal((await call("/central-ai-settings", undefined, admin)).status, 403);
+    planRevoke = false;
+    await pg.query("UPDATE users SET is_superadmin=true WHERE id=$1", [admin]);
     planReply = { ...centralCatalogue, secret: "omit" };
     const centralCatalogueResponse = await call(
       "/central-plans",

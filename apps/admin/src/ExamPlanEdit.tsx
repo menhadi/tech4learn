@@ -59,7 +59,7 @@ export function ExamPlanEdit({
     }
   }
   return (
-    <section aria-label="Manage ExamElite plans">
+    <section aria-label="Manage exam plans">
       <h4>Existing exam plans</h4>
       <p>
         Superadmin manages shared plan settings here, including inactive plans.

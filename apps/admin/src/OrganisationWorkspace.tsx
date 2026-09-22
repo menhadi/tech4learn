@@ -1,5 +1,4 @@
 import { CentreLocation } from "./CentreLocation";
-import { ExamElite } from "./ExamElite";
 import { ExamWorkspace } from "./ExamWorkspace";
 import { GroupedMenu, plannedPages, organisationMenu } from "./GroupedMenu";
 import { DraftForm } from "./DraftForm";
@@ -277,7 +276,7 @@ export function OrganisationWorkspace({
           <div className="workspace-breadcrumb" aria-label="Breadcrumb"><span>{org.name}</span><span aria-hidden="true">/</span><span>{currentGroup?.label}</span><span aria-hidden="true">/</span><strong>{currentLabel}</strong></div>
           <h3 className="workspace-page-title">{currentLabel}</h3>
           {can("exams.manage") && tab === "Exam workspace" && <ExamWorkspace key={org.id} org={org.id} />}
-          {tab === "Exam results" && <>{can("exams.manage") && <ExamWorkspace key={org.id} org={org.id} resultsOnly />}{can("configuration.view") && <details><summary>Previously linked ExamElite results</summary><ExamElite key={`${org.id}-${tab}`} org={org.id} results /></details>}</>}
+          {tab === "Exam results" && can("exams.manage") && <ExamWorkspace key={org.id} org={org.id} resultsOnly />}
           {upcoming.includes(tab) && plannedPages[tab] && <section className="planned-workspace"><span className="feature-planned">Planned integration</span><h3>{plannedPages[tab].title}</h3><p>{plannedPages[tab].description}</p><h4>What will be available</h4><ul>{plannedPages[tab].items.map(line=><li key={line}>{line}</li>)}</ul>{plannedPages[tab].academics&&<button type="button" onClick={()=>setTab("Groups")}>Open classes & sections</button>}</section>}
           {tab === "AI connections" && <AIProviders org={org.id} />}
           {tab === "Daily overview" && (

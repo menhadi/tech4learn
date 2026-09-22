@@ -182,7 +182,7 @@ export function OrganisationSetup({
               {key === "fln"
                 ? "FLN assessment"
                 : key === "exams"
-                  ? "ExamElite exams"
+                  ? "Exams"
                   : key}
               {["fln", "exams"].includes(key)
                 ? " — planned; preference only"

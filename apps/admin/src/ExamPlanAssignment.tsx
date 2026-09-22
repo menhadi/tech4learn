@@ -77,7 +77,7 @@ export function ExamPlanAssignment({
       setPage(null);
       setSelected("");
       setNotice(
-        "ExamElite plan assigned. Reload choices and plan permissions to see the current access.",
+        "Exam plan assigned. Reload choices and plan permissions to see the current access.",
       );
       onSaved();
     } catch (cause) {
@@ -99,10 +99,10 @@ export function ExamPlanAssignment({
     }
   }
   return (
-    <section aria-label="Assign ExamElite plan">
+    <section aria-label="Assign exam plan">
       <h4>Organisation exam plan</h4>
       <p>
-        Choose an existing ExamElite plan for this organisation. Its permissions
+        Choose an existing exam plan for this organisation. Its permissions
         apply alongside the saved module restrictions. Existing subscription
         dates are preserved.
       </p>
@@ -162,7 +162,7 @@ export function ExamPlanAssignment({
         <fieldset disabled={busy || !!pending || !page}>
           <legend>Plan selection</legend>
           <label>
-            ExamElite plan
+            Exam plan
             <select
               name="plan"
               value={selected}
