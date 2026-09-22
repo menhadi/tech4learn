@@ -16,7 +16,7 @@ import { randomUUID } from "node:crypto";
 type Connection = { token: string; organization_id: number; central?: boolean };
 const unavailable = () =>
   new ServiceUnavailableException(
-    "ExamElite connection unavailable. Check the dedicated credential and organisation mapping.",
+    "Central exam service unavailable. Check the dedicated credential and organisation mapping.",
   );
 
 export function connectionFor(config: unknown, org: string): Connection | null {
@@ -47,7 +47,7 @@ export class ExamEliteService {
   private admin(user: Account) {
     if (!user.is_superadmin)
       throw new ForbiddenException(
-        "Only superadmin can manage ExamElite sharing.",
+        "Only superadmin can manage central exam sharing.",
       );
   }
   private uuid(value: string) {
@@ -62,7 +62,7 @@ export class ExamEliteService {
     const c = await this.configuration("_platform");
     if (!c?.central)
       throw new ServiceUnavailableException(
-        "The central ExamElite connection requires the server setup step.",
+        "The central exam service requires the server setup step.",
       );
     return c;
   }
@@ -370,7 +370,7 @@ export class ExamEliteService {
       return {
         connected: false,
         message:
-          "Dedicated ExamElite access has not been configured for this organisation.",
+          "Dedicated exam access has not been configured for this organisation.",
       };
     if (c.central) {
       const sharing = await this.sharing(org);
@@ -449,7 +449,7 @@ export class ExamEliteService {
         ).rows.length
       )
         throw new NotFoundException(
-          "This student has not been connected to ExamElite.",
+          "This student has not been connected to the exam service.",
         );
       centralPath = `platform/organisations/${org}/${learner ? `learners/${learner}/results` : "exams"}?after=${after}&exams=${sharing.exam_ids.join(",")}`;
     }

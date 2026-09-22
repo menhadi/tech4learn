@@ -1,6 +1,6 @@
 export const permissionCatalogue = [
   ["exams.view", "View exam workspace access"],
-  ["exams.manage", "Manage exams and open the ExamElite workspace"],
+  ["exams.manage", "Manage exams in the exam workspace"],
   ["learners.photos", "View private student photos and consent"],
   ["learners.photo_manage", "Manage student photos and record consent"],
   ["attendance.match", "Suggest attendance from consented face references"],

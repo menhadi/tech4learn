@@ -154,7 +154,7 @@ export class ExamContentService {
           "The record changed or is still in use. Reload and check its references before deleting.",
         );
       throw new BadRequestException(
-        "ExamElite could not delete this record. It may still be in use; reload and check its linked records.",
+        "The exam service could not delete this record. It may still be in use; reload and check its linked records.",
       );
     }
     const result = central ? response.record : response.question;
@@ -1478,7 +1478,7 @@ export class ExamContentService {
       );
     if (response.saved === false)
       throw new BadRequestException(
-        "ExamElite could not save the passage image. Check its language and image.",
+        "The exam service could not save the passage image. Check its language and image.",
       );
     const record = central ? response.record : response.question;
     if (
@@ -2419,7 +2419,7 @@ export class ExamContentService {
         .slice(0, 12)
         .map((v) => v.slice(0, 300));
       throw new BadRequestException(
-        messages.join(" ") || "ExamElite could not save this question.",
+        messages.join(" ") || "The exam service could not save this question.",
       );
     }
     if (
@@ -2501,7 +2501,7 @@ export class ExamContentService {
     const c = await this.remote.configuration("_platform");
     if (!c?.central)
       throw new BadRequestException(
-        "Configure the central ExamElite connection first.",
+        "Configure the central exam service first.",
       );
     return c;
   }

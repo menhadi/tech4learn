@@ -50,7 +50,7 @@ export class ExamWorkspaceService {
     const c = await this.remote.configuration("_platform");
     if (!c?.central)
       throw new ServiceUnavailableException(
-        "Central ExamElite setup is required.",
+        "Central exam service setup is required.",
       );
     return c;
   }
