@@ -34,13 +34,16 @@ send a user to another domain.
 
 A read-only source inventory on 22 September 2026 confirmed that the current
 engine has **no physical OMR capability**. Its `show_answer_sheet` setting is an
-online-answer-sheet display option only. There is no OMR template generator,
-registration-mark scanner, scan upload queue, bubble detector, confidence
-review or paper-attempt-to-result adapter. It also has no certificate rendering
-workflow. Those functions are therefore planned work, not existing features
-that can be enabled by a connector. An OMR addition must use the existing exam
-definition and final-marking rules, retain scans privately with organisation
-scope, and require staff review before marks are published.
+online-answer-sheet display option only. Tech4Learn now provides a bounded,
+printable blank answer-sheet preview for saved OMR-enabled exams of up to 200
+questions. It is a paper template only: it does not scan, upload, interpret or
+score a completed sheet. There is no registration-mark scanner, scan upload
+queue, bubble detector, confidence review or paper-attempt-to-result adapter.
+It also has no certificate rendering workflow. Those functions are therefore
+planned work, not existing features that can be enabled by a connector. An OMR
+addition must use the existing exam definition and final-marking rules, retain
+scans privately with organisation scope, and require staff review before marks
+are published.
 
 Latest validation: the student/staff attachment and student extraction gateways passed targeted HTTP
 check and `npm run check` passed: workspace typechecks, all 90 tests together,

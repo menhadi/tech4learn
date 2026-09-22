@@ -9,6 +9,7 @@ import {
 import { FormattedField } from "./ExamQuestionEditor";
 import { ExamPaperControls } from "./ExamPaperControls";
 import { ExamDocuments } from "./ExamDocuments";
+import { ExamOmrSheet } from "./ExamOmrSheet";
 import { ExamTranslationReview } from "./ExamTranslationReview";
 export type Exam = {
   id: number;
@@ -675,6 +676,15 @@ function ExamEditor({
               org={org}
               record={record}
               onSaved={setRecord}
+              disabled={busy || Object.keys(changes).length > 0}
+            />
+          )}
+          {record.id > 0 && Boolean(record.fields.omr_enabled) && (
+            <ExamOmrSheet
+              central={central}
+              key={`omr-${org}-${record.id}-${record.revision}`}
+              org={org}
+              record={record}
               disabled={busy || Object.keys(changes).length > 0}
             />
           )}
