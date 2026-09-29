@@ -35,9 +35,10 @@ export async function createApp(
     { logger: ["error", "warn", "log"] },
   );
   app.setGlobalPrefix("api/v1");
-  // Only the bounded answer-upload endpoint accepts a 10 MB file as base64.
+  // Only bounded private file-upload endpoints accept 10 MB as base64.
   app.use(json({ limit: 14000000, type: req => req.method === "POST" &&
-    /^\/api\/v1\/organisations\/[a-f0-9-]{36}\/student-exam\/attachments\/?(?:\?.*)?$/.test(req.url ?? "") &&
+    (/^\/api\/v1\/organisations\/[a-f0-9-]{36}\/student-exam\/attachments\/?(?:\?.*)?$/.test(req.url ?? "") ||
+     /^\/api\/v1\/organisations\/[a-f0-9-]{36}\/exam-content\/exams\/[1-9][0-9]{0,14}\/omr-scans\/?(?:\?.*)?$/.test(req.url ?? "")) &&
     /^application\/json(?:;|$)/i.test(String(req.headers["content-type"] ?? "")) }));
   app.useBodyParser("json", { limit: "1mb" });
   app.enableCors({

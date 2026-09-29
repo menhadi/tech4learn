@@ -1,6 +1,6 @@
 # ExamElite integration: current delivery status
 
-Updated 19 September 2026. This is the current summary; the central-content and
+Updated 29 September 2026. This is the current summary; the central-content and
 student-attempt documents also contain historical milestone notes. A historical
 “pending” statement does not override a later implemented milestone.
 
@@ -36,10 +36,11 @@ A read-only source inventory on 22 September 2026 confirmed that the current
 engine has **no physical OMR capability**. Its `show_answer_sheet` setting is an
 online-answer-sheet display option only. Tech4Learn now provides a bounded,
 printable blank answer-sheet preview for saved OMR-enabled exams of up to 200
-questions. It is a paper template only: it does not scan, upload, interpret or
-score a completed sheet. There is no registration-mark scanner, scan upload
-queue, bubble detector, confidence review or paper-attempt-to-result adapter.
-It also has no certificate rendering workflow. Those functions are therefore
+questions, private scan upload and manual answer review. It does not
+automatically interpret or score a completed sheet. There is no registration-mark
+scanner, bubble detector, confidence review or paper-attempt-to-result adapter.
+Tech4Learn also has a printable result certificate; the native engine has no
+certificate rendering workflow. Automatic scanning and scored paper results are
 planned work, not existing features that can be enabled by a connector. An OMR
 addition must use the existing exam definition and final-marking rules, retain
 scans privately with organisation scope, and require staff review before marks
