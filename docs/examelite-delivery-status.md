@@ -1,6 +1,6 @@
 # ExamElite integration: current delivery status
 
-Updated 6 October 2026. This is the current summary; the central-content and
+Updated 7 October 2026. This is the current summary; the central-content and
 student-attempt documents also contain historical milestone notes. A historical
 “pending” statement does not override a later implemented milestone.
 
@@ -20,13 +20,23 @@ and saved native source, not live HTTP middleware or production records.
 `npm run check` also passed: all workspace typechecks, 94 tests, and API/admin
 production builds. The existing admin bundle-size warning remains.
 
-Answer-file browser acceptance remains the next verification task. Both the
-in-app browser attachment and Chrome automation timed out during this review;
-neither attempt establishes a passing UI check. Continue with
-`tests/browser/exam-answer-files.html`, then extend the connected browser
-journey to file answers. Full release acceptance, media reconciliation,
+At the 6 October review, browser automation timed out. That blocker was resolved
+on 7 October: `tests/browser/exam-answer-files.html` now passes with synthetic
+transport, including Hindi selection, identical upload/extraction retries,
+private download URL, explicit reviewed save and native answer-lock display.
+A stale unsaved-extraction notice after saving was fixed and regression checked.
+The connected browser/native file-answer journey remains the next verification
+task. Full release acceptance, media reconciliation,
 representative paper/device coverage and the deployment handoff below remain
 open. No live edits or migrations were performed.
+
+The [15-item admin/exam batch](development-batch-20261007.md) adds searchable,
+accessible navigation, mobile portal keyboard handling, allowed exam-tool
+defaults and retries, and academic section filtering for student exam links.
+Its synthetic browser regression and real application shell checks passed at
+desktop and 390px mobile sizes. `npm run check` passed 94 tests and builds;
+the final admin build also passed after the keyboard fix. None of these checks
+establish production deployment or browser-to-native file upload acceptance.
 
 ## Implemented and checked locally
 
@@ -40,7 +50,7 @@ open. No live edits or migrations were performed.
 | Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved question and exam translations support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
-| Answer files | Private upload/download and native text extraction adapters checked locally. Student controls and staff download links are wired; browser acceptance is pending because browser automation could not attach and the alternative test launch was policy-blocked. |
+| Answer files | Private upload/download and native text extraction adapters checked locally. The synthetic student browser fixture now passes upload/extraction retries, language choice, explicit save and locks. Connected browser/native file-answer acceptance and real document/OCR formats remain pending. |
 | Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. Actual native question/solution templates render an English MCQ with real MathJax; native signatures and cross-process local file locks are checked. Deployed middleware/cache and production daemon acceptance remain unverified. |
 
 ## First-release scope and confirmed engine gaps
@@ -66,13 +76,13 @@ scans privately with organisation scope, and require staff review before marks
 are published.
 
 Latest validation: the student/staff attachment and student extraction gateways passed targeted HTTP
-check and `npm run check` passed: workspace typechecks, all 90 tests together,
+check and `npm run check` passed: workspace typechecks, all 94 tests together,
 and API/admin production builds. The connected native/browser journeys were checked in earlier
 milestones. The connected non-browser pilot now also passes private upload,
 replacement/retry, native text extraction, reviewed save, staff file download
 and marking through 48 real gateway/native calls, including scoped language
-selection. Browser upload acceptance
-remains pending. The existing large-bundle
+selection. Synthetic browser upload checks passed on 7 October; the connected
+browser/native upload journey remains pending. The existing large-bundle
 warning remains.
 Extraction failures now distinguish unreadable text, oversized extracted answers
 and timeouts, with a manual-answer fallback. Native error messages and traces
@@ -89,8 +99,8 @@ paper, saved-file identity and native feature permissions are checked before
 and after the catalogue read. The gateway returns only bounded codes/names.
 The student can choose a configured language, with English as the default;
 retry retains that choice and extracted text remains an unsaved draft.
-The browser fixture covers selection and retry but has not run because of the
-existing browser verification blocker. Actual multilingual OCR output and
+The browser fixture now passes language selection and retry with synthetic
+transport. Actual multilingual OCR output and
 provider availability remain unverified.
 Native adapter suites and synthetic React checks provide additional coverage.
 The connected pilot exercises Nest HTTP and isolated native controllers. It

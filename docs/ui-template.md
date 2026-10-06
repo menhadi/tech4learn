@@ -24,6 +24,13 @@ Keep editable table rows mounted when paged/filtered so view changes do not dest
 
 Use `GroupedMenu` for platform and organisation navigation. It follows ExamElite's vertical grouped menu pattern with line icons, collapsible submenus, an active-page indicator and matching breadcrumbs. Hide empty groups and filter working entries by existing permissions/module availability. Keep desktop navigation independently scrollable, with branding and account actions visible. On mobile, expanding a group keeps the organisation menu open; selecting a page closes it. Menu instances use separate submenu IDs, and the current group opens immediately.
 
+Organisation navigation includes an in-memory page search over already permitted
+groups/items. Search opens matching submenus; Clear or page selection removes
+the search, and changing organisations resets it. The shell offers Skip to
+workspace, current-page breadcrumbs and heading focus after menu selection.
+Escape closes the mobile organisation menu and returns focus to its toggle;
+handle the event at the shared shell because portal events follow the React tree.
+
 Groups cover Dashboard, Academics & students, Attendance, Exams & results, FLN & learning, Staff & permissions, Email & messaging, Settings and Audit & history. Email settings/templates, messaging settings/delivery history and FLN currently open explicit planned-integration descriptions. Exam screens now include internal question/classification authoring, exam building, staff student-link controls and result marking, with their module and permission checks. Student links open the same-domain, separately authenticated exam interface. See [exam implementation status](examelite-central-content.md) for local verification and remaining feature gaps; these screens do not establish complete ExamElite parity or a verified live deployment. The existing AI connection screen and superadmin face-engine controls remain working screens with their original access checks.
 
 ## Neutral visual styling
@@ -35,9 +42,12 @@ Use a neutral page background, white top bar/cards, 6px card corners, compact fo
 The 6–7 October 2026 navigation update passed `npm run check` (94 tests,
 workspace typechecks and production builds). A server-rendered menu check also
 verified current-group visibility, distinct submenu/control IDs, filtered
-entries and planned labels. Desktop/mobile visual and interaction acceptance
-remains pending because browser automation could not load its request-header
-policy; these checks do not substitute for that review.
+entries and planned labels. The subsequent 7 October browser checks passed the
+real shell with synthetic transport: desktop appearance, 390px mobile width
+without horizontal overflow, submenu expansion, Escape/focus recovery,
+page-heading focus, skip navigation and organisation/search reset. See
+[batch evidence](development-batch-20261007.md). Representative physical devices
+and production data/transport remain separate.
 
 ## Guided student photo boxes
 

@@ -28,7 +28,9 @@ pilot passed 48 calls and the repository check passed 94 tests and production
 builds. The deployed legacy reader is only one earlier milestone; local delivery
 checks do not prove a complete production release.
 
-Resume with answer-file browser acceptance and the connected browser upload
+The synthetic answer-file browser check passed on 7 October, including language
+choice, retries, explicit save and locking. The [15-item admin/exam batch](development-batch-20261007.md)
+also passed local checks. Resume with the connected browser/native file-upload
 journey, then representative paper/device and class/section workflows, media
 reconciliation, background-worker acceptance and the checked deployment handoff.
 Automatic OMR interpretation and scored paper-attempt integration are unfinished.

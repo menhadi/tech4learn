@@ -61,6 +61,7 @@ async function run() {
   button("Save answer").click();
   await until(() => root.textContent!.includes("This answer is locked"));
   if (answers.length !== 1 || !root.querySelector("fieldset")!.disabled) throw Error("Native answer lock was not preserved");
+  if (!root.textContent!.includes("Answer saved.") || root.textContent!.includes("The text has not been saved yet.")) throw Error("Saved extraction still shows an unsaved notice");
   document.getElementById("status")!.textContent = "PASS: private upload retry, download, extraction draft/retry, reviewed save and answer lock";
 }
 run().catch(error => { document.getElementById("status")!.textContent = "FAIL: " + error.message; });

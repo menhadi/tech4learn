@@ -3,6 +3,7 @@ import { api } from "./api";
 import { DraftForm } from "./DraftForm";
 import { DirectoryTable } from "./DirectoryTable";
 import { ExamLearnerPicker, type ExamLearner } from "./ExamLearnerPicker";
+import type { AcademicGroup } from "./AcademicStructure";
 
 type Grant = {
   id: string;
@@ -11,7 +12,7 @@ type Grant = {
   consumed_at: string | null;
   revoked_at: string | null;
 };
-export function ExamStudentLinks({ org }: { org: string }) {
+export function ExamStudentLinks({ org, groups = [] }: { org: string; groups?: AcademicGroup[] }) {
   const [learner, setLearner] = useState<ExamLearner | null>(null);
   const [busy, setBusy] = useState(false);
   return (
@@ -41,7 +42,7 @@ export function ExamStudentLinks({ org }: { org: string }) {
           />
         </>
       ) : (
-        <ExamLearnerPicker org={org} onSelect={setLearner} />
+        <ExamLearnerPicker org={org} groups={groups} onSelect={setLearner} />
       )}
     </section>
   );
@@ -86,6 +87,8 @@ function StudentLinks({
     let active = true;
     setChoiceLoading(true);
     setChoiceError("");
+    if (!lookup.after) setChoices([]);
+    setNext(null);
     const timer = setTimeout(() => {
       void api<{ items: { id: number; label: string }[]; next: number | null }>(
         `/organisations/${org}/exam-content/choices/exams?search=${encodeURIComponent(lookup.search)}&after=${lookup.after}`,
@@ -93,7 +96,7 @@ function StudentLinks({
         .then((page) => {
           if (active) {
             setChoices((old) =>
-              lookup.after ? [...old, ...page.items] : page.items,
+              [...new Map((lookup.after ? [...old, ...page.items] : page.items).map(item => [item.id, item])).values()],
             );
             setNext(page.next);
           }
@@ -159,9 +162,7 @@ function StudentLinks({
         </p>
       )}
       {choiceError && (
-        <p className="error" role="alert">
-          {choiceError}
-        </p>
+        <div role="alert"><p className="error">{choiceError}</p><button type="button" className="secondary" disabled={busy || choiceLoading} onClick={() => setLookup(current => ({...current}))}>Retry exam search</button></div>
       )}
       {notice && <p role="status">{notice}</p>}
       <label>
@@ -173,6 +174,8 @@ function StudentLinks({
           onChange={(e) => setLookup({ search: e.target.value, after: 0 })}
         />
       </label>
+      {choiceLoading && <p role="status">Loading organisation exams…</p>}
+      {!choiceLoading && !choiceError && !choices.length && <p role="status">No organisation exams match. Change the search or create an exam first.</p>}
       {next !== null && (
         <button
           className="secondary"
@@ -201,6 +204,10 @@ function StudentLinks({
         }}
         onSubmit={async (event) => {
           event.preventDefault();
+          if (!exam || choiceLoading || choiceError) {
+            setError("Load organisation exams successfully and choose an exam before creating access.");
+            return;
+          }
           setBusy(true);
           setIssued(null);
           setError("");
@@ -246,7 +253,7 @@ function StudentLinks({
             <select
               required
               value={exam}
-              disabled={choiceLoading}
+              disabled={choiceLoading || !!choiceError}
               onChange={(e) => setExam(e.target.value)}
             >
               <option value="">Choose an exam</option>
@@ -278,7 +285,7 @@ function StudentLinks({
             including any signed-in session. Access duration does not change the
             exam timer.
           </p>
-          <button type="submit" disabled={!exam || choiceLoading}>
+          <button type="submit" disabled={!exam || choiceLoading || !!choiceError}>
             Create link and replace previous access
           </button>
         </fieldset>
@@ -341,7 +348,7 @@ function StudentLinks({
             </td>
             <td>
               <button
-                disabled={busy || !!grant.revoked_at}
+                disabled={busy || loading || !!grant.revoked_at || Date.parse(grant.expires_at) <= Date.now()}
                 onClick={() => void revoke(grant.id)}
               >
                 Revoke access

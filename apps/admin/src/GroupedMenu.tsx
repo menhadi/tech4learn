@@ -17,10 +17,12 @@ function MenuIcon({ name }: { name: string }) {
           ? "M4 5h16v16H4z M8 2v6 M16 2v6 M4 10h16 M8 15l3 3 5-5"
           : name.includes("history")
             ? "M4 7a9 9 0 1 1-1 9 M3 3v5h5 M12 7v6l4 2"
-            : name.includes("exams") ||
-                name.includes("learning") ||
-                name.includes("academics")
-              ? "M5 3h14v18H5z M9 8h6 M9 12h6 M9 16h4"
+            : name.includes("exams")
+              ? "M5 3h14v18H5z M8 8l1 1 2-2 M13 8h3 M8 14l1 1 2-2 M13 14h3"
+              : name.includes("learning")
+                ? "M12 5v16 M3 4c3-1 6-1 9 1 3-2 6-2 9-1v15c-3-1-6-1-9 2-3-3-6-3-9-2z"
+                : name.includes("academics")
+                  ? "M3 9l9-6 9 6 M5 10v9 M10 10v9 M14 10v9 M19 10v9 M3 21h18"
               : "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z";
   return (
     <svg
@@ -42,13 +44,23 @@ export function GroupedMenu({
   active,
   onSelect,
   label,
+  searchable = false,
 }: {
   groups: MenuGroup[];
   active: string;
   onSelect: (id: string) => void;
   label: string;
+  searchable?: boolean;
 }) {
   const menuId = useId();
+  const [search, setSearch] = useState("");
+  const needle = search.trim().toLocaleLowerCase();
+  const visibleGroups = groups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) =>
+      !needle || `${group.label} ${item.label}`.toLocaleLowerCase().includes(needle),
+    ),
+  })).filter((group) => group.items.length);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const selectedGroup = groups.find((g) =>
     g.items.some((i) => i.id === active),
@@ -59,14 +71,20 @@ export function GroupedMenu({
   return (
     <nav className="grouped-menu" aria-label={label}>
       <p className="menu-caption" aria-hidden="true">{label}</p>
-      {groups
-        .filter((g) => g.items.length)
+      {searchable && <div className="menu-search">
+        <label htmlFor={`${menuId}-search`} className="sr-only">Find an organisation page</label>
+        <input id={`${menuId}-search`} type="search" placeholder="Find a page…" value={search} onChange={(event) => setSearch(event.target.value)} />
+        {search && <button type="button" className="secondary" onClick={() => {setSearch(""); document.getElementById(`${menuId}-search`)?.focus();}}>Clear</button>}
+      </div>}
+      {needle && !visibleGroups.length && <p className="menu-empty" role="status">No accessible pages match. Try another name or clear the search.</p>}
+      {visibleGroups
         .map((group) => (
           <section className="menu-group" key={group.id}>
             <button
               type="button"
+              disabled={!!needle}
               className={`menu-group-toggle ${group.id === selectedGroup ? "is-current" : ""}`}
-              aria-expanded={expanded[group.id] ?? group.id === selectedGroup}
+              aria-expanded={!!needle || (expanded[group.id] ?? group.id === selectedGroup)}
               aria-controls={`${menuId}-${group.id}`}
               onClick={() =>
                 setExpanded((v) => ({
@@ -91,7 +109,7 @@ export function GroupedMenu({
             <div
               id={`${menuId}-${group.id}`}
               className="menu-children"
-              hidden={!(expanded[group.id] ?? group.id === selectedGroup)}
+              hidden={!needle && !(expanded[group.id] ?? group.id === selectedGroup)}
             >
               {group.items.map((item) => (
                 <button
@@ -99,7 +117,7 @@ export function GroupedMenu({
                   key={item.id}
                   className={active === item.id ? "nav-active" : ""}
                   aria-current={active === item.id ? "page" : undefined}
-                  onClick={() => onSelect(item.id)}
+                  onClick={() => {setSearch(""); onSelect(item.id);}}
                 >
                   <span className="menu-label">{item.label}</span>
                   {item.planned && (

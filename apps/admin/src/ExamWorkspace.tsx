@@ -14,6 +14,7 @@ const ExamProctorReview = lazy(() =>
   })),
 );
 import { ExamBuilder } from "./ExamBuilder";
+import type { AcademicGroup } from "./AcademicStructure";
 const ExamResults = lazy(() =>
   import("./ExamResults").then((module) => ({ default: module.ExamResults })),
 );
@@ -43,26 +44,28 @@ const coverage: Record<Feature, [string, string]> = {
     "Visual formula editor and remaining native markup formats",
   ],
   exams: [
-    "Exam settings, paper controls, translation editing and PDF request/download controls",
-    "OMR and generated-file verification",
+    "Exam settings, translations, PDF controls, blank answer sheets and manual scan review",
+    "Automatic OMR scanning/scoring and production generated-file verification",
   ],
   taking: [
-    "Scoped student links, start, resume, answers and submission",
-    "Student answer uploads and broader device verification",
+    "Scoped student links, start/resume, answers, private file upload/extraction and submission",
+    "Browser acceptance of file answers and representative device verification",
   ],
   results: [
-    "Result visibility, history and pending-answer marking",
-    "Student media answers and broader report parity",
+    "Result visibility, history, marking, private answer-file review and printable certificates",
+    "Broader report parity and live workflow acceptance",
   ],
 };
 export function ExamWorkspace({
   org,
   controls = false,
   resultsOnly = false,
+  groups = [],
 }: {
   org: string;
   controls?: boolean;
   resultsOnly?: boolean;
+  groups?: AcademicGroup[];
 }) {
   const base = `/organisations/${org}/exam-workspace`;
   const [rules, setRules] = useState<Rules | null>(null),
@@ -70,6 +73,7 @@ export function ExamWorkspace({
     [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [planRevision, setPlanRevision] = useState(0);
+  const [accessRevision, setAccessRevision] = useState(0);
   const [page, setPage] = useState("questions");
   const [restrictions, setRestrictions] = useState<Feature[]>([]);
   useEffect(() => {
@@ -82,6 +86,10 @@ export function ExamWorkspace({
         if (active) {
           setRules(r);
           setRestrictions(r.restrictions);
+          const available = ["questions", "subjects", "exams", "taking"].filter(
+            tool => !r.restrictions.includes(tool as Feature) && (tool !== "taking" || !r.restrictions.includes("exams")),
+          );
+          setPage(current => available.includes(current) ? current : available[0] || "");
         }
       })
       .catch((e) => {
@@ -90,15 +98,15 @@ export function ExamWorkspace({
     return () => {
       active = false;
     };
-  }, [base]);
+  }, [base, accessRevision]);
+  const accessError = error && <div role="alert">
+    <p className="error">{error}</p>
+    <button type="button" className="secondary" disabled={busy} onClick={() => setAccessRevision(value => value + 1)}>Reload exam access</button>
+  </div>;
   if (!controls && resultsOnly)
     return (
       <section>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        {accessError}
         {!rules && !error && <p role="status">Loading exam access…</p>}
         {rules &&
           (rules.restrictions.includes("results") ? (
@@ -116,17 +124,15 @@ export function ExamWorkspace({
   if (!controls)
     return resultsOnly ? null : (
       <section>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {!rules && !error && <p role="status">Loading exam access�</p>}
+        {accessError}
+        {!rules && !error && <p role="status">Loading exam access…</p>}
         {rules && (
           <>
-            <nav aria-label="Exam tools">
+            <nav className="exam-tools" aria-label="Exam tools">
               {!rules.restrictions.includes("questions") && (
                 <button
+                  type="button"
+                  aria-current={page === "questions" ? "page" : undefined}
                   className={page === "questions" ? "" : "secondary"}
                   onClick={() => setPage("questions")}
                 >
@@ -135,6 +141,8 @@ export function ExamWorkspace({
               )}
               {!rules.restrictions.includes("subjects") && (
                 <button
+                  type="button"
+                  aria-current={page === "subjects" ? "page" : undefined}
                   className={page === "subjects" ? "" : "secondary"}
                   onClick={() => setPage("subjects")}
                 >
@@ -143,6 +151,8 @@ export function ExamWorkspace({
               )}
               {!rules.restrictions.includes("exams") && (
                 <button
+                  type="button"
+                  aria-current={page === "exams" ? "page" : undefined}
                   className={page === "exams" ? "" : "secondary"}
                   onClick={() => setPage("exams")}
                 >
@@ -152,6 +162,8 @@ export function ExamWorkspace({
               {!rules.restrictions.includes("taking") &&
                 !rules.restrictions.includes("exams") && (
                   <button
+                    type="button"
+                    aria-current={page === "taking" ? "page" : undefined}
                     className={page === "taking" ? "" : "secondary"}
                     onClick={() => setPage("taking")}
                   >
@@ -171,10 +183,10 @@ export function ExamWorkspace({
               !rules.restrictions.includes("taking") &&
               !rules.restrictions.includes("exams") ? (
               <Suspense fallback={<p role="status">Loading student access…</p>}>
-                <ExamStudentLinks key={org} org={org} />
+                <ExamStudentLinks key={org} org={org} groups={groups} />
               </Suspense>
             ) : (
-              <p>Select an available exam tool.</p>
+              <p>No authoring or student-access tools are enabled for this organisation. Ask your platform administrator to review exam access.</p>
             )}
           </>
         )}
@@ -194,11 +206,7 @@ export function ExamWorkspace({
           ? "Choose which feature groups this organisation can use when Exams is enabled. Assign an existing plan below; the coverage table shows implemented tools and remaining work."
           : "Manage subjects, questions, exams and results here. Shared content opens as your organisation’s own editable version."}
       </p>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {accessError}
       {!rules && !error && <p role="status">Loading exam access…</p>}
       {notice && <p role="status">{notice}</p>}
       {rules &&

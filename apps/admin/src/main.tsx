@@ -100,6 +100,9 @@ function App() {
   const [page, setPage] = useState<
     "organisations" | "password" | "face-engine" | "examelite"
   >("organisations");
+  useEffect(() => {
+    setOrganisationMenuOpen(false);
+  }, [selected, page]);
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [inviteToken, setInviteToken] = useState(
     () => new URLSearchParams(location.hash.slice(1)).get("invite") || "",
@@ -386,7 +389,15 @@ function App() {
     <DraftScope user={session.user.id} org={selected||"platform"}><div
       className={`workspace template-${workspaceBrand?.template || "community"}`}
       style={{ "--org-colour": org?.colour || "#175d50" } as CSSProperties}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && organisationMenuOpen) {
+          event.preventDefault();
+          setOrganisationMenuOpen(false);
+          document.getElementById("organisation-menu-toggle")?.focus();
+        }
+      }}
     >
+      <a className="skip-link" href="#main-content">Skip to workspace</a>
       <aside>
         <a className="brand" href="/">
           {workspaceBrand?.logo && (
@@ -407,15 +418,16 @@ function App() {
           <GroupedMenu label="Administration" active={page} groups={[
             {id:"platform-workspaces",label:superadmin?"Platform":"Workspace",icon:"▦",items:[{id:"organisations",label:superadmin?"Organisations":"My organisation"}]},
             {id:"platform-settings",label:"System & account",icon:"⚙",items:[...(superadmin?[{id:"face-engine",label:"Face engine"},{id:"examelite",label:"Central exam service"}]:[]),{id:"password",label:"Account security"}]},
-          ]} onSelect={(next)=>{setPage(next as typeof page);setError("");}} />
+          ]} onSelect={(next)=>{setPage(next as typeof page);setOrganisationMenuOpen(false);setError("");requestAnimationFrame(()=>document.getElementById("workspace-heading")?.focus());}} />
           <button
             type="button"
+            id="organisation-menu-toggle"
             className="mobile-org-menu secondary"
             aria-expanded={organisationMenuOpen}
             aria-controls="organisation-menu-slot"
             onClick={() => setOrganisationMenuOpen(!organisationMenuOpen)}
           >
-            Organisation menu
+            {organisationMenuOpen ? "Close organisation menu" : "Organisation menu"}
           </button>
           <div
             id="organisation-menu-slot"
@@ -441,7 +453,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className="content">
+      <main className="content" id="main-content" tabIndex={-1}>
         <header>
           <div>
             <p className="eyebrow">
@@ -449,7 +461,7 @@ function App() {
                 ? "Your learning network"
                 : org?.name || "Your workspace"}
             </p>
-            <h1>
+            <h1 id="workspace-heading" tabIndex={-1}>
               {page === 'examelite' ? 'Central exam service' : page === "face-engine"
                 ? "Face engine"
                 : page === "password"
@@ -643,7 +655,7 @@ function App() {
                 {org && (
                   <div key={org.id}>
                     <OrganisationWorkspace
-                      onNavigate={() => setOrganisationMenuOpen(false)}
+                      onNavigate={() => {setOrganisationMenuOpen(false);requestAnimationFrame(()=>document.getElementById("organisation-page-heading")?.focus());}}
                       organisation={org}
                       userId={session.user.id}
                       superadmin={superadmin}
@@ -663,12 +675,12 @@ function App() {
                       }
                     />
                     <section className="panel next">
-                      <p className="eyebrow">Coming next</p>
+                      <p className="eyebrow">Programme tools</p>
                       <h2>Tools for your programme</h2>
                       <p>
                         Photo attendance is available when enabled by your
                         platform administrator. Interactive learning assessments
-                        and integrated exams are planned.
+                        are planned. Exam tools are available when enabled for your organisation.
                       </p>
                     </section>
                   </div>

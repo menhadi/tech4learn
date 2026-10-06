@@ -163,6 +163,7 @@ export function StudentExamAttempt({ base }: { base: string }) {
         };
         setAttempt(updated);
         select(updated, index, false);
+        setNotice("Answer saved.");
       } else {
         if (request.action === "visibility")
           setNotice(

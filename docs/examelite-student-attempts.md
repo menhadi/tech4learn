@@ -1,5 +1,13 @@
 # Internal student attempts: implementation status
 
+Current verification update, 7 October 2026: the previously blocked synthetic
+`exam-answer-files.html` browser fixture now passes upload/extraction retries,
+private download URL, Hindi language selection, reviewed answer saving and lock
+display. A stale unsaved notice after a successful save was corrected and
+regression checked. The connected browser/native file-answer journey and actual
+document/OCR formats remain unfinished. Use [current delivery status](examelite-delivery-status.md)
+for the latest milestones; older pending-browser notes below are historical.
+
 The full student portal is not ready for deployment. Separate student sign-in and a basic same-domain attempt screen are implemented locally, with authenticated start/resume, answer saving and submission through ExamElite. Raster images, bounded TeX/MathML, native calculator and shuffled options are integrated locally. Section timers are also integrated locally. Private camera capture, review, pre-start readiness, staff marking and published result history are integrated locally. Representative browser/device and production verification remain incomplete.
 
 ## Student sign-in and exam grants

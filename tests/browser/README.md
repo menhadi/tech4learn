@@ -365,5 +365,25 @@ explicit answer save, submitted student denial and mapped staff download before
 marking. It uses the native subjective upload controller and existing text
 extractor with an isolated temporary storage root. The browser variant has not
 yet been extended to this upload path. `exam-answer-files.html` is the synthetic
-UI fixture for retry, extraction-draft and answer-lock behaviour; its browser
-execution is pending while browser automation is unavailable.
+UI fixture for retry, extraction-draft and answer-lock behaviour. It passed in
+the in-app browser on 7 October 2026, including Hindi selection and the saved
+answer notice. Transport remains synthetic; browser-to-native file acceptance
+and actual document/OCR formats are still separate work.
+
+## Admin and exam usability batch (7 October 2026)
+
+With the local Vite fixture server running, open
+`/tests/browser/admin-exam-usability.html`. The real React components check
+permitted menu search/reset, failed access-read retry, the available exam-tool
+default, section-filtered learner requests and pagination reset, expired-grant
+controls, catalogue retry/empty states and no link write after a failed search.
+It passed in the in-app browser. All transport and identities are synthetic;
+the server's authorisation remains covered by separate HTTP tests.
+
+`/tests/browser/admin-shell.html` runs the actual application shell with a
+read-only synthetic session and two organisations. Desktop and 390px mobile
+checks passed submenu expansion, search, page-heading focus, portal Escape
+handling, skip navigation and organisation/search reset, with no horizontal
+mobile page overflow. This preview refuses writes and is not a staff login or
+a live integration check. Keep it in the local fixture server, not the
+production build.

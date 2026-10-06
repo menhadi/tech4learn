@@ -268,14 +268,14 @@ export function OrganisationWorkspace({
         <>
           {(() => {
             const menu = (
-              <GroupedMenu label="Organisation sections" active={tab} groups={menuGroups} onSelect={(next)=>{setTab(next);setFocusGroup("");onNavigate?.();setError("");setNotice("");}} />
+              <GroupedMenu searchable label="Organisation sections" active={tab} groups={menuGroups} onSelect={(next)=>{setTab(next);setFocusGroup("");onNavigate?.();setError("");setNotice("");}} />
             );
             const target = document.getElementById("organisation-menu-slot");
             return target ? createPortal(menu, target) : menu;
           })()}
-          <div className="workspace-breadcrumb" aria-label="Breadcrumb"><span>{org.name}</span><span aria-hidden="true">/</span><span>{currentGroup?.label}</span><span aria-hidden="true">/</span><strong>{currentLabel}</strong></div>
-          <h3 className="workspace-page-title">{currentLabel}</h3>
-          {can("exams.manage") && tab === "Exam workspace" && <ExamWorkspace key={org.id} org={org.id} />}
+          <nav className="workspace-breadcrumb" aria-label="Breadcrumb"><span>{org.name}</span><span aria-hidden="true">/</span><span>{currentGroup?.label}</span><span aria-hidden="true">/</span><strong aria-current="page">{currentLabel}</strong></nav>
+          <h3 className="workspace-page-title" id="organisation-page-heading" tabIndex={-1}>{currentLabel}</h3>
+          {can("exams.manage") && tab === "Exam workspace" && <ExamWorkspace key={org.id} org={org.id} groups={data.groups.filter(group=>!group.archived)} />}
           {tab === "Exam results" && can("exams.manage") && <ExamWorkspace key={org.id} org={org.id} resultsOnly />}
           {upcoming.includes(tab) && plannedPages[tab] && <section className="planned-workspace"><span className="feature-planned">Planned integration</span><h3>{plannedPages[tab].title}</h3><p>{plannedPages[tab].description}</p><h4>What will be available</h4><ul>{plannedPages[tab].items.map(line=><li key={line}>{line}</li>)}</ul>{plannedPages[tab].academics&&<button type="button" onClick={()=>setTab("Groups")}>Open classes & sections</button>}</section>}
           {tab === "AI connections" && <AIProviders org={org.id} />}
