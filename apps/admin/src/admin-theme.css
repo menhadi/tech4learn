@@ -1,22 +1,30 @@
-/* Shared neutral admin theme. Dimensions follow ExamElite's 250px desktop
-   sidebar, 15.5px menu and 14.5px submenu; branding stays on primary actions. */
+/* Shared neutral admin theme. A 272px sidebar leaves room for workflow labels;
+   branding stays on primary actions. */
 :root { color:#344054; background:#f2f2f7; line-height:1.5; }
 .workspace { --admin-border:#e5e7eb; --admin-muted:#667085; --admin-heading:#101828; background:#f2f2f7; color:#344054; font-size:14px; }
 .workspace h1,.workspace h2,.workspace h3,.workspace h4,.workspace legend { color:var(--admin-heading); }
-.workspace > aside { background:#fff; border-right:1px solid var(--admin-border); padding:20px 12px; gap:16px; min-width:0; }
+.workspace > aside { background:#fff; border-right:1px solid var(--admin-border); padding:20px 12px; gap:12px; min-width:0; }
 .workspace > aside .brand { padding:4px 12px; color:#101828; font-size:16px; line-height:1.5; overflow-wrap:anywhere; }
-.workspace > aside .role-badge { padding:0 12px 16px; margin:0; color:#667085; border-color:var(--admin-border); }
+.workspace > aside .role-badge { padding:0 12px 14px; margin:0; color:#667085; border-color:var(--admin-border); }
+.sidebar-navigation { min-width:0; }
+.workspace #organisation-menu-slot:not(:empty) { border-top:1px solid var(--admin-border); margin-top:14px; padding-top:4px; }
+.workspace .menu-caption { margin:14px 12px 8px; color:#667085; font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
+.workspace .menu-label { min-width:0; overflow-wrap:anywhere; text-align:left; }
 .workspace > aside .account { border-top:1px solid var(--admin-border); padding:18px 12px 0; font-size:13px; }
 .workspace > aside .account small { color:#667085; }
 .grouped-menu { gap:5px; }
-.grouped-menu .menu-group-toggle { padding:11px 12px; gap:10px; font-size:15.5px; font-weight:500; color:#344054; background:transparent; border-radius:5px; }
-.grouped-menu .menu-group-toggle:hover,.grouped-menu .menu-group-toggle.is-current { color:#101828; background:#f2f4f7; }
+.grouped-menu .menu-group-toggle { min-height:44px; padding:10px 12px; gap:10px; font-size:15.5px; font-weight:500; line-height:1.4; color:#344054; background:transparent; border-radius:6px; }
+.grouped-menu .menu-group-toggle.is-current { color:#1d2939; background:#f8fafc; }
+.grouped-menu .menu-group-toggle:hover { color:#101828; background:#f2f4f7; }
 .grouped-menu .menu-symbol { width:19px; height:19px; }
+.grouped-menu .menu-chevron { width:14px; height:14px; flex:none; color:#98a2b3; transition:transform .15s ease; }
+.grouped-menu .menu-group-toggle[aria-expanded="true"] .menu-chevron { transform:rotate(90deg); }
+.workspace .grouped-menu button:focus-visible { outline:2px solid #475467; outline-offset:2px; }
 .grouped-menu .menu-children { margin:3px 0 6px 21px; padding-left:7px; border-color:#e4e7ec; }
-.grouped-menu .menu-children button { font-size:14.5px; font-weight:400; line-height:1.45; padding:9px 8px; color:#475467; border-radius:4px; }
+.grouped-menu .menu-children button { min-height:40px; font-size:14.5px; font-weight:400; line-height:1.45; padding:9px 10px; color:#475467; border-radius:5px; }
 .grouped-menu .menu-children button:hover { background:#f9fafb; }
-.grouped-menu .menu-children .nav-active { color:#101828; background:#eef0f4; box-shadow:inset 2px 0 #475467; font-weight:600; }
-.grouped-menu .menu-planned { margin:0; font-size:9px; color:#667085; background:#f9fafb; border-color:#e4e7ec; }
+.grouped-menu .menu-children .nav-active { color:#1d2939; background:#e9eef5; box-shadow:inset 3px 0 #344054; font-weight:600; }
+.grouped-menu .menu-planned { flex:none; margin:0; font-size:10px; color:#475467; background:#f2f4f7; border-color:#e4e7ec; }
 .workspace .content { max-width:none; min-width:0; margin:0; padding:24px; }
 .workspace .content > header { min-height:66px; padding:16px 24px; margin:-24px -24px 24px; background:#fff; border-bottom:1px solid var(--admin-border); }
 .workspace .content > header h1 { font-size:22px; margin:0; }
@@ -71,8 +79,11 @@
 .workspace .directory-table .row-actions { min-width:180px; }
 .workspace .row-actions button { font-size:12px; padding:6px 9px; }
 @media(min-width:651px) {
-  .workspace { display:grid; grid-template-columns:250px minmax(0,1fr); }
-  .workspace > aside { position:sticky; top:0; height:100dvh; overflow-y:auto; }
+  .workspace { display:grid; grid-template-columns:272px minmax(0,1fr); }
+  .workspace > aside { position:sticky; top:0; height:100dvh; overflow:hidden; }
+  .workspace > aside > .brand,.workspace > aside > .role-badge,.workspace > aside > .account { flex:none; }
+  .workspace .sidebar-navigation { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#cbd0d8 transparent; padding:0 2px 8px; }
+  .workspace > aside .account { margin-top:0; }
 }
 @media(max-width:650px) {
   .workspace { display:block; }
@@ -82,7 +93,10 @@
   .workspace .panel,.workspace .sectioned-form { padding:16px; }
   .workspace .table-toolbar h3 { flex-basis:100%; }
   .workspace .table-toolbar label:has(input) { flex:1; min-width:140px; }
+  .workspace .sidebar-navigation { overflow:visible; }
+  .workspace .mobile-org-menu { width:100%; margin:12px 0; min-height:44px; text-align:left; }
 }
+@media(prefers-reduced-motion:reduce) { .grouped-menu .menu-chevron { transition:none; } }
 .workspace button,.workspace input,.workspace select,.workspace textarea { font-family:inherit; }
 .workspace .table-pagination button { color:#344054; background:#fff; border:1px solid #d0d5dd; }
 .workspace .table-pagination button:disabled { color:#98a2b3; background:#f9fafb; opacity:1; cursor:default; }

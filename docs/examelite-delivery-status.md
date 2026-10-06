@@ -1,6 +1,6 @@
 # ExamElite integration: current delivery status
 
-Updated 29 September 2026. This is the current summary; the central-content and
+Updated 6 October 2026. This is the current summary; the central-content and
 student-attempt documents also contain historical milestone notes. A historical
 “pending” statement does not override a later implemented milestone.
 
@@ -8,6 +8,25 @@ student-attempt documents also contain historical milestone notes. A historical
 works in isolated local checks. No complete live release or full ExamElite
 feature parity has been verified. Development remains local; the user deploys
 checked commits when the release is ready.
+
+## Development resumed 6 October 2026
+
+Reviewed the clean checkout at `9a171bf` (OMR exam/learner access hardening).
+The connected local API/native pilot passed again: 48 calls cover authoring,
+passage media, private answer upload/replacement/retry/download, extraction,
+resume, explicit answer save, submission, staff file review, marking,
+publication, history and revocation. This uses isolated PGlite/SQLite records
+and saved native source, not live HTTP middleware or production records.
+`npm run check` also passed: all workspace typechecks, 94 tests, and API/admin
+production builds. The existing admin bundle-size warning remains.
+
+Answer-file browser acceptance remains the next verification task. Both the
+in-app browser attachment and Chrome automation timed out during this review;
+neither attempt establishes a passing UI check. Continue with
+`tests/browser/exam-answer-files.html`, then extend the connected browser
+journey to file answers. Full release acceptance, media reconciliation,
+representative paper/device coverage and the deployment handoff below remain
+open. No live edits or migrations were performed.
 
 ## Implemented and checked locally
 

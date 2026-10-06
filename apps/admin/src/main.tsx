@@ -403,26 +403,25 @@ function App() {
             ? "Platform administration"
             : "Organisation administration"}
         </span>
-        <GroupedMenu label="Administration" active={page} groups={[
-          {id:"platform-workspaces",label:superadmin?"Platform":"Workspace",icon:"▦",items:[{id:"organisations",label:superadmin?"Organisations":"My organisation"}]},
-          {id:"platform-settings",label:"System & account",icon:"⚙",items:[...(superadmin?[{id:"face-engine",label:"Face engine"},{id:"examelite",label:"Central exam service"}]:[]),{id:"password",label:"Account security"}]},
-        ]} onSelect={(next)=>{setPage(next as typeof page);setError("");}} />
-        <button
-          className="mobile-org-menu secondary"
-          aria-expanded={organisationMenuOpen}
-          aria-controls="organisation-menu-slot"
-          onClick={() => setOrganisationMenuOpen(!organisationMenuOpen)}
-        >
-          Organisation menu
-        </button>
-        <div
-          id="organisation-menu-slot"
-          className={organisationMenuOpen ? "menu-open" : "menu-closed"}
-          onClickCapture={(e) => {
-            if ((e.target as HTMLElement).closest("button"))
-              setOrganisationMenuOpen(false);
-          }}
-        />
+        <div className="sidebar-navigation">
+          <GroupedMenu label="Administration" active={page} groups={[
+            {id:"platform-workspaces",label:superadmin?"Platform":"Workspace",icon:"▦",items:[{id:"organisations",label:superadmin?"Organisations":"My organisation"}]},
+            {id:"platform-settings",label:"System & account",icon:"⚙",items:[...(superadmin?[{id:"face-engine",label:"Face engine"},{id:"examelite",label:"Central exam service"}]:[]),{id:"password",label:"Account security"}]},
+          ]} onSelect={(next)=>{setPage(next as typeof page);setError("");}} />
+          <button
+            type="button"
+            className="mobile-org-menu secondary"
+            aria-expanded={organisationMenuOpen}
+            aria-controls="organisation-menu-slot"
+            onClick={() => setOrganisationMenuOpen(!organisationMenuOpen)}
+          >
+            Organisation menu
+          </button>
+          <div
+            id="organisation-menu-slot"
+            className={organisationMenuOpen ? "menu-open" : "menu-closed"}
+          />
+        </div>
         <div className="account">
           <strong>{session.user.name}</strong>
           <small>{session.user.email}</small>

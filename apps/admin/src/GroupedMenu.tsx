@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 export type MenuItem = { id: string; label: string; planned?: boolean };
 export type MenuGroup = {
   id: string;
@@ -48,15 +48,17 @@ export function GroupedMenu({
   onSelect: (id: string) => void;
   label: string;
 }) {
+  const menuId = useId();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const selectedGroup = groups.find((g) =>
     g.items.some((i) => i.id === active),
   )?.id;
   useEffect(() => {
     if (selectedGroup) setExpanded((v) => ({ ...v, [selectedGroup]: true }));
-  }, [selectedGroup]);
+  }, [active, selectedGroup]);
   return (
     <nav className="grouped-menu" aria-label={label}>
+      <p className="menu-caption" aria-hidden="true">{label}</p>
       {groups
         .filter((g) => g.items.length)
         .map((group) => (
@@ -64,22 +66,32 @@ export function GroupedMenu({
             <button
               type="button"
               className={`menu-group-toggle ${group.id === selectedGroup ? "is-current" : ""}`}
-              aria-expanded={!!expanded[group.id]}
-              aria-controls={`menu-${group.id}`}
+              aria-expanded={expanded[group.id] ?? group.id === selectedGroup}
+              aria-controls={`${menuId}-${group.id}`}
               onClick={() =>
-                setExpanded((v) => ({ ...v, [group.id]: !v[group.id] }))
+                setExpanded((v) => ({
+                  ...v,
+                  [group.id]: !(v[group.id] ?? (group.id === selectedGroup)),
+                }))
               }
             >
               <MenuIcon name={group.id} />
-              <span>{group.label}</span>
-              <span className="menu-chevron" aria-hidden="true">
-                {expanded[group.id] ? "−" : "+"}
-              </span>
+              <span className="menu-label">{group.label}</span>
+              <svg
+                className="menu-chevron"
+                aria-hidden="true"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+              >
+                <path d="m5 3 5 5-5 5" />
+              </svg>
             </button>
             <div
-              id={`menu-${group.id}`}
+              id={`${menuId}-${group.id}`}
               className="menu-children"
-              hidden={!expanded[group.id]}
+              hidden={!(expanded[group.id] ?? group.id === selectedGroup)}
             >
               {group.items.map((item) => (
                 <button
@@ -89,7 +101,7 @@ export function GroupedMenu({
                   aria-current={active === item.id ? "page" : undefined}
                   onClick={() => onSelect(item.id)}
                 >
-                  <span>{item.label}</span>
+                  <span className="menu-label">{item.label}</span>
                   {item.planned && (
                     <small className="menu-planned">Planned</small>
                   )}

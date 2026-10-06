@@ -2,6 +2,12 @@
 
 User clarification, 12 September 2026. This is the target workflow; the status column distinguishes implementation from planned work.
 
+Status reviewed 6 October 2026 against the product blueprint and current exam
+delivery evidence. The objective remains reducing teachers' and field staff's
+work through the organisation → centre → class/academic year → section → student
+structure. Exam development integrates ExamElite; it does not replace its engine.
+Local checks and live deployment acceptance are separate milestones.
+
 | Step | Target behaviour | Current status |
 | --- | --- | --- |
 | Organisation | Superadmin creates an organisation, or sends an onboarding link for its administrator to complete details. Standard profile fields plus typed custom fields. | Superadmin creation and administrator invitations work; a separate organisation onboarding form is pending. |
@@ -9,11 +15,11 @@ User clarification, 12 September 2026. This is the target workflow; the status c
 | Student registration | Standard identity, admission, contact and enrolment details plus custom fields, one profile photo and separately managed face reference photos. | Learner forms, custom fields, profile/reference photo storage and consent management work. See [student photos](student-photos-release.md). Reference checks need the private engine. |
 | Register import | Scan a physical admission register, extract student rows into an editable draft, complete missing fields and resolve duplicates before committing. | Reviewed CSV/JSON imports work. Image-based student registration is pending; attendance-register transcription does not create students. |
 | Staff | Invite administrators and teachers, then configure additional roles, actions and organisation/centre/section scope. | Configurable roles, invitations, scope and module/action permission table work. Individual-field access policies are not implemented. |
-| Exams | Start from a class/section, then open question-type and exam configuration supplied by ExamElite. Synchronise student identities and results. | Pending verified ExamElite APIs. Do not build another question bank or exam engine. |
+| Exams | Start from a class/section, then open question-type and exam configuration supplied by ExamElite. Synchronise student identities and results. | Same-domain authoring, explicit student identity mapping, grant-based delivery, marking and published results are implemented and checked locally. Complete class/section-to-exam journeys, full parity and live acceptance remain unfinished; see [current exam status](examelite-delivery-status.md). Do not build another question bank or exam engine. |
 | Attendance | Start from a class/section, capture a group photo, generate matches against enrolled references, review unknown/ambiguous faces and confirm attendance. | Capture, location evidence and manual confirmation work. A bounded face-verification adapter and review UI are implemented; engine deployment and real-image calibration remain pending. |
 | FLN | Start assessments for selected students or a class/section; save evidence, competency results and follow-up activity. | Planned; source/API and scoring integration required. |
 | Communication | Organisation email/message settings, templates, permitted recipients and delivery history. | Planned. Invitation links currently need manual sharing. |
-| Student panel | Student signs in to view only their own authorised results, performance and activities. | Planned; current staff roles do not provide student login. |
+| Student panel | Student signs in to view only their own authorised results, performance and activities. | Separate exam-scoped student sign-in, attempts and published result history work in local checks. Access expires with the exam grant. A general student dashboard, permanent performance access and learning activities remain planned; staff membership does not grant student access. |
 | API settings | One settings area for provider credentials, model selection, enabled use cases and connection tests; all calls go through the server integration layer. | Four vision adapters and read-only readiness page implemented. Editable encrypted credential management is pending; server environment is the current configuration source. |
 
 ## Decisions

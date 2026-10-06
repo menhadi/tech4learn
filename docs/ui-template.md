@@ -22,15 +22,22 @@ Keep editable table rows mounted when paged/filtered so view changes do not dest
 
 ## Navigation
 
-Use `GroupedMenu` for platform and organisation navigation. It follows ExamElite's vertical grouped menu pattern with line icons, collapsible submenus, an active-page indicator and matching breadcrumbs. Hide empty groups and filter working entries by existing permissions/module availability. Keep desktop navigation independently scrollable and the mobile organisation-menu toggle available.
+Use `GroupedMenu` for platform and organisation navigation. It follows ExamElite's vertical grouped menu pattern with line icons, collapsible submenus, an active-page indicator and matching breadcrumbs. Hide empty groups and filter working entries by existing permissions/module availability. Keep desktop navigation independently scrollable, with branding and account actions visible. On mobile, expanding a group keeps the organisation menu open; selecting a page closes it. Menu instances use separate submenu IDs, and the current group opens immediately.
 
 Groups cover Dashboard, Academics & students, Attendance, Exams & results, FLN & learning, Staff & permissions, Email & messaging, Settings and Audit & history. Email settings/templates, messaging settings/delivery history and FLN currently open explicit planned-integration descriptions. Exam screens now include internal question/classification authoring, exam building, staff student-link controls and result marking, with their module and permission checks. Student links open the same-domain, separately authenticated exam interface. See [exam implementation status](examelite-central-content.md) for local verification and remaining feature gaps; these screens do not establish complete ExamElite parity or a verified live deployment. The existing AI connection screen and superadmin face-engine controls remain working screens with their original access checks.
 
 ## Neutral visual styling
 
-Load `admin-theme.css` after the base styles. Use a fixed 250px desktop sidebar, matching ExamElite's measured width, with 15.5px group labels and 14.5px submenu labels. Navigation is white with neutral grey active/hover states; organisation colours must not tint the sidebar, table toolbar, table header or zebra rows. Keep branding on deliberate primary actions and organisation marks.
+Load `admin-theme.css` after the base styles. Use a fixed 272px desktop sidebar (widened from the original 250px reference for long workflow labels), with 15.5px group labels and 14.5px submenu labels. Separate administration and organisation navigation with small captions. Navigation is white with neutral grey active/hover states, visible keyboard focus and rotating submenu chevrons; organisation colours must not tint the sidebar, table toolbar, table header or zebra rows. Keep branding on deliberate primary actions and organisation marks.
 
 Use a neutral page background, white top bar/cards, 6px card corners, compact form controls and 13px table text. Filters, record counts and pagination share the same neutral card. Preserve sticky first/action columns and internal horizontal scrolling. On mobile, menus stack vertically behind the existing organisation menu control; the page itself must not overflow horizontally.
+
+The 6–7 October 2026 navigation update passed `npm run check` (94 tests,
+workspace typechecks and production builds). A server-rendered menu check also
+verified current-group visibility, distinct submenu/control IDs, filtered
+entries and planned labels. Desktop/mobile visual and interaction acceptance
+remains pending because browser automation could not load its request-header
+policy; these checks do not substitute for that review.
 
 ## Guided student photo boxes
 

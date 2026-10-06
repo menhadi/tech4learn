@@ -16,13 +16,25 @@ Approved coordinates, staff assignment, capture, upload, configurable geofence d
 
 ## M3 — ExamElite
 
-Read-only contract inspection; one end-to-end exam path with identity/result mapping, then complete agreed functionality. No duplicate exam engine.
+The objective is same-domain exam work backed by ExamElite, with central module
+controls and organisation-owned content, scoped student access and published
+results. Do not build another question bank or exam engine. Tech4Learn remains
+the owner of organisation, enrolment and attendance records.
 
-Student-API and read-only live source inspection are recorded in [ExamElite integration discovery](examelite-integration.md). The pilot connector now reads the selected exam and a completed mapped result, confirmed in user screenshots. Full learner provisioning and result synchronisation remain unimplemented.
+Reviewed 6 October 2026: central sharing, question/exam authoring, student
+identity mapping and grant-based delivery, answer files, staff marking and
+published history are implemented and checked locally. The connected API/native
+pilot passed 48 calls and the repository check passed 94 tests and production
+builds. The deployed legacy reader is only one earlier milestone; local delivery
+checks do not prove a complete production release.
 
-The [first read connector](examelite-read-release.md) is deployed for the pilot with dedicated credentials, explicit grants and working exam/result screens. Next: central superadmin connection and organisation sharing controls, then idempotent Tech4Learn-to-ExamElite student provisioning/verified linking and exam access. Follow ExamElite's subject/question/exam interface and workflow without rebuilding its engine. Existing ExamElite students remain independent of Tech4Learn. Student provisioning, exam launch and durable result synchronisation remain future slices.
-
-Central ExamElite sharing and student identity provisioning are now implemented locally; see [deployment and limits](examelite-platform-release.md). User deployment and live provisioning validation are pending. The next ExamElite slice is student login/launch and the subject/question workflows, keeping ExamElite as the engine.
+Resume with answer-file browser acceptance and the connected browser upload
+journey, then representative paper/device and class/section workflows, media
+reconciliation, background-worker acceptance and the checked deployment handoff.
+Automatic OMR interpretation and scored paper-attempt integration are unfinished.
+Use [current delivery status](examelite-delivery-status.md) for the detailed
+completion evidence and gaps; historical release notes are not the current
+task list. Live installation and migrations remain user-run.
 
 ## M4 — FLN
 
