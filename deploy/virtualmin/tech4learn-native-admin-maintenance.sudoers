@@ -1,0 +1,1 @@
+tech4learn ALL=(root) NOPASSWD: /usr/local/sbin/tech4learn-admin status, /usr/local/sbin/tech4learn-admin prepare-database, /usr/local/sbin/tech4learn-admin restart-api, /usr/local/sbin/tech4learn-admin stop-api

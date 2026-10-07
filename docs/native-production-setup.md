@@ -1045,3 +1045,25 @@ use this action. A separately reviewed root-owned helper upgrade and exact
 Tech4Learn-only sudoers addition must be prepared before requesting the narrow
 maintenance permission. It does not authorize Apache changes, arbitrary root
 commands, other-site edits or original ExamElite service control.
+
+
+## Narrow helper upgrade prepared — not installed
+
+`upgrade-tech4learn-admin.sh` is a root-run upgrade candidate for the existing
+Tech4Learn helper only. Its source directory must be root-owned mode 0700 and
+its checksum-reviewed helper/policy files root-owned mode 0600. It verifies the
+existing fixed helper paths, root ownership, file modes and exact old sudo rule,
+validates Python source and sudo syntax, privately backs up the helper/policy,
+and installs only those two files. Failure restores their previous contents.
+It neither changes the wrapper nor runs stop/restart/database/routing actions.
+
+The new sudo policy adds only `/usr/local/sbin/tech4learn-admin stop-api` to the
+three existing exact actions. Shell syntax and all eight helper boundary tests
+passed. The candidate policy also passed the real server's `visudo -cf /dev/stdin`
+read-only syntax check with LF bytes; no policy file was written. The complete
+root installation/rollback path remains unexecuted.
+
+A user-run checksum-pinned root setup is still required to install this narrow
+permission. Do not use the upgrade candidate as permission to run arbitrary
+root commands or touch other websites. Public service and installed sudo rules
+remain unchanged; the isolated restore database is an independent prerequisite.
