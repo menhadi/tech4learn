@@ -25,7 +25,7 @@ $login=Illuminate\Http\Request::create('https://two.example.invalid/login','POST
 $user=$bridge->authenticate($login);
 if ($user->id!==2) { throw new RuntimeException('Connected sign-in mapped another native account'); }
 $token=Illuminate\Support\Facades\Cookie::queued('t4l_session')->getValue();
-$org='11111111-1111-4111-8111-111111111111';
+$org=getenv('FOUNDATION_TEST_ORGANISATION');
 function gatewayRequest(string $path, string $method='GET', ?array $body=null): array {
     global $app,$bridge,$token;
     $req=Illuminate\Http\Request::create('https://two.example.invalid/attendance/api/'.$path,$method,[],['t4l_session'=>$token],[],

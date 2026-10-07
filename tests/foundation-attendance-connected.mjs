@@ -18,6 +18,9 @@ import { attendanceTestingMigration } from '../apps/api/dist/migration-attendanc
 import { foundationMigration } from '../apps/api/dist/migration-foundation.js';
 import { foundationLearnerMigration } from '../apps/api/dist/migration-foundation-learners.js';
 import { foundationPlatformMigration } from '../apps/api/dist/migration-foundation-platform.js';
+import { foundationProvisioningMigration } from '../apps/api/dist/migration-foundation-provisioning.js';
+import { provisionAttendanceOrganisation } from '../apps/api/dist/foundation-organisation-provision.js';
+import { provisionAttendanceAdministrator } from '../apps/api/dist/foundation-staff-provision.js';
 import { digest,hashPassword } from '../apps/api/dist/security.js';
 if (!process.argv[2]) throw new Error('Provide the prepared local foundation dependency directory');
 process.env.NODE_ENV='test';
@@ -28,17 +31,21 @@ const pg=new PGlite();
 let app;
 try {
   await pg.exec(migration);
-  const org='11111111-1111-4111-8111-111111111111', foreign='22222222-2222-4222-8222-222222222222', actor=randomUUID();
-  for (const [id,slug] of [[org,'synthetic-own'],[foreign,'synthetic-foreign']])
-    await pg.query('INSERT INTO organisations(id,name,slug) VALUES($1,$2,$2)',[id,slug]);
-  for(const sql of [accessMigration,learnerMigration,configurationMigration,attendanceMigration,visionMigration,academicMigration,photoMigration,bulkAttendanceMigration,faceControlMigration,photoNamesMigration,attendanceTestingMigration,foundationMigration,foundationLearnerMigration,foundationPlatformMigration]) await pg.exec(sql);
-  await pg.query('INSERT INTO users(id,email,name,password_hash) VALUES($1,$2,$3,$4)',[actor,'synthetic@example.invalid','Synthetic staff',await hashPassword('long synthetic foundation password')]);
+  const foreign='22222222-2222-4222-8222-222222222222', platformUser=randomUUID();
+  await pg.query('INSERT INTO organisations(id,name,slug) VALUES($1,$2,$2)',[foreign,'synthetic-foreign']);
+  for(const sql of [accessMigration,learnerMigration,configurationMigration,attendanceMigration,visionMigration,academicMigration,photoMigration,bulkAttendanceMigration,faceControlMigration,photoNamesMigration,attendanceTestingMigration,foundationMigration,foundationLearnerMigration,foundationPlatformMigration,foundationProvisioningMigration]) await pg.exec(sql);
+  const adapter={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>sql.query(q,p)})),onModuleDestroy:async()=>{}};
+  await pg.query('INSERT INTO users(id,email,name,password_hash,is_superadmin) VALUES($1,$2,$3,$4,true)',[platformUser,'synthetic-platform@example.invalid','Synthetic platform administrator',await hashPassword('long synthetic foundation password')]);
+  const companion=await provisionAttendanceOrganisation(adapter,platformUser,'2','Synthetic fresh native organisation');
+  const org=companion.organisationId;
+  const staff=await provisionAttendanceAdministrator(adapter,platformUser,'2','2','synthetic@example.invalid','Synthetic staff','long synthetic foundation password');
+  const actor=staff.userId;
+  const retryOrg=await provisionAttendanceOrganisation(adapter,platformUser,'2','Synthetic fresh native organisation');
+  const retryStaff=await provisionAttendanceAdministrator(adapter,platformUser,'2','2','synthetic@example.invalid','Synthetic staff','different synthetic retry password');
+  if(!companion.created || !staff.created || retryOrg.created || retryStaff.created || retryOrg.organisationId!==org || retryStaff.userId!==actor)throw new Error('Fresh onboarding retry changed identity');
+  if(Number((await pg.query("SELECT count(*) AS n FROM audit_events WHERE action IN ('foundation.organisation_provisioned','foundation.staff_provisioned')")).rows[0].n)!==2)throw new Error('Provisioning retry duplicated audit events');
   await pg.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[digest('d'.repeat(64)),actor]);
-  await pg.query("INSERT INTO memberships(user_id,organisation_id,role,role_id) SELECT $1,$2,'organisation_admin',id FROM access_roles WHERE organisation_id=$2 AND protected",[actor,org]);
-  await pg.query("INSERT INTO organisation_settings(organisation_id,enabled_modules) VALUES($1,'{\"attendance\":true}')",[org]);
   await pg.query("INSERT INTO organisation_domains(organisation_id,hostname,challenge,verified_at,active) VALUES($1,'two.example.invalid','synthetic-challenge',now(),true)",[org]);
-  await pg.query('INSERT INTO foundation_organisations(native_id,organisation_id) VALUES(2,$1)',[org]);
-  await pg.query('INSERT INTO foundation_staff(native_organisation_id,native_user_id,user_id) VALUES(2,2,$1)',[actor]);
   for (const [organisation,label] of [[org,'Synthetic authorised section'],[foreign,'Synthetic foreign section']]) {
     const centre=randomUUID(),group=randomUUID();
     await pg.query('INSERT INTO centres(id,organisation_id,name) VALUES($1,$2,$3)',[centre,organisation,'Synthetic centre']);
@@ -50,15 +57,12 @@ try {
   await pg.query("INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES($1,$2,$3,'Synthetic capture section')",[captureGroup,org,captureCentre]);
   await pg.query("INSERT INTO learners(id,organisation_id,group_id,code,name) VALUES($1,$2,$3,'SYNTHETIC-01','Synthetic learner')",[learner,org,captureGroup]);
   await pg.query('INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id) VALUES(2,10,$1,$2)',[org,learner]);
-  const platformUser=randomUUID();
-  await pg.query('INSERT INTO users(id,email,name,password_hash,is_superadmin) VALUES($1,$2,$3,$4,true)',[platformUser,'synthetic-platform@example.invalid','Synthetic platform administrator',await hashPassword('long synthetic foundation password')]);
   await pg.query('INSERT INTO foundation_platform_staff(native_organisation_id,native_user_id,user_id) VALUES(1,1,$1)',[platformUser]);
-  const adapter={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>sql.query(q,p)})),onModuleDestroy:async()=>{}};
   app=await createApp(undefined,adapter); await app.listen(0,'127.0.0.1');
   const api=`${await app.getUrl()}/api/v1`;
   await new Promise((resolve,reject)=>{
     const child=spawn('php',['tests/foundation-attendance-connected.php',process.argv[2]],{
-      cwd:process.cwd(),env:{...process.env,FOUNDATION_TEST_API_URL:api,FOUNDATION_TEST_GROUP:captureGroup,FOUNDATION_TEST_LEARNER:learner},stdio:['ignore','pipe','pipe'],timeout:60000
+      cwd:process.cwd(),env:{...process.env,FOUNDATION_TEST_API_URL:api,FOUNDATION_TEST_ORGANISATION:org,FOUNDATION_TEST_GROUP:captureGroup,FOUNDATION_TEST_LEARNER:learner},stdio:['ignore','pipe','pipe'],timeout:60000
     });
     child.on('error',reject);
     child.stdout.on('data',data=>process.stdout.write(data)); child.stderr.on('data',data=>process.stderr.write(data));
