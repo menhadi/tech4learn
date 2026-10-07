@@ -261,3 +261,14 @@ The isolated readiness test covers missing schema, unprovisioned platforms,
 tenant-realm confusion, link deactivation and account demotion, including a
 successful read inside a read-only transaction. These gates are checked locally;
 production provisioning and cutover remain outstanding.
+
+The repeatable local API browser pilot is now in
+`tests/foundation-browser-pilot.mjs`. It reads only ignored synthetic local
+credentials and creates an ephemeral in-memory database. Platform realm/user 1
+is separate from attendance realm/user 2; it no longer assigns attendance to
+the native primary platform. `--check` uses an ephemeral loopback port and
+verifies both password sign-ins, tenant attendance context and denial of a
+global attendance alias before exiting. Without that flag it serves the local
+pilot on port 8010. The native synthetic database must contain matching reviewed
+IDs, and old browser sessions must be signed out before using the new setup.
+This fixture does not provision production accounts or change native records.
