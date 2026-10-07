@@ -84,7 +84,11 @@ export class FoundationService {
       await this.access.lock(sql, organisation.organisation_id);
       await this.learners.linkedIdentity(actor, organisation.organisation_id, learner, sql);
       const result = await sql.query("INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING native_student_id::text,learner_id,active,version", [native,student,organisation.organisation_id,learner]);
-      if (!result.rows.length) throw new ConflictException("A learner is already linked; existing links cannot be reassigned.");
+      if (!result.rows.length) {
+        const existing=(await sql.query<{native_student_id:string;learner_id:string;active:boolean;version:number}>("SELECT native_student_id::text,learner_id,active,version FROM foundation_learners WHERE native_organisation_id=$1 AND native_student_id=$2 FOR UPDATE",[native,student])).rows[0];
+        if (!existing?.active || existing.learner_id!==learner) throw new ConflictException("A learner is already linked or revoked; existing links cannot be reassigned or repaired by retry.");
+        return existing;
+      }
       await this.access.audit(sql,actor,organisation.organisation_id,"foundation.learner_linked",{nativeOrganisationId:native,nativeStudentId:student,learnerId:learner});
       return result.rows[0];
     });

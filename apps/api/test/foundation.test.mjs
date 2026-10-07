@@ -133,7 +133,13 @@ test('foundation identity links require explicit accounts, current authority and
       assert.equal((await request(path,'POST',{nativeStudentId:'21',learnerId:learnerA},'staff')).status,403);
       assert.equal((await request(path,'POST',{nativeStudentId:'21',learnerId:learnerB})).status,404);
       assert.equal((await request(path,'POST',{nativeStudentId:'21',learnerId:learnerA})).status,201);
-      assert.equal((await request(path,'POST',{nativeStudentId:'21',learnerId:learnerA})).status,409);
+      const initial=await (await request(path,'GET')).json();
+      const auditBefore=Number((await pg.query("SELECT count(*) AS n FROM audit_events WHERE action='foundation.learner_linked'")).rows[0].n);
+      const retry=await request(path,'POST',{nativeStudentId:'21',learnerId:learnerA});
+      assert.equal(retry.status,201);assert.deepEqual(await retry.json(),initial[0]);
+      const concurrent=await Promise.all([request(path,'POST',{nativeStudentId:'21',learnerId:learnerA}),request(path,'POST',{nativeStudentId:'21',learnerId:learnerA})]);
+      for(const response of concurrent){assert.equal(response.status,201);assert.deepEqual(await response.json(),initial[0]);}
+      assert.equal(Number((await pg.query("SELECT count(*) AS n FROM audit_events WHERE action='foundation.learner_linked'")).rows[0].n),auditBefore);
       assert.equal((await request(path,'POST',{nativeStudentId:'22',learnerId:learnerA})).status,409);
       assert.equal((await request(path,'GET')).status,200);
       await assert.rejects(pg.query('INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id) VALUES(7,99,$1,$2)',[orgB,learnerB]));
@@ -150,6 +156,7 @@ test('foundation identity links require explicit accounts, current authority and
       assert.equal((await request(path,'GET',undefined,'staff')).status,200);
       await pg.query('UPDATE learners SET archived=true WHERE id=$1',[learnerA]);
       assert.equal((await request(path,'GET',undefined,'staff')).status,404);
+      assert.equal((await request(linkPath+'/7/learners','POST',{nativeStudentId:'21',learnerId:learnerA})).status,404);
       await pg.query('UPDATE learners SET archived=false WHERE id=$1',[learnerA]);
       await pg.query('UPDATE centres SET archived=true WHERE id=$1',[centreA]);
       assert.equal((await request(path,'GET',undefined,'staff')).status,404);
@@ -163,6 +170,7 @@ test('foundation identity links require explicit accounts, current authority and
       const link=linkPath+'/7/learners/21',path='/foundation/organisations/7/staff/9/students/21/learner-identity';
       assert.equal((await request(link,'PATCH',{active:false,version:1})).status,200);
       assert.equal((await request(path,'GET',undefined,'staff')).status,404);
+      assert.equal((await request(linkPath+'/7/learners','POST',{nativeStudentId:'21',learnerId:learnerA})).status,409);
       assert.equal((await request(link,'PATCH',{active:true,version:1})).status,409);
       await pg.query('UPDATE learners SET archived=true WHERE id=$1',[learnerA]);
       assert.equal((await request(link,'PATCH',{active:true,version:2})).status,404);

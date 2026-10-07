@@ -14,7 +14,10 @@ Stored platform-superadmin authority is required for GET/POST
 The native student ID must first be verified in the intended Laravel installation
 and organisation. PostgreSQL constraints bind both the native organisation link
 and canonical learner to the same canonical organisation. Existing links cannot
-be reassigned; activation edits require `active` and the current `version` and
+be reassigned. An exact active POST retry returns the current same link without
+changing its version or adding a duplicate link audit event; it rechecks stored
+platform authority and current learner/organisation availability. Revoked or
+conflicting links cannot be repaired by retry. Activation edits require `active` and the current `version` and
 are audited. Archived learners/centres/sections cannot be newly linked or
 reactivated. GET currently returns the first 500 links.
 
@@ -105,3 +108,11 @@ block status; it neither creates links nor matches personal information.
 Local predicate and actual SQL ownership checks passed with synthetic records.
 The Linux/MySQL success path and production learner linking remain pending.
 This tool does not provision canonical enrolments or automate onboarding.
+
+## Retry verification
+
+The active-link retry change passed `npm run check`: 111 API tests, workspace
+typechecks and builds. HTTP checks cover exact and concurrent retries without
+link version/audit duplication, conflicting links, revoked links and archived
+learners. This is retry handling for reviewed mappings, not automatic native
+student provisioning. No production mappings were created or changed.
