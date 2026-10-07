@@ -698,3 +698,20 @@ after child-table locks. Changed summaries block the transaction. Existing
 media is database-owned; this does not authorize filesystem deletion. Tests cover
 nullable media, fresh/global exclusions, read-only planning and stale-manifest
 refusal. No production media or records were deleted.
+
+
+## Legacy connector retirement boundary — source review
+
+The old remote ExamElite connector reads a private JSON file selected by
+`T4L_EXAMELITE_CONFIG`; its optional `_platform` entry is global configuration,
+not an organisation-owned database record. Tenant connector ledgers
+(`examelite_sharing`, `examelite_students`, `examelite_workspaces` and student
+grants/sessions) are included through the organisation dependency graph.
+Deleting those ledgers must never call the remote original ExamElite service or
+delete its students/questions. Attendance runtime mode excludes the connector
+provider and controllers, so it does not read that private configuration.
+The configuration file and environment reference require separate bounded
+retirement review after cutover; the database cleanup core does not unlink files
+or infer their ownership from a configured path. No credentials were inspected
+or removed. The combined inventory, plan, transaction and restore-target suite
+passed all seven tests after the bounded-media changes.
