@@ -768,3 +768,18 @@ private ownership/permissions of shared storage/framework and storage/logs, and
 back up the user crontab. Previously existing log/lock files also need private
 permissions; umask does not change them. Only then install as the Tech4Learn user
 and verify a bounded run. No scheduler was activated.
+
+
+## Connected acceptance in attendance-only mode — local verification
+
+Both the connected PHP-to-Nest fixture and repeatable synthetic browser pilot
+now explicitly select `TECH4LEARN_API_MODE=attendance`. Their previous default
+used legacy mode, so the updated checks exercise the actual replacement support
+runtime. Connected platform password sign-in, native page permissions, explicit
+learner resolution, attendance capture/submission/review/history, revocation and
+logout passed with the old exam connector/provider routes omitted. The synthetic
+pilot check passed separate global/tenant identity login and attendance context.
+The native FoundationExamJourneyTest passed six tests / 48 assertions covering
+the local native exam journey. These are local synthetic checks, not authenticated
+production browser acceptance, provider/OCR delivery or mobile device acceptance.
+No live identities, mappings or records were created.

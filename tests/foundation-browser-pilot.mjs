@@ -23,6 +23,8 @@ import { hashPassword } from '../apps/api/dist/security.js';
 const credentials=JSON.parse(readFileSync(new URL('../.local/tech4learn-foundation/local-pilot-credentials.json',import.meta.url),'utf8'));
 if(process.env.NODE_ENV==='production') throw new Error('Local synthetic pilot only');
 process.env.NODE_ENV='test';
+// Exercise the replacement attendance support runtime, including retired-route removal.
+process.env.TECH4LEARN_API_MODE='attendance';
 process.env.ADMIN_ORIGIN='http://127.0.0.1:8001';
 const pg=new PGlite();
 let app;

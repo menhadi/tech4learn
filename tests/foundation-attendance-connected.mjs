@@ -21,6 +21,8 @@ import { foundationPlatformMigration } from '../apps/api/dist/migration-foundati
 import { digest,hashPassword } from '../apps/api/dist/security.js';
 if (!process.argv[2]) throw new Error('Provide the prepared local foundation dependency directory');
 process.env.NODE_ENV='test';
+// Exercise the replacement attendance support runtime, including retired-route removal.
+process.env.TECH4LEARN_API_MODE='attendance';
 process.env.ADMIN_ORIGIN='https://one.example.invalid';
 const pg=new PGlite();
 let app;
