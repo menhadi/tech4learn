@@ -3,6 +3,8 @@ import { foundationMigration } from "./migration-foundation.js";
 import { foundationLearnerMigration } from "./migration-foundation-learners.js";
 import { foundationPlatformMigration } from "./migration-foundation-platform.js";
 import { provisionPlatformAdministrator } from "./foundation-platform-provision.js";
+import { foundationProvisioningMigration } from "./migration-foundation-provisioning.js";
+import { provisionAttendanceOrganisation } from "./foundation-organisation-provision.js";
 import { examEliteMigration } from "./migration-examelite.js";
 import { examWorkspaceMigration } from "./migration-exam-workspace.js";
 import { examStudentAccessMigration } from "./migration-exam-student-access.js";
@@ -187,7 +189,16 @@ try {
       if (!(await sql.query("SELECT version FROM schema_versions WHERE version=19")).rows.length)
           await sql.query(foundationPlatformMigration);
     });
-    console.log("Database migrations through version 19 are applied.");
+    await db.transaction(async sql=>{
+      await sql.query("SELECT pg_advisory_xact_lock(74041001)");
+      if(!(await sql.query("SELECT version FROM schema_versions WHERE version=20")).rows.length)await sql.query(foundationProvisioningMigration);
+    });
+    console.log("Database migrations through version 20 are applied.");
+  } else if (command === "foundation-attendance-org") {
+    if(process.argv.length!==7 || process.argv[6]!=="--confirm-reviewed-new-native-organisation")
+      throw new Error("Use foundation-attendance-org CANONICAL_SUPERADMIN_UUID NATIVE_ORG_ID DISPLAY_NAME --confirm-reviewed-new-native-organisation.");
+    const result=await provisionAttendanceOrganisation(db,process.argv[3],process.argv[4],process.argv[5]);
+    console.log(result.created ? "Fresh attendance organisation created and explicitly linked." : "Exact active attendance companion already exists; unchanged.");
   } else if (command === "foundation-platform-admin") {
     if (process.argv.length !== 7 || process.argv[6] !== "--confirm-reviewed-native-identity")
       throw new Error("Use foundation-platform-admin CANONICAL_SUPERADMIN_UUID NATIVE_PRIMARY_ORG_ID NATIVE_USER_ID --confirm-reviewed-native-identity after reviewing the native account.");

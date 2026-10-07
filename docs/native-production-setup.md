@@ -510,3 +510,33 @@ The receipt records only `administratorPreserved: true`. Pure tests passed exact
 identity preservation and rejection of each changed field, missing identities
 and duplicate administrators. If the administrator changes after backup, create
 and verify a fresh backup rather than accepting a mismatched restore.
+
+## Fresh native organisation attendance companions — local implementation
+
+API migration 20 adds a mapping-origin marker; previous mappings remain
+`reviewed`. The explicit management command is:
+
+```text
+node dist/manage.js foundation-attendance-org CANONICAL_SUPERADMIN_UUID NATIVE_ORG_ID "DISPLAY NAME" --confirm-reviewed-new-native-organisation
+```
+
+It verifies a currently stored superadmin and requires migration 20. It creates
+a fresh attendance-side UUID, reserved native-ID-derived slug, default permission
+roles and learner/attendance settings, then records the explicit native mapping
+and audit atomically. It does not issue invitations, create users or import old
+organisations. Native/global platform realms are rejected. Existing manually
+reviewed mappings and occupied slugs cannot be adopted, even when names match.
+Exact retries return the same active companion without new audit/role records;
+revoked mappings or changed names block rather than being repaired.
+
+This command requires prior independent review of the new native organisation:
+PostgreSQL cannot verify ownership/status in the separate Laravel database.
+Automatic native create/update/deactivate hooks, staff and learner provisioning,
+centres/sections and authenticated acceptance are still pending. No migration 20
+or companion creation has been performed live. Legacy cleanup remains separately
+blocked on the pending isolated restore-database setup.
+
+Verification for fresh attendance provisioning: `npm run check` passed workspace
+typechecks/builds and all 109 API tests. The new test covers atomic fresh creation,
+permission initialization, exact retry/audit preservation, revoked links, occupied
+legacy slugs, ordinary staff denial and rejection of the global platform realm.

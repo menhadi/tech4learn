@@ -14,8 +14,9 @@ permission checks, scoped centre/section/learner references, media and audit.
 Provision a fresh attendance-side organisation record only as an explicit,
 idempotent companion to a new native organisation, never by matching old names
 or emails. This companion is an internal attendance boundary rather than a
-second organisation-management interface. That lifecycle integration remains
-to be implemented and verified; present mappings are explicit manual controls.
+second organisation-management interface. An explicit trusted-operator companion
+provisioning command is implemented locally; automatic native lifecycle integration
+remains pending. Existing mappings are explicit reviewed controls.
 
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
