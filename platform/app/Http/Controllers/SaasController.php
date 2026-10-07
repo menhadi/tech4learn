@@ -315,6 +315,7 @@ class SaasController extends Controller
             $counter++;
         }
 
+        DB::transaction(function () use ($validated, $organization, $username) {
         $user = User::create([
             'name' => $validated['name'],
             'username' => $username,
@@ -325,7 +326,7 @@ class SaasController extends Controller
             'status' => $validated['status'],
         ]);
 
-        if (method_exists($user, 'assignRole')) {
+        if ($validated['organization_role'] !== 'staff' && method_exists($user, 'assignRole')) {
             $user->assignRole('admin');
         }
 
@@ -346,6 +347,7 @@ class SaasController extends Controller
             'user_id' => $user->id,
             'role' => $validated['organization_role'],
         ]);
+        });
 
         return redirect()->route('saas.index')->with('success', 'Organization user created successfully.');
     }

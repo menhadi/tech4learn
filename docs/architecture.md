@@ -27,6 +27,11 @@ helper; an audit failure rolls back both the organisation and its configuration.
 Local regression tests verify credential isolation and rollback on configuration
 failure. This does not yet provision the attendance-side companion automatically.
 
+The platform's new-account form grants the global native `admin` role only for
+organisation owners/admins, never for a selected `staff` membership. Account,
+role and membership writes are transactional. This fixes fresh provisioning;
+existing role assignments are not automatically revoked or altered.
+
 Shared AI provider configuration is selected only from the unique active realm
 explicitly marked `is_primary_platform`. Missing or ambiguous platform realms,
 or missing platform configuration, yield no shared provider. Never fall back to

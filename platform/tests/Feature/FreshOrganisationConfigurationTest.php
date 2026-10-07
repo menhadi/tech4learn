@@ -25,6 +25,17 @@ class FreshOrganisationConfigurationTest extends TestCase
         $this->assertSame(Organization::class,$audit->auditable_type);
         $this->assertSame(['name'=>$org->name],$audit->metadata);
     }
+    public function test_new_staff_account_does_not_receive_global_admin_role(): void
+    {
+        $org=Organization::create(['name'=>'Synthetic staff tenant','slug'=>'staff-tenant','domain'=>'staff-tenant.test','status'=>'active']);
+        \Spatie\Permission\Models\Role::findOrCreate('admin','web');
+        $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic ordinary staff','email'=>'ordinary@example.invalid','password'=>'long synthetic password','organization_role'=>'staff','status'=>'Active']);
+        app(SaasController::class)->storeOrganizationAdmin($request,$org);
+        $user=\App\Models\User::where('email','ordinary@example.invalid')->sole();
+        $this->assertFalse($user->hasRole('admin'));
+        $this->assertFalse((bool)$user->is_platform_admin);
+        $this->assertDatabaseHas('organization_users',['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'staff']);
+    }
     public function test_new_configuration_does_not_copy_another_organisations_credentials(): void
     {
         $source=Organization::create(['name'=>'Synthetic source','slug'=>'synthetic-source','domain'=>'source.test','status'=>'active']);
