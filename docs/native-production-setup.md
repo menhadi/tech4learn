@@ -468,3 +468,22 @@ the original backup manifest remains unchanged. A partial restore is retained
 for diagnosis and cannot be silently overwritten. Never run against the live
 database. Source database/account and fixed-target tests passed; actual isolated
 restore is pending the database setup above.
+
+## Organisation cleanup transaction — local preparation
+
+`cleanup-legacy-organisation-records.mjs` provides an internal transactional core
+with no live CLI. Its private manifest freezes organisation UUIDs, scoped table
+counts and the retained administrator UUID/password digest. It locks affected
+tables, recounts after locks, refuses stale manifests and checks the stored
+administrator before and after deletion. Deletes follow the reviewed child-first
+order with bound organisation IDs, explicit native staff/grant scopes and no
+unconditional table clearing. It revokes sessions for old members and the admin;
+global audit history and newly created organisations outside the snapshot remain.
+
+Local tests cover stale-manifest refusal, isolated scoped deletion, fresh tenant
+preservation, unchanged admin password, session revocation and transaction rollback
+after a synthetic mid-deletion failure. This prepares the organisation-record
+phase only. Non-admin account retirement, global old-connector records and optional
+realm-registry cleanup require separate review. It is not connected to a live
+execution command; verified restore, private manifest persistence and paused
+application writes remain prerequisites. No production deletion has run.

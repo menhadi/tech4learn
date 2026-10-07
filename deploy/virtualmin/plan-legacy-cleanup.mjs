@@ -12,7 +12,7 @@ export function childFirstOrder(tables, edges) {
   return order;
 }
 
-export async function planLegacyCleanup(sql) {
+export async function planLegacyCleanup(sql, selectedOrganisationIds) {
   const inventory = await inventoryLegacyOrganisations(sql);
   if (inventory.canonicalSuperadmins !== '1') throw new Error('Exactly one retained administrator must be reviewed');
   const tables = inventory.organisationDependentTables.map(t => t.table);
@@ -23,7 +23,7 @@ export async function planLegacyCleanup(sql) {
     AND child.relname=ANY($1::text[]) AND parent.relname=ANY($1::text[])`,[tables]);
   const order = childFirstOrder(tables, links.rows.map(r=>[r.child,r.parent]));
   const columns = await sql.query("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=ANY($1::text[])",[tables]);
-  const organisations = (await sql.query('SELECT id FROM organisations ORDER BY id')).rows.map(r=>r.id);
+  const organisations = (await sql.query('SELECT id FROM organisations'+(selectedOrganisationIds ? ' WHERE id=ANY($1::uuid[])' : '')+' ORDER BY id',selectedOrganisationIds ? [selectedOrganisationIds] : [])).rows.map(r=>r.id);
   const native = (await sql.query('SELECT native_id::text FROM foundation_organisations WHERE organisation_id=ANY($1::uuid[])',[organisations])).rows.map(r=>r.native_id);
   const plan = [];
   for (const table of order) {
