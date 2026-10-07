@@ -589,3 +589,29 @@ all three core exam/question/student entries; no menu reseeding was performed.
 The native readiness gate now requires those three entries before cutover.
 This verifies the connected middleware path and menu configuration, not actual
 authenticated production browser acceptance.
+
+## Native Apache routing candidate — local preparation
+
+`render-native-apache.py` is a pure renderer with no installer or reload action.
+It accepts only the inspected two-vhost Tech4Learn layout, exact current Node
+root proxy and a full checked Git revision. Unexpected site names, includes,
+ports or proxy destinations block rendering. It changes the document root to
+that pinned release's native public directory and routes `/api/v1/` to the
+existing Node port with the original Host preserved. Certificate paths, other
+directives and ACME proxy exclusion remain; an explicit alias retains the
+original ACME challenge directory.
+
+The native directory uses PHP 8.4's existing private FPM socket and explicit
+front-controller fallback rather than app-controlled Apache overrides. Only the
+release-root index.php is executable; direct extra PHP utilities and nested PHP
+index files are denied. The original imported public/extract_file.php is outside
+the permitted PHP entry point. Two renderer tests passed fixed routing, preserved
+certificate/ACME directives and refusal of unexpected configurations.
+
+This is a review candidate, not an Apache-validated or installed configuration.
+Before the narrowly scoped user-run root cutover, stage the accepted release,
+pass identity/schema/API/native checks, validate modules and Apache syntax,
+back up only the Tech4Learn site file and prepare automatic rollback if reload or
+health checks fail. No routing change has been made; the existing helper cannot
+edit Apache. The pending isolated restore-database setup remains the earlier
+required user action.
