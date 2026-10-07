@@ -8,10 +8,14 @@ import { retireLegacyAccounts } from './retire-legacy-accounts.mjs';
 const digest = value => createHash('sha256').update(value).digest('hex');
 const uuid = value => typeof value==='string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value);
 
-export async function captureLegacyCleanupManifest(sql,archiveSha256) {
+export async function captureLegacyCleanupManifest(sql,archiveSha256,reviewedOrganisationIds) {
+  if(!/^[a-f0-9]{64}$/.test(archiveSha256 ?? '') || !Array.isArray(reviewedOrganisationIds)
+    || !reviewedOrganisationIds.length || reviewedOrganisationIds.some(id=>!uuid(id))
+    || new Set(reviewedOrganisationIds).size!==reviewedOrganisationIds.length)throw new Error('Explicit reviewed previous organisation IDs and archive hash are required.');
   const roots=await sql.query('SELECT id,password_hash FROM users WHERE is_superadmin');
   if(roots.rows.length!==1)throw new Error('Review the retained administrator');
-  const organisationIds=(await sql.query('SELECT id FROM organisations ORDER BY id')).rows.map(r=>r.id);
+  const organisationIds=(await sql.query('SELECT id FROM organisations WHERE id=ANY($1::uuid[]) ORDER BY id',[reviewedOrganisationIds])).rows.map(r=>r.id);
+  if(organisationIds.length!==reviewedOrganisationIds.length)throw new Error('Reviewed organisation snapshot is incomplete.');
   const oldUserIds=(await sql.query('SELECT DISTINCT u.id FROM users u JOIN memberships m ON m.user_id=u.id WHERE m.organisation_id=ANY($1::uuid[]) AND NOT u.is_superadmin ORDER BY u.id',[organisationIds])).rows.map(r=>r.id);
   const scoped=await planLegacyCleanup(sql,organisationIds);
   return {archiveSha256,organisationIds,oldUserIds,administratorId:roots.rows[0].id,administratorPasswordDigest:digest(roots.rows[0].password_hash),

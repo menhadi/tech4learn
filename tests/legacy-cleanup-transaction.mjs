@@ -23,8 +23,12 @@ test('cleanup removes only frozen old organisations, revokes sessions and preser
   await pg.query("INSERT INTO audit_events(id,actor_id,organisation_id,action) VALUES($1,$2,$3,'old'),($4,$5,NULL,'global')",[randomUUID(),admin,old,randomUUID(),teacher]);
   await pg.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES('synthetic',$1,now()+interval '1 hour')",[admin]);
   const initialTimeouts=(await pg.query("SELECT current_setting('statement_timeout') AS statement,current_setting('idle_in_transaction_session_timeout') AS idle")).rows[0];
-  const manifest=await captureLegacyCleanupManifest(pg,archive);
   await pg.query("INSERT INTO organisations(id,name,slug) VALUES($1,'Fresh synthetic','fresh-synthetic')",[fresh]);
+  await assert.rejects(captureLegacyCleanupManifest(pg,archive),/Explicit reviewed/);
+  await assert.rejects(captureLegacyCleanupManifest(pg,archive,[old,old]),/Explicit reviewed/);
+  await assert.rejects(captureLegacyCleanupManifest(pg,archive,[randomUUID()]),/incomplete/);
+  const manifest=await captureLegacyCleanupManifest(pg,archive,[old]);
+  assert.deepEqual(manifest.organisationIds,[old]);
   await assert.rejects(cleanupLegacyOrganisationRecords(db,manifest),/restore receipt/);
   const wrongArchive=structuredClone(manifest);wrongArchive.archiveSha256='b'.repeat(64);
   await assert.rejects(cleanup(db,wrongArchive),/not bound/);

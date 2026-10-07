@@ -969,3 +969,15 @@ permissions do not currently include stopping the API, so preparation alone
 does not authorize or perform that stop. Private frozen-manifest persistence
 and the live execution entry point remain pending; no production service was
 stopped or organisation deleted.
+
+
+## Explicit previous-organisation manifest capture
+
+Manifest capture now requires a reviewed UUID list and archive SHA-256. It no
+longer selects every organisation automatically. Missing/duplicate/invalid IDs
+or IDs absent from the source block capture. The transaction fixture now creates
+a fresh organisation before capturing the old-ID manifest, confirms it is
+excluded, and preserves it through successful cleanup. Three targeted plan and
+transaction tests passed. Previous organisation UUIDs belong in a private review
+file, never a Git commit or user-facing log. No production manifest was captured
+or organisation deleted.
