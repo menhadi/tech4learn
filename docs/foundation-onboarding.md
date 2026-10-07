@@ -73,5 +73,6 @@ The connected attendance journey passes using these synthetic service-created
 records. Separate synthetic directory/history records still exercise isolation.
 This verifies the local backend setup sequence, not automatic onboarding or production acceptance. The embedded Classes and
 sections view now reuses the existing academic setup forms for accessible
-centres. Centre creation/approval and learner provisioning/linking are not yet
-exposed through that embedded view.
+centres. A separate embedded Centres view now supports creation, editing, location
+approval and archiving through the existing records API. Learner
+provisioning/linking is not yet exposed through the embedded views.

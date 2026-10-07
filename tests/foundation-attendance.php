@@ -102,8 +102,10 @@ $setupWrite=Illuminate\Http\Request::create('https://two.example.invalid/attenda
 $setupWrite->setUserResolver(fn()=>Illuminate\Support\Facades\Auth::user());
 $h=[];$mock=clientMock([responseJson($context),responseJson(['id'=>'synthetic']),responseJson($context)],$h);
 $bridge->gateway($setupWrite,'organisations/11111111-1111-4111-8111-111111111111/academic-years',$mock);
-statusDenied(405,fn()=>$bridge->gateway($setupWrite,'organisations/11111111-1111-4111-8111-111111111111/centres',$http));
+statusDenied(404,fn()=>$bridge->gateway($setupWrite,'organisations/11111111-1111-4111-8111-111111111111/centres/unknown',$http));
 statusDenied(404,fn()=>$bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/classes/arbitrary',$http));
+statusDenied(405,fn()=>$bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/centres/44444444-4444-4444-8444-444444444444/approve',$http));
+statusDenied(404,fn()=>$bridge->gateway($setupWrite,'organisations/11111111-1111-4111-8111-111111111111/centres/44444444-4444-4444-8444-444444444444/delete',$http));
 statusDenied(404,fn()=>$bridge->gateway($request,'platform/foundation/organisations',$http));
 $h=[];$mock=clientMock([responseJson($context)],$h);
 statusDenied(404,fn()=>$bridge->gateway($request,str_replace('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',$path),$mock));

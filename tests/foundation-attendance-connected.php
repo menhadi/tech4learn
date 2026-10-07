@@ -29,7 +29,7 @@ $org=getenv('FOUNDATION_TEST_ORGANISATION');
 function gatewayRequest(string $path, string $method='GET', ?array $body=null): array {
     global $app,$bridge,$token;
     $req=Illuminate\Http\Request::create('https://two.example.invalid/attendance/api/'.$path,$method,[],['t4l_session'=>$token],[],
-        $body===null?[]:['CONTENT_TYPE'=>'application/json'], $body===null?null:json_encode($body));
+        $body===null?[]:['CONTENT_TYPE'=>'application/json'], $body===null?null:json_encode($body===[]?(object)[]:$body));
     $req->setUserResolver(fn()=>Illuminate\Support\Facades\Auth::user());$app->instance('request',$req);
     $response=$bridge->gateway($req,$path);
     if (!in_array($response->getStatusCode(),[200,201],true)) { throw new RuntimeException('Connected attendance action rejected: '.$response->getContent()); }
@@ -39,6 +39,17 @@ $setup='organisations/'.$org;
 foreach (['centres','academic-years','classes','groups'] as $resource) {
     if (count(gatewayRequest($setup.'/'.$resource))<1) throw new RuntimeException('Academic setup directory was not forwarded');
 }
+$newCentre=gatewayRequest($setup.'/centres','POST',['name'=>'Synthetic gateway centre','address'=>'Synthetic address','latitude'=>1,'longitude'=>1,'radius'=>100]);
+if ($newCentre['location_approved']!==false) throw new RuntimeException('New centre location approved automatically');
+gatewayRequest($setup.'/centres/'.$newCentre['id'].'/approve','POST',[]);
+$centres=gatewayRequest($setup.'/centres');
+$found=array_values(array_filter($centres,fn($c)=>$c['id']===$newCentre['id']));
+if (count($found)!==1||$found[0]['location_approved']!==true) throw new RuntimeException('Centre approval did not persist');
+gatewayRequest($setup.'/centres/'.$newCentre['id'].'/location','PATCH',['latitude'=>2,'longitude'=>2,'radius'=>100]);
+$centres=gatewayRequest($setup.'/centres');
+$found=array_values(array_filter($centres,fn($c)=>$c['id']===$newCentre['id']));
+if (count($found)!==1||$found[0]['location_approved']!==false) throw new RuntimeException('Changed coordinates retained approval');
+echo "PASS: connected centre creation, separate approval and approval invalidation on location change.\n";
 $createdYear=gatewayRequest($setup.'/academic-years','POST',['name'=>'Synthetic gateway year','starts_on'=>'2027-04-01','ends_on'=>'2028-03-31']);
 if (empty($createdYear['id'])) throw new RuntimeException('Academic setup write failed');
 echo "PASS: connected scoped academic directories and year creation through native gateway.\n";

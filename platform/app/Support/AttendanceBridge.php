@@ -153,10 +153,14 @@ class AttendanceBridge
 
     public function gateway(Request $request, string $path, ?ClientInterface $http = null): \Symfony\Component\HttpFoundation\Response
     {
-        abort_unless(strlen($path)<300 && preg_match('#^organisations/([a-f0-9-]{36})/(centres|groups(?:/[a-f0-9-]{36}(?:/archive)?)?|academic-years(?:/[a-f0-9-]{36}/archive)?|classes(?:/[a-f0-9-]{36}/archive)?|attendance(?:/[A-Za-z0-9-]+)*)$#D',$path,$match),404);
+        abort_unless(strlen($path)<300 && preg_match('#^organisations/([a-f0-9-]{36})/(centres(?:/[a-f0-9-]{36}(?:/(?:location|approve|archive))?)?|groups(?:/[a-f0-9-]{36}(?:/archive)?)?|academic-years(?:/[a-f0-9-]{36}/archive)?|classes(?:/[a-f0-9-]{36}/archive)?|attendance(?:/[A-Za-z0-9-]+)*)$#D',$path,$match),404);
         abort_unless(in_array($request->method(),['GET','POST','PATCH'],true),405);
         $resource=$match[2];
-        if ($resource==='centres') abort_unless($request->method()==='GET',405);
+        if (str_starts_with($resource,'centres')) {
+            $methods=$resource==='centres' ? ['GET','POST']
+                : ((str_ends_with($resource,'/approve') || str_ends_with($resource,'/archive')) ? ['POST'] : ['PATCH']);
+            abort_unless(in_array($request->method(),$methods,true),405);
+        }
         elseif (!str_starts_with($resource,'attendance')) {
             $methods=str_ends_with($resource,'/archive') ? ['POST']
                 : (str_starts_with($resource,'groups/') ? ['PATCH'] : ['GET','POST']);

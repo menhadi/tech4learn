@@ -98,15 +98,35 @@ with that section selected. Scoped drafts remain inside the mapped user and
 organisation boundary. Archived sections remain visible through the academic
 view filter while capture options exclude them.
 
-The native gateway allows centre reads and exact academic-year/class/section
+The native gateway allows centre reads/creation, exact centre edits and
+location/approval/archive actions, plus exact academic-year/class/section
 paths with bounded methods. API permission, scope and version checks remain
 authoritative, and both mappings are rechecked before returning a response.
-It does not expose centre writes, learner provisioning, platform management or
-arbitrary API routes. Centre creation/approval and explicit native student links
-still require the separately managed setup; automatic onboarding remains pending.
+It does not expose learner provisioning, platform management or arbitrary API
+routes. Explicit native student links still require the separately managed setup;
+automatic onboarding remains pending.
 
 Synthetic connected checks cover scoped academic reads and a year creation through
 the PHP gateway followed by attendance capture, review and history. Production
 activation and actual browser acceptance remain pending. The matching scaffold
 check passed all 111 API tests, workspace typechecks and both admin builds;
 native gateway boundary and connected PHP-to-Nest checks also passed.
+
+## Embedded centre setup
+
+A permission-filtered Centres view now supports creating/editing centres,
+approving locations separately and archiving while retaining history. It reuses
+DraftForm, DirectoryTable, RecordStatus and CentreLocation, with drafts scoped
+to the mapped user/organisation. Group-scoped staff have no centre write controls;
+the API independently enforces centre permissions and current scope.
+
+New or changed coordinates remain unapproved until the explicit approval action.
+The gateway forwards only exact centre paths and their allowed HTTP methods.
+Synthetic connected checks passed creation, approval and approval invalidation
+after a location change, followed by the attendance capture/review journey.
+These checks do not establish production or browser/device acceptance.
+
+The centre setup change passed `npm run check` (111 API tests, workspace
+typechecks and builds), native gateway boundary checks, and the connected
+PHP-to-Nest setup/attendance journey. No mobile sources or live configuration
+were changed. Actual browser/device and production acceptance remain pending.
