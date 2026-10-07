@@ -1143,3 +1143,15 @@ these Tech4Learn-only legacy routes, preserves TLS and ACME handling, and passes
 the full Apache configuration test with backup and rollback. This gate is local
 code only: no live configuration was written, removed or reloaded. The renderer
 output remains a candidate, not an installation command or a ready cutover.
+
+The subsequent pure `retire_reviewed_legacy_routes` preparation accepts only
+the exact twice-repeated Tech4Learn legacy blocks retrieved read-only. It removes
+the old public-root/CGI directory grants, PHP 8.1 CGI handlers, CGI/AWStats aliases
+and statistics authorization block. It preserves the exact existing admin and
+webmail service redirects; no service, credential file or other virtual host is
+changed. The final renderer grants only the existing ACME directory separately
+from the pinned native public directory. Changed blocks, administration targets
+or extra rewrite routes require review. Six tests passed, and the actual ignored
+read-only configuration snapshot produced a candidate in memory. Apache syntax,
+root installation and rollback are still unexecuted; no cutover command is ready
+for the user yet.
