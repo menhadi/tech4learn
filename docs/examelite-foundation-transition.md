@@ -125,10 +125,16 @@ production transition remain required.
 
 ## Attendance integration boundary
 
-The first implemented read boundary is documented in
+The user's subsequent explicit request authorized live deployment. The checked
+API/admin release is deployed; see the [live release record](live-foundation-release-20261007.md).
+Laravel's production website remains inactive. Source being present on the
+server does not complete native cutover or learner identity integration.
+
+The implemented attendance integration is documented in
 [native attendance bridge](foundation-attendance-bridge.md). It includes explicit
-organisation/staff mappings, revocation and real PHP-to-Nest synthetic read evidence.
-It does not establish full attendance integration or single sign-on.
+organisation/staff mappings, mapped staff sign-in, the mounted attendance UI,
+revocation and connected synthetic capture/review evidence. Full production
+activation and learner identity mapping remain pending.
 
 Keep the existing attendance API, PostgreSQL records, private photos, consent,
 capture evidence, corrections and job leases intact during the transition.
