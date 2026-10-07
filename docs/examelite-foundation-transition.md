@@ -5,6 +5,31 @@ application code as Tech4Learn's foundation, integration of the existing
 attendance implementation, then FLN and the mobile app. This replaces the
 React exam-interface replication and separate-product connector strategies.
 
+The user subsequently authorises direct checked deployment and asks for write
+access setup. This supersedes the earlier read-only/user-run-only deployment
+preference. Actual SSH write access is still pending installation of the new
+public key. Never infer access from this authorisation or weaken the review
+account. `deploy/virtualmin/install-deployment-access.sh` grants application
+account access and the existing service restart only; privileged host/PHP
+configuration requires an appropriate separately checked installation procedure.
+
+## Repository and cleanup direction
+
+Use `menhadi/tech4learn` as the combined product repository. Preserve the
+ExamElite origin revision and reviewed local edits in import metadata. Fetching
+`menhadi/examelite` must not reset those uncommitted edits or replace the
+running local foundation automatically. Import native source into a dedicated
+Laravel directory after secret/asset review, retaining `apps/api`,
+`apps/mobile`, shared contracts and current attendance migrations/history.
+
+Retire the React exam replication and remote ExamElite adapters only after
+dependency inspection and native replacement acceptance. Historical installer
+scripts are not suitable for this new product: some edit the original ExamElite
+deployment. Do not execute them as the foundation deployer. Keep cleanup separate
+from data migration; do not delete attendance evidence, credentials, question
+content, originals or working source changes. The eventual production deployer
+needs backups, two-database handling, a pinned revision and rollback checks.
+
 ## Current preparation
 
 The work is isolated on `codex/examelite-foundation`. The local source copy is
