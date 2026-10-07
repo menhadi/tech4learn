@@ -1067,3 +1067,24 @@ A user-run checksum-pinned root setup is still required to install this narrow
 permission. Do not use the upgrade candidate as permission to run arbitrary
 root commands or touch other websites. Public service and installed sudo rules
 remain unchanged; the isolated restore database is an independent prerequisite.
+
+
+## Native exam-processing dependency inventory — read-only
+
+The deployment account's system Python can resolve PyMuPDF (`fitz`), Pillow
+(`PIL`) and pytesseract; python3, pdftotext and tesseract executables are present.
+These checks establish availability only, not calibrated OCR or successful
+processing of actual learner/exam content. The copied Python requirements for
+core exam quality use those three modules. Admission allotment/seat-matrix
+imports additionally use pdfplumber, which is absent from the checked system
+Python; that optional workflow is not verified.
+
+The prepared `e1aae952` native browser renderer cannot resolve Playwright from
+its script location. API-only npm installation does not install native platform
+package dependencies. Native question visual/browser review is therefore not
+ready; Playwright and its browser runtime require a checked native dependency
+installation and bounded synthetic rendering test before acceptance. Do not
+reuse another site's node_modules/browser credentials or claim the complete
+engine is operational merely because PHP boot and ordinary exam tests pass.
+No dependencies were installed, original ExamElite paths accessed or production
+processing jobs started during these read-only checks.
