@@ -981,3 +981,24 @@ excluded, and preserves it through successful cleanup. Three targeted plan and
 transaction tests passed. Previous organisation UUIDs belong in a private review
 file, never a Git commit or user-facing log. No production manifest was captured
 or organisation deleted.
+
+
+## Private frozen-manifest preparation command
+
+`prepare-legacy-cleanup-manifest.mjs PRIVATE_BACKUP_DIRECTORY` is an operator
+preparation CLI, not a deletion command. It requires Linux, private freshly
+restored backup evidence and `previous-organisations.json` in that same backup
+directory, owned by the deployment account with no shared permission bits.
+The review file contains only an explicit `organisationIds` UUID array. Never
+commit its actual contents. It validates the fixed source database/account,
+requires paused writes and captures scoped IDs/counts/media/admin proof inside
+a repeatable-read read-only transaction. It then saves `cleanup-manifest.json`
+with mode 0600 and exclusive creation; existing review artifacts are not replaced.
+
+All 12 targeted receipt, filesystem, manifest-input, paused-write, plan,
+transaction and restore-target tests passed, and the CLI passed syntax checking.
+The actual Linux success path remains unexecuted pending fresh restore and the
+maintenance window. No production manifest was saved or database record changed.
+The eventual deletion entry point must load/revalidate this private manifest
+and current evidence, then invoke the guarded transactional core; it remains
+unimplemented and must not infer old organisation IDs from current table counts.
