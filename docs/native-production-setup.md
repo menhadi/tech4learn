@@ -241,3 +241,23 @@ provisioning against the existing canonical superadmin UUID, then stage the
 checked API/native releases and configure real tenant mappings. Do not attach
 the global platform realm to an attendance tenant for convenience. Production
 browser acceptance and the separately scoped Apache cutover remain outstanding.
+
+## Read-only platform identity deployment gate
+
+Before cutover, run `deploy/virtualmin/check-platform-identity.mjs` with the
+reviewed native primary organisation ID as its sole argument, using Node 24
+and the existing private API environment. It uses a read-only repeatable-read
+transaction with a five-second statement timeout. It checks migration 19,
+an explicit platform realm, absence of an attendance-tenant alias, and an active
+mapping to a currently stored canonical superadmin. Missing provisioning,
+deactivated links and demoted accounts block readiness. Output contains only
+check labels; no account identifiers or credentials. This command performs no
+provisioning, migrations or repairs.
+
+The native read-only readiness script additionally requires exactly one active
+primary platform realm and verifies that it belongs to tech4learn.com. Run both
+gates; neither proves matching native staff identity or browser acceptance.
+The isolated readiness test covers missing schema, unprovisioned platforms,
+tenant-realm confusion, link deactivation and account demotion, including a
+successful read inside a read-only transaction. These gates are checked locally;
+production provisioning and cutover remain outstanding.
