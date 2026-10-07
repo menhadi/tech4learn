@@ -449,3 +449,22 @@ manifest. This establishes archive readability, not a successful database
 restore. The manifest explicitly records `restoreTested: false`. Actual isolated
 restore verification is still required before destructive cleanup. No database,
 application configuration, scheduler or website routing was changed by backup.
+
+The deployment role has neither superuser nor CREATEDB permission. The narrowly
+scoped user-run root setup is:
+
+```bash
+runuser -u postgres -- createdb --port=5432 --owner=tech4learn_app tech4learn_cleanup_restore && runuser -u postgres -- psql --port=5432 -X -v ON_ERROR_STOP=1 -d postgres -c 'REVOKE CONNECT ON DATABASE tech4learn_cleanup_restore FROM PUBLIC;'
+```
+
+It creates only the fixed isolated database; it grants no role-wide privileges,
+does not modify the live database and refuses an already-existing destination.
+After setup, the deployment account can use `verify-legacy-restore.mjs` with the
+private backup directory as its sole argument. The verifier checks private file
+ownership/permissions and SHA-256, refuses a populated destination, restores only
+to `tech4learn_cleanup_restore` with no owner/privilege restoration, then checks
+restored counts and one superadmin. A separate private receipt records success;
+the original backup manifest remains unchanged. A partial restore is retained
+for diagnosis and cannot be silently overwritten. Never run against the live
+database. Source database/account and fixed-target tests passed; actual isolated
+restore is pending the database setup above.
