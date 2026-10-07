@@ -615,3 +615,22 @@ back up only the Tech4Learn site file and prepare automatic rollback if reload o
 health checks fail. No routing change has been made; the existing helper cannot
 edit Apache. The pending isolated restore-database setup remains the earlier
 required user action.
+
+## Latest checked native source prepared — 7 October 2026
+
+Pinned release `e1aae9521a27ead522ffff75e785a0d29a031bf4` is now prepared privately
+under `/home/tech4learn/releases/`, preserving the previously prepared `22e35a3e`
+release. It contains the checked provisioning, scheduling and verified native
+administrator page-right changes. Locked native dependencies and unchanged built
+attendance assets were copied from the previous release; PHP 8.4 Composer
+platform requirements passed. Its private environment points to the existing
+shared native configuration/storage. No migrations or administrator provisioning
+were run, and the public Node runtime was not switched.
+
+The actual private production-environment HTTP kernel returned `/login` 200,
+`/exams` 302 and `/attendance` 302 for unauthenticated requests. Current readiness
+passes environment, database account, core menu and primary-organisation checks;
+it correctly blocks on the pending native migration and absent administrator
+ledger. These guest checks do not constitute authenticated exam/attendance
+acceptance. PostgreSQL remains schema 18 and native MySQL remains at the prior
+241 migrations. Apache routing, API activation and scheduled jobs remain unchanged.
