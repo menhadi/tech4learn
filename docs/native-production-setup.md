@@ -1,8 +1,9 @@
 # Native production setup
 
-The private PHP 8.4 pool is verified. The Laravel production environment,
-dedicated MySQL database, native accounts and Apache cutover are still pending.
-The existing PostgreSQL attendance service remains authoritative and operational.
+The private PHP 8.4 pool, production environment and dedicated MySQL schema
+are verified. Native accounts, identity mappings and Apache cutover remain
+pending. The existing PostgreSQL attendance service remains authoritative
+and operational. See the checked database milestone below.
 
 `deploy/virtualmin/native-production.env.example` is a secret-free configuration
 template. The completed environment belongs on the server outside Git, with
@@ -90,3 +91,53 @@ configuration. Caller environment variables are ignored. Missing/unusable
 credentials stop setup without adopting existing databases or resetting passwords.
 The sudo action allowlist is unchanged. Seven local boundary tests passed; the
 updated helper must be installed by root before live preparation can be retried.
+
+## Checked native database milestone — 7 October 2026
+
+The restricted helper successfully created the dedicated database/account and
+root-owned private environment after root installed its protected MySQL
+credential file. No MySQL administrator password was exposed or copied into
+application configuration. The native account connected to an initially empty
+`tech4learn_exams` database; PostgreSQL attendance data was not changed.
+
+All 241 native migrations completed in pinned release
+`22e35a3e9f74846907f71be68cf1c5f13de895b4`. Fresh MySQL setup exposed and required
+fixes for unscheduled exam timestamps, an AI settings ordering dependency on
+a missing currency column, optional legacy organisation phone, the missing
+student email-verification timestamp, exam-monitor timestamps/partial retry,
+and admission foreign-key names exceeding MySQL's identifier limit. The
+admission retry rebuilds only its empty, unconstrained partial resource table
+and refuses to drop a table containing records. Each code fix was checked
+locally and pushed before its pinned schema retry. No SQL mode relaxation or
+original ExamElite database changes were made.
+
+Validated private backups were retained before initial installation and schema
+retries, starting at
+`/home/tech4learn/private-backups/native-initial-20261007T104014Z`. The final
+pre-retry backup/logs are in
+`/home/tech4learn/private-backups/native-retry-20261007T105129Z`. Backups and
+credentials remain on the server outside Git. Production storage is in
+`/home/tech4learn/native-shared/storage`; a mode-0600 shared native environment
+points there and the pinned release references it through `.env`.
+
+The single initial native platform organisation was branded Tech4Learn and
+bound to `tech4learn.com` in a guarded transaction that required zero users,
+students, memberships and configuration records. Its previous configuration
+was saved privately. Initial presentation settings use Asia/Kolkata. No native
+staff/student identities, API mappings or question content were copied or seeded.
+
+The full native suite passed 267 tests / 1,171 assertions. Fresh-schema
+regressions cover setup/retry, retained source records, unverified existing
+students and refusal to drop populated partial admission tables. Private
+Laravel HTTP-kernel checks returned 200 for `/login` and sign-in redirects for
+`/exams` and `/attendance`. Readiness checks passed production configuration,
+all migrations and canonical domain; they still block on the missing native
+platform administrator. Public API health remained `ok`. These kernel checks
+do not establish an Apache/FPM browser cutover or authenticated acceptance.
+
+Next: implement and verify an explicit platform-administrator sign-in mapping
+without binding the global platform organisation to a real attendance tenant;
+then reviewed tenant/staff/student provisioning, scheduled jobs and actual
+exam/attendance acceptance. Apache remains on the existing Node website.
+The restricted helper has no Apache edit privileges; the eventual checked
+cutover still requires a separately scoped root installation.
