@@ -10,6 +10,21 @@ use Tests\TestCase;
 class FreshOrganisationConfigurationTest extends TestCase
 {
     use RefreshDatabase;
+    public function test_successful_creation_saves_independent_configuration_and_scoped_audit(): void
+    {
+        $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic complete creation','domain'=>'complete-creation.test','status'=>'active']);
+        $response=app(SaasController::class)->storeOrganization($request);
+        $this->assertSame(302,$response->getStatusCode());
+        $org=Organization::where('domain','complete-creation.test')->sole();
+        $this->assertFalse((bool)$org->settings['is_primary_platform']);
+        $config=Configuration::where('organization_id',$org->id)->sole();
+        $this->assertSame($org->name,$config->organization_name);
+        $this->assertEmpty($config->openai_api_key);
+        $audit=\App\Models\AuditLog::where('action','organization.created')->where('auditable_id',$org->id)->sole();
+        $this->assertSame($org->id,(int)$audit->organization_id);
+        $this->assertSame(Organization::class,$audit->auditable_type);
+        $this->assertSame(['name'=>$org->name],$audit->metadata);
+    }
     public function test_new_configuration_does_not_copy_another_organisations_credentials(): void
     {
         $source=Organization::create(['name'=>'Synthetic source','slug'=>'synthetic-source','domain'=>'source.test','status'=>'active']);
