@@ -16,7 +16,9 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->command('questions:process-imports --limit=1')->everyMinute()->withoutOverlapping(120)->runInBackground();
-        $schedule->command('students:process-lifecycle-emails')->everyMinute()->withoutOverlapping();
+        if (config('native_schedule.lifecycle_emails', true)) {
+            $schedule->command('students:process-lifecycle-emails')->everyMinute()->withoutOverlapping();
+        }
         $schedule->command('exam-documents:reconcile')->everyFiveMinutes()->withoutOverlapping(10);
         foreach (range(1, config('paper_processing.workers', 4)) as $worker) {
             $schedule->command("exam-quality:process --limit=1 --worker={$worker}")
@@ -53,10 +55,12 @@ class Kernel extends ConsoleKernel
                 ->withoutOverlapping(30)
                 ->runInBackground();
         }
-        $schedule->command('seo:sync-search-console')
-            ->dailyAt('03:30')
-            ->withoutOverlapping(60)
-            ->onOneServer();
+        if (config('native_schedule.search_console', true)) {
+            $schedule->command('seo:sync-search-console')
+                ->dailyAt('03:30')
+                ->withoutOverlapping(60)
+                ->onOneServer();
+        }
     }
 
     /**

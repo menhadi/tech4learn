@@ -130,9 +130,10 @@
     },
     {
       "path": "app/Console/Kernel.php",
-      "sha256": "1717550eeed5fabf9e093fbf579346c54c777c06a60af413df46e59b56fa1da8",
+      "sha256": "7647f47dcc175b29e55cc7c97c25a0826eff15da33e601658a6d181182ec0c2e",
       "patches": [
-        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007",
+        "tech4learn-native-schedule-provider-gates"
       ]
     },
     {

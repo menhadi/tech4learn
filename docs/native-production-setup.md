@@ -337,3 +337,33 @@ creation has been performed in this milestone.
 Verification: all 282 native tests / 1,210 assertions passed, including initial
 creation, unchanged retry, UUID conflict, native-role revocation, missing
 confirmation/bridge and refusal to adopt an existing account.
+
+## Native scheduler preparation
+
+The production environment template explicitly selects `/usr/bin/php8.4` for
+detached paper jobs. Merely launching `artisan schedule:run` with PHP 8.4 does
+not select that binary for workers; the copied engine reads `PHP_CLI_BINARY`.
+The initial template bounds paper workers, parallel papers and heavy OCR/browser
+work to one. This retains native queue/claim logic and overlap safeguards.
+
+Question imports, document reconciliation, quality/repair, AI answers, source
+extraction and image cleanup remain scheduled. Scheduling a worker does not
+establish that its OCR/browser/AI dependencies are configured or verified.
+The new `native_schedule` configuration allows lifecycle email and Search
+Console jobs to be enabled separately. Copied application defaults preserve
+those jobs; the Tech4Learn production template disables both until delivery and
+provider acceptance. `MAIL_MAILER=log` does not deliver student email, so its
+lifecycle worker must not run and mark logged messages as delivered.
+
+Scheduler installation is still pending. After checked deployment and identity
+acceptance, install a single per-minute cron invocation as the Tech4Learn user
+against the exact accepted release's `platform/artisan`, using PHP 8.4 and private
+shared logs. Review `artisan schedule:list` first, avoid running the original
+ExamElite scheduler against this database, and remove the prior Tech4Learn cron
+entry when switching releases. Do not activate multiple pinned releases in
+parallel. Provider job gates and worker settings must be added to the private
+environment explicitly; changing this public template does not update live.
+
+Verification: all 284 native tests / 1,221 assertions passed. Schedule tests
+confirm core exam workers remain, provider jobs can be enabled independently
+and the initial one-worker schedule does not create a second worker slot.
