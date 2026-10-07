@@ -501,3 +501,12 @@ fresh-organisation preservation checks. A read-only live count found 11 non-admi
 accounts, all members of previous organisations; no account values were printed.
 The isolated restore database was still absent at this check, so live cleanup
 remains pending its setup and actual restore verification.
+
+Restore verification now also compares a private digest of the sole canonical
+administrator's UUID, email, name and password hash between the live read-only
+source and isolated restored database. A mismatch or ambiguous administrator
+set prevents a success receipt. No identity values or password hashes are printed.
+The receipt records only `administratorPreserved: true`. Pure tests passed exact
+identity preservation and rejection of each changed field, missing identities
+and duplicate administrators. If the administrator changes after backup, create
+and verify a fresh backup rather than accepting a mismatched restore.

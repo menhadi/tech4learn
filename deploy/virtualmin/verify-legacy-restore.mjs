@@ -3,9 +3,9 @@ import pg from 'pg';
 import { execFileSync } from 'node:child_process';
 import { lstatSync,realpathSync,readFileSync,writeFileSync,createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { legacyRestoreTarget } from './legacy-restore-target.mjs';
+import { legacyRestoreTarget,administratorRestoreProof } from './legacy-restore-target.mjs';
 
-let destination;
+let destination,source;
 try {
   const directory=process.argv[2];
   if(process.argv.length!==3 || !/^\/home\/tech4learn\/private-backups\/legacy-cleanup-[A-Za-z0-9]+$/.test(directory)
@@ -32,8 +32,14 @@ try {
     (SELECT count(*) FROM learners)::integer AS learners,
     (SELECT count(*) FROM attendance_sessions)::integer AS attendance_sessions`);
   if(counts.rows[0].admins!==1)throw new Error();
+  source=new pg.Client({connectionString:process.env.DATABASE_URL,connectionTimeoutMillis:5000});
+  await source.connect();await source.query('BEGIN TRANSACTION READ ONLY');
+  const liveIdentity=administratorRestoreProof((await source.query('SELECT id,email,name,password_hash FROM users WHERE is_superadmin')).rows);
+  await source.query('ROLLBACK');
+  const restoredIdentity=administratorRestoreProof((await destination.query('SELECT id,email,name,password_hash FROM users WHERE is_superadmin')).rows);
+  if(liveIdentity!==restoredIdentity)throw new Error();
   // Mark success only after actual restore and queries. No learner values in output.
-  writeFileSync(directory+'/restore-verification.json',JSON.stringify({verifiedAt:new Date().toISOString(),database:'tech4learn_cleanup_restore',archiveSha256:manifest.sha256,counts:counts.rows[0],liveDatabaseChanged:false},null,2)+'\n',{mode:0o600,flag:'wx'});
+  writeFileSync(directory+'/restore-verification.json',JSON.stringify({verifiedAt:new Date().toISOString(),database:'tech4learn_cleanup_restore',archiveSha256:manifest.sha256,counts:counts.rows[0],administratorPreserved:true,liveDatabaseChanged:false},null,2)+'\n',{mode:0o600,flag:'wx'});
   console.log('Isolated database restore completed; private verification receipt saved. Live database unchanged.');
 }catch{console.error('Isolated restore blocked or failed. No live database restore was attempted; inspect private state before retry.');process.exitCode=1;}
-finally{await destination?.end().catch(()=>{});}
+finally{await destination?.end().catch(()=>{});await source?.end().catch(()=>{});}
