@@ -7,6 +7,29 @@ paths before starting PHPUnit. Calling the upstream PHPUnit executable directly
 loads upstream global helper functions first and cannot verify helper changes;
 do not use that launcher for this fixture. The original installation is unchanged.
 
+## Current acceptance boundary — 8 October 2026
+
+The latest complete copied-source native run passed 323 tests / 1,372 assertions;
+later answer-key checks passed the eight exam journey tests / 73 assertions.
+The scaffold `npm run check` passed 111 API tests, workspace typechecks and API,
+admin and embedded-attendance builds. These are local synthetic checks.
+
+| Area | Verified locally | Remaining acceptance |
+| --- | --- | --- |
+| Exams | Student browser MCQ submission/result; API resume, expiry, attempt limits and withheld answer keys | Authenticated production journeys, concurrent MySQL starts and broader exam feature acceptance |
+| Written answers | TXT, DOCX, text PDF and printed English PNG upload/extraction; teacher publication and refreshed student score; private evidence retained | Handwriting, scanned PDFs, other languages, legacy DOC and production extractor runtime |
+| AI marking | Simulated provider score bounds, retry exclusion and intervening teacher-grade preservation | Real provider quality, credentials and production concurrency |
+| Attendance | Browser enrolment, virtual-camera capture, explicit confirmation and correction history; scoped HTTP tests | Physical camera/GPS, recognition calibration and authenticated production journeys |
+| Fresh organisations | Independent configuration, required creation audit, failure rollback and staff without global admin grants | Automatic companion/staff/learner lifecycle and reviewed live identity setup |
+
+Production completion still requires the retained administrator's explicit native
+identity, checked schema updates, fresh organisation/staff/learner mappings,
+verified private backup restoration and authorised legacy cleanup, bounded worker
+configuration/scheduling, and reviewed Apache installation/rollback. The public
+Node service remains active. Current `AGENTS.md` restricts assistant live access
+to read-only, so production writes remain user-run. No local test or Git push
+constitutes deployment or production acceptance. FLN/mobile remain later work.
+
 The private PHP 8.4 pool, production environment and dedicated MySQL schema
 are verified. Native accounts, identity mappings and Apache cutover remain
 pending. The existing PostgreSQL attendance service remains authoritative
