@@ -1,3 +1,4 @@
+import {provisionAttendanceAdministrator} from "../dist/foundation-staff-provision.js";
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -27,6 +28,23 @@ test('fresh attendance provisioning is idempotent and never adopts old mappings 
   assert.deepEqual(await provisionAttendanceOrganisation(db,admin,'2','Synthetic fresh'),{created:false,organisationId:first.organisationId});
   assert.equal((await pg.query("SELECT count(*)::integer AS total FROM audit_events WHERE action='foundation.organisation_provisioned'")).rows[0].total,1);
   assert.equal((await pg.query('SELECT count(*)::integer AS total FROM access_roles WHERE organisation_id=$1',[first.organisationId])).rows[0].total>0,true);
+  const password='long synthetic provision password';
+  await assert.rejects(provisionAttendanceAdministrator(db,staff,'2','22','fresh@example.invalid','Fresh',password));
+  await assert.rejects(provisionAttendanceAdministrator(db,admin,'1','22','fresh@example.invalid','Fresh',password));
+  await assert.rejects(provisionAttendanceAdministrator(db,admin,'2','22',staff+'@example.invalid','Fresh',password),/never adopted/);
+  const account=await provisionAttendanceAdministrator(db,admin,'2','22','fresh@example.invalid','Fresh',password);
+  assert.equal(account.created,true);
+  const before=(await pg.query('SELECT password_hash,is_superadmin FROM users WHERE id=$1',[account.userId])).rows[0];
+  assert.equal(before.is_superadmin,false);
+  assert.deepEqual(await provisionAttendanceAdministrator(db,admin,'2','22','fresh@example.invalid','Fresh','different synthetic password'),{created:false,userId:account.userId});
+  assert.equal((await pg.query('SELECT password_hash FROM users WHERE id=$1',[account.userId])).rows[0].password_hash,before.password_hash);
+  assert.equal((await pg.query("SELECT count(*)::integer AS total FROM audit_events WHERE action='foundation.staff_provisioned'")).rows[0].total,1);
+  await assert.rejects(provisionAttendanceAdministrator(db,admin,'2','22','changed@example.invalid','Fresh',password),/conflicts/);
+  await pg.query("UPDATE memberships SET status='suspended' WHERE user_id=$1",[account.userId]);
+  await assert.rejects(provisionAttendanceAdministrator(db,admin,'2','22','fresh@example.invalid','Fresh',password),/revoked/);
+  assert.equal((await pg.query('SELECT status FROM memberships WHERE user_id=$1',[account.userId])).rows[0].status,'suspended');
+  await pg.exec('UPDATE foundation_staff SET active=false WHERE native_organisation_id=2');
+  await assert.rejects(provisionAttendanceAdministrator(db,admin,'2','22','fresh@example.invalid','Fresh',password),/revoked/);
   await pg.exec('UPDATE foundation_organisations SET active=false WHERE native_id=2');
   await assert.rejects(provisionAttendanceOrganisation(db,admin,'2','Synthetic fresh'));
   await pg.query('INSERT INTO foundation_organisations(native_id,organisation_id) VALUES(7,$1)',[old]);

@@ -783,3 +783,36 @@ The native FoundationExamJourneyTest passed six tests / 48 assertions covering
 the local native exam journey. These are local synthetic checks, not authenticated
 production browser acceptance, provider/OCR delivery or mobile device acceptance.
 No live identities, mappings or records were created.
+
+
+## Fresh attendance administrator provisioning — local implementation
+
+The trusted operator command is:
+
+```text
+node dist/manage.js foundation-attendance-admin ROOT_UUID NATIVE_ORG_ID NATIVE_USER_ID EMAIL NAME --confirm-reviewed-new-native-staff
+```
+
+It prompts for the canonical password privately in an interactive terminal;
+passwords are never accepted as command arguments or copied from native hashes.
+Independently review that the native user is active, belongs to the intended new
+tenant and is not a platform administrator before executing. The API verifies
+the stored canonical superadmin and requires an active `native_companion` map.
+It creates a new ordinary canonical account, organisation-wide administrator
+membership, explicit native staff link and audit in one transaction. Existing
+email accounts are rejected rather than adopted. Exact active retries preserve
+the canonical password and avoid duplicate audits. Revoked/suspended identities,
+changed identity details or changed membership authority fail without repair.
+
+This is reviewed provisioning tooling, not automatic SaaS onboarding. Native
+create/update/deactivate hooks, staff lifecycle synchronization, centres/sections
+and student/learner provisioning remain pending. No live account was created.
+
+
+Verification for fresh attendance administrator provisioning: `npm run check`
+passed workspace typechecks/builds and all 111 API tests. The provisioning test
+covers ordinary-operator/global-realm denial, existing-email non-adoption, new
+account creation without superadmin authority, exact retry preserving password
+and audit count, changed identity rejection and revoked/suspended access refusal.
+Mobile and native Laravel application code were unchanged by this operator CLI
+addition; it does not establish mobile device or authenticated live acceptance.

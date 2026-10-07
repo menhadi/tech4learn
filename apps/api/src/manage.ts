@@ -1,3 +1,4 @@
+import { provisionAttendanceAdministrator } from "./foundation-staff-provision.js";
 import { attendanceTestingMigration } from "./migration-attendance-testing.js";
 import { foundationMigration } from "./migration-foundation.js";
 import { foundationLearnerMigration } from "./migration-foundation-learners.js";
@@ -199,6 +200,11 @@ try {
       throw new Error("Use foundation-attendance-org CANONICAL_SUPERADMIN_UUID NATIVE_ORG_ID DISPLAY_NAME --confirm-reviewed-new-native-organisation.");
     const result=await provisionAttendanceOrganisation(db,process.argv[3],process.argv[4],process.argv[5]);
     console.log(result.created ? "Fresh attendance organisation created and explicitly linked." : "Exact active attendance companion already exists; unchanged.");
+  } else if (command === "foundation-attendance-admin") {
+    if(process.argv.length!==9 || process.argv[8]!=="--confirm-reviewed-new-native-staff")
+      throw new Error("Use foundation-attendance-admin ROOT_UUID NATIVE_ORG_ID NATIVE_USER_ID EMAIL NAME --confirm-reviewed-new-native-staff. Password is prompted privately.");
+    const result=await provisionAttendanceAdministrator(db,process.argv[3],process.argv[4],process.argv[5],process.argv[6],process.argv[7],await secretPrompt());
+    console.log(result.created ? "Fresh attendance administrator created and explicitly linked." : "Exact active attendance administrator exists; password unchanged.");
   } else if (command === "foundation-platform-admin") {
     if (process.argv.length !== 7 || process.argv[6] !== "--confirm-reviewed-native-identity")
       throw new Error("Use foundation-platform-admin CANONICAL_SUPERADMIN_UUID NATIVE_PRIMARY_ORG_ID NATIVE_USER_ID --confirm-reviewed-native-identity after reviewing the native account.");
