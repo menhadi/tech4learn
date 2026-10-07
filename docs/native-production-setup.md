@@ -647,3 +647,28 @@ The install reported npm audit findings, which require dependency-specific revie
 before treating the new release as production-ready; no automatic dependency
 updates were applied. No migration, cleanup, account provisioning or routing
 change was performed while preparing this build.
+
+## API dependency audit remediation — local patch
+
+Targeted API/contracts production audit identified Multer 2.3.0, proxy-addr 2.0.7
+and shell-quote 1.9.0. The lockfile now resolves Multer 2.4.0, proxy-addr 2.0.8 and
+shell-quote 1.11.0 through scoped overrides, matching their published fixes:
+[Multer advisory](https://github.com/advisories/GHSA-3pph-fpjx-jg34),
+[proxy-addr advisory](https://github.com/advisories/GHSA-jqcg-44mw-7w3h) and
+[shell-quote advisory](https://github.com/advisories/GHSA-pqg4-j6r4-53mv).
+No framework major version changed. Multer's obsolete stream dependencies were
+removed by the targeted update; unrelated workspace package versions were kept.
+
+Current requests use JSON rather than Multer disk upload interceptors; the API
+does not configure the affected proxy trust subnet, and concurrently is a
+development launcher. These observations are not claims of exploitation or a
+reason to retain vulnerable packages. The targeted API/contracts production
+audit now reports zero findings. Whole-workspace/mobile audit has separate
+findings and has not been declared clean. The prepared server release and live
+runtime still contain the earlier lockfile until a new checked pinned release
+is prepared; no server package was updated in place.
+
+Verification: API/contracts audits with and without development dependencies both
+reported zero findings. `npm run check` passed workspace typechecks/builds and all
+111 API tests against the updated lockfile. Mobile package versions were unchanged;
+no Expo/React Native upgrade or mobile feature work was performed.
