@@ -5,18 +5,47 @@ import pwd
 import secrets
 import subprocess
 import sys
+import stat
 from pathlib import Path
 
 ENV = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "HOME": "/root", "LANG": "C.UTF-8"}
 PRIVATE = Path('/etc/tech4learn-native')
 
 
-def run(args, input=None):
-    result = subprocess.run(args, input=input, text=True, capture_output=True, env=ENV, timeout=60)
+def run(args, input=None, private_env=None):
+    result = subprocess.run(args, input=input, text=True, capture_output=True, env=private_env or ENV, timeout=60)
     if result.returncode:
         # Database errors may contain credentials: never forward tool output.
         raise RuntimeError('Fixed operation failed; a server administrator must inspect it.')
     return result.stdout.strip()
+
+
+def mysql_access():
+    """Use only fixed, root-controlled credential sources; never expose values."""
+    def trusted(path):
+        try:
+            info = path.lstat()
+            return stat.S_ISREG(info.st_mode) and info.st_uid == 0 and not (info.st_mode & 0o077)
+        except FileNotFoundError:
+            return False
+
+    config = Path('/etc/tech4learn-native-mysql.cnf')
+    if trusted(config):
+        return ['/usr/bin/mysql', '--defaults-file='+str(config), '--protocol=socket', '--user=root'], ENV.copy()
+    # Virtualmin/Webmin commonly stores its existing MySQL administrator login
+    # here. Read only internally as root; copy no administrator secret to app files.
+    webmin = Path('/etc/webmin/mysql/config')
+    if trusted(webmin):
+        values = {}
+        for line in webmin.read_text().splitlines():
+            name, separator, value = line.partition('=')
+            if separator and name in ('login', 'pass'):
+                values[name] = value
+        if values.get('login') == 'root' and values.get('pass'):
+            env = ENV.copy()
+            env['MYSQL_PWD'] = values['pass']
+            return ['/usr/bin/mysql', '--no-defaults', '--protocol=socket', '--user=root'], env
+    raise RuntimeError('No protected MySQL administrator credentials found. Root setup is required; no changes made.')
 
 
 def prepare_database():
@@ -25,10 +54,11 @@ def prepare_database():
         raise RuntimeError('Unexpected private directory symlink.')
     if PRIVATE.exists():
         raise RuntimeError('Private setup already exists; refusing to overwrite credentials.')
+    mysql, mysql_env = mysql_access()
     # Refuse to adopt or reset an existing database/account.
-    existing = run(['/usr/bin/mysql', '--no-defaults', '--protocol=socket', '--user=root', '--batch', '--skip-column-names'],
+    existing = run(mysql + ['--batch', '--skip-column-names'],
                    "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='tech4learn_exams';\n"
-                   "SELECT COUNT(*) FROM mysql.user WHERE User='tech4learn_exams';\n")
+                   "SELECT COUNT(*) FROM mysql.user WHERE User='tech4learn_exams';\n", private_env=mysql_env)
     if existing.splitlines() != ['0', '0']:
         raise RuntimeError('Dedicated database/account already exists; review required.')
     app = pwd.getpwnam('tech4learn')
@@ -53,10 +83,10 @@ def prepare_database():
     os.chown(environment, 0, app.pw_gid)
     os.chmod(environment, 0o640)
     # Generated hex is safe in these fixed SQL string literals. No user SQL.
-    run(['/usr/bin/mysql', '--no-defaults', '--protocol=socket', '--user=root'],
+    run(mysql,
         "CREATE DATABASE tech4learn_exams CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n"
         "CREATE USER 'tech4learn_exams'@'127.0.0.1' IDENTIFIED BY '"+password+"';\n"
-        "GRANT ALL PRIVILEGES ON tech4learn_exams.* TO 'tech4learn_exams'@'127.0.0.1';\n")
+        "GRANT ALL PRIVILEGES ON tech4learn_exams.* TO 'tech4learn_exams'@'127.0.0.1';\n", private_env=mysql_env)
     print('Dedicated exam database/account and private environment prepared. No migrations, records or routing changed.')
 
 

@@ -75,3 +75,18 @@ Four local tests passed for rejected/extra actions, existing-database refusal,
 existing-configuration refusal and dedicated SQL/configuration targets. Bash
 installer syntax passed. Root installation and MySQL execution remain unverified
 until the server administrator installs the checked helper.
+
+### MySQL administrator authentication
+
+The initial live preparation failed before any private environment or database
+was created: the server rejects passwordless MySQL root authentication. The
+restricted helper now reads only fixed administrator credential sources: a
+root-owned `0600` `/etc/tech4learn-native-mysql.cnf`, or the root login/password
+inside an equally protected `/etc/webmin/mysql/config`. Symlinks, non-root files
+and group/public-accessible files are rejected. MySQL administrator secrets
+remain in root-controlled storage and the fixed child-process environment;
+they are never printed, passed as command arguments, or written to application
+configuration. Caller environment variables are ignored. Missing/unusable
+credentials stop setup without adopting existing databases or resetting passwords.
+The sudo action allowlist is unchanged. Seven local boundary tests passed; the
+updated helper must be installed by root before live preparation can be retried.
