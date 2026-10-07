@@ -10,6 +10,7 @@ use App\Support\AiProvider;
 use App\Support\SaasAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class AISubjectiveAssessmentController extends Controller
 {
@@ -33,13 +34,13 @@ class AISubjectiveAssessmentController extends Controller
             return response()->json(['success' => false, 'message' => 'Record not found']);
         }
 
+        $tenantId=$this->tenantId();
+        $attempt=ExamResult::where('organization_id',$tenantId)->find($stat->exam_result_id);
+        abort_unless($attempt && $attempt->end_time && $stat->ques_status==='P' && !$stat->ai_assessed,409,'Only submitted pending answers can be assessed.');
         // Get student answer from 'answer' column
         $studentAnswer = $stat->answer;
         if (empty($studentAnswer) && $stat->uploaded_answer_path) {
             $studentAnswer = $this->extractText($stat->uploaded_answer_path);
-            $stat->extracted_answer_text = $studentAnswer;
-            $stat->answer = $studentAnswer;
-            $stat->save();
         }
 
         if (empty($studentAnswer)) {
@@ -77,6 +78,15 @@ class AISubjectiveAssessmentController extends Controller
 
         $avgScore = round(array_sum($assessments) / count($assessments), 2);
         
+        return DB::transaction(function()use($stat,$tenantId,$avgScore,$assessments,$studentAnswer){
+        $attempt=ExamResult::where('organization_id',$tenantId)->lockForUpdate()->find($stat->exam_result_id);
+        $current=ExamStats::where('organization_id',$tenantId)->lockForUpdate()->find($stat->id);
+        abort_unless($attempt && $attempt->end_time && $current && $current->ques_status==='P' && !$current->ai_assessed,409,'Answer was already assessed or changed.');
+        $stat=$current;
+        if(empty($stat->answer)) {
+            $stat->extracted_answer_text=$studentAnswer;
+            $stat->answer=$studentAnswer;
+        }
         $stat->ai_assessed = 1;
         $stat->ai_score = $avgScore;
         $stat->ai_providers_used = implode(',', array_keys($assessments));
@@ -96,6 +106,7 @@ class AISubjectiveAssessmentController extends Controller
             ->update(['obtained_marks' => $total]);
         
         return response()->json(['success' => true, 'score' => $avgScore, 'provider_count' => count($assessments), 'assessments' => $assessments]);
+        });
     }
     
     private function callAI(array $provider, string $prompt)
@@ -137,6 +148,8 @@ class AISubjectiveAssessmentController extends Controller
         SaasAccess::abortIfFeatureDisabled('ai_subjective_analysis');
 
         $stats = ExamStats::where('ai_assessed', 0)
+            ->where('ques_status','P')
+            ->whereIn('exam_result_id',ExamResult::select('id')->where('organization_id',$this->tenantId())->whereNotNull('end_time'))
             ->whereNotNull('answer')
             ->when($this->tenantId(), function ($q, $tenantId) {
                 $q->where('organization_id', $tenantId);

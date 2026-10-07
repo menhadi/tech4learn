@@ -12,7 +12,7 @@ class ManualEvaluationTest extends TestCase
     private function fixture(): array
     {
         Cache::flush();Tenant::clear();
-        $plan=SaasPlan::create(['name'=>'Synthetic grading','slug'=>'synthetic-grading','price'=>0,'billing_cycle'=>'monthly','status'=>true,'features'=>['reports'=>true]]);
+        $plan=SaasPlan::create(['name'=>'Synthetic grading','slug'=>'synthetic-grading','price'=>0,'billing_cycle'=>'monthly','status'=>true,'features'=>['reports'=>true,'ai_subjective_analysis'=>true]]);
         $org=Organization::create(['name'=>'Synthetic grading','slug'=>'synthetic-grading','domain'=>'grading.test','status'=>'active','saas_plan_id'=>$plan->id]);
         $user=User::create(['name'=>'Synthetic teacher','username'=>'synthetic-teacher','email'=>'teacher@example.invalid','password'=>'unused','status'=>'Active']);
         DB::table('organization_users')->insert(['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'owner','status'=>1,'created_at'=>now(),'updated_at'=>now()]);
@@ -99,5 +99,16 @@ class ManualEvaluationTest extends TestCase
         $row=DB::table('exam_stats')->where('id',$stats[0]->id)->first();
         $this->assertEquals(1.5,$row->ai_score);
         $this->assertSame('Synthetic provider',$row->ai_providers_used);
+    }
+    public function test_ai_bulk_excludes_open_and_manually_marked_answers(): void
+    {
+        [$result,$stats]=$this->fixture();
+        DB::table('exam_stats')->where('exam_result_id',$result->id)->update(['answer'=>'Synthetic explanation']);
+        $result->update(['end_time'=>null]);
+        $this->postJson('https://grading.test/ai/subjective/bulk-assess')->assertOk()->assertJson(['total'=>0]);
+        $result->update(['end_time'=>now()]);
+        $this->grade($result,[$stats[0]->id=>2,$stats[1]->id=>2])->assertRedirect();
+        $this->postJson('https://grading.test/ai/subjective/bulk-assess')->assertOk()->assertJson(['total'=>0]);
+        $this->assertEquals(4,$result->fresh()->obtained_marks);
     }
 }

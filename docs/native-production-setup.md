@@ -1277,3 +1277,11 @@ and provider metadata fields only when missing. Its rollback preserves evidence.
 A local regression test verified existing metadata survives repeat application
 and rollback. This migration is checked locally and has not run in production;
 actual AI provider marking and attempt-state/concurrency acceptance remain pending.
+
+AI assessment now rejects open, non-pending or already AI-assessed answers
+before extraction/provider calls. Bulk assessment excludes open attempts and
+manually marked answers. After provider work, saving locks the result and answer
+and rechecks their states, preventing an intervening teacher grade from being
+overwritten. Extracted evidence is saved inside that transaction. A local HTTP
+regression verified bulk exclusion and retained manual marks; provider-call
+concurrency and real provider assessment acceptance remain pending.
