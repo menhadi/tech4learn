@@ -1285,3 +1285,9 @@ and rechecks their states, preventing an intervening teacher grade from being
 overwritten. Extracted evidence is saved inside that transaction. A local HTTP
 regression verified bulk exclusion and retained manual marks; provider-call
 concurrency and real provider assessment acceptance remain pending.
+
+A deterministic local provider simulation now verifies the intervening-teacher
+case: during the fake HTTP response the teacher's one-mark grade is persisted,
+then AI saving returns HTTP 409 and leaves that grade and total unchanged.
+The test blocks stray HTTP requests and uses no real provider credential or
+learner data. Real provider and production concurrency acceptance remain pending.

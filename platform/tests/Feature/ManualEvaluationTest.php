@@ -3,7 +3,7 @@ namespace Tests\Feature;
 use App\Models\{Organization,User,Student,Exam,ExamResult,ExamStat,Question,Qtype,SaasPlan};
 use App\Support\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\{Cache,DB};
+use Illuminate\Support\Facades\{Cache,DB,Http};
 use Tests\TestCase;
 
 class ManualEvaluationTest extends TestCase
@@ -12,7 +12,7 @@ class ManualEvaluationTest extends TestCase
     private function fixture(): array
     {
         Cache::flush();Tenant::clear();
-        $plan=SaasPlan::create(['name'=>'Synthetic grading','slug'=>'synthetic-grading','price'=>0,'billing_cycle'=>'monthly','status'=>true,'features'=>['reports'=>true,'ai_subjective_analysis'=>true]]);
+        $plan=SaasPlan::create(['name'=>'Synthetic grading','slug'=>'synthetic-grading','price'=>0,'billing_cycle'=>'monthly','status'=>true,'features'=>['reports'=>true,'ai_subjective_analysis'=>true,'ai_settings'=>true]]);
         $org=Organization::create(['name'=>'Synthetic grading','slug'=>'synthetic-grading','domain'=>'grading.test','status'=>'active','saas_plan_id'=>$plan->id]);
         $user=User::create(['name'=>'Synthetic teacher','username'=>'synthetic-teacher','email'=>'teacher@example.invalid','password'=>'unused','status'=>'Active']);
         DB::table('organization_users')->insert(['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'owner','status'=>1,'created_at'=>now(),'updated_at'=>now()]);
@@ -110,5 +110,22 @@ class ManualEvaluationTest extends TestCase
         $this->grade($result,[$stats[0]->id=>2,$stats[1]->id=>2])->assertRedirect();
         $this->postJson('https://grading.test/ai/subjective/bulk-assess')->assertOk()->assertJson(['total'=>0]);
         $this->assertEquals(4,$result->fresh()->obtained_marks);
+    }
+    public function test_intervening_teacher_grade_survives_simulated_ai_response(): void
+    {
+        [$result,$stats]=$this->fixture();
+        \App\Models\Configuration::create(['organization_id'=>$result->organization_id,'openai_api_key'=>'synthetic-never-sent','openai_model'=>'synthetic-model','ai_provider'=>'openai']);
+        DB::table('exam_stats')->where('id',$stats[0]->id)->update(['answer'=>'Synthetic explanation']);
+        Http::preventStrayRequests();
+        Http::fake(['https://api.openai.com/*'=>function()use($result,$stats){
+            DB::table('exam_stats')->where('id',$stats[0]->id)->update(['marks_obtained'=>1,'ques_status'=>'R']);
+            $result->update(['obtained_marks'=>1]);
+            return Http::response(['choices'=>[['message'=>['content'=>'{"score":2}']]]]);
+        }]);
+        $this->postJson('https://grading.test/ai/subjective/bulk-assess')->assertStatus(409);
+        Http::assertSentCount(1);
+        $this->assertEquals(1,$stats[0]->fresh()->marks_obtained);
+        $this->assertEquals(1,$result->fresh()->obtained_marks);
+        $this->assertFalse((bool)$stats[0]->fresh()->ai_assessed);
     }
 }
