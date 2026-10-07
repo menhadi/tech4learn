@@ -49,6 +49,21 @@ were created by these tests.
 Migration 18 is explicit through the management CLI. Back up the API database
 before applying it. It does not activate Laravel or repair its production setup.
 
+## Checked live milestone
+
+On 7 October 2026, `d5d2cd9fa48bc9c3dfac180000f1cd93f48b6deb` was deployed to
+the existing API/admin service under the user's continuing deployment authority.
+Migration 18 applied after a validated private PostgreSQL backup in
+`/home/tech4learn/private-backups/foundation-20261007T101307Z`. Previous source is
+`32b9f679e9433558b005b307a42037202a3848ba`; its runtime release remains available
+for application rollback. Local/public health and the new compiled public asset
+check passed. No production identity links or synthetic learner data were seeded.
+
+The matching release's locked Laravel production dependencies were installed with
+application scripts disabled, and Composer platform requirements passed under
+PHP 8.4. Production `.env` and the native database were not created. The original
+ExamElite website remains untouched. This stages dependencies, not native activation.
+
 ## Limited PHP preparation
 
 `deploy/virtualmin/prepare-native-php.sh CHECKED_FULL_REVISION` is a user-run root
@@ -63,3 +78,13 @@ and exact pool configuration syntax were checked; installation still needs root.
 The live website stays on Node until native environment/database setup, reviewed
 identity provisioning and production routing are ready. Preparing this pool alone
 does not complete the cutover.
+
+The staged root command is:
+
+```bash
+bash /home/tech4learn/releases/d5d2cd9fa48bc9c3dfac180000f1cd93f48b6deb/deploy/virtualmin/prepare-native-php.sh d5d2cd9fa48bc9c3dfac180000f1cd93f48b6deb
+```
+
+The deployment account cannot execute that preparation with its existing sudo
+rules. The user was asked to run it from the server root terminal. Installation
+and socket checks still need verification after that action.
