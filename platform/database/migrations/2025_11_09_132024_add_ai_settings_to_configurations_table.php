@@ -19,7 +19,7 @@ return new class extends Migration
             // Yeh 3 naye columns add karo
             
             // Column 1: Yeh save karega ki user 'google' use kar raha hai ya 'openai'
-            $table->string('ai_provider')->nullable()->default('google')->after('currency');
+            $table->string('ai_provider')->nullable()->default('google');
             
             // Column 2: Google ki key save karne ke liye
             $table->text('google_gemini_api_key')->nullable()->after('ai_provider');

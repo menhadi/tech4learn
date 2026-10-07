@@ -2574,8 +2574,10 @@
     },
     {
       "path": "database/migrations/2025_11_09_132024_add_ai_settings_to_configurations_table.php",
-      "sha256": "53cbcd3ea88d3521889ca3f2fbcf517602cb6291096330a768e8aee3ff9a227d",
-      "patches": []
+      "sha256": "00b2215852f1803421e754c83211e90f3424ace490e59ff8bba62f1ef7333cca",
+      "patches": [
+        "remove-missing-currency-column-order-dependency"
+      ]
     },
     {
       "path": "database/migrations/2025_12_09_070322_add_calculator_allowed_to_exams_table.php",
