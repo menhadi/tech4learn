@@ -38,7 +38,7 @@ class StudentAnswerTextExtractor
             if(!$process->isSuccessful())throw new \RuntimeException('Answer extraction is unavailable for this file.');
         }
         if(strlen($text)>524288 || !mb_check_encoding($text,'UTF-8'))throw new \RuntimeException('Answer text is too large or not UTF-8.');
-        $text=trim(str_replace(["\r\n","\r"],"\n",$text));
+        $text=trim(str_replace(["\r\n","\r","\f"],"\n",$text));
         if($text==='')throw new \RuntimeException('No answer text was found.');
         return $text;
     }

@@ -9,7 +9,7 @@ class StudentAnswerTextExtractorTest extends TestCase
 {
     public function test_plain_text_normalizes_line_endings(): void
     {
-        $file=UploadedFile::fake()->createWithContent('answer.txt',"  Synthetic\r\nanswer\rtext  ");
+        $file=UploadedFile::fake()->createWithContent('answer.txt',"  Synthetic\r\nanswer\ftext\f  ");
         $this->assertSame("Synthetic\nanswer\ntext",(new StudentAnswerTextExtractor)->extract($file));
     }
 

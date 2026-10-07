@@ -1245,3 +1245,11 @@ MIME validation, authenticated extraction, private upload, submission, teacher
 publication and the student's updated score. The database verifier confirmed
 the two-mark pass with evidence retained. TXT and DOCX are locally verified;
 image/PDF/legacy DOC processing and production acceptance remain pending.
+
+Text-based PDF acceptance also passed locally using `--subjective --pdf` and
+the browser's `--pdf --grade` mode. The real `pdftotext` process extracted the
+synthetic PDF; page-break characters are now normalized to line breaks before
+trimming. Upload, submission, teacher publication and student score refresh all
+passed, and the database verifier confirmed the two-mark pass with retained
+evidence. This does not verify scanned-image PDFs, handwriting or Linux
+production runtime availability.
