@@ -1088,3 +1088,22 @@ reuse another site's node_modules/browser credentials or claim the complete
 engine is operational merely because PHP boot and ordinary exam tests pass.
 No dependencies were installed, original ExamElite paths accessed or production
 processing jobs started during these read-only checks.
+
+
+## Native browser renderer synthetic smoke check
+
+`node tests/native-browser-smoke.mjs PREPARED_NATIVE_ROOT` starts a temporary
+loopback-only fixture server and invokes the actual native browser renderer.
+It verifies a visible synthetic question has no findings, screenshot PNGs are
+created, and a deliberately broken image is detected without browser exceptions.
+It uses no application sign-in, provider, database or learner content. Evidence
+is stored under ignored `.local/native-browser-smoke-*`.
+
+The local run passed. Local Playwright/playwright-core library copies match the
+native lockfile version 1.61.1 and were copied as code into the ignored local
+foundation without modifying the original installation; the existing local
+browser runtime was used. This is not evidence that the prepared Linux release
+has its own native Node/browser dependencies installed. Its earlier Playwright
+resolution check remains blocked. Do not link production dependencies to another
+site or copy its application data. Actual native question-preview integration
+and Linux browser/runtime acceptance remain separate checks.
