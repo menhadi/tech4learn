@@ -39,6 +39,29 @@ class TenantIsolationTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_disabled_student_password_does_not_open_a_web_session(): void
+    {
+        $tenant=$this->organization('Tenant A','tenant-a.test');
+        $student=$this->student($tenant,'disabled@example.test','9000000091');
+        $student->update(['status'=>'Inactive']);
+        $this->from('https://tenant-a.test/student/signin')->post('https://tenant-a.test/student/signin',[
+            'login'=>$student->email,'password'=>'password123',
+        ])->assertRedirect('https://tenant-a.test/student/signin')->assertSessionHasErrors('login');
+        $this->assertGuest('student');
+    }
+
+    public function test_disabled_student_existing_web_and_api_sessions_are_rejected(): void
+    {
+        $tenant=$this->organization('Tenant A','tenant-a.test');
+        $student=$this->student($tenant,'revoked@example.test','9000000092');
+        $this->actingAs($student,'student');
+        Student::whereKey($student->id)->update(['status'=>'Inactive']);
+        $this->get('https://tenant-a.test/student/my-exams')->assertForbidden();
+        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Sanctum::actingAs($student, [], 'student-api');
+        $this->getJson('https://tenant-a.test/api/student/me')->assertForbidden();
+    }
+
     public function test_mobile_signup_is_scoped_to_the_host_tenant_and_its_groups(): void
     {
         $tenantA = $this->organization('Tenant A', 'tenant-a.test');

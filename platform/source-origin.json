@@ -723,8 +723,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/StudentAuthController.php",
-      "sha256": "29b356ad96b55b43baddc33bdf7068309558d7376b4d98605b2664abf542b83f",
-      "patches": []
+      "sha256": "75ace74c6f1f93824c28902a6cb32ed302ff88008f7e27eb4be1f8833cd69d9b",
+      "patches": [
+        "student-active-status-revalidation"
+      ]
     },
     {
       "path": "app/Http/Controllers/Students/StudentCourseController.php",
@@ -828,8 +830,10 @@
     },
     {
       "path": "app/Http/Middleware/Authenticate.php",
-      "sha256": "6c9e9224fa9d50989029c7f58a332be0506273fdaf8b8fa9de706573aab4f7e1",
-      "patches": []
+      "sha256": "a8eec1b1029d101ebc47eadb9da7fc51aeb9797d94f1c30274cf55a3de98d712",
+      "patches": [
+        "student-active-status-revalidation"
+      ]
     },
     {
       "path": "app/Http/Middleware/CheckInstallation.php",

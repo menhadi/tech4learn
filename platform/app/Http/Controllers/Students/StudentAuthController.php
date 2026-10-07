@@ -433,7 +433,7 @@ class StudentAuthController extends Controller
             return redirect()->route('student.verify')->with('error', $message);
         }
 
-        if ($studentCheck && Hash::check($password, $studentCheck->password)) {
+        if ($studentCheck && $studentCheck->status === 'Active' && Hash::check($password, $studentCheck->password)) {
             Auth::guard('student')->login($studentCheck, (bool) $request->boolean('remember'));
             $student = $studentCheck;
             $student->last_login = now();

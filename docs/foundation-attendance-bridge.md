@@ -238,3 +238,11 @@ verification enables SQLite query-only mode before reading the result. No live
 or original ExamElite data is used. This is local acceptance of a single MCQ
 journey; production identity setup, full feature acceptance, cleanup and website
 cutover remain pending.
+
+Student account status is now rechecked from the native database on protected
+web and API requests; an already signed-in student becomes forbidden after
+deactivation. Web password sign-in requires Active status, while the existing
+Pending verification flow remains separate. Local tests passed disabled-password
+rejection and rejection of stale web/API sessions, alongside the existing exam
+journey and tenant-isolation checks (17 tests / 85 assertions). This change has
+not been deployed to the live website.
