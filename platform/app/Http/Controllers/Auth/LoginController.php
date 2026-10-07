@@ -40,6 +40,10 @@ class LoginController extends Controller
         try {
             $user=app(AttendanceBridge::class)->authenticate($request);
             $this->guard()->login($user,false);
+            $request->session()->forget('foundation_platform_identity');
+            if ($request->attributes->has('foundation_platform_identity')) {
+                $request->session()->put('foundation_platform_identity',$request->attributes->get('foundation_platform_identity'));
+            }
             return true;
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $error) {
             if (in_array($error->getStatusCode(),[401,403,404],true)) { return false; }

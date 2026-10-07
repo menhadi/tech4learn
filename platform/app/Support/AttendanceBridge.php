@@ -35,13 +35,12 @@ class AttendanceBridge
     public function authenticate(Request $request, ?ClientInterface $http = null): User
     {
         $organization=Tenant::current();
+        $platform=(bool)($organization->settings['is_primary_platform']??false);
         $headers=[];
-        $identity=$this->read($request,'/foundation/auth/login',[],$http,'POST',[
+        $identity=$this->read($request,$platform?'/foundation/auth/platform/login':'/foundation/auth/login',[],$http,'POST',[
             'email'=>$request->input('login'),'password'=>$request->input('password'),
             'nativeOrganisationId'=>(string)$organization->id,
         ],false,$headers);
-        abort_unless(($identity['nativeOrganisationId']??null)===(string)$organization->id
-            && is_string($identity['nativeUserId']??null) && preg_match('/^[1-9][0-9]{0,14}$/D',$identity['nativeUserId']),502);
         $name=$this->cookieName();$token=null;
         foreach ($headers['set-cookie']??[] as $cookie) {
             if (preg_match('/^'.preg_quote($name,'/').'=([a-f0-9]{64});/D',$cookie,$match)) { $token=$match[1]; }
@@ -49,9 +48,17 @@ class AttendanceBridge
         abort_unless($token,502,'Sign-in did not establish an attendance session.');
         $guard=Auth::guard('web');$previous=$guard->user();
         try {
+            abort_unless(($identity['nativeOrganisationId']??null)===(string)$organization->id
+                && is_string($identity['nativeUserId']??null) && preg_match('/^[1-9][0-9]{0,14}$/D',$identity['nativeUserId']),502);
+            if ($platform) { $this->validatePlatformIdentity($identity,$organization->id,$identity['nativeUserId']); }
             $user=User::findOrFail($identity['nativeUserId']);
+            $stored=\Illuminate\Support\Facades\DB::table('users')->where('id',$user->id)->first();
+            abort_unless($stored && (bool)$stored->is_platform_admin===$platform,403);
             $guard->setUser($user);
             Tenant::assertAccess($organization,true);
+            if ($platform) {
+                $request->attributes->set('foundation_platform_identity',$this->platformIdentityValues($identity));
+            }
         } catch (\Throwable $error) {
             $old=$request->cookie($name);$request->cookies->set($name,$token);
             try { $this->signOut($request,$http); } finally {
@@ -64,6 +71,40 @@ class AttendanceBridge
         }
         Cookie::queue(new \Symfony\Component\HttpFoundation\Cookie($name,$token,time()+43200,'/',null,app()->environment('production'),true,false,'lax'));
         return $user;
+    }
+
+    private function validatePlatformIdentity(array $identity, int|string $organisation, int|string $user): void
+    {
+        abort_unless(($identity['realm']??null)==='platform'
+            && ($identity['nativeOrganisationId']??null)===(string)$organisation
+            && ($identity['nativeUserId']??null)===(string)$user
+            && is_int($identity['version']??null) && $identity['version']>0
+            && is_string($identity['userId']??null)
+            && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D',$identity['userId']),502);
+    }
+
+    private function platformIdentityValues(array $identity): array
+    {
+        return ['nativeOrganisationId'=>$identity['nativeOrganisationId'],'nativeUserId'=>$identity['nativeUserId'],
+            'userId'=>$identity['userId'],'version'=>$identity['version'],'realm'=>'platform'];
+    }
+
+    public function platformIdentity(Request $request, User $actor, ?ClientInterface $http = null): array
+    {
+        // Resolve the primary realm from stored native configuration, not a client ID.
+        $primary=\App\Models\Organization::where('status','active')->where('settings->is_primary_platform',true)->sole();
+        $this->assertPlatformActor($actor);
+        $identity=$this->read($request,'/foundation/platforms/'.$primary->id.'/staff/'.$actor->id.'/identity',[],$http);
+        $this->validatePlatformIdentity($identity,$primary->id,$actor->id);
+        $this->assertPlatformActor($actor);
+        abort_unless(\App\Models\Organization::whereKey($primary->id)->where('status','active')->where('settings->is_primary_platform',true)->exists(),403);
+        return $this->platformIdentityValues($identity);
+    }
+
+    private function assertPlatformActor(User $actor): void
+    {
+        abort_unless(\Illuminate\Support\Facades\DB::table('users')->where('id',$actor->id)
+            ->where('status','Active')->where('deleted',false)->where('is_platform_admin',true)->exists(),403);
     }
 
     public function signOut(Request $request, ?ClientInterface $http = null): void

@@ -21,7 +21,7 @@ import { foundationPlatformMigration } from '../apps/api/dist/migration-foundati
 import { digest,hashPassword } from '../apps/api/dist/security.js';
 if (!process.argv[2]) throw new Error('Provide the prepared local foundation dependency directory');
 process.env.NODE_ENV='test';
-process.env.ADMIN_ORIGIN='http://localhost:5173';
+process.env.ADMIN_ORIGIN='https://one.example.invalid';
 const pg=new PGlite();
 let app;
 try {
@@ -48,6 +48,9 @@ try {
   await pg.query("INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES($1,$2,$3,'Synthetic capture section')",[captureGroup,org,captureCentre]);
   await pg.query("INSERT INTO learners(id,organisation_id,group_id,code,name) VALUES($1,$2,$3,'SYNTHETIC-01','Synthetic learner')",[learner,org,captureGroup]);
   await pg.query('INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id) VALUES(2,10,$1,$2)',[org,learner]);
+  const platformUser=randomUUID();
+  await pg.query('INSERT INTO users(id,email,name,password_hash,is_superadmin) VALUES($1,$2,$3,$4,true)',[platformUser,'synthetic-platform@example.invalid','Synthetic platform administrator',await hashPassword('long synthetic foundation password')]);
+  await pg.query('INSERT INTO foundation_platform_staff(native_organisation_id,native_user_id,user_id) VALUES(1,1,$1)',[platformUser]);
   const adapter={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>sql.query(q,p)})),onModuleDestroy:async()=>{}};
   app=await createApp(undefined,adapter); await app.listen(0,'127.0.0.1');
   const api=`${await app.getUrl()}/api/v1`;
@@ -59,4 +62,17 @@ try {
     child.stdout.on('data',data=>process.stdout.write(data)); child.stderr.on('data',data=>process.stderr.write(data));
     child.on('exit',code=>code===0?resolve():reject(new Error('Connected PHP fixture failed')));
   });
+  await new Promise((resolve,reject)=>{
+    const child=spawn('php',['tests/foundation-platform-connected.php',process.argv[2]],{
+      cwd:process.cwd(),env:{...process.env,FOUNDATION_TEST_API_URL:api,FOUNDATION_TEST_PLATFORM_USER:platformUser},stdio:['ignore','pipe','pipe'],timeout:60000
+    });
+    child.on('error',reject);
+    child.stdout.on('data',data=>process.stdout.write(data));child.stderr.on('data',data=>process.stderr.write(data));
+    child.on('exit',code=>code===0?resolve():reject(new Error('Connected platform PHP fixture failed')));
+  });
+  {
+    const state=(await pg.query('SELECT active,version FROM foundation_platform_staff WHERE user_id=$1',[platformUser])).rows[0];
+    if(state.active!==false||state.version!==2)throw new Error('Connected platform revocation did not persist');
+    if(Number((await pg.query('SELECT count(*) AS n FROM sessions WHERE user_id=$1',[platformUser])).rows[0].n)!==0)throw new Error('Connected platform logout left a session');
+  }
 } finally {if(app) await app.close();await pg.close();}

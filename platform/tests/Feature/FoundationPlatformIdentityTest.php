@@ -1,0 +1,189 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\User;
+use App\Support\{AttendanceBridge,Tenant};
+use App\Http\Middleware\{VerifyPlatformIdentity,ResolveTenant};
+use GuzzleHttp\{Client,HandlerStack,Middleware};
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\Psr7\Response;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\{Auth,DB,Schema,Cache};
+use Tests\TestCase;
+
+class FoundationPlatformIdentityTest extends TestCase
+{
+    private array $identity=['nativeOrganisationId'=>'1','nativeUserId'=>'1',
+        'userId'=>'11111111-1111-4111-8111-111111111111','version'=>1,'realm'=>'platform'];
+    private array $history=[];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['database.default'=>'platform_identity_test','database.connections.platform_identity_test'=>[
+            'driver'=>'sqlite','database'=>':memory:','prefix'=>'','foreign_key_constraints'=>true,
+        ],'attendance.api_url'=>'https://api.example.invalid/api/v1','session.driver'=>'array','cache.default'=>'array']);
+        Schema::create('organizations',function(Blueprint $table){
+            $table->id();foreach(['name','slug','domain','status'] as $field)$table->string($field);
+            $table->string('subdomain')->nullable();$table->json('settings')->nullable();
+        });
+        Schema::create('users',function(Blueprint $table){
+            $table->id();$table->string('name');$table->string('status');
+            $table->boolean('deleted')->default(false);$table->boolean('is_platform_admin')->default(false);
+        });
+        DB::table('organizations')->insert(['id'=>1,'name'=>'Synthetic platform','slug'=>'synthetic',
+            'domain'=>'platform.example.invalid','status'=>'active','settings'=>'{"is_primary_platform":true}']);
+        DB::table('users')->insert([
+            ['id'=>1,'name'=>'Synthetic platform administrator','status'=>'Active','is_platform_admin'=>true],
+            ['id'=>2,'name'=>'Synthetic ordinary staff','status'=>'Active','is_platform_admin'=>false],
+        ]);
+        Cache::flush();Tenant::clear();Auth::forgetGuards();
+    }
+
+    protected function tearDown(): void
+    {
+        Tenant::clear();DB::purge('platform_identity_test');
+        parent::tearDown();
+    }
+
+    private function request(string $path='/exams',string $method='GET'): Request
+    {
+        $request=Request::create('https://platform.example.invalid'.$path,$method,
+            $method==='POST'?['login'=>'synthetic@example.invalid','password'=>'synthetic unused password']:[],
+            ['t4l_session'=>str_repeat('a',64)]);
+        $request->setLaravelSession(app('session')->driver());
+        $request->setUserResolver(fn()=>Auth::guard('web')->user());
+        app()->instance('request',$request);
+        return $request;
+    }
+
+    private function response(array $body,int $status=200,bool $cookie=false): Response
+    {
+        $headers=['Content-Type'=>'application/json'];
+        if($cookie)$headers['Set-Cookie']='t4l_session='.str_repeat('b',64).'; HttpOnly; Path=/';
+        return new Response($status,$headers,json_encode($body));
+    }
+
+    private function client(array $responses): Client
+    {
+        $stack=HandlerStack::create(new MockHandler($responses));
+        $stack->push(Middleware::history($this->history));
+        return new Client(['handler'=>$stack]);
+    }
+
+    private function denied(int $status,callable $action): void
+    {
+        try{$action();$this->fail('Expected identity denial.');}
+        catch(\Symfony\Component\HttpKernel\Exception\HttpException $error){$this->assertSame($status,$error->getStatusCode());}
+    }
+
+    public function test_primary_login_uses_platform_mapping_and_session_metadata(): void
+    {
+        $request=$this->request('/login','POST');
+        $client=$this->client([$this->response($this->identity,200,true)]);
+        $user=(new AttendanceBridge)->authenticate($request,$client);
+        $this->assertSame(1,$user->id);
+        $this->assertSame($this->identity,$request->attributes->get('foundation_platform_identity'));
+        $this->assertSame('/api/v1/foundation/auth/platform/login',$this->history[0]['request']->getUri()->getPath());
+    }
+
+    public function test_native_login_controller_preserves_only_private_identity_metadata(): void
+    {
+        $client=$this->client([$this->response($this->identity,200,true)]);
+        app()->instance(AttendanceBridge::class,new class($client) extends AttendanceBridge {
+            public function __construct(private Client $client){}
+            public function authenticate(Request $request,?\GuzzleHttp\ClientInterface $http=null): User
+            {return parent::authenticate($request,$this->client);}
+        });
+        $request=$this->request('/login','POST');
+        $controller=app(\App\Http\Controllers\Auth\LoginController::class);
+        $method=new \ReflectionMethod($controller,'attemptLogin');
+        $this->assertTrue($method->invoke($controller,$request));
+        $this->assertSame($this->identity,$request->session()->get('foundation_platform_identity'));
+        $this->assertSame(1,Auth::guard('web')->id());
+    }
+
+    public function test_platform_login_cannot_promote_an_ordinary_native_account(): void
+    {
+        $identity=$this->identity;$identity['nativeUserId']='2';
+        $client=$this->client([$this->response($identity,200,true),$this->response(['ok'=>true])]);
+        $this->denied(403,fn()=>(new AttendanceBridge)->authenticate($this->request('/login','POST'),$client));
+        $this->assertSame('/api/v1/auth/logout',$this->history[1]['request']->getUri()->getPath());
+        $this->assertFalse((bool)DB::table('users')->where('id',2)->value('is_platform_admin'));
+    }
+
+    public function test_malformed_platform_metadata_revokes_its_provisional_api_session(): void
+    {
+        $identity=$this->identity;$identity['realm']='organisation';
+        $client=$this->client([$this->response($identity,200,true),$this->response(['ok'=>true])]);
+        $this->denied(502,fn()=>(new AttendanceBridge)->authenticate($this->request('/login','POST'),$client));
+        $this->assertSame('/api/v1/auth/logout',$this->history[1]['request']->getUri()->getPath());
+    }
+
+    private function bindClient(Client $client): void
+    {
+        app()->instance(AttendanceBridge::class,new class($client) extends AttendanceBridge {
+            public function __construct(private Client $client){}
+            public function platformIdentity(Request $request,User $actor,?\GuzzleHttp\ClientInterface $http=null): array
+            {return parent::platformIdentity($request,$actor,$this->client);}
+        });
+    }
+
+    public function test_privileged_response_checks_remote_identity_before_and_after_controller(): void
+    {
+        Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request();
+        $request->session()->put('foundation_platform_identity',$this->identity);
+        $this->bindClient($this->client([$this->response($this->identity),$this->response($this->identity)]));
+        $response=(new VerifyPlatformIdentity)->handle($request,fn()=>response('synthetic private response'));
+        $this->assertSame('synthetic private response',$response->getContent());
+        $this->assertStringContainsString('no-store',$response->headers->get('Cache-Control'));
+        $this->assertCount(2,$this->history);
+    }
+
+    public function test_revocation_during_controller_withholds_its_private_response(): void
+    {
+        Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request();
+        $request->session()->put('foundation_platform_identity',$this->identity);
+        $this->bindClient($this->client([$this->response($this->identity),$this->response([],403)]));
+        $this->denied(403,fn()=>(new VerifyPlatformIdentity)->handle($request,fn()=>response('must not be released')));
+    }
+
+    public function test_native_demotion_or_missing_marker_rejects_cached_admin_sessions(): void
+    {
+        Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request();
+        $request->session()->forget('foundation_platform_identity');
+        $this->denied(403,fn()=>(new VerifyPlatformIdentity)->handle($request,fn()=>response('private')));
+        $request->session()->put('foundation_platform_identity',$this->identity);
+        DB::table('users')->where('id',1)->update(['is_platform_admin'=>false]);
+        $this->denied(403,fn()=>(new VerifyPlatformIdentity)->handle($request,fn()=>response('private')));
+    }
+
+    public function test_link_version_change_rejects_a_stale_native_session(): void
+    {
+        Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request();
+        $request->session()->put('foundation_platform_identity',$this->identity);
+        $changed=$this->identity;$changed['version']=2;
+        $this->bindClient($this->client([$this->response($changed)]));
+        $this->denied(403,fn()=>(new VerifyPlatformIdentity)->handle($request,fn()=>response('private')));
+    }
+
+    public function test_native_demotion_during_remote_read_rejects_cached_actor(): void
+    {
+        $actor=User::findOrFail(1);$request=$this->request();
+        $client=$this->client([function(){
+            DB::table('users')->where('id',1)->update(['is_platform_admin'=>false]);
+            return $this->response($this->identity);
+        }]);
+        $this->denied(403,fn()=>(new AttendanceBridge)->platformIdentity($request,$actor,$client));
+    }
+
+    public function test_revoked_native_administrator_can_still_log_out(): void
+    {
+        Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request('/logout','POST');
+        DB::table('users')->where('id',1)->update(['is_platform_admin'=>false]);
+        $response=(new ResolveTenant)->handle($request,fn($request)=>(new VerifyPlatformIdentity)->handle($request,fn()=>response('',204)));
+        $this->assertSame(204,$response->getStatusCode());
+    }
+}

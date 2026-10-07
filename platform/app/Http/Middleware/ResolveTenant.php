@@ -16,7 +16,9 @@ class ResolveTenant
     {
         Tenant::clear();
 
-        $organization = Tenant::resolve($request->getHost());
+        $logout=$request->is('logout') && $request->isMethod('POST');
+        // A revoked native role must still be able to clear its sessions.
+        $organization = $logout ? Tenant::resolveByHost($request->getHost()) : Tenant::resolve($request->getHost());
 
         app()->instance('currentOrganization', $organization);
         View::share('currentOrganization', $organization);
@@ -30,7 +32,7 @@ class ResolveTenant
         }
 
         $response = $next($request);
-        Tenant::assertAccess($organization, true);
+        if (!$logout) { Tenant::assertAccess($organization, true); }
         return $response;
     }
 }

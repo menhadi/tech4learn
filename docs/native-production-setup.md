@@ -205,3 +205,39 @@ realm reassignment/orphaning. The real connected PHP-to-Nest synthetic test
 also passed mapped login, scoped attendance capture/review/history, learner
 identity resolution and logout with migration 19 present. No production
 accounts, mappings, migrations or routing were changed by this verification.
+
+## Native platform sessions — checked locally
+
+The copied Laravel primary site's staff sign-in now uses the separate platform
+login endpoint. It requires both an active canonical superadmin link and an
+existing active native user with an explicitly assigned platform-admin flag.
+Tenant sign-in cannot use that native global-admin account as ordinary staff.
+Identity metadata is validated and reduced to native IDs, canonical UUID,
+version and realm before it is stored in the private native session. Invalid
+metadata or a rejected native user revokes the provisional API session. No
+password is copied to Laravel and no email-based account matching occurs.
+
+The web middleware checks global administrator identity before and after
+controller execution against the live API session/link/role and fresh native
+user/primary-organisation records. Missing metadata, changed versions, role
+demotion, deactivation or expired sessions prevent release of the protected
+response. Responses use no-store. POST logout remains available after native
+role revocation, allowing both sessions to be cleared. Student sign-in and
+ordinary tenant staff workflows retain their existing separate boundaries.
+Native API keys and non-web authentication channels still require their own
+review; this milestone verifies the web administrator session boundary.
+
+All 278 native tests / 1,195 assertions passed, including ten new platform
+session checks. The connected local PHP-to-Nest fixture passed platform password
+sign-in, private session metadata, protected response checks, mid-controller
+link revocation and API logout. The same fixture still passed ordinary tenant
+attendance capture/submission/review/history and learner identity resolution.
+Fixtures are synthetic, isolated and ephemeral. Production native users and
+platform links have not been created, API migration 19 has not been applied
+live, and public routing remains unchanged.
+
+Next: prepare and check explicit, idempotent initial native administrator
+provisioning against the existing canonical superadmin UUID, then stage the
+checked API/native releases and configure real tenant mappings. Do not attach
+the global platform realm to an attendance tenant for convenience. Production
+browser acceptance and the separately scoped Apache cutover remain outstanding.

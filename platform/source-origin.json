@@ -252,9 +252,10 @@
     },
     {
       "path": "app/Http/Controllers/Auth/LoginController.php",
-      "sha256": "a160eb89fb474447db5dccaee46b04b2d28d6ed88687426aa4f3f58850cb559d",
+      "sha256": "260a04f9944ebbba2a46a286c6abc9cc661d3960a720eefd0343df82ddeddf82",
       "patches": [
-        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007",
+        "verified-platform-login-and-web-request-revalidation"
       ]
     },
     {
@@ -817,8 +818,10 @@
     },
     {
       "path": "app/Http/Kernel.php",
-      "sha256": "d12bacd9cd63717b5bdeabd8372eb79354abb41be34f6973b60ce4a3d8db7460",
-      "patches": []
+      "sha256": "ed0b531b8d3c6b8119a2e12849bfc746b60e911083e1b332c5a516aa73459768",
+      "patches": [
+        "verified-platform-login-and-web-request-revalidation"
+      ]
     },
     {
       "path": "app/Http/Middleware/Authenticate.php",
@@ -894,9 +897,10 @@
     },
     {
       "path": "app/Http/Middleware/ResolveTenant.php",
-      "sha256": "4270dec12dc7c5edb4c3345b208262c3f91467ed53c48a26e2c5bcb6e1e81985",
+      "sha256": "a1fcf13f0cc05159403c5198750e0a2ad60dbc811407ba5dc289baa0b55997b6",
       "patches": [
-        "tenant-access-recheck-before-response"
+        "tenant-access-recheck-before-response",
+        "verified-platform-login-and-web-request-revalidation"
       ]
     },
     {
@@ -3584,9 +3588,10 @@
     },
     {
       "path": "phpunit.xml",
-      "sha256": "083b2da87d99847da8a4a43fc22202c70c1e88f6be7ed2f603c1bb93307d09d0",
+      "sha256": "7b68f69238fb1e16fe864ea652015c6259361d6973bb3cad5e6750b9b15c2a03",
       "patches": [
-        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007",
+        "verified-platform-login-and-web-request-revalidation"
       ]
     },
     {

@@ -40,6 +40,7 @@ class Kernel extends HttpKernel
             // Humne purane 'Localization' ko naye 'SetLocale' se replace kar diya hai
             // \App\Http\Middleware\Localization::class, // OLD ONE (Commented out)
             \App\Http\Middleware\ResolveTenant::class,
+            \App\Http\Middleware\VerifyPlatformIdentity::class,
             \App\Http\Middleware\SetLocale::class, // OUR NEW SMART MIDDLEWARE
             
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
