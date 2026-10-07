@@ -1107,3 +1107,23 @@ has its own native Node/browser dependencies installed. Its earlier Playwright
 resolution check remains blocked. Do not link production dependencies to another
 site or copy its application data. Actual native question-preview integration
 and Linux browser/runtime acceptance remain separate checks.
+
+## Local integrated verification — 8 October 2026
+
+Against checked source through `f016821f`, the complete native suite passed
+289 tests / 1,239 assertions. The ignored local foundation's PHP application,
+route and test files were compared with the checked copy; three stale files
+were refreshed before the reported full-suite run. The student browser journey
+then passed again against that refreshed source, including sign-in, answer
+saving, submission and the two-mark result page. A query-only SQLite check
+confirmed the saved score and completion time.
+
+The attendance browser journey separately passed enrolment, virtual-camera
+submission, explicit teacher confirmation and correction history. Reproduction
+commands and fixture boundaries are in [the integration checks](foundation-attendance-bridge.md).
+These are synthetic local checks. They do not establish production cutover,
+real-device location/camera accuracy, recognition calibration or complete exam
+feature acceptance. Production identity provisioning, the authorized previous
+organisation cleanup with verified recovery, runtime/scheduled-job checks and
+the reviewed website cutover remain outstanding. Current project instructions
+permit the assistant to read live state only; live changes remain user-run.
