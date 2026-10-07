@@ -97,4 +97,20 @@ class SubjectiveUploadAccessTest extends TestCase
             ->andReturnUsing(function()use($result){$result->update(['end_time'=>now()]);return 'Synthetic text';});
         $this->extraction($question,$result)->assertStatus(409);
     }
+    public function test_assessment_reader_uses_bounded_docx_extraction(): void
+    {
+        [$org,,,$result]=$this->fixture();
+        $path='student_answers_private/'.$org->id.'/'.$result->id.'/Synthetic.docx';
+        Storage::disk('local')->put($path,'');
+        $zip=new \ZipArchive;
+        $this->assertTrue($zip->open(Storage::disk('local')->path($path),\ZipArchive::OVERWRITE)===true);
+        $zip->addFromString('word/document.xml','<w:document><w:p><w:r><w:t>Synthetic retained document</w:t></w:r></w:p></w:document>');
+        $zip->close();
+        $reader=new \ReflectionMethod(\App\Http\Controllers\AISubjectiveAssessmentController::class,'extractText');
+        $controller=app(\App\Http\Controllers\AISubjectiveAssessmentController::class);
+        $this->assertSame('Synthetic retained document',$reader->invoke($controller,$path));
+        $text='student_answers_private/'.$org->id.'/'.$result->id.'/Oversized.txt';
+        Storage::disk('local')->put($text,str_repeat('x',524289));
+        $this->assertSame('',$reader->invoke($controller,$text));
+    }
 }

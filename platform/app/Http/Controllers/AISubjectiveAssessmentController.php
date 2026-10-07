@@ -123,11 +123,13 @@ class AISubjectiveAssessmentController extends Controller
             $full = storage_path('app/public/' . $path);
         }
         if (!file_exists($full)) return '';
-        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        if ($ext === 'txt') return file_get_contents($full);
-        if ($ext === 'pdf') return shell_exec("pdftotext '$full' - 2>/dev/null");
-        if (in_array($ext, ['doc', 'docx'])) return shell_exec("catdoc '$full' 2>/dev/null");
-        return '';
+        try {
+            return app(\App\Services\StudentAnswerTextExtractor::class)->extract(
+                new \Illuminate\Http\UploadedFile($full, basename($full), null, null, true)
+            );
+        } catch (\RuntimeException $error) {
+            return '';
+        }
     }
     
     public function bulkAssess(Request $request)

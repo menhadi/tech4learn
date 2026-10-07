@@ -1262,3 +1262,10 @@ check passed. This establishes a controlled printed-text example only;
 handwriting, other languages, physical camera quality and production OCR
 runtime acceptance remain unverified. The PNG fixture uses local GD and a
 Windows system font, stays ignored, and contains no learner data.
+
+The AI assessment evidence reader now reuses `StudentAnswerTextExtractor` for
+retained private and bounded legacy paths, replacing unbounded shell commands.
+This supports DOCX readback and the same process timeout, output and encoding
+limits as student extraction. Eight upload/access/readback tests passed, including
+retained DOCX extraction and oversized text rejection. Actual AI provider marking
+and production acceptance are still unverified.

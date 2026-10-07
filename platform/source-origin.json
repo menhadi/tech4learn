@@ -198,9 +198,10 @@
     },
     {
       "path": "app/Http/Controllers/AISubjectiveAssessmentController.php",
-      "sha256": "b567519d6fb8b3bd5bf38d6a34dbebdebba16d167079a39a50cf8be8634f3aac",
+      "sha256": "f8297b512018f456dad54a8d8687945e3a084a387eab139c0de5c5c72bbe6913",
       "patches": [
-        "private-subjective-answer-evidence"
+        "private-subjective-answer-evidence",
+        "shared-bounded-answer-evidence-reader"
       ]
     },
     {
