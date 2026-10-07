@@ -301,3 +301,39 @@ been performed by implementing this command.
 
 Verification: `npm run check` passed workspace typechecks/builds and all 108 API
 tests, including explicit provisioning and the existing realm-upgrade checks.
+
+## Initial native administrator provisioning
+
+The additive native migration
+`2026_08_01_000000_create_foundation_platform_administrators` records the reviewed
+canonical UUID, native primary organisation and native user together. Native
+schema now includes 242 migration files; the live installation still has its
+previous 241 applied migrations until an explicit checked deployment.
+
+```text
+php artisan foundation:platform-admin CANONICAL_SUPERADMIN_UUID --confirm-reviewed-canonical-superadmin
+```
+
+This trusted operator command requires the configured API bridge, exactly one
+active primary platform and, for initial creation, an empty native users table.
+It locks the primary organisation, creates one active native platform admin with
+an unshared random password hash, and inserts the identity ledger atomically.
+The generated native email is an internal placeholder; it is not used for API
+account matching or password authentication. No existing native user is adopted
+or promoted. An exact retry preserves the native user and password; a different
+canonical UUID or revoked native user is rejected without repair.
+
+Review the existing canonical superadmin UUID before running this command: the
+native database does not verify roles in PostgreSQL. Then use the returned
+native organisation/user IDs with the API `foundation-platform-admin` command,
+which verifies the current canonical role. These are two explicit transactions
+in separate databases. If the second step fails, the native record remains for
+an exact retry and cannot sign in through the bridge without the API mapping.
+Do not delete and recreate it or enable native password fallback to bypass the
+mapping. Both readiness gates and actual authenticated acceptance remain
+required. This command is implemented locally; no live migration or account
+creation has been performed in this milestone.
+
+Verification: all 282 native tests / 1,210 assertions passed, including initial
+creation, unchanged retry, UUID conflict, native-role revocation, missing
+confirmation/bridge and refusal to adopt an existing account.
