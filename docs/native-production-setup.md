@@ -47,3 +47,31 @@ Local verification of the readiness checker: PHP syntax passed, a missing
 installation failed closed, and the local SQLite development installation was
 rejected before any database connection. Its MySQL success path still requires
 verification against the separately prepared native database.
+
+## Restricted server access
+
+`install-tech4learn-admin.sh` installs a root-owned Python helper and an exact
+sudo allowlist for `tech4learn`: `status`, `prepare-database`, `restart-api`.
+The helper accepts exactly one whitelisted action. It executes fixed commands
+without a shell, ignores caller environment/Python imports, and accepts no
+paths, SQL, credentials, configuration content or service names. Install only
+checksum-verified copies in a root-only temporary directory.
+
+Database preparation refuses an existing database, account or private setup.
+It creates only `tech4learn_exams` and a local MySQL account restricted to that
+database, plus a fresh encryption key and private environment at
+`/etc/tech4learn-native/native.env` (root-owned, group-readable by Tech4Learn).
+Secrets are neither printed nor committed. A partial database setup must be
+reviewed by a server administrator; the helper never drops or resets databases.
+Migrations run later as the application user. No production data or routing is
+changed by permission installation.
+
+This permission set cannot edit Apache, run arbitrary PHP/shell commands as
+root, alter other sites or grant additional privileges. Apache cutover therefore
+still needs a separately reviewed, user-run root installation after acceptance.
+The original root-SSH authorization command should not be used.
+
+Four local tests passed for rejected/extra actions, existing-database refusal,
+existing-configuration refusal and dedicated SQL/configuration targets. Bash
+installer syntax passed. Root installation and MySQL execution remain unverified
+until the server administrator installs the checked helper.
