@@ -193,3 +193,13 @@ confirm learner marks. Repeated runs use the fixture's normal daily-session and
 photo-count rules; start a fresh synthetic API pilot for a fresh capture run.
 Real camera, recognition calibration, native devices and live acceptance remain
 pending.
+
+The optional `--review` mode opens a pending synthetic capture, marks its roster,
+confirms attendance, changes one mark to excused and saves a correction. The
+combined `--capture --review` run passed in headless Chromium against a fresh
+synthetic API pilot: both review reasons remained in history and the corrected
+mark remained saved. History counts are compared with the initial count because
+photo submission also contributes an event. Restart only the owned synthetic
+API pilot before repeating the combined run; an already confirmed daily session
+is not a fresh capture fixture. This verifies the local browser/gateway workflow,
+not production acceptance or physical camera/location accuracy.
