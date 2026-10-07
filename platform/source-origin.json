@@ -3403,8 +3403,10 @@
     },
     {
       "path": "database/migrations/2026_08_17_000001_create_official_exam_monitor_tables.php",
-      "sha256": "1e3c9619581a636054e92dd6caca13a9a0c76465ba0addf8b1294720a1489465",
-      "patches": []
+      "sha256": "cc797dc144d8e1aac78bcbcc6a23d61e7343fa9c14f503039288ac5577329cad",
+      "patches": [
+        "mysql-required-monitor-datetimes-and-partial-retry"
+      ]
     },
     {
       "path": "database/migrations/2026_08_20_000001_create_google_sheet_connections_table.php",
