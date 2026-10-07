@@ -1,0 +1,64 @@
+<?php
+namespace Tests\Feature;
+use App\Models\{Organization,User,Student,Exam,ExamResult,ExamStat,Question,Qtype,SaasPlan};
+use App\Support\Tenant;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\{Cache,DB};
+use Tests\TestCase;
+
+class ManualEvaluationTest extends TestCase
+{
+    use RefreshDatabase;
+    private function fixture(): array
+    {
+        Cache::flush();Tenant::clear();
+        $plan=SaasPlan::create(['name'=>'Synthetic grading','slug'=>'synthetic-grading','price'=>0,'billing_cycle'=>'monthly','status'=>true,'features'=>['reports'=>true]]);
+        $org=Organization::create(['name'=>'Synthetic grading','slug'=>'synthetic-grading','domain'=>'grading.test','status'=>'active','saas_plan_id'=>$plan->id]);
+        $user=User::create(['name'=>'Synthetic teacher','username'=>'synthetic-teacher','email'=>'teacher@example.invalid','password'=>'unused','status'=>'Active']);
+        DB::table('organization_users')->insert(['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'owner','status'=>1,'created_at'=>now(),'updated_at'=>now()]);
+        $this->actingAs($user,'web');
+        $student=Student::create(['organization_id'=>$org->id,'name'=>'Synthetic learner','email'=>'grading@example.invalid','password'=>'unused','status'=>'Active']);
+        $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic grading','slug'=>'synthetic-grading','status'=>'Active','mode'=>'Exam','duration'=>30,'passing_percentage'=>50,'attempt_count'=>1]);
+        $result=ExamResult::create(['organization_id'=>$org->id,'exam_id'=>$exam->id,'student_id'=>$student->id,'start_time'=>now()->subMinute(),'end_time'=>now(),'total_test_time'=>30,'total_question'=>2,'total_marks'=>4,'result'=>'Pending']);
+        $stats=[];
+        $type=Qtype::firstOrCreate(['type'=>'S'],['question_type'=>'Subjective']);
+        foreach([1,2] as $number) {
+            $question=Question::create(['organization_id'=>$org->id,'qtype_id'=>$type->id,'question'=>'Synthetic explanation '.$number,'status'=>'Yes']);
+            $stats[]=ExamStat::create(['organization_id'=>$org->id,'exam_id'=>$exam->id,'exam_result_id'=>$result->id,'student_id'=>$student->id,'question_id'=>$question->id,'ques_no'=>$number,'marks'=>2,'ques_status'=>'P']);
+        }
+        return [$result,$stats];
+    }
+    private function grade($result,array $marks)
+    {
+        return $this->postJson('https://grading.test/results/'.$result->id.'/save-evaluation',['marks'=>$marks]);
+    }
+    public function test_partial_marking_remains_pending_until_all_answers_are_marked(): void
+    {
+        [$result,$stats]=$this->fixture();
+        $this->grade($result,[$stats[0]->id=>2])->assertRedirect();
+        $this->assertSame('Pending',$result->fresh()->result);
+        $this->grade($result,[$stats[1]->id=>1])->assertRedirect();
+        $this->assertSame('Pass',$result->fresh()->result);
+        $this->assertEquals(3,$result->fresh()->obtained_marks);
+    }
+    public function test_invalid_batch_does_not_partially_apply_marks(): void
+    {
+        [$result,$stats]=$this->fixture();
+        $this->grade($result,[$stats[0]->id=>1,$stats[1]->id=>3])->assertUnprocessable();
+        $this->assertSame('P',$stats[0]->fresh()->ques_status);
+        $this->assertSame('P',$stats[1]->fresh()->ques_status);
+    }
+    public function test_open_attempt_cannot_be_marked(): void
+    {
+        [$result,$stats]=$this->fixture();$result->update(['end_time'=>null]);
+        $this->grade($result,[$stats[0]->id=>1])->assertStatus(409);
+    }
+    public function test_unknown_or_already_marked_answer_is_rejected(): void
+    {
+        [$result,$stats]=$this->fixture();
+        $this->grade($result,[999999=>1])->assertUnprocessable();
+        $this->grade($result,[$stats[0]->id=>1])->assertRedirect();
+        $this->grade($result,[$stats[0]->id=>2])->assertUnprocessable();
+        $this->assertEquals(1,$stats[0]->fresh()->marks_obtained);
+    }
+}

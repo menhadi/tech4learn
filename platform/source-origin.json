@@ -572,8 +572,10 @@
     },
     {
       "path": "app/Http/Controllers/ResultController.php",
-      "sha256": "c90e29f33556d60de295ce96de6c0324442833fb1d6230da9d686b95dd9dea42",
-      "patches": []
+      "sha256": "6511c358c1cc9a971390cd42d4dcb46efacb8c13f43fcf1f91074082972920f4",
+      "patches": [
+        "bounded-atomic-pending-manual-evaluation"
+      ]
     },
     {
       "path": "app/Http/Controllers/SaasController.php",

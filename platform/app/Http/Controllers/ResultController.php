@@ -506,7 +506,17 @@ class ResultController extends Controller
         }
         // --- 🔒 END CHECK ---
 
-        $marksData = $request->input('marks'); 
+        return DB::transaction(function () use ($request, $id) {
+        $examResult = $this->tenantResultQuery()->with('exam')->lockForUpdate()->findOrFail($id);
+        abort_unless($examResult->end_time, 409, 'Submit the exam before marking.');
+        $marksData = $request->validate(['marks'=>'required|array|min:1','marks.*'=>'required|numeric|min:0'])['marks'];
+        $pending = $this->tenantExamStatQuery()->where('exam_result_id',$id)->where('ques_status','P')->lockForUpdate()->get()->keyBy('id');
+        foreach ($marksData as $statId => $marks) {
+            $stat = $pending->get($statId);
+            if (!$stat || (float)$marks > (float)$stat->marks) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['marks'=>'Marks must belong to a pending answer and stay within its maximum.']);
+            }
+        }
 
         if (is_array($marksData)) {
             foreach ($marksData as $statId => $marks) {
@@ -539,7 +549,8 @@ class ResultController extends Controller
         $exam = $examResult->exam;
         
         $passingMarks = $examResult->total_marks * ($exam->passing_percentage / 100);
-        $finalResult = $totalObtained >= $passingMarks ? 'Pass' : 'Fail';
+        $hasPending = $this->tenantExamStatQuery()->where('exam_result_id',$id)->where('ques_status','P')->exists();
+        $finalResult = $hasPending ? 'Pending' : ($totalObtained >= $passingMarks ? 'Pass' : 'Fail');
         $percent = $examResult->total_marks > 0 ? ($totalObtained / $examResult->total_marks) * 100 : 0;
 
         $examResult->update([
@@ -549,5 +560,6 @@ class ResultController extends Controller
         ]);
 
         return redirect()->route('results.index')->with('success', 'Manual grading saved. Report updated successfully!');
+        });
     }
 }

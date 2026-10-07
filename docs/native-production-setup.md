@@ -1222,3 +1222,10 @@ file and pending marking status. Six separate extraction boundary tests passed f
 line endings, invalid encoding, empty text, oversized text, DOCX expansion and
 external entity declarations. This is local TXT acceptance; image/PDF/DOC OCR,
 teacher marking and authenticated production acceptance remain unverified.
+
+Manual grading now validates numeric non-negative marks against each pending
+answer's maximum on the server. It rejects unknown/already-marked answers and
+open attempts, validates the whole batch before updates, and locks the submitted
+result and pending answers in a transaction. Partial grading retains `Pending`
+until every pending answer has been marked. Four local HTTP regression tests
+passed (13 assertions). Teacher browser acceptance remains pending.
