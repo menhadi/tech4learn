@@ -634,3 +634,16 @@ it correctly blocks on the pending native migration and absent administrator
 ledger. These guest checks do not constitute authenticated exam/attendance
 acceptance. PostgreSQL remains schema 18 and native MySQL remains at the prior
 241 migrations. Apache routing, API activation and scheduled jobs remain unchanged.
+
+The same pinned release now has its API-only locked npm dependencies installed
+and API TypeScript build completed using the dedicated Node 24 runtime. The
+contracts workspace is consumed directly and has no separate build script.
+Compiled management CLI and migration 20 files were verified present. Private
+install/build logs are in the existing pre-cleanup backup directory. No API
+process was started against the live database from this prepared release, avoiding
+duplicate background workers. The primary API dist symlink and service remain
+on the previous checked runtime; the restricted status helper confirmed it active.
+The install reported npm audit findings, which require dependency-specific review
+before treating the new release as production-ready; no automatic dependency
+updates were applied. No migration, cleanup, account provisioning or routing
+change was performed while preparing this build.
