@@ -235,7 +235,13 @@ class ApiStudentExamsController extends Controller
         $exam = $this->tenantExamQuery()->findOrFail($examResult->exam_id);
 
         // Internal function call
-        $resultData = $this->finalizeExam($examResult, $exam);
+          $resultData = $this->finalizeExam($examResult, $exam);
+          if (! $exam->result_after_finish) {
+              $resultData = [
+                  'exam_result_id' => $examResult->id,
+                  'result_after_finish' => false,
+              ];
+          }
 
         return response()->json([
             'success' => true,

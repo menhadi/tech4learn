@@ -669,9 +669,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/ApiStudentExamsController.php",
-      "sha256": "906d40405fca2508a7410a809c698e3aeb468cffa657f4859380fbf93b8fdc9c",
+      "sha256": "72bdea4ca0fa1e570dee2f36e778af8e93c95d670436df6bdb31a4e80585597e",
       "patches": [
-        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007",
+        "native-idempotent-finalization-and-result-release-policy-20261007"
       ]
     },
     {
@@ -686,9 +687,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/GuestExamsController.php",
-      "sha256": "654d3d454ca8e2666183437b229e30be8746667ae4a07bad739dfbf98c4f2a1d",
+      "sha256": "18a01519684e902e7c11819fb47007e94ecc4f4c4ca787f32de4928d100243de",
       "patches": [
-        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007",
+        "native-idempotent-finalization-and-result-release-policy-20261007"
       ]
     },
     {
@@ -728,9 +730,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/StudentExamsController.php",
-      "sha256": "4494578032a9b214f04acb121dde5550e1d3fe2ab4b444acc0ea11728e4150dd",
+      "sha256": "6c0d34feae0d8ecf2636c98de79b4d2a490c396de99cff551bacaf36cda589c4",
       "patches": [
-        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007",
+        "native-idempotent-finalization-and-result-release-policy-20261007"
       ]
     },
     {

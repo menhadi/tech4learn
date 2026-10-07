@@ -5,13 +5,12 @@ application code as Tech4Learn's foundation, integration of the existing
 attendance implementation, then FLN and the mobile app. This replaces the
 React exam-interface replication and separate-product connector strategies.
 
-The user subsequently authorises direct checked deployment and asks for write
-access setup. This supersedes the earlier read-only/user-run-only deployment
-preference. Actual SSH write access is still pending installation of the new
-public key. Never infer access from this authorisation or weaken the review
-account. `deploy/virtualmin/install-deployment-access.sh` grants application
-account access and the existing service restart only; privileged host/PHP
-configuration requires an appropriate separately checked installation procedure.
+The current project instructions restrict assistant live access to read-only.
+Development and migrations in this milestone run locally; the user deploys
+checked Git commits. Earlier write-access setup does not override this current
+restriction. Do not run live migrations, edits or service restarts. A production
+transition still needs reviewed native runtime/database configuration and
+preservation of the existing PostgreSQL attendance service and evidence.
 
 ## Repository and cleanup direction
 

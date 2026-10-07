@@ -50,6 +50,9 @@ class FoundationExamJourneyTest extends TestCase
         $exam->questions()->attach($question->id);
         $student=Student::create(['organization_id'=>$org->id,'name'=>'Synthetic learner','email'=>'learner@example.invalid','password'=>'synthetic-unused-password','status'=>'Active']);
         Auth::forgetGuards();Sanctum::actingAs($student,['*'],'student-api');Tenant::clear();
+        $exam->update(['start_date'=>now()->addHour()]);
+        $this->postJson($base.'/api/student/exam/start/'.$exam->id)->assertForbidden();
+        $exam->update(['start_date'=>now()->subMinute()]);
         $start=$this->postJson($base.'/api/student/exam/start/'.$exam->id)->assertOk()->assertJson(['success'=>true]);
         $resultId=$start->json('examResult.id');
         $questionPayload=$start->json('exam.questions.0');
@@ -62,9 +65,23 @@ class FoundationExamJourneyTest extends TestCase
         $this->postJson($base.'/api/student/exam/submit',['exam_result_id'=>$resultId])->assertOk()->assertJsonPath('result.result','Pass')->assertJsonPath('result.obtained_marks',2);
         $this->assertNotNull(ExamResult::findOrFail($resultId)->end_time);
         $this->assertSame('R',ExamStat::where('exam_result_id',$resultId)->firstOrFail()->ques_status);
+        $endedAt=ExamResult::findOrFail($resultId)->end_time->toISOString();
+        $exam->update(['result_after_finish'=>false]);
+        $resubmitted=$this->postJson($base.'/api/student/exam/submit',['exam_result_id'=>$resultId])->assertOk()->assertJsonPath('result.result_after_finish',false);
+        $this->assertArrayNotHasKey('obtained_marks',$resubmitted->json('result'));
+        $this->assertArrayNotHasKey('percent',$resubmitted->json('result'));
+        $this->assertArrayNotHasKey('result',$resubmitted->json('result'));
+        $this->assertSame($endedAt,ExamResult::findOrFail($resultId)->end_time->toISOString());
+        $this->assertSame(2.0,(float)ExamResult::findOrFail($resultId)->obtained_marks);
         $this->postJson($base.'/api/student/exam/save-answer',[
             'exam_result_id'=>$resultId,'question_id'=>$question->id,'question_type'=>'multiple_choice_radio','option_selected'=>[2],'answered'=>true,
         ])->assertStatus(409);
+        // A later teacher correction must survive a delayed browser submission.
+        ExamResult::findOrFail($resultId)->update(['obtained_marks'=>1,'percent'=>50]);
+        Auth::forgetGuards();$this->actingAs($student,'student');Tenant::clear();
+        $this->postJson($base.'/student/finish-exam',['exam_result_id'=>$resultId])->assertOk()->assertJson(['success'=>true]);
+        $this->assertSame(1.0,(float)ExamResult::findOrFail($resultId)->obtained_marks);
+        $this->assertSame($endedAt,ExamResult::findOrFail($resultId)->end_time->toISOString());
     }
 
     public function test_legacy_yes_questions_remain_attemptable_but_no_questions_do_not(): void
@@ -109,7 +126,7 @@ class FoundationExamJourneyTest extends TestCase
         [$org]=$this->owner();
         $type=\App\Models\Qtype::firstOrCreate(['type'=>'S'],['question_type'=>'Subjective']);
         $question=Question::create(['organization_id'=>$org->id,'qtype_id'=>$type->id,'question'=>'Explain the synthetic problem','marks'=>2,'status'=>'Yes']);
-        $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic subjective exam','slug'=>'synthetic-subjective','status'=>'Active','passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam','start_date'=>now()->subMinute(),'end_date'=>now()->addDay()]);
+        $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic subjective exam','slug'=>'synthetic-subjective','result_after_finish'=>true,'status'=>'Active','passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam','start_date'=>now()->subMinute(),'end_date'=>now()->addDay()]);
         $exam->questions()->attach($question->id);
         $student=Student::create(['organization_id'=>$org->id,'name'=>'Synthetic learner','email'=>'subjective@example.invalid','password'=>'synthetic-unused-password','status'=>'Active']);
         Auth::forgetGuards();Sanctum::actingAs($student,['*'],'student-api');Tenant::clear();
