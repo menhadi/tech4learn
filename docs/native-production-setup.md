@@ -1127,3 +1127,19 @@ feature acceptance. Production identity provisioning, the authorized previous
 organisation cleanup with verified recovery, runtime/scheduled-job checks and
 the reviewed website cutover remain outstanding. Current project instructions
 permit the assistant to read live state only; live changes remain user-run.
+
+## Legacy Apache routing gate — 8 October 2026
+
+A read-only inventory of the actual Tech4Learn virtual host found legacy
+ScriptAlias, CGI handlers/wrappers and rewrite/redirect rules alongside the
+current root Node proxy. The candidate renderer now refuses these directives
+instead of preserving potentially reachable legacy execution paths after the
+proxy is removed. Four renderer tests passed, including nine executable/rewrite
+directive cases. The actual live configuration is rejected by this new gate;
+the earlier in-memory rendering milestone does not satisfy the stricter gate.
+
+Before cutover, review a narrowly scoped candidate that removes or replaces
+these Tech4Learn-only legacy routes, preserves TLS and ACME handling, and passes
+the full Apache configuration test with backup and rollback. This gate is local
+code only: no live configuration was written, removed or reloaded. The renderer
+output remains a candidate, not an installation command or a ready cutover.

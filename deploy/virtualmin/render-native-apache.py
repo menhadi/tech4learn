@@ -11,6 +11,10 @@ def render(source, revision):
     names = re.findall(r'^\s*ServerName\s+(\S+)\s*$', source, re.M)
     if names != ['tech4learn.com', 'tech4learn.com'] or re.search(r'^\s*Include', source, re.M):
         raise ValueError('Unexpected site identity or include')
+    # Old CGI aliases and rewrite rules can still serve legacy application paths
+    # after the root proxy is removed. Require their separate removal/review.
+    if re.search(r'^\s*(?:ScriptAlias\S*|AliasMatch|RewriteRule|RedirectMatch|SetHandler|AddHandler|FCGIWrapper|Action)\s+', source, re.M | re.I):
+        raise ValueError('Legacy executable or rewrite routing requires review')
     # Refuse additional routing directives rather than silently preserving them.
     # Their ordering can override the intended API/native boundary.
     proxies = re.findall(r'^\s*(ProxyPass\S*|ProxyPreserveHost)\s+(.+?)\s*$', source, re.M | re.I)

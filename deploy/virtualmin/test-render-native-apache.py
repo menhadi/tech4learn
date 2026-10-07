@@ -42,4 +42,17 @@ class CandidateTests(unittest.TestCase):
             with self.assertRaises(ValueError):renderer.render(source,'a'*40)
         with self.assertRaises(ValueError):renderer.render(current(),'../../other-site')
 
+    def test_legacy_executable_and_rewrite_routes_require_review(self):
+        for directive in ['ScriptAlias /cgi-bin/ /home/tech4learn/cgi-bin/',
+                          'ScriptAliasMatch ^/legacy/(.*) /home/tech4learn/$1',
+                          'RewriteRule ^legacy/(.*) /old/$1 [L]',
+                          'RedirectMatch ^/old /legacy',
+                          'SetHandler application/x-httpd-php',
+                          'AddHandler fcgid-script .php',
+                          'FCGIWrapper /home/tech4learn/fcgi-bin/php.fcgi .php',
+                          'Action application/x-httpd-php /old-handler',
+                          'AliasMatch ^/legacy/(.*) /home/tech4learn/$1']:
+            with self.subTest(directive=directive), self.assertRaises(ValueError):
+                renderer.render(current().replace('</VirtualHost>', '    '+directive+'\n</VirtualHost>', 1),'a'*40)
+
 if __name__=='__main__':unittest.main()
