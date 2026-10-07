@@ -10,6 +10,7 @@ if (!$root || !is_file($root.'/vendor/autoload.php') || !is_file($root.'/.env'))
     exit(1);
 }
 require $root.'/vendor/autoload.php';
+require __DIR__.'/native-runtime-profile.php';
 $blocked = false;
 $check = function (bool $ok, string $label) use (&$blocked): void {
     echo ($ok ? 'PASS: ' : 'BLOCKED: ').$label."\n";
@@ -18,6 +19,9 @@ $check = function (bool $ok, string $label) use (&$blocked): void {
 try {
     // Parse without altering process environment or booting application providers.
     $env = Dotenv\Dotenv::parse(file_get_contents($root.'/.env'));
+    foreach (nativeRuntimeProfileChecks($env) as $label => $ok) {
+        $check($ok, $label);
+    }
     $check(($env['APP_ENV'] ?? '') === 'production', 'production environment');
     $check(($env['APP_DEBUG'] ?? '') === 'false', 'debug disabled');
     $key = base64_decode(substr($env['APP_KEY'] ?? '', 7), true);

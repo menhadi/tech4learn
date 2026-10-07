@@ -728,3 +728,21 @@ configuration file was saved or installed, and this is not an Apache syntax
 check or cutover acceptance. The candidate still requires a prepared accepted
 release, native/API identity readiness and the narrowly scoped user-run root
 installation with rollback.
+
+
+## Initial native runtime profile gate — checked read-only
+
+Native readiness now checks the explicit PHP 8.4 detached-worker binary, all
+three initial paper-worker limits of one, disabled lifecycle email/Search Console
+provider jobs and fixed private shared storage path. Missing values block rather
+than falling back to copied engine defaults. The pure profile test passed the
+accepted profile and missing/changed settings, including unaccepted provider
+enablement; the readiness script passed PHP syntax checking.
+
+A read-only check of the prepared release's actual private environment confirmed
+shared storage but blocked the worker binary, limits and both provider gates.
+These template values have not been installed in the private environment. Do
+not activate the scheduler until the approved settings are installed and this
+gate passes. No private values were printed, environment files edited or jobs
+started. This gate covers the conservative initial release profile; later
+provider enablement requires its own verified deployment review.
