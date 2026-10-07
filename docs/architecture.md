@@ -22,6 +22,8 @@ Fresh Laravel organisation creation uses independent configuration defaults and
 the new organisation's own contact fields. It must never replicate another
 organisation's configuration, provider credentials or private settings. The
 organisation, configuration and creation audit are saved in one transaction.
+The creation audit uses a required write rather than the optional general audit
+helper; an audit failure rolls back both the organisation and its configuration.
 Local regression tests verify credential isolation and rollback on configuration
 failure. This does not yet provision the attendance-side companion automatically.
 

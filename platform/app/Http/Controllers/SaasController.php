@@ -90,7 +90,16 @@ class SaasController extends Controller
         DB::transaction(function () use ($validated) {
             $organization = Organization::create($validated);
             $this->ensureOrganizationConfiguration($organization);
-            audit_log('organization.created', $organization, ['name' => $organization->name]);
+            \App\Models\AuditLog::create([
+                'organization_id'=>$organization->id,
+                'user_id'=>\Illuminate\Support\Facades\Auth::guard('web')->id(),
+                'action'=>'organization.created',
+                'auditable_type'=>Organization::class,
+                'auditable_id'=>$organization->id,
+                'metadata'=>['name'=>$organization->name],
+                'ip_address'=>request()->ip(),
+                'user_agent'=>request()->userAgent(),
+            ]);
         });
 
         return redirect()->route('saas.index')->with('success', 'Organization created successfully.');

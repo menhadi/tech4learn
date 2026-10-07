@@ -583,9 +583,10 @@
     },
     {
       "path": "app/Http/Controllers/SaasController.php",
-      "sha256": "85fc38e4518b767f3b26d6235423e6adbf3c18ebb57b6a8ac4349e2e3130d9e3",
+      "sha256": "341c053423d54752d76bfb41c7e0aed7a1243728b3ae67ae158ac941f019275d",
       "patches": [
-        "isolated-atomic-fresh-organisation-configuration"
+        "isolated-atomic-fresh-organisation-configuration",
+        "required-organisation-creation-audit"
       ]
     },
     {

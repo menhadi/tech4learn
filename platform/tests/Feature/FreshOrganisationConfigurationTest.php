@@ -34,6 +34,19 @@ class FreshOrganisationConfigurationTest extends TestCase
             $this->assertDatabaseMissing('organizations',['domain'=>'rollback.test']);
         } finally {Event::forget($event);}
     }
+    public function test_audit_failure_rolls_back_organisation_and_configuration(): void
+    {
+        $event='eloquent.creating: '.\App\Models\AuditLog::class;
+        Event::listen($event,fn()=>throw new \RuntimeException('Synthetic audit failure'));
+        $before=Configuration::count();
+        try {
+            $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic audit rollback','domain'=>'audit-rollback.test','status'=>'active']);
+            try {app(SaasController::class)->storeOrganization($request);$this->fail('Failure expected');}
+            catch(\RuntimeException $error){$this->assertSame('Synthetic audit failure',$error->getMessage());}
+            $this->assertDatabaseMissing('organizations',['domain'=>'audit-rollback.test']);
+            $this->assertSame($before,Configuration::count());
+        } finally {Event::forget($event);}
+    }
     public function test_platform_provider_lookup_never_falls_back_to_a_tenant_configuration(): void
     {
         Organization::query()->update(['settings'=>json_encode(['is_primary_platform'=>false])]);
