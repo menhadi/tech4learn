@@ -3420,8 +3420,10 @@
     },
     {
       "path": "database/migrations/2026_08_22_000001_create_admission_prediction_foundation.php",
-      "sha256": "4d1c6cc928325ef58ca8211b34386e30bcb6a0d345e19efb1f3c2748d2441c92",
-      "patches": []
+      "sha256": "240ef0d18b208328762d6f0a7c367f4fca146a17775ed37734c864bc0b4eceda",
+      "patches": [
+        "mysql-bounded-admission-foreign-key-names-and-empty-partial-retry"
+      ]
     },
     {
       "path": "database/migrations/2026_08_22_000002_add_partner_popup_settings_to_configurations.php",

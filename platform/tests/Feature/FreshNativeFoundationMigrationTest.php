@@ -9,6 +9,52 @@ use Tests\TestCase;
 
 class FreshNativeFoundationMigrationTest extends TestCase
 {
+    public function test_admission_schema_repairs_only_empty_partial_resources(): void
+    {
+        config(['database.default'=>'fresh_native', 'database.connections.fresh_native'=>[
+            'driver'=>'sqlite', 'database'=>':memory:', 'prefix'=>'', 'foreign_key_constraints'=>true,
+        ]]);
+        try {
+            Schema::create('users', fn (Blueprint $table) => $table->id());
+            $migration = require database_path('migrations/2026_08_22_000001_create_admission_prediction_foundation.php');
+            $migration->up();
+            foreach (['prediction_models','cutoff_observations','rank_observations','dataset_resources','dataset_versions','official_resources'] as $suffix) {
+                Schema::drop('admission_'.$suffix);
+            }
+            Schema::create('admission_official_resources', fn (Blueprint $table) => $table->id());
+            $migration->up();
+            $this->assertCount(4, Schema::getForeignKeys('admission_official_resources'));
+            $this->assertTrue(Schema::hasTable('admission_prediction_models'));
+            $migration->up();
+            $this->assertCount(4, Schema::getForeignKeys('admission_official_resources'));
+        } finally {
+            DB::purge('fresh_native');
+            config(['database.default'=>'sqlite']);
+        }
+    }
+
+    public function test_admission_partial_table_with_records_is_never_dropped(): void
+    {
+        config(['database.default'=>'fresh_native', 'database.connections.fresh_native'=>[
+            'driver'=>'sqlite', 'database'=>':memory:', 'prefix'=>'', 'foreign_key_constraints'=>true,
+        ]]);
+        try {
+            Schema::create('admission_official_resources', fn (Blueprint $table) => $table->id());
+            DB::table('admission_official_resources')->insert(['id'=>1]);
+            $migration = require database_path('migrations/2026_08_22_000001_create_admission_prediction_foundation.php');
+            try {
+                $migration->up();
+                $this->fail('A populated partial table must stop migration.');
+            } catch (\RuntimeException $error) {
+                $this->assertStringContainsString('manual review', $error->getMessage());
+            }
+            $this->assertSame(1, DB::table('admission_official_resources')->count());
+        } finally {
+            DB::purge('fresh_native');
+            config(['database.default'=>'sqlite']);
+        }
+    }
+
     public function test_official_monitor_schema_can_resume_without_resetting_existing_sources(): void
     {
         config(['database.default'=>'fresh_native', 'database.connections.fresh_native'=>[
