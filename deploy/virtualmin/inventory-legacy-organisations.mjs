@@ -20,7 +20,10 @@ export async function inventoryLegacyOrganisations(sql) {
     tables.push({ table: table.name, totalRows: count.rows[0].count });
   }
   const administrator = await sql.query('SELECT count(*)::text AS count FROM users WHERE is_superadmin');
+  const mediaColumns = await sql.query(`SELECT table_name,column_name FROM information_schema.columns
+    WHERE table_schema='public' AND data_type='bytea' ORDER BY table_name,column_name`);
   return { canonicalSuperadmins: administrator.rows[0].count, organisationDependentTables: tables,
+    databaseMediaColumns: mediaColumns.rows,
     limitation: 'Whole-table counts only. Shared rows, users, sessions, global connector records and private media require separate review. No records were deleted.' };
 }
 

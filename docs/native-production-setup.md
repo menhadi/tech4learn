@@ -410,3 +410,13 @@ bounded path manifest. Next prepare the private verified backup, dependency-awar
 transactional cleanup, session revocation and private-media cleanup, with checks
 preserving the existing administrator UUID/password and excluding the original
 ExamElite installation and new Laravel database. No deletion has run.
+
+Media boundary review: legacy attendance photos, additional attendance photos,
+learner portraits and OMR scan images use bounded PostgreSQL `bytea` columns.
+The inventory now lists byte-array column metadata without reading image content.
+Their private backup belongs in the PostgreSQL backup, and their deletion belongs
+in the organisation-scoped database cleanup. Do not invent a filesystem upload
+deletion step for these database-backed photos. Native Laravel uploads, original
+ExamElite uploads, private backups and other sites remain outside cleanup scope.
+Any separately discovered external media must still have its own reviewed,
+bounded manifest before removal.
