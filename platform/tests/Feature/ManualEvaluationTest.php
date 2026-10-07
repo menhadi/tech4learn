@@ -61,4 +61,33 @@ class ManualEvaluationTest extends TestCase
         $this->grade($result,[$stats[0]->id=>2])->assertUnprocessable();
         $this->assertEquals(1,$stats[0]->fresh()->marks_obtained);
     }
+    public function test_answer_from_another_attempt_cannot_be_injected_into_batch(): void
+    {
+        [$result,$stats]=$this->fixture();
+        $other=$result->replicate();$other->save();
+        $answer=$stats[0]->replicate();$answer->exam_result_id=$other->id;$answer->save();
+        $this->grade($result,[$stats[0]->id=>1,$answer->id=>2])->assertUnprocessable();
+        $this->assertSame('P',$stats[0]->fresh()->ques_status);
+        $this->assertSame('P',$answer->fresh()->ques_status);
+    }
+    public function test_foreign_organisation_result_is_not_readable_or_markable(): void
+    {
+        [$result,$stats]=$this->fixture();
+        $foreign=Organization::create(['name'=>'Synthetic other grading','slug'=>'other-grading','domain'=>'other-grading.test','status'=>'active']);
+        $exam=$result->exam->replicate();$exam->organization_id=$foreign->id;$exam->slug='other-grading';$exam->save();
+        $student=$result->student->replicate();$student->organization_id=$foreign->id;$student->email='other-grading@example.invalid';$student->save();
+        $other=$result->replicate();$other->organization_id=$foreign->id;$other->exam_id=$exam->id;$other->student_id=$student->id;$other->save();
+        $answer=$stats[0]->replicate();$answer->organization_id=$foreign->id;$answer->exam_id=$exam->id;$answer->student_id=$student->id;$answer->exam_result_id=$other->id;$answer->save();
+        $this->get('https://grading.test/results/'.$other->id.'/evaluate')->assertNotFound();
+        $this->grade($other,[$answer->id=>2])->assertNotFound();
+        $this->assertSame('P',$answer->fresh()->ques_status);
+    }
+    public function test_negative_and_non_numeric_marks_are_rejected_but_fractional_marks_work(): void
+    {
+        [$result,$stats]=$this->fixture();
+        foreach([-0.5,'invalid',null] as $marks)$this->grade($result,[$stats[0]->id=>$marks])->assertUnprocessable();
+        $this->grade($result,[$stats[0]->id=>1.5,$stats[1]->id=>0])->assertRedirect();
+        $this->assertSame('Fail',$result->fresh()->result);
+        $this->assertEquals(1.5,$result->fresh()->obtained_marks);
+    }
 }
