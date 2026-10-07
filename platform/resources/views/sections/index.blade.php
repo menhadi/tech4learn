@@ -1,0 +1,31 @@
+@extends('layouts.master')
+@section('title', 'Sections')
+@section('content')
+@component('components.breadcrumb') @slot('li_1', 'Academics') @slot('title', 'Sections') @endcomponent
+<div class="card">
+ <div class="card-header"><h4 class="card-title mb-1">Reusable Sections</h4><p class="text-muted mb-0">Create sections once, link them to exam groups, and optionally assign them to questions.</p></div>
+ <div class="card-body border-bottom">
+  <form method="POST" action="{{ route('sections.store') }}" class="row g-2 align-items-end">@csrf
+   <div class="col-lg-3"><label class="form-label">Section name</label><input name="name" class="form-control" required placeholder="e.g. General Aptitude"></div>
+   <div class="col-lg-4"><label class="form-label">Linked groups</label><select name="group_ids[]" class="form-select select2" multiple required>@foreach($groups as $group)<option value="{{ $group->id }}">{{ $group->group_name }}</option>@endforeach</select></div>
+   <div class="col-lg-2"><label class="form-label">Display order</label><input name="display_order" type="number" min="0" value="0" class="form-control"></div>
+   <div class="col-lg-1"><div class="form-check form-switch mb-2"><input type="hidden" name="status" value="0"><input class="form-check-input" type="checkbox" name="status" value="1" checked><label class="form-check-label">Active</label></div></div>
+   <div class="col-lg-2 d-grid"><button class="btn btn-primary"><i class="ri-add-line me-1"></i>Add Section</button></div>
+  </form>
+ </div>
+ <div class="card-body">
+  <form class="row g-2 mb-3" method="GET"><div class="col-md-5"><input name="search" value="{{ request('search') }}" class="form-control" placeholder="Search sections..."></div><div class="col-md-2"><select name="per_page" class="form-select" onchange="this.form.submit()">@foreach([50,100,500] as $size)<option value="{{ $size }}" @selected($perPage===$size)>{{ $size }} per page</option>@endforeach</select></div><div class="col-md-auto"><button class="btn btn-primary">Search</button></div><div class="col-md-auto"><a href="{{ route('sections.index') }}" class="btn btn-secondary">Reset</a></div></form>
+  <div class="d-flex align-items-center gap-2 mb-3"><button id="bulkDeleteSections" class="btn btn-secondary" disabled><i class="ri-delete-bin-line me-1"></i>Bulk Delete</button><span class="text-muted">Showing {{ $sections->count() }} of {{ $sections->total() }}</span></div>
+  <div class="table-responsive"><table class="table align-middle"><thead class="table-light"><tr><th style="width:42px"><input id="selectAllSections" type="checkbox" class="form-check-input"></th><th>Section</th><th>Groups</th><th>Order</th><th>Questions</th><th>Status</th><th class="text-end">Action</th></tr></thead><tbody>
+  @forelse($sections as $section)<tr>
+   <td><input type="checkbox" class="form-check-input section-checkbox" value="{{ $section->id }}"></td><td><strong>{{ $section->name }}</strong></td><td>@foreach($section->groups as $group)<span class="badge bg-light text-dark border me-1">{{ $group->group_name }}</span>@endforeach</td><td>{{ $section->display_order ?: '-' }}</td><td>{{ $section->questions_count }}</td><td><span class="badge {{ $section->status ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}">{{ $section->status ? 'Active' : 'Inactive' }}</span></td>
+   <td class="text-end"><button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#edit-section-{{ $section->id }}">Edit</button><form class="d-inline" method="POST" action="{{ route('sections.destroy',$section) }}" data-swal-confirm="Delete this section? Questions and results will be preserved.">@csrf @method('DELETE')<button class="btn btn-sm btn-secondary">Remove</button></form></td></tr>
+   <tr class="collapse" id="edit-section-{{ $section->id }}"><td colspan="7"><form method="POST" action="{{ route('sections.update',$section) }}" class="row g-2 align-items-end p-2">@csrf @method('PUT')<div class="col-md-3"><label class="form-label">Name</label><input name="name" value="{{ $section->name }}" class="form-control" required></div><div class="col-md-4"><label class="form-label">Groups</label><select name="group_ids[]" class="form-select select2" multiple required>@foreach($groups as $group)<option value="{{ $group->id }}" @selected($section->groups->contains('id',$group->id))>{{ $group->group_name }}</option>@endforeach</select></div><div class="col-md-2"><label class="form-label">Order</label><input name="display_order" type="number" min="0" value="{{ $section->display_order }}" class="form-control"></div><div class="col-md-1"><input type="hidden" name="status" value="0"><label><input type="checkbox" name="status" value="1" @checked($section->status)> Active</label></div><div class="col-md-2 d-grid"><button class="btn btn-primary">Save</button></div></form></td></tr>
+  @empty<tr><td colspan="7" class="text-center text-muted py-4">No sections found.</td></tr>@endforelse
+  </tbody></table></div>{{ $sections->links() }}
+ </div>
+</div>
+@endsection
+@section('script')
+<script>document.addEventListener('DOMContentLoaded',()=>{if(window.jQuery&&jQuery.fn.select2)jQuery('.select2').select2({width:'100%'});const boxes=[...document.querySelectorAll('.section-checkbox')],all=document.getElementById('selectAllSections'),btn=document.getElementById('bulkDeleteSections');const refresh=()=>btn.disabled=!boxes.some(b=>b.checked);all?.addEventListener('change',()=>{boxes.forEach(b=>b.checked=all.checked);refresh()});boxes.forEach(b=>b.addEventListener('change',refresh));btn?.addEventListener('click',async()=>{const ids=boxes.filter(b=>b.checked).map(b=>b.value);if(!ids.length)return;const confirmation=await Swal.fire({icon:'warning',title:'Delete selected sections?',text:`Delete ${ids.length} section(s)? Questions and results will be preserved.`,showCancelButton:true,confirmButtonText:'Delete'});if(!confirmation.isConfirmed)return;const response=await fetch(@json(route('sections.bulkDestroy')),{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':@json(csrf_token()),'Accept':'application/json'},body:JSON.stringify({ids})});if(response.ok)location.reload();else Swal.fire('Unable to delete sections','The selected sections could not be deleted.','error');});});</script>
+@endsection

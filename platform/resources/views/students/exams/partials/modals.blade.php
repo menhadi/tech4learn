@@ -1,0 +1,6 @@
+@include('students.exams.exam_modals.question_paper_modal')
+@include('students.exams.exam_modals.instructions_modal')
+@include('students.exams.exam_modals.profile_modal')
+@include('students.exams.exam_modals.finalize_exam_modals')
+@include('students.exams.exam_modals.browser_tolerance_modal')
+@include('students.exams.exam_modals.report_modal')

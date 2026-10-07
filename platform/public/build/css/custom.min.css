@@ -1,0 +1,45 @@
+/*
+Template Name: Examframe - 
+Author: ExamFrame
+Website: https://examframe.com/
+Contact: support@examframe.com
+File: Custom Css File
+*/
+
+.app-menu {
+    display: flex;
+    flex-direction: column;
+    height: 106%;
+}
+
+.scrollable-sidebar {
+    flex: 1;
+    overflow-y: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+.navbar-menu {
+    .navbar-nav {
+        .nav-link[data-bs-toggle="collapse"] {
+            position: relative;
+
+            &:after {
+                display: block;
+                content: "󰅂";
+                font-family: Material Design Icons;
+                margin-left: auto;
+                transition: transform 0.2s;
+                font-size: 1.05rem;
+                position: absolute;
+                right: 18px;
+                color: inherit;
+            }
+        }
+    }
+}
+/*source-backed-question-tables*/.source-table-wrap{width:100%;margin:1rem 0;overflow-x:auto;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch}.source-data-table{width:auto;min-width:min(100%,32rem);margin:0 auto;border:1px solid #6b7280;border-collapse:collapse;background:#fff;color:inherit;font-size:inherit;line-height:1.45}.source-data-table td,.source-data-table th{min-width:4.5rem;padding:.55rem .75rem;border:1px solid #6b7280;text-align:center;vertical-align:middle;white-space:normal}.source-data-table thead th{background:rgba(var(--vz-primary-rgb),.08);font-weight:700}.source-data-table tbody th[scope=row]{background:rgba(var(--vz-secondary-rgb),.08);font-weight:600}.source-data-table mjx-container{margin:0!important}@media(max-width:575.98px){.source-data-table{min-width:max-content}.source-data-table td,.source-data-table th{min-width:4rem;padding:.45rem .6rem}}

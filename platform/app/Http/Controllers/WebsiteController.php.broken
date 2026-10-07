@@ -1,0 +1,1035 @@
+<?php
+
+namespace App\Http\Controllers;
+use Illuminate\Support\Str;
+use App\Models\HeroSlider;
+use App\Models\Features;
+use App\Models\Package;
+use App\Models\Counter;
+use App\Models\Testimonial;
+use App\Models\AboutUs;
+use App\Models\WebsitePage; 
+use App\Models\Group;
+use App\Models\Configuration;
+use App\Models\Titles;
+use App\Models\SalesReport;
+use Illuminate\Http\Request;
+use App\Models\ExamResult; 
+use App\Models\Exam; 
+use App\Models\Category;
+
+class WebsiteController extends Controller
+{
+    // Helper method to get common data for views
+    private function getCommonViewData() {
+        // Data for Mega Menu
+        $groupsForMenu = Group::whereHas('packages', function($q) { $q->where('status', 1); })
+                        ->with(['packages' => function($query) { $query->where('status', 1)->withCount('exams')->orderBy('name', 'asc'); }])->get();
+        
+        // Fetch pages for the 'More' dropdown where show_in_menu is true
+        $navbarPages = WebsitePage::where('show_in_menu', 1)->orderBy('id', 'asc')->get();
+
+        $configuration_detail = Configuration::first();
+
+        return compact('groupsForMenu', 'navbarPages', 'configuration_detail');
+    }
+
+    public function dashboard()
+    {
+        $commonData = $this->getCommonViewData();
+        
+        // General Dashboard Data
+        $HeroSlider = HeroSlider::get();
+        $Features = Features::get();
+
+        $topSellingPackageIds = topSellingPackage();
+
+        if ($topSellingPackageIds->count() > 0) {
+
+            $allPackages = Package::with(['exams', 'groups'])
+                ->whereIn('id', $topSellingPackageIds)
+                ->where('status', 1)
+                ->get()
+                ->sortBy(function ($package) use ($topSellingPackageIds) {
+                    return array_search($package->id, $topSellingPackageIds->toArray());
+                })
+                ->values();
+
+        } else {
+
+            // Fallback to latest (your current logic)
+            $allPackages = Package::with(['exams', 'groups'])
+                ->where('status', 1)
+                ->latest()
+                ->take(8)
+                ->get();
+        }
+        
+        $groups = Group::whereHas('exams')->with(['exams', 'packages' => function($query) { $query->orderBy('created_at', 'desc'); }])->get();
+        $Counter = Counter::get();
+        $Testimonial = Testimonial::get();
+        $Features_Titles = Titles::where('id','1')->first();
+        $Testimonial_Titles = Titles::where('id','2')->first();
+        $Packages_Titles = Titles::where('id','3')->first();
+        $Banner_Titles = Titles::where('id','4')->first();
+        $TopPerformers_Titles = Titles::where('id','5')->first();
+        
+        // Top Performers (using 'percent' column)
+        // $topPerformers = ExamResult::whereNotNull('percent') 
+        //                    ->whereHas('student') 
+        //                    ->whereHas('exam') 
+        //                    ->with(['student:id,name,photo', 'exam:id,name']) 
+        //                    ->orderBy('percent', 'desc') 
+        //                    ->orderBy('end_time', 'desc') 
+        //                    ->take(5) 
+        //                    ->get();
+
+        $topPerformers = ExamResult::whereNotNull('percent')
+            ->whereHas('student')
+            ->whereHas('exam')
+            ->with(['student:id,name,photo', 'exam:id,name'])
+            ->get()
+            ->map(function ($result) {
+                // Calculate avg percentile for each student
+                $result->avgPercentile =
+                    studentAvgPercentile($result->student->id)->avg_percentile
+                    ?? $result->percent;
+
+                return $result;
+            })
+            // Sort by avgPercentile descending, then by end_time descending
+            ->sort(function ($a, $b) {
+                // First compare avgPercentile
+                if ($a->avgPercentile != $b->avgPercentile) {
+                    return $b->avgPercentile <=> $a->avgPercentile;
+                }
+
+                // If avgPercentile is same, compare end_time
+                return strtotime($b->end_time) <=> strtotime($a->end_time);
+            })
+            ->take(5)
+            ->values();
+
+        $groupWisePerformers = groupWisePerformers();
+
+        // Merge common data with specific data for this view
+        $viewData = array_merge($commonData, compact(
+            'HeroSlider', 'Features', 'allPackages', 'groups', 'Counter', 'Testimonial',
+            'Features_Titles', 'Testimonial_Titles', 'Packages_Titles', 'Banner_Titles', 
+            'TopPerformers_Titles', 'topPerformers', 'groupWisePerformers'
+        ));
+
+        return view('website.dashboard', $viewData);
+    }
+
+     public function about()
+    {
+        $commonData = $this->getCommonViewData();
+        $AboutUs = AboutUs::first();
+        $Features = Features::get();
+        $Features_Titles = Titles::where('id','1')->first();
+        
+        $viewData = array_merge($commonData, compact('AboutUs','Features','Features_Titles'));
+        return view('website.about', $viewData);
+    }
+
+    public function exams_old(
+        Request $request,
+        $groupSlug = null,
+        $category = null,
+        $subcategory = null
+    ) {
+
+        $commonData = $this->getCommonViewData();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Default Data
+        |--------------------------------------------------------------------------
+        */
+
+        $title = 'Explore Exams';
+        $subHeading = 'Choose your exam';
+
+        $breadcrumbs = [
+            [
+                'title' => 'Home',
+                'url'   => url('/')
+            ],
+            [
+                'title' => 'Exams',
+                'url'   => route('website.exams.index')
+            ]
+        ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Groups
+        |--------------------------------------------------------------------------
+        */
+
+        $allGroups = Group::whereHas('packages', function ($q) {
+                $q->where('status', 1);
+            })
+            ->whereHas('exams', function ($q) {
+
+                $q->where('status', 'Active')
+                    ->whereNotNull('category_level_1')
+                    ->where('category_level_1', '!=', '')
+                    ->whereNotNull('category_level_2')
+                    ->where('category_level_2', '!=', '');
+            })
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find Group
+        |--------------------------------------------------------------------------
+        */
+
+        $group = null;
+
+        if (!empty($groupSlug)) {
+
+            $group = $allGroups->first(function ($item) use ($groupSlug) {
+
+                return !empty($item->group_name)
+                    && Str::slug($item->group_name) === $groupSlug;
+            });
+
+            if (!$group) {
+                return redirect()->route('website.exams.index');
+            }
+
+            $title = 'Explore ' . $group->group_name . ' Exams';
+
+            $breadcrumbs[] = [
+                'title' => $group->group_name,
+                'url'   => route('website.exams.index', [
+                    'group' => $groupSlug
+                ])
+            ];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Group Only
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($groupSlug) && empty($category)) {
+
+            $categoryLevel1 = Exam::whereHas('groups', function ($q) use ($group) {
+                    $q->where('groups.id', $group->id);
+                })
+                ->where('status', 'Active')
+                ->whereNotNull('category_level_1')
+                ->where('category_level_1', '!=', '')
+                ->distinct()
+                ->pluck('category_level_1');
+
+            if ($categoryLevel1->isEmpty()) {
+                return redirect()->route('website.exams.index');
+            }
+
+            return view('website.groups', array_merge(
+                $commonData,
+                compact(
+                    'group',
+                    'title',
+                    'subHeading',
+                    'categoryLevel1',
+                    'breadcrumbs'
+                )
+            ));
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Category
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($groupSlug) && !empty($category) && empty($subcategory)) {
+
+            $formattedCategory = ucwords(str_replace('_', ' ', $category));
+
+            $title = $formattedCategory . ' - ' . $group->group_name;
+
+            $breadcrumbs[] = [
+                'title' => $formattedCategory,
+                'url'   => route('website.exams.index', [
+                    'group'    => $groupSlug,
+                    'category' => $category
+                ])
+            ];
+
+            $categoryLevel2 = Exam::whereHas('groups', function ($q) use ($group) {
+                    $q->where('groups.id', $group->id);
+                })
+                ->where('status', 'Active')
+                ->where('category_level_1', $category)
+                ->whereNotNull('category_level_2')
+                ->where('category_level_2', '!=', '')
+                ->distinct()
+                ->pluck('category_level_2');
+
+            if ($categoryLevel2->isEmpty()) {
+                return redirect()->route('website.exams.index');
+            }
+
+            return view('website.groups', array_merge(
+                $commonData,
+                compact(
+                    'group',
+                    'title',
+                    'subHeading',
+                    'category',
+                    'categoryLevel2',
+                    'breadcrumbs'
+                )
+            ));
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Subcategory / Packages
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($groupSlug) && !empty($category) && !empty($subcategory)) {
+
+            $formattedCategory = ucwords(str_replace('_', ' ', $category));
+            $formattedSubCategory = ucwords(str_replace('_', ' ', $subcategory));
+
+            $title = $formattedSubCategory . ' - ' . $group->group_name;
+
+            $breadcrumbs[] = [
+                'title' => $formattedCategory,
+                'url'   => route('website.exams.index', [
+                    'group'    => $groupSlug,
+                    'category' => $category
+                ])
+            ];
+
+            $breadcrumbs[] = [
+                'title' => $formattedSubCategory,
+                'url'   => route('website.exams.index', [
+                    'group'       => $groupSlug,
+                    'category'    => $category,
+                    'subcategory' => $subcategory
+                ])
+            ];
+
+            $sort = $request->input('sort', 'default');
+
+            $query = Package::query()
+                ->where('status', 1)
+                ->whereHas('groups', function ($q) use ($group) {
+                    $q->where('groups.id', $group->id);
+                })
+                ->whereHas('exams', function ($q) use ($category, $subcategory) {
+
+                    $q->where('category_level_1', $category)
+                        ->where('category_level_2', $subcategory)
+                        ->where('status', 'Active');
+                });
+
+            switch ($sort) {
+
+                case 'name_asc':
+                    $query->orderBy('name', 'asc');
+                    break;
+
+                case 'name_desc':
+                    $query->orderBy('name', 'desc');
+                    break;
+
+                case 'price_low_high':
+                    $query->where('package_type', 'paid')
+                        ->orderByRaw('COALESCE(discounted_amount, amount) asc');
+                    break;
+
+                case 'price_high_low':
+                    $query->where('package_type', 'paid')
+                        ->orderByRaw('COALESCE(discounted_amount, amount) desc');
+                    break;
+
+                default:
+                    $query->latest();
+                    break;
+            }
+
+            $packages = $query
+                ->paginate(9)
+                ->withQueryString();
+
+            return view('website.groups', array_merge(
+                $commonData,
+                compact(
+                    'group',
+                    'title',
+                    'subHeading',
+                    'category',
+                    'subcategory',
+                    'packages',
+                    'sort',
+                    'breadcrumbs'
+                )
+            ));
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Default Page
+        |--------------------------------------------------------------------------
+        */
+
+        return view('website.groups', array_merge(
+            $commonData,
+            compact(
+                'allGroups',
+                'title',
+                'subHeading',
+                'breadcrumbs'
+            )
+        ));
+    }
+
+    public function exams(
+        Request $request,
+        $groupSlug = null,
+        $category = null,
+        $subcategory = null
+    ) {
+
+        $commonData = $this->getCommonViewData();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Default Data
+        |--------------------------------------------------------------------------
+        */
+
+        $title = 'Explore Exams';
+
+        $subHeading = 'Choose your exam';
+
+        $breadcrumbs = [
+            [
+                'title' => 'Home',
+                'url'   => url('/')
+            ],
+            [
+                'title' => 'Exams',
+                'url'   => route('website.exams.index')
+            ]
+        ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Groups
+        |--------------------------------------------------------------------------
+        */
+
+        // $allGroups = Group::whereHas('packages', function ($q) {
+
+        //         $q->where('status', 1);
+
+        //     })
+        //     ->whereHas('exams', function ($q) {
+
+        //         $q->where('status', 'Active')
+        //             ->whereNotNull('category_level_1')
+        //             ->whereNotNull('category_level_2');
+
+        //     })
+        //     ->get();
+
+        $allGroups = Group::whereHas('packages', function ($q) {
+            $q->where('status', 1)
+              ->whereNotNull('category_level_1')
+              ->whereNotNull('category_level_2');
+        })
+        ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find Group
+        |--------------------------------------------------------------------------
+        */
+
+        $group = null;
+
+        if (!empty($groupSlug)) {
+
+            $group = $allGroups->first(function ($item) use ($groupSlug) {
+
+                return !empty($item->group_name)
+                    && Str::slug($item->group_name) === $groupSlug;
+            });
+
+            if (!$group) {
+
+                return redirect()->route('website.exams.index');
+            }
+
+            $title = 'Explore ' . $group->group_name . ' Exams';
+
+            $breadcrumbs[] = [
+                'title' => $group->group_name,
+                'url'   => route('website.exams.index', [
+                    'group' => $groupSlug
+                ])
+            ];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find Category By Slug
+        |--------------------------------------------------------------------------
+        */
+
+        $categoryModel = null;
+
+        if (!empty($category)) {
+
+            $categoryModel = Category::where('slug', $category)
+                ->whereNull('parent_id')
+                ->first();
+
+            if (!$categoryModel) {
+
+                return redirect()->route('website.exams.index');
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find Subcategory By Slug
+        |--------------------------------------------------------------------------
+        */
+
+        $subcategoryModel = null;
+
+        if (!empty($subcategory)) {
+
+            $subcategoryModel = Category::where('slug', $subcategory)
+                ->whereNotNull('parent_id')
+                ->first();
+
+            if (!$subcategoryModel) {
+
+                return redirect()->route('website.exams.index');
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Group Only
+        |--------------------------------------------------------------------------
+        */
+
+        // if (!empty($groupSlug) && empty($category)) {
+
+        //     $categoryIds = Exam::whereHas('groups', function ($q) use ($group) {
+
+        //             $q->where('groups.id', $group->id);
+
+        //         })
+        //         ->where('status', 'Active')
+        //         ->whereNotNull('category_level_1')
+        //         ->distinct()
+        //         ->pluck('category_level_1');
+
+        //     $categoryLevel1 = Category::whereIn('id', $categoryIds)
+        //         ->whereNull('parent_id')
+        //         ->get();
+
+        //     if ($categoryLevel1->isEmpty()) {
+
+        //         return redirect()->route('website.exams.index');
+        //     }
+
+        //     return view('website.groups', array_merge(
+        //         $commonData,
+        //         compact(
+        //             'group',
+        //             'title',
+        //             'subHeading',
+        //             'categoryLevel1',
+        //             'breadcrumbs'
+        //         )
+        //     ));
+        // }
+
+        if (!empty($groupSlug) && empty($category)) {
+
+            $categoryIds = Package::whereHas('groups', function ($q) use ($group) {
+                    $q->where('groups.id', $group->id);
+                })
+                ->where('status', 1)
+                ->whereNotNull('category_level_1')
+                ->distinct()
+                ->pluck('category_level_1');
+
+            $categoryLevel1 = Category::whereIn('id', $categoryIds)
+                ->whereNull('parent_id')
+                ->get();
+
+            if ($categoryLevel1->isEmpty()) {
+                return redirect()->route('website.exams.index');
+            }
+
+            return view('website.groups', array_merge(
+                $commonData,
+                compact(
+                    'group',
+                    'title',
+                    'subHeading',
+                    'categoryLevel1',
+                    'breadcrumbs'
+                )
+            ));
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Category
+        |--------------------------------------------------------------------------
+        */
+
+        // if (!empty($groupSlug) && !empty($category) && empty($subcategory)) {
+
+        //     $formattedCategory = $categoryModel->title;
+
+        //     $title = $formattedCategory . ' - ' . $group->group_name;
+
+        //     $breadcrumbs[] = [
+        //         'title' => $formattedCategory,
+        //         'url'   => route('website.exams.index', [
+        //             'group'    => $groupSlug,
+        //             'category' => $categoryModel->slug
+        //         ])
+        //     ];
+
+        //     $subcategoryIds = Exam::whereHas('groups', function ($q) use ($group) {
+
+        //             $q->where('groups.id', $group->id);
+
+        //         })
+        //         ->where('status', 'Active')
+        //         ->where('category_level_1', $categoryModel->id)
+        //         ->whereNotNull('category_level_2')
+        //         ->distinct()
+        //         ->pluck('category_level_2');
+
+        //     $categoryLevel2 = Category::whereIn('id', $subcategoryIds)
+        //         ->whereNotNull('parent_id')
+        //         ->get();
+
+        //     if ($categoryLevel2->isEmpty()) {
+
+        //         return redirect()->route('website.exams.index');
+        //     }
+
+        //     return view('website.groups', array_merge(
+        //         $commonData,
+        //         compact(
+        //             'group',
+        //             'title',
+        //             'subHeading',
+        //             'categoryModel',
+        //             'categoryLevel2',
+        //             'breadcrumbs'
+        //         )
+        //     ));
+        // }
+
+        if (!empty($groupSlug) && !empty($category) && empty($subcategory)) {
+
+            $formattedCategory = $categoryModel->title;
+
+            $title = $formattedCategory . ' - ' . $group->group_name;
+
+            $breadcrumbs[] = [
+                'title' => $formattedCategory,
+                'url'   => route('website.exams.index', [
+                    'group'    => $groupSlug,
+                    'category' => $categoryModel->slug
+                ])
+            ];
+
+            // $subcategoryIds = $group->packages()
+            //     ->where('status', 1)
+            //     ->where('category_level_1', $categoryModel->id)
+            //     ->whereNotNull('category_level_2')
+            //     ->distinct()
+            //     ->pluck('category_level_2');
+
+            $subcategoryIds = $group->packages()
+                ->reorder()
+                ->where('status', 1)
+                ->where('category_level_1', $categoryModel->id)
+                ->whereNotNull('category_level_2')
+                ->distinct()
+                ->pluck('category_level_2');
+
+            $categoryLevel2 = Category::whereIn('id', $subcategoryIds)
+                ->whereNotNull('parent_id')
+                ->get();
+
+            if ($categoryLevel2->isEmpty()) {
+                return redirect()->route('website.exams.index');
+            }
+
+            return view('website.groups', array_merge(
+                $commonData,
+                compact(
+                    'group',
+                    'title',
+                    'subHeading',
+                    'categoryModel',
+                    'categoryLevel2',
+                    'breadcrumbs'
+                )
+            ));
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Subcategory / Packages
+        |--------------------------------------------------------------------------
+        */
+
+        // if (!empty($groupSlug) && !empty($category) && !empty($subcategory)) {
+
+        //     $formattedCategory = $categoryModel->title;
+
+        //     $formattedSubCategory = $subcategoryModel->title;
+
+        //     $title = $formattedSubCategory . ' - ' . $group->group_name;
+
+        //     $breadcrumbs[] = [
+        //         'title' => $formattedCategory,
+        //         'url'   => route('website.exams.index', [
+        //             'group'    => $groupSlug,
+        //             'category' => $categoryModel->slug
+        //         ])
+        //     ];
+
+        //     $breadcrumbs[] = [
+        //         'title' => $formattedSubCategory,
+        //         'url'   => route('website.exams.index', [
+        //             'group'       => $groupSlug,
+        //             'category'    => $categoryModel->slug,
+        //             'subcategory' => $subcategoryModel->slug
+        //         ])
+        //     ];
+
+        //     $sort = $request->input('sort', 'default');
+
+        //     $query = Package::query()
+
+        //         ->where('status', 1)
+
+        //         ->whereHas('groups', function ($q) use ($group) {
+
+        //             $q->where('groups.id', $group->id);
+
+        //         })
+
+        //         ->whereHas('exams', function ($q) use ($categoryModel, $subcategoryModel) {
+
+        //             $q->where('category_level_1', $categoryModel->id)
+
+        //                 ->where('category_level_2', $subcategoryModel->id)
+
+        //                 ->where('status', 'Active');
+
+        //         });
+
+        //     switch ($sort) {
+
+        //         case 'name_asc':
+
+        //             $query->orderBy('name', 'asc');
+
+        //             break;
+
+        //         case 'name_desc':
+
+        //             $query->orderBy('name', 'desc');
+
+        //             break;
+
+        //         case 'price_low_high':
+
+        //             $query->where('package_type', 'paid')
+
+        //                 ->orderByRaw('COALESCE(discounted_amount, amount) asc');
+
+        //             break;
+
+        //         case 'price_high_low':
+
+        //             $query->where('package_type', 'paid')
+
+        //                 ->orderByRaw('COALESCE(discounted_amount, amount) desc');
+
+        //             break;
+
+        //         default:
+
+        //             $query->latest();
+
+        //             break;
+        //     }
+
+        //     $packages = $query
+        //         ->paginate(9)
+        //         ->withQueryString();
+
+        //     return view('website.groups', array_merge(
+        //         $commonData,
+        //         compact(
+        //             'group',
+        //             'title',
+        //             'subHeading',
+        //             'categoryModel',
+        //             'subcategoryModel',
+        //             'packages',
+        //             'sort',
+        //             'breadcrumbs'
+        //         )
+        //     ));
+        // }
+
+        if (!empty($groupSlug) && !empty($category) && !empty($subcategory)) {
+
+            $formattedCategory = $categoryModel->title;
+
+            $formattedSubCategory = $subcategoryModel->title;
+
+            $title = $formattedSubCategory . ' - ' . $group->group_name;
+
+            $breadcrumbs[] = [
+                'title' => $formattedCategory,
+                'url'   => route('website.exams.index', [
+                    'group'    => $groupSlug,
+                    'category' => $categoryModel->slug
+                ])
+            ];
+
+            $breadcrumbs[] = [
+                'title' => $formattedSubCategory,
+                'url'   => route('website.exams.index', [
+                    'group'       => $groupSlug,
+                    'category'    => $categoryModel->slug,
+                    'subcategory' => $subcategoryModel->slug
+                ])
+            ];
+
+            $sort = $request->input('sort', 'default');
+
+            $query = Package::query()
+
+                ->where('status', 1)
+
+                ->where('category_level_1', $categoryModel->id)
+
+                ->where('category_level_2', $subcategoryModel->id)
+
+                ->whereHas('groups', function ($q) use ($group) {
+
+                    $q->where('groups.id', $group->id);
+
+                });
+
+            switch ($sort) {
+
+                case 'name_asc':
+
+                    $query->orderBy('name', 'asc');
+
+                    break;
+
+                case 'name_desc':
+
+                    $query->orderBy('name', 'desc');
+
+                    break;
+
+                case 'price_low_high':
+
+                    $query->where('package_type', 'paid')
+                        ->orderByRaw('COALESCE(discounted_amount, amount) asc');
+
+                    break;
+
+                case 'price_high_low':
+
+                    $query->where('package_type', 'paid')
+                        ->orderByRaw('COALESCE(discounted_amount, amount) desc');
+
+                    break;
+
+                default:
+
+                    $query->latest();
+
+                    break;
+            }
+
+            $packages = $query
+                ->paginate(9)
+                ->withQueryString();
+
+            return view('website.groups', array_merge(
+                $commonData,
+                compact(
+                    'group',
+                    'title',
+                    'subHeading',
+                    'categoryModel',
+                    'subcategoryModel',
+                    'packages',
+                    'sort',
+                    'breadcrumbs'
+                )
+            ));
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Default Page
+        |--------------------------------------------------------------------------
+        */
+
+        return view('website.groups', array_merge(
+            $commonData,
+            compact(
+                'allGroups',
+                'title',
+                'subHeading',
+                'breadcrumbs'
+            )
+        ));
+    }
+
+    public function courses(Request $request)
+    {
+        $commonData = $this->getCommonViewData();
+        $sort = $request->input('sort', 'default');
+        $allGroups = Group::whereHas('packages')->orderBy('display_order', 'asc')->get();
+
+        $query = Package::query()->where('status', 1);
+
+        if ($request->filled('group')) {
+            $query->whereHas('groups', function ($q) use ($request) {
+                $q->where('group_id', $request->group);
+            });
+        }
+        if ($request->filled('price') && $request->price != 'all') {
+            $query->where('package_type', $request->price);
+        }
+        switch ($sort) {
+            case 'name_asc': $query->orderBy('name', 'asc'); break;
+            case 'name_desc': $query->orderBy('name', 'desc'); break;
+            case 'price_low_high': $query->where('package_type', 'paid')->orderByRaw('COALESCE(discounted_amount, amount) asc'); break;
+            case 'price_high_low': $query->where('package_type', 'paid')->orderByRaw('COALESCE(discounted_amount, amount) desc'); break;
+            default: $query->latest(); break;
+        }
+
+        $packages = $query->paginate(9)->withQueryString();
+        $viewData = array_merge($commonData, compact('packages', 'sort', 'allGroups'));
+        return view('website.courses', $viewData);
+    });
+        }
+        if ($request->filled('price') && $request->price != 'all') {
+            $query->where('package_type', $request->price);
+        }
+        switch ($sort) {
+            case 'name_asc': $query->orderBy('name', 'asc'); break;
+            case 'name_desc': $query->orderBy('name', 'desc'); break;
+            case 'price_low_high': $query->where('package_type', 'paid')->orderByRaw('COALESCE(discounted_amount, amount) asc'); break;
+            case 'price_high_low': $query->where('package_type', 'paid')->orderByRaw('COALESCE(discounted_amount, amount) desc'); break;
+            default: $query->latest(); break; // Default to latest
+        }
+
+        $packages = $query->paginate(9)->withQueryString();
+        $viewData = array_merge($commonData, compact('packages', 'sort', 'allGroups'));
+        return view('website.courses', $viewData); 
+    }
+
+    public function coursesdetail($id)
+    {
+
+        // $query = Package::with(['exams', 'groups'])->where('status', 1);
+        $query = Package::with([
+            'exams' => function ($q) {
+                $q->orderBy('id', 'desc');
+            },
+            'groups'
+        ])->where('status', 1);
+
+        // $package = is_numeric($id)
+        //     ? $query->where('id', $id)->firstOrFail()
+        //     : $query->where('slug2', $id)->firstOrFail();
+
+        $package = is_numeric($id)
+            ? $query->where('id', $id)->firstOrFail()
+            : $query->where('slug', $id)->firstOrFail();
+
+        $id = $package->id;
+
+        $commonData = $this->getCommonViewData();
+        //$package = Package::with(['exams', 'groups'])->where('status', 1)->findOrFail($id); // Ensure package is active
+        $enrollmentCount = SalesReport::where('package_id', $id)->count();
+        $similarPackages = collect();
+        $groupId = null;
+        if ($package->groups->isNotEmpty()) {
+            $groupId = $package->groups->first()->id;
+            $similarPackages = Package::whereHas('groups', function ($query) use ($groupId) {
+                $query->where('group_id', $groupId);
+            })
+            ->where('id', '!=', $id)
+            ->where('status', 1) // Only active similar packages
+            ->latest()
+            ->take(4)
+            ->get();
+        }
+
+        // echo "<pre>";
+        // print_r($package->exams->toArray());
+        // die();
+
+        $viewData = array_merge($commonData, compact('package', 'enrollmentCount', 'similarPackages', 'groupId'));
+        return view('website.course-detail', $viewData); 
+    }
+
+    public function contact()
+    {
+        $commonData = $this->getCommonViewData();
+        $viewData = array_merge($commonData, []); // Add specific data if needed later
+        return view('website.contact', $viewData); 
+    }
+
+    // Handles generic website pages: /pages/{id}
+    public function show($slug)
+    {
+        $commonData = $this->getCommonViewData();
+        
+        // Fetching by ID since the URL path is /pages/{id}
+        // $page = WebsitePage::findOrFail($slug); 
+        $page = WebsitePage::where('short_title->en', $slug)->first();
+
+        if (!$page) {
+            return redirect()->route('home');
+        }
+        
+        $viewData = array_merge($commonData, compact('page'));
+        return view('website.pages', $viewData);
+    }
+
+}

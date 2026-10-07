@@ -1,0 +1,482 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\PaymentGateway;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Str;
+use Razorpay\Api\Api; 
+
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Cart;
+use App\Models\Configuration;
+use App\Models\Student;
+use App\Models\Package;
+use App\Models\Coupon; 
+use App\Models\EmailTemplate;
+use App\Services\EmailService;
+use Carbon\Carbon; 
+
+class CheckoutController extends Controller
+{
+    public function index()
+    {
+        $student = Auth::guard('student')->user();
+        
+        if ($student) {
+            $cartItems = Cart::where('student_id', $student->id)->get();
+        } else {
+            $sessionCart = session()->get('cart', []);
+            $cartItems = collect($sessionCart)->map(function ($item) {
+                $cartItem = new Cart();
+                $cartItem->fill($item);
+                return $cartItem;
+            });
+        }
+        
+        if ($cartItems->isEmpty()) {
+            return redirect()->route('courses.index')->with('info', 'Your cart is empty.');
+        }
+
+        $configuration = Configuration::first();
+        $gateway = PaymentGateway::where('status', 1)->first();
+
+        return view('website.checkout', compact('cartItems', 'student', 'configuration', 'gateway'));
+    }
+
+    public function store(Request $request)
+    {
+        $rules = [
+            'payment_method' => 'required|in:razorpay,offline', 
+        ];
+
+        if (!Auth::guard('student')->check()) {
+            $rules['name'] = 'required|string|max:255';
+            $rules['email'] = 'required|email|max:255'; 
+            $rules['phone'] = 'required|string|max:20';
+            $rules['password'] = 'required|string|min:6';
+        }
+
+        $request->validate($rules);
+
+        // 1. Identify or Create Student
+        if (Auth::guard('student')->check()) {
+            $student = Auth::guard('student')->user();
+        } else {
+            // Guest Logic
+            $existingStudent = Student::where('email', $request->email)->first();
+            if ($existingStudent) {
+                return redirect()->back()->with('error', 'Email already registered. Please login to continue.')->withInput();
+            }
+
+            $student = Student::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'password' => Hash::make($request->password), 
+                'status' => 1,
+            ]);
+
+            Auth::guard('student')->login($student);
+
+            // Merge Session Cart
+            $sessionCart = session()->get('cart', []);
+            foreach ($sessionCart as $item) {
+                Cart::create([
+                    'student_id' => $student->id,
+                    'package_id' => $item['package_id'],
+                    'name' => $item['name'],
+                    'price' => $item['price'],
+                    'quantity' => $item['quantity'],
+                    'image' => $item['image'] ?? null,
+                ]);
+            }
+            session()->forget('cart');
+        }
+
+        // 2. Re-fetch Cart
+        $cartItems = Cart::where('student_id', $student->id)->get();
+        if ($cartItems->isEmpty()) {
+            return redirect()->route('courses.index')->with('error', 'Cart is empty.');
+        }
+
+        // 3. Calculate Total
+        $subTotal = $cartItems->sum(function($item) { return $item->price * $item->quantity; });
+        
+        $discount = 0;
+        $couponCode = null;
+        if (session()->has('applied_coupon')) {
+            $couponData = session()->get('applied_coupon');
+            $discount = $couponData['discount'];
+            $couponCode = $couponData['code'];
+        }
+
+        $totalAmount = max(0, $subTotal - $discount);
+
+        // 4. Determine Payment Status
+        $paymentStatus = 'Pending';
+        $orderStatus = 'pending';
+
+        // --- CASE A: Free Order ---
+        if ($totalAmount == 0) {
+            $paymentStatus = 'Completed';
+            $orderStatus = 'completed'; 
+        }
+        // --- CASE B: Razorpay Verification ---
+        elseif ($request->payment_method == 'razorpay' && $request->has('razorpay_payment_id')) {
+            $gateway = PaymentGateway::where('status', 1)->first();
+            
+            if ($gateway) {
+                try {
+                    $api = new Api($gateway->key_id, $gateway->key_secret);
+                    
+                    // Signature verify karein
+                    $attributes = [
+                        'razorpay_order_id' => $request->razorpay_order_id,
+                        'razorpay_payment_id' => $request->razorpay_payment_id,
+                        'razorpay_signature' => $request->razorpay_signature
+                    ];
+                    
+                    $api->utility->verifyPaymentSignature($attributes);
+                    
+                    // Payment Verified!
+                    $paymentStatus = 'Completed';
+                    $orderStatus = 'completed';
+                    
+                } catch (\Exception $e) {
+                    return redirect()->back()->with('error', 'Payment Verification Failed: ' . $e->getMessage());
+                }
+            }
+        }
+
+        // 5. Create Order
+        // ✅ FIX 1: 'total_amount' ko 'total' kiya (DB Column Fix)
+        $order = Order::create([
+            'student_id' => $student->id,
+            'order_number' => 'ORD-' . strtoupper(Str::random(10)),
+            'total' => $totalAmount, // <-- Changed from total_amount to total
+            'discount' => $discount, 
+            'coupon_code' => $couponCode, 
+            'payment_method' => ($totalAmount == 0) ? 'free' : $request->payment_method,
+            'payment_status' => $paymentStatus,
+            'status' => $orderStatus,
+        ]);
+
+        // 6. Order Items
+        foreach ($cartItems as $item) {
+            OrderItem::create([
+                'order_id' => $order->id,
+                'package_id' => $item->package_id,
+                'name' => $item->name ?? $item->package->name,
+                'price' => $item->price,
+                'quantity' => $item->quantity,
+                'total' => $item->price * $item->quantity,
+            ]);
+        }
+
+        Cart::where('student_id', $student->id)->delete();
+        session()->forget('applied_coupon');
+
+        // Email Send
+        $this->sendOrderEmail($student, $order);
+
+        // ✅ FIX 2: Added 'new_purchase' session flash for Dashboard Popup
+        // return redirect()->route('student.dashboard')
+        //     ->with('success', 'Order placed successfully! Course Activated.')
+        //     ->with('new_purchase', true);
+
+        return redirect()->route('student.myexams')
+            ->with('success', 'Order placed successfully! Course Activated.')
+            ->with('new_purchase', true);
+            
+    }
+
+    private function sendOrderEmail($student, $order) {
+        try {
+            $template = EmailTemplate::where('key', 'order_confirmation')->first(); 
+            $config = Configuration::first();
+            
+            if ($template && $config) {
+                $html = $template->description;
+                $subject = $template->subject;
+                
+                $itemsHtml = '';
+                foreach ($order->items as $item) {
+                    $itemsHtml .= '<li style="padding: 5px 0;">' . htmlspecialchars($item->name ?? 'Package') . '</li>';
+                }
+
+                $replacements = [
+                    '{#studentName#}' => $student->name,
+                    '{#orderId#}' => $order->order_number,
+                    '{#orderItems#}' => $itemsHtml,
+                    // ✅ FIX 3: Email me bhi sahi property use ki
+                    '{#totalAmount#}' => number_format($order->total, 2),
+                    '{#siteName#}' => $config->name,
+                ];
+
+                foreach ($replacements as $key => $value) {
+                    $html = str_replace($key, $value, $html);
+                    $subject = str_replace($key, $value, $subject);
+                }
+                
+                (new EmailService())->sendEmail($student->email, $subject, $html);
+            }
+        } catch (\Exception $e) {
+            Log::error('Order email error: ' . $e->getMessage());
+        }
+    }
+
+    public function applyCoupon(Request $request) { 
+        $request->validate(['code' => 'required|string']);
+        $couponCode = $request->code;
+        $student = Auth::guard('student')->user();
+        
+        $coupon = Coupon::where('code', $couponCode)->where('status', 1)->first();
+        if (!$coupon) return response()->json(['success' => false, 'message' => 'Invalid coupon code.']);
+        if ($coupon->expires_at && Carbon::now()->gt($coupon->expires_at)) return response()->json(['success' => false, 'message' => 'Coupon expired.']);
+
+        $subTotal = 0;
+        if($student) {
+            $cartItems = Cart::where('student_id', $student->id)->get();
+            $subTotal = $cartItems->sum(function($item) { return $item->price * $item->quantity; });
+        } else {
+            $sessionCart = session()->get('cart', []);
+            $subTotal = collect($sessionCart)->sum(function($item) { return $item['price'] * $item['quantity']; });
+        }
+
+        if ($coupon->min_amount && $subTotal < $coupon->min_amount) return response()->json(['success' => false, 'message' => 'Min amount: ' . $coupon->min_amount]);
+
+        $discount = 0;
+        if ($coupon->type == 'fixed') $discount = $coupon->value;
+        elseif ($coupon->type == 'percent') $discount = ($subTotal * $coupon->value) / 100;
+
+        if ($discount > $subTotal) $discount = $subTotal;
+        $newTotal = $subTotal - $discount;
+
+        session()->put('applied_coupon', ['code' => $coupon->code, 'discount' => $discount]);
+
+        return response()->json(['success' => true, 'message' => 'Applied!', 'discount' => $discount, 'new_total' => $newTotal]);
+    }
+
+    public function removeCoupon() {
+        session()->forget('applied_coupon');
+        return response()->json(['success' => true, 'message' => 'Coupon removed.']);
+    }
+
+    public function createRazorpayOrder(Request $request)
+    {
+        $student = Auth::guard('student')->user();
+        $subTotal = 0;
+
+        if ($student) {
+            $cartItems = Cart::where('student_id', $student->id)->get();
+            $subTotal = $cartItems->sum(function($item) { return $item->price * $item->quantity; });
+        } else {
+            $sessionCart = session()->get('cart', []);
+            $subTotal = collect($sessionCart)->sum(function($item) { return $item['price'] * $item['quantity']; });
+        }
+
+        if ($subTotal <= 0) return response()->json(['error' => 'Cart is empty or invalid'], 400);
+
+        $discount = 0;
+        if (session()->has('applied_coupon')) {
+            $discount = session('applied_coupon')['discount'];
+        }
+        $totalAmount = max(0, $subTotal - $discount);
+
+        $gateway = PaymentGateway::where('status', 1)->first();
+        if (!$gateway) return response()->json(['error' => 'Razorpay Gateway is NOT Active or Missing'], 400);
+
+        $api = new Api($gateway->key_id, $gateway->key_secret);
+        
+        $orderData = [
+            'receipt'         => 'rcptid_' . Str::random(10),
+            'amount'          => $totalAmount * 100, // Paise
+            'currency'        => 'INR',
+        ];
+
+        try {
+            $razorpayOrder = $api->order->create($orderData);
+            return response()->json([
+                'id' => $razorpayOrder['id'], 
+                'amount' => $orderData['amount']
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Razorpay Create Error: " . $e->getMessage());
+            return response()->json(['error' => 'Razorpay API Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function enrollExam(Request $request)
+    {
+
+        $request->validate([
+            'id' => 'required|exists:packages,id',
+            'groupId' => 'required',
+        ]);
+
+        try {
+
+            $package = Package::where('id', $request->id)
+                ->where('status', 1)
+                ->firstOrFail();
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+
+            return response()->json([
+                'message' => 'This course is currently unavailable.'
+            ], 404);
+
+        }
+
+        $guestId = $this->getOrCreateGuestId();
+
+        // Prevent duplicate participation
+        $alreadyExists = Order::where('guest_id', $guestId)
+            ->whereHas('items', function ($query) use ($package) {
+                $query->where('package_id', $package->id);
+            })
+            ->exists();
+
+        if ($alreadyExists) {
+
+            // $purchasedPackages = \App\Models\Package::where('id', $package->id)
+            //     ->with(['exams' => function ($query) {
+            //         $query->where('status', 'Active')
+            //               ->withSum('questions', 'marks')
+            //               ->latest();
+            //     }])
+            //     ->get();
+
+            // $allExamIds = $purchasedPackages->flatMap(function ($package) {
+            //     return $package->exams->pluck('id');
+            // });
+
+            // $getExamId = $allExamIds[0] ?? null;
+
+            $latestExamId = \App\Models\Package::with(['exams' => function ($query) {
+                    $query->where('status', 'Active')
+                          ->withSum('questions', 'marks')
+                          ->latest('exams.id');
+                }])
+                ->find($package->id)
+                ?->exams
+                ->first()
+                ?->id;
+
+            return response()->json([
+                'message' => 'You have already participated in this course.',
+                'redirectUrl' => route('guest.guideline', ['id' => $latestExamId])
+            ]);            
+        }
+
+        $price = $package->discounted_amount ?? $package->amount ?? 0;
+        $isFree = strtolower($package->package_type) === 'free';
+
+        if (!$isFree) {
+            return response()->json([
+                'message' => 'This course is paid you cannot take this exam.',
+            ], 409);
+        }
+
+        $subTotal = $price * 1;
+        $discount = 0;
+        $totalAmount = max(0, $subTotal - $discount);
+
+        // 4. Determine Payment Status
+        $paymentStatus = 'Completed';
+        $orderStatus = 'completed';
+
+        // 5. Create Order
+        $order = Order::create([
+            'guest_id' => $guestId,
+            'order_number' => 'ORD-' . strtoupper(Str::random(10)),
+            'total' => $totalAmount, // <-- Changed from total_amount to total
+            'discount' => $discount, 
+            'coupon_code' => null, 
+            'payment_method' => 'free',
+            'payment_status' => $paymentStatus,
+            'status' => $orderStatus,
+        ]);
+
+        // 6. Order Items
+        OrderItem::create([
+            'order_id' => $order->id,
+            'package_id' => $package->id,
+            'name' => $package->name,
+            'price' => $price,
+            'quantity' => 1,
+            'total' => $price * 1,
+        ]);
+
+        // Email Send
+        //$this->sendOrderEmail($student, $order);
+
+        // ✅ FIX 2: Added 'new_purchase' session flash for Dashboard Popup
+        // return redirect()->route('student.myexams')
+        //     ->with('success', 'Order placed successfully! Course Activated.')
+        //     ->with('new_purchase', true);
+
+        // $purchasedPackages = \App\Models\Package::where('id', $package->id)
+        //     ->with(['exams' => function ($query) {
+        //         $query->where('status', 'Active')
+        //               ->withSum('questions', 'marks')
+        //               ->latest();
+        //     }])
+        //     ->get();
+
+        // $allExamIds = $purchasedPackages->flatMap(function ($package) {
+        //     return $package->exams->pluck('id');
+        // });
+
+        // $getExamId = $allExamIds[0] ?? null;
+
+
+        $latestExamId = \App\Models\Package::with(['exams' => function ($query) {
+            $query->where('status', 'Active')
+                  ->withSum('questions', 'marks')
+                  ->latest('exams.id');
+        }])
+        ->find($package->id)
+        ?->exams
+        ->first()
+        ?->id;
+
+        if (!$latestExamId) {
+            return response()->json([
+                'message' => 'Something went wrong',
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Order placed successfully! Course Activated.',
+            'redirectUrl' => route('guest.guideline', ['id' => $latestExamId])
+        ]);
+            
+    }
+
+    private function getOrCreateGuestId()
+    {
+        // First check session
+        if (session()->has('guest_id')) {
+            return session('guest_id');
+        }
+
+        // Then check cookie
+        $guestId = request()->cookie('guest_id');
+
+        if (!$guestId) {
+            $guestId = 'GST-' . strtoupper(Str::random(10));
+        }
+
+        // Store in session
+        session(['guest_id' => $guestId]);
+
+        return $guestId;
+    }
+}

@@ -61,9 +61,9 @@ Migration 6 adds photo analysis history and an explicit server-side integration 
 
 Migration 5 introduces scoped attendance intents, immutable capture snapshots/evidence, private bounded JPEG storage and append-only review history. The online admin browser can capture and review; native camera work remains planned. See [attendance release](attendance-release.md) for permission checks, idempotency, uncertainty rules, storage limits and field verification.
 
-## ExamElite integration
+## Historical ExamElite connector implementation
 
-The revised delivery target is same-domain Tech4Learn screens backed by ExamElite APIs, with central module controls and organisation-owned copies in both sharing directions. [Central content](examelite-central-content.md) documents the first implemented portion, its additive remote transfer ledger, permission checks and remaining authoring/attempt adapters. The external native workspace described below is legacy infrastructure, not the accepted final interface.
+The previous delivery target used same-domain Tech4Learn screens backed by remote ExamElite APIs. The 7 October foundation decision above supersedes that target. Existing connector code and transfer ledgers remain during migration until their replacement is verified. [Central content](examelite-central-content.md) records the implemented historical portion, its permission checks and remaining authoring/attempt adapters.
 
 Connect through authenticated, versioned APIs. Its Laravel application owns its database and engine. No direct database writes from Tech4Learn. The [read connector](examelite-read-release.md) adds private credentials, explicit organisation/exam/student grants, exam catalogue reads and summary-result reads. User screenshots confirm live catalogue and completed-result retrieval for the pilot. Exam launch, student provisioning, result revisions and durable reconciliation are not implemented by this slice.
 

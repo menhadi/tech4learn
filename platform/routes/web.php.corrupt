@@ -1,0 +1,495 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
+use App\Http\Controllers\GroupController;
+use App\Http\Controllers\CategoryController;
+
+use App\Http\Controllers\UgroupController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\StudentAdminController;
+use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\TopicController;
+use App\Http\Controllers\StopicController;
+use App\Http\Controllers\LanguageController;
+use App\Http\Controllers\PassageController;
+use App\Http\Controllers\DiffController;
+use App\Http\Controllers\QtypeController;
+use App\Http\Controllers\QuestionController;
+use App\Http\Controllers\QuestionLangController;
+use App\Http\Controllers\PackageController;
+use App\Http\Controllers\ExamController;
+use App\Http\Controllers\ResultController;
+use App\Http\Controllers\ConfigurationController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ImportExportController;
+use App\Http\Controllers\EmailTemplateController;
+use App\Http\Controllers\EmailSettingController;
+use App\Http\Controllers\SmsTemplateController;
+use App\Http\Controllers\ImageUploadController;
+use App\Http\Controllers\WebsiteController;
+use App\Http\Controllers\HeroSliderController;
+use App\Http\Controllers\FeaturesController;
+use App\Http\Controllers\CountersController;
+use App\Http\Controllers\TestimonialController;
+use App\Http\Controllers\AboutUsController;
+use App\Http\Controllers\WebsitePageController;
+use App\Http\Controllers\OrdersController;
+use App\Http\Controllers\PaymentGatewayController;
+use App\Http\Controllers\TitleController;
+use App\Http\Controllers\ContactController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\CouponController;
+use App\Http\Controllers\Students\GuestExamsController;
+
+use App\Http\Controllers\Auth\GoogleController;
+
+require __DIR__ . '/student_routes.php';
+
+Route::middleware(['guest', 'guest:student'])->group(function () {
+    Route::get('login', [App\Http\Controllers\Auth\LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('login', [App\Http\Controllers\Auth\LoginController::class, 'login']);
+    Route::get('password/forgot', [ForgotPasswordController::class, 'showForgotPasswordForm'])->name('password.request');
+    Route::post('password/send-otp', [ForgotPasswordController::class, 'sendOtp'])->name('password.sendOtp');
+    Route::post('password/verify-otp', [ForgotPasswordController::class, 'verifyOtp'])->name('password.verifyOtp');
+    Route::get('password/reset', [ForgotPasswordController::class, 'showResetForm'])->name('password.reset');
+});
+
+Route::post('logout', [App\Http\Controllers\Auth\LoginController::class, 'logout'])->name('logout');
+
+//Language Translation
+Route::get('index/{locale}', [App\Http\Controllers\HomeController::class, 'lang']);
+
+// Language Switcher
+Route::get('lang-swap/{locale}', function ($locale) {
+    $allowed_locales = ['en', 'vi', 'hi']; 
+    if (in_array($locale, $allowed_locales)) {
+        session()->put('locale', $locale);
+    }
+    return redirect()->back();
+})->name('lang.swap');
+
+
+Route::get('/', [WebsiteController::class, 'dashboard'])->name('home');
+Route::get('/about', [WebsiteController::class, 'about'])->name('about');
+Route::get('/courses', [WebsiteController::class, 'courses'])->name('courses.index');
+Route::get('/course-detail/{id}', [WebsiteController::class, 'coursesdetail'])->name('courses.detail');
+Route::get('/contact', [WebsiteController::class, 'contact'])->name('contact');
+
+//Google Controller
+Route::get('/auth/google', [GoogleController::class, 'redirectToGoogle'])
+    ->name('google.login');
+Route::get('/auth/google/callback', [GoogleController::class, 'handleGoogleCallback']);
+
+// Exams Flow
+Route::get('/guest/exam/guideline/{id}', [GuestExamsController::class, 'showGuideline'])->name('guest.guideline');
+Route::get('/guest/exam/instructions/{id}', [GuestExamsController::class, 'showInstructions'])->name('guest.instructions');
+Route::get('/guest/exam/start/{id}', [GuestExamsController::class, 'startExam'])->name('guest.startExam');
+Route::post('/guest/student/save-answer', [GuestExamsController::class, 'saveAnswer'])->name('guest.saveAnswer');
+Route::post('/guest/student/finish-exam', [GuestExamsController::class, 'finishExam'])->name('guest.finishExam');
+
+// Feedback & Proctoring
+Route::get('/guest/student/exam-feedback', [GuestExamsController::class, 'examFeedback'])->name('guest.examFeedback');
+Route::post('/guest/student/submit-exam-feedback', [GuestExamsController::class, 'submitExamFeedback'])->name('guest.submitExamFeedback');
+Route::post('/guest/student/save-proctor-image', [GuestExamsController::class, 'saveProctorImage'])->name('guest.saveProctorImage');
+Route::get('/guest/exam/check-attempts/{id}', [MyExamController::class, 'checkAttempts'])->name('exam.checkAttempts');
+Route::post('/guest/student/update-tolerance-count', [GuestExamsController::class, 'updateToleranceCount'])->name('guest.updateToleranceCount');
+
+//Report a question
+Route::post('/guest/student/report', [GuestExamsController::class, 'questionReport'])->name('guest.questionReport.store');
+
+// Page Routes
+Route::get('/pages/{id}', [WebsiteController::class, 'show'])->name('page.show');
+
+Route::post('/contact-store', [ContactController::class, 'store'])->name('contact.store');
+
+// Coupon Route
+Route::post('/apply-coupon', [CheckoutController::class, 'applyCoupon'])->name('checkout.applyCoupon');
+
+// ✅✅✅ NEW ROUTE: Razorpay Order Creation (Added Here) ✅✅✅
+Route::post('/create-razorpay-order', [CheckoutController::class, 'createRazorpayOrder'])->name('checkout.createRazorpayOrder');
+
+//Update User Details
+Route::post('/update-profile/{id}', [App\Http\Controllers\HomeController::class, 'updateProfile'])->name('updateProfile');
+Route::post('/update-password/{id}', [App\Http\Controllers\HomeController::class, 'updatePassword'])->name('updatePassword');
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('stopics/get-topics/{id}', [StopicController::class, 'getTopics'])->name('stopics.get-topics');
+});
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/system/update-database', function () {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            return "<h1>Database Updated Successfully!</h1><p>Email Logs table created. <a href='/dashboard'>Go Back to Dashboard</a></p>";
+        } catch (\Exception $e) {
+            return "<h1>Error!</h1><p>" . $e->getMessage() . "</p>";
+        }
+    });
+});
+
+Route::middleware(['auth', 'checkPageRights'])->group(function () {
+
+    Route::resource('/heroslider', HeroSliderController::class);
+    Route::resource('/features', FeaturesController::class);
+    Route::resource('/counters', CountersController::class);
+    Route::resource('/testimonial', TestimonialController::class);
+    Route::resource('/aboutus', AboutUsController::class);
+    Route::resource('/websitepages', WebsitePageController::class);
+
+    Route::resource('/payment-gateway', PaymentGatewayController::class);
+
+    Route::get('/orders', [OrdersController::class, 'index'])->name('orders.index');
+    Route::get('/orders/{id}', [OrdersController::class, 'show'])->name('orders.show');
+    
+    // ✅✅✅ NEW ROUTE: Admin Order Approval (Added Here) ✅✅✅
+    Route::post('/orders/{id}/update-status', [OrdersController::class, 'updateStatus'])->name('orders.updateStatus');
+
+    Route::get('/transactions', [OrdersController::class, 'transactions'])->name('transactions.index');
+    Route::get('/sales-reports', [OrdersController::class, 'salesReports'])->name('sales-reports.index');
+
+    Route::post('/website/title/update', [TitleController::class, 'update_title'])->name('website.title.update');
+
+    Route::get('/dashboard', [DashboardController::class, 'dashboard'])->name('dashboard'); 
+    Route::get('exams/{exam}/view', [ExamController::class, 'view'])->name('exams.view');
+    Route::resource('groups', GroupController::class);
+
+    Route::resource('category', CategoryController::class);
+
+    Route::resource('ugroups', UgroupController::class);
+    Route::get('ugroups/{id}/rights', [UgroupController::class, 'getPageRights']);
+    Route::post('pagerights', [UgroupController::class, 'storePageRights'])->name('pagerights.store');
+
+    Route::get('/download-template', [ImportExportController::class, 'downloadTemplate'])->name('questions.downloadTemplate');
+    Route::post('question/import', [ImportExportController::class, 'import'])->name('questions.import');
+    Route::get('/pagerights/{ugroup_id}', [UgroupController::class, 'getPageRights']);
+    Route::resource('users', UserController::class);
+    
+    // Student Routes
+
+    // ✅✅✅ NEW ROUTES: Student Import/Export Added Here ✅✅✅
+    Route::get('students/export', [StudentAdminController::class, 'export'])->name('students.export');
+    Route::post('students/import', [StudentAdminController::class, 'import'])->name('students.import');
+    Route::get('students/download-template', [StudentAdminController::class, 'downloadTemplate'])->name('students.downloadTemplate');
+
+    Route::resource('students', StudentAdminController::class);
+    Route::post('students/remove', [StudentAdminController::class, 'bulkRemove'])->name('students.remove');
+    Route::post('students/bulk-assign-group', [StudentAdminController::class, 'bulkAssignGroup'])->name('students.bulkAssignGroup'); 
+
+    Route::resource('subjects', SubjectController::class);
+
+    Route::get('topics/subjects-by-groups', [TopicController::class, 'getSubjectsByGroup'])->name('topics.getSubjectsByGroup');
+    Route::resource('topics', TopicController::class);
+    
+    // Sub-topics Resource
+    Route::get('stopics/get-subjects-by-group', [StopicController::class, 'getSubjectsByGroup'])->name('stopics.get-subjects-by-group');
+    Route::get('stopics/get-topics-by-subject', [StopicController::class, 'getTopicsBySubject'])->name('stopics.get-topics-by-subject');
+    Route::resource('stopics', StopicController::class);
+    
+    Route::resource('languages', LanguageController::class);
+    Route::resource('passages', PassageController::class);
+    Route::resource('diffs', DiffController::class)->except(['create', 'store', 'destroy']);
+    Route::resource('qtypes', QtypeController::class)->except(['create', 'store', 'destroy']);
+    Route::get('questions/get-subjects-by-group', [QuestionController::class, 'getSubjectsByGroup'])->name('questions.get-subjects-by-group');
+    Route::resource('questions', QuestionController::class);
+
+    Route::post('questions/remove', [QuestionController::class, 'remove'])->name('questions.remove');
+    Route::get('questions/{question}/langs/create', [QuestionLangController::class, 'create'])->name('questions_langs.create');
+    Route::post('questions/{question}/langs', [QuestionLangController::class, 'store'])->name('questions_langs.store');
+    Route::get('/questions_langs/check/{questionId}/{languageId}', [QuestionLangController::class, 'check']);
+    Route::post('/questions_langs/update/{id}', [QuestionLangController::class, 'update'])->name('questions_langs.update');
+    
+    Route::get('/packages/categoryLevel3', [PackageController::class, 'categoryLevel3'])->name('packages.categoryLevel3');
+    Route::resource('packages', PackageController::class);
+    
+    Route::post('/packages/{package}/toggle-status', [PackageController::class, 'toggleStatus'])->name('packages.toggleStatus');
+
+    Route::resource('coupons', CouponController::class);
+
+    // Exam Routes
+    Route::get('exams/packages', [ExamController::class, 'getExamPackages'])->name('exams.getExamPackages');
+    Route::get('exams/packages/exams', [ExamController::class, 'getExamExams'])->name('exams.getExamExam');
+    Route::resource('exams', ExamController::class);
+    Route::get('exams/{exam}/analytics', [ExamController::class, 'analytics'])->name('exams.analytics');
+    Route::get('exams/{exam}/subjects', [ExamController::class, 'getSubjects'])->name('exams.getSubjects');
+    Route::get('exams/reports', [ExamController::class, 'show'])->name('exams.reports');
+    Route::patch('exams/reports/{report}/status', [ExamController::class, 'updateReportStatus'])->name('exams.updateReportStatus');
+
+    Route::post('exams/{exam}/set-section-wise-timer', [ExamController::class, 'setSectionWiseTimer'])->name('exams.setSectionWiseTimer');
+    Route::post('/exams/{exam}/toggle-status', [ExamController::class, 'toggleStatus'])->name('exams.toggleStatus');
+    Route::post('/exams/{exam}/toggle-result', [ExamController::class, 'toggleResultStatus'])->name('exams.toggleResult');
+
+    Route::get('exams/{exam}/add-questions', [ExamController::class, 'addQuestions'])->name('exams.addQuestions');
+    Route::post('/exams/{exam}/toggle-question', [ExamController::class, 'toggleQuestion'])->name('exams.toggleQuestion');
+    Route::get('exams/{exam}/view-questions', [ExamController::class, 'viewQuestions'])->name('exams.viewQuestions');
+    
+    // ==========================================
+    // ✅ RESULT ROUTES (With Manual Evaluation)
+    // ==========================================
+    Route::get('/results', [ResultController::class, 'index'])->name('results.index');
+    Route::get('/results/view/{id}', [ResultController::class, 'view'])->name('results.view');
+    
+    // ⬇️ New Evaluation Routes ⬇️
+    Route::get('/results/{id}/evaluate', [ResultController::class, 'evaluate'])->name('results.evaluate');
+    Route::post('/results/{id}/save-evaluation', [ResultController::class, 'saveEvaluation'])->name('results.saveEvaluation');
+    // ⬆️ End New Routes ⬆️
+
+    Route::get('/results/{id}/feedback', [ResultController::class, 'viewFeedback'])->name('results.feedback');
+
+    Route::get('configurations/logo-favicon', [ConfigurationController::class, 'editLogoFavicon'])->name('configurations.logo-favicon');
+    Route::post('configurations/logo-favicon', [ConfigurationController::class, 'updateLogoFavicon'])->name('configurations.updateLogoFavicon');
+    Route::get('configurations/general', [ConfigurationController::class, 'editGeneral'])->name('configurations.general');
+    Route::put('configurations/general', [ConfigurationController::class, 'updateGeneral'])->name('configurations.update');
+
+    Route::get('configurations/ai', [ConfigurationController::class, 'editAiSettings'])->name('configurations.ai');
+    Route::put('configurations/ai', [ConfigurationController::class, 'updateAiSettings'])->name('configurations.ai.update');
+
+    Route::get('question/import-export', [ImportExportController::class, 'index'])->name('questions.importExport');
+    
+    Route::get('question/ai-generator', [ImportExportController::class, 'showAiGenerator'])->name('ai.generator.form');
+    Route::post('question/ai-generator', [ImportExportController::class, 'runAiGenerator'])->name('ai.generator.run');
+    
+    Route::get('question/export', [ImportExportController::class, 'export'])->name('questions.export');
+    Route::get('/get-topics-by-subject/{subjectId}', [ImportExportController::class, 'getTopicsBySubject']);
+    Route::get('/get-subtopics-by-topic/{topicId}', [ImportExportController::class, 'getSubtopicsByTopic']);
+    Route::get('/export-questions/{subjectId}/{topicId}/{subtopicId}', [ImportExportController::class, 'exportQuestions']);
+    Route::get('/get-subjects-by-group', [ImportExportController::class, 'getSubjectsByGroup']);
+    
+    // ======== EMAIL SYSTEM UPDATES ========
+    Route::resource('email-templates', EmailTemplateController::class);
+    
+    Route::resource('email-settings', EmailSettingController::class);
+    Route::post('email-settings/test', [EmailSettingController::class, 'sendTestEmail'])->name('email-settings.test');
+
+    Route::get('send-email', [EmailSettingController::class, 'sendEmailForm'])->name('send-email-form');
+    Route::post('send-email', [EmailSettingController::class, 'sendEmail'])->name('send-email');
+    Route::get('/students-email/search', [EmailSettingController::class, 'searchStudents'])->name('students.email.search');
+
+    Route::resource('sms-templates', SmsTemplateController::class);
+    Route::post('/upload-image', [ImageUploadController::class, 'upload'])->name('upload-image');
+});
+
+Route::middleware(['auth','permission:system.update'])
+    ->prefix('admin/update')->as('admin.update.')
+    ->group(function () {
+        Route::get('/',      [\App\Http\Controllers\UpdateController::class,'index'])->name('index');
+        Route::get('/check', [\App\Http\Controllers\UpdateController::class,'check'])->name('check');
+        Route::post('/apply',[\App\Http\Controllers\UpdateController::class,'apply'])->name('apply');
+        Route::get('/_debug_paths', function () {
+            return response()->json([
+                'APP_URL'        => config('app.url'),
+                'base_path'      => base_path(),
+                'public_path'    => public_path(),
+                'storage_path'   => storage_path(),
+            ]);
+        })->name('debug');
+    });
+
+Route::get('/storage/{path}', function ($path) {
+    $full = storage_path('app/public/' . $path);
+    abort_unless(file_exists($full), 404);
+    $mime = @mime_content_type($full) ?: 'application/octet-stream';
+    return response()->file($full, [
+        'Content-Type'  => $mime,
+        'Cache-Control' => 'public, max-age=604800' 
+    ]);
+})->where('path', '.*');
+
+Route::get('/test-smtp', function () {
+    try {
+        Illuminate\Support\Facades\Artisan::call('config:clear');
+        config([
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.host' => 'smtp.hostinger.com',
+            'mail.mailers.smtp.port' => 465,
+            'mail.mailers.smtp.encryption' => 'ssl',
+            'mail.mailers.smtp.username' => 'exam@eduexpression.com',
+            'mail.mailers.smtp.password' => 'settingEmail@7272', 
+            'mail.from.address' => 'exam@eduexpression.com',
+            'mail.from.name' => 'Exam Frame Test',
+        ]);
+        Illuminate\Support\Facades\Mail::raw('Hostinger SMTP Working Successfully!', function ($msg) {
+            $msg->to('exam@eduexpression.com')
+                ->subject('Hostinger SMTP Success');
+        });
+        return "Hostinger Mail Sent Successfully! Check Inbox.";
+    } catch (\Exception $e) {
+        return "SMTP Error: " . $e->getMessage();
+    }
+});
+
+Route::get('/exam-groups/{group?}/{category?}/{subcategory?}', [WebsiteController::class, 'exams'])->name('website.exams.index');
+
+// ✅ Original Debug Routes Restored
+Route::get('/check-time', function () {
+    $configTimezone = \App\Models\Configuration::first()->timezone ?? 'Not Found in DB';
+    
+    return [
+        '1. Database Timezone' => $configTimezone,
+        '2. Laravel App Timezone' => config('app.timezone'),
+        '3. Current Server Time' => now()->format('Y-m-d h:i:s A'),
+    ];
+});
+
+Route::get('/debug-exams', function () {
+    $student = \Illuminate\Support\Facades\Auth::guard('student')->user();
+    if (!$student) {
+        return "<h1>⚠️ Please Login as Student First!</h1> <p>Go to student login page, login, and then visit this URL again.</p>";
+    }
+
+    echo "<div style='font-family: sans-serif; padding: 20px;'>";
+    echo "<h1>🕵️‍♂️ Exam Visibility Debugger</h1>";
+    
+    $config = \App\Models\Configuration::first();
+    echo "<p><strong>Logged In Student:</strong> {$student->name} (ID: {$student->id})</p>";
+    echo "<p><strong>System Timezone (DB):</strong> " . ($config->timezone ?? 'Not Set') . "</p>";
+    echo "<p><strong>Laravel Timezone:</strong> " . config('app.timezone') . "</p>";
+    echo "<p><strong>Current Server Time (Now):</strong> <span style='color:blue; font-weight:bold; font-size:18px;'>" . now()->format('Y-m-d H:i:s') . "</span></p>";
+    echo "<hr>";
+
+    $groupIds = \Illuminate\Support\Facades\DB::table('student_groups')->where('student_id', $student->id)->pluck('group_id');
+    echo "<h3>1. Student Groups</h3>";
+    if ($groupIds->isEmpty()) {
+        echo "<p style='color:red'>❌ Student kisi bhi Group mein assigned nahi hai.</p>";
+    } else {
+        echo "<ul>";
+        foreach ($groupIds as $gid) {
+            $gname = \App\Models\Group::find($gid)->group_name ?? 'Unknown';
+            echo "<li>Group ID: <strong>$gid</strong> ($gname)</li>";
+        }
+        echo "</ul>";
+    }
+
+    echo "<h3>2. Exam Status Check</h3>";
+    $exams = \App\Models\Exam::latest()->get(); 
+
+    echo "<table border='1' cellpadding='10' style='border-collapse:collapse; width:100%;'>";
+    echo "<tr style='background:#f0f0f0; text-align:left;'>
+            <th>ID</th>
+            <th>Exam Name</th>
+            <th>Assigned Groups</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Status</th>
+            <th>Result: Visible?</th>
+          </tr>";
+
+    foreach ($exams as $exam) {
+        $examGroups = $exam->groups()->pluck('groups.id')->toArray();
+        $hasCommonGroup = !empty(array_intersect($examGroups, $groupIds->toArray()));
+        
+        $now = now();
+        $start = \Carbon\Carbon::parse($exam->start_date);
+        $end = \Carbon\Carbon::parse($exam->end_date);
+        
+        $isStarted = $now->gte($start);
+        $isNotExpired = $now->lte($end);
+        $isActive = $exam->status === 'Active';
+
+        $reasons = [];
+        $isGreen = true;
+
+        if (!$hasCommonGroup) { $reasons[] = "❌ Group Match Nahi Hua"; $isGreen = false; }
+        if (!$isActive) { $reasons[] = "❌ Status Inactive Hai"; $isGreen = false; }
+        if (!$isStarted) { $reasons[] = "❌ Abhi Shuru Nahi Hua (Future Date)"; $isGreen = false; }
+        if (!$isNotExpired) { $reasons[] = "❌ Expire Ho Chuka Hai"; $isGreen = false; }
+
+        if (empty($reasons)) {
+            $statusText = "<span style='color:green; font-weight:bold'>✅ VISIBLE</span>";
+        } else {
+            $statusText = "<span style='color:red; font-weight:bold'>⛔ HIDDEN</span><br><small>" . implode('<br>', $reasons) . "</small>";
+        }
+
+        $rowColor = $isGreen ? '#e6fffa' : '#fff5f5';
+
+        echo "<tr style='background:{$rowColor}'>";
+        echo "<td>{$exam->id}</td>";
+        echo "<td><strong>{$exam->name}</strong></td>";
+        echo "<td>" . implode(', ', $examGroups) . "</td>";
+        echo "<td>{$start->format('Y-m-d H:i:s')}</td>";
+        echo "<td>{$end->format('Y-m-d H:i:s')}</td>";
+        echo "<td>{$exam->status}</td>";
+        echo "<td>{$statusText}</td>";
+        echo "</tr>";
+    }
+    echo "</table></div>";
+});
+// ==========================================
+// AI QUESTION GENERATOR ROUTES
+// ==========================================
+Route::post('/subjects/by-groups', [App\Http\Controllers\ImportExportController::class, 'getSubjectsByGroups'])->name('subjects.by.groups');
+Route::post('/topics/by-subject', [App\Http\Controllers\ImportExportController::class, 'getTopicsBySubject'])->name('topics.by.subject');
+Route::post('/subtopics/by-topic', [App\Http\Controllers\ImportExportController::class, 'getSubtopicsByTopic'])->name('subtopics.by.topic');
+Route::get('/question/ai-generator', [App\Http\Controllers\ImportExportController::class, 'showAiGenerator'])->name('ai.generator.form');
+Route::post('/question/ai-generator', [App\Http\Controllers\ImportExportController::class, 'runAiGenerator'])->name('ai.generator.run');
+Route::post('/ai-regenerator/regenerate', [App\Http\Controllers\AIQuestionRegeneratorController::class, 'regenerate'])->name('ai.regenerator.regenerate');
+Route::post('/ai-content/generate', [App\Http\Controllers\AIContentController::class, 'generate'])->name('ai.content.generate');
+Route::post('/ai/translate', [App\Http\Controllers\AITranslationController::class, 'translate'])->name('ai.translate');
+
+// PDF Print Route
+Route::get('exam-print/{id}', [App\Http\Controllers\ExamPrintController::class, 'print']);
+
+// ==============================================
+// SEO-FRIENDLY SLUG ROUTES (New)
+// ==============================================
+
+// Exam print with slug
+Route::get('/exam-print/{id}', function ($slug) {
+    $exam = App\Models\Exam::where('slug', $slug)->first();
+    if ($exam) {
+        return redirect()->to('/exam-print/' . $exam->id, 301);
+    }
+    abort(404);
+})->where('slug', '^[a-z0-9-]+$');
+
+// Guest exam guideline with slug
+Route::get('/guest/exam/guideline/{id}', function ($slug) {
+    $exam = App\Models\Exam::where('slug', $slug)->first();
+    if ($exam) {
+        return redirect()->to('/guest/exam/guideline/' . $exam->id, 301);
+    }
+    abort(404);
+})->where('slug', '^[a-z0-9-]+$');
+
+// Course detail with slug
+Route::get('/course-detail/{id}', function ($slug) {
+    $package = App\Models\Package::where('slug', $slug)->first();
+    if ($package) {
+        return redirect()->to('/course-detail/' . $package->id, 301);
+    }
+    abort(404);
+})->where('slug', '^[a-z0-9-]+$');
+
+
+// ==============================================
+// NEW SEO-FRIENDLY SLUG ROUTES (Redirect to ID)
+// ==============================================
+
+// Exam print with slug -> redirect to ID
+    $exam = \App\Models\Exam::where('slug', $slug)->first();
+    if ($exam) {
+        return redirect()->to('/exam-print/' . $exam->id, 301);
+    }
+    abort(404);
+})->where('slug', '^[a-z0-9-]+$');
+
+// Course detail with slug -> redirect to ID
+    $package = \App\Models\Package::where('slug', $slug)->first();
+    if ($package) {
+        return redirect()->to('/course-detail/' . $package->id, 301);
+    }
+    abort(404);
+})->where('slug', '^[a-z0-9-]+$');
+
+// Guest exam guideline with slug -> redirect to ID
+    $exam = \App\Models\Exam::where('slug', $slug)->first();
+    if ($exam) {
+        return redirect()->to('/guest/exam/guideline/' . $exam->id, 301);
+    }
+    abort(404);
+})->where('slug', '^[a-z0-9-]+$');
+

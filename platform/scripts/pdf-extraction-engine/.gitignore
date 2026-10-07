@@ -1,0 +1,7 @@
+ae2025_*/
+__pycache__/
+*.pyc
+.env
+*.log
+service-account.json
+service-account*.json

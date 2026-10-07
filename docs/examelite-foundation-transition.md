@@ -93,17 +93,36 @@ refactor requires separate regression checks.
 - The existing TypeScript application passes `npm run check`: 94 tests, zero
   failures, typechecks and builds. The existing admin bundle warning remains.
 
-These checks do not establish a complete native exam journey, cross-tenant
-acceptance in the fork, production middleware, question-bank import, attendance
-integration, FLN or mobile completion. Source sanitisation/versioning is still
-pending; only preparation code and documentation are eligible for this initial
-commit. The raw source copy, environment, database, sessions and credentials
+These initial checks do not establish a complete native exam journey, production
+middleware acceptance, question-bank import, attendance integration, FLN or mobile
+completion. The raw source copy, environment, database, sessions and credentials
 remain ignored.
 
 Before versioning the copied application, review embedded credentials, public
 assets and included scripts. The raw copy remains ignored during that review.
 Provider configuration, commercial integrations, queues, question-bank content
 and full feature readiness require separate checks.
+
+### Versioned application import
+
+The sanitized application now resides under `platform/`, including Laravel
+controllers, models, migrations, Blade screens and required MathJax/CKEditor
+assets. `source-origin.json` records the upstream commit, working-tree source
+hashes, exclusions and Tech4Learn patches. Legacy standalone unscoped database
+scripts, embedded provider tokens, data stores and uploaded media are excluded.
+The original ExamElite checkout is unchanged.
+
+A synthetic in-memory fixture reproduced a tenant admin resolving a foreign
+host. The fork now requires stored platform authority or active membership in
+the resolved organisation, checks students against their own organisation and
+rechecks revocation before releasing the web response. The regression fixture
+covers membership, account and organisation revocation as well as foreign tenant
+denial. This is central-boundary evidence, not acceptance of every native route.
+
+The latest workspace instructions retain read-only assistant live access.
+Git source publication does not activate Laravel, create its production database
+or migrate the deployed attendance records. Identity mapping and a checked
+production transition remain required.
 
 ## Attendance integration boundary
 
