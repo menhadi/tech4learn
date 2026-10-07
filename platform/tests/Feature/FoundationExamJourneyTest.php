@@ -62,9 +62,14 @@ class FoundationExamJourneyTest extends TestCase
         $this->postJson($base.'/api/student/exam/save-answer',[
             'exam_result_id'=>$resultId,'question_id'=>$question->id,'question_type'=>'multiple_choice_radio','option_selected'=>[1],'answered'=>true,
         ])->assertOk()->assertJson(['success'=>true]);
+        $this->postJson($base.'/api/student/exam/start/'.$exam->id)->assertOk()->assertJsonPath('examResult.id',$resultId);
+        $this->assertSame(1,ExamResult::where('exam_id',$exam->id)->where('student_id',$student->id)->count());
+        $this->assertTrue((bool)ExamStat::where('exam_result_id',$resultId)->sole()->answered);
         $this->postJson($base.'/api/student/exam/submit',['exam_result_id'=>$resultId])->assertOk()->assertJsonPath('result.result','Pass')->assertJsonPath('result.obtained_marks',2);
         $this->assertNotNull(ExamResult::findOrFail($resultId)->end_time);
         $this->assertSame('R',ExamStat::where('exam_result_id',$resultId)->firstOrFail()->ques_status);
+        $this->postJson($base.'/api/student/exam/start/'.$exam->id)->assertForbidden();
+        $this->assertSame(1,ExamResult::where('exam_id',$exam->id)->where('student_id',$student->id)->count());
         $endedAt=ExamResult::findOrFail($resultId)->end_time->toISOString();
         $exam->update(['result_after_finish'=>false]);
         $resubmitted=$this->postJson($base.'/api/student/exam/submit',['exam_result_id'=>$resultId])->assertOk()->assertJsonPath('result.result_after_finish',false);
