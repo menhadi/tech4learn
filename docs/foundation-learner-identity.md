@@ -92,3 +92,16 @@ mode `0660`. The existing Tech4Learn service is active and its local health
 endpoint returned `ok`. The pinned native release still has no production
 `.env`; native database setup and reviewed identity provisioning remain pending.
 These checks confirm PHP preparation, not a working Laravel production site.
+
+## Read-only native student review
+
+Before an operator creates a learner link, the checked-release tool
+`deploy/virtualmin/check-native-attendance-student.php` accepts the pinned native
+platform path, reviewed organisation ID and student ID. It checks the dedicated
+Tech4Learn MySQL database in a read-only transaction and requires an active
+student belonging to an active non-primary organisation. It prints only pass or
+block status; it neither creates links nor matches personal information.
+
+Local predicate and actual SQL ownership checks passed with synthetic records.
+The Linux/MySQL success path and production learner linking remain pending.
+This tool does not provision canonical enrolments or automate onboarding.
