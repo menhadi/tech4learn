@@ -24,6 +24,10 @@ test('cleanup removes only frozen old organisations, revokes sessions and preser
   const stale=structuredClone(manifest);stale.plan[0].scopedRows='999';
   await assert.rejects(cleanupLegacyOrganisationRecords(db,stale),/manifest changed/);
   assert.equal((await pg.query('SELECT count(*)::integer AS total FROM sessions')).rows[0].total,1);
+  const staleMedia=structuredClone(manifest);
+  staleMedia.media.push({table:'synthetic_media',column:'content',objects:'1',bytes:'1'});
+  await assert.rejects(cleanupLegacyOrganisationRecords(db,staleMedia),/manifest changed/);
+  assert.equal((await pg.query('SELECT count(*)::integer AS total FROM sessions')).rows[0].total,1);
   const failing={transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>{
     if(q.startsWith('DELETE FROM public."foundation_organisations"'))throw new Error('Synthetic mid-cleanup failure');
     return sql.query(q,p);

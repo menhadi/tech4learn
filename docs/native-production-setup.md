@@ -685,3 +685,16 @@ scoped history and identity links on rollback. All six cleanup-plan, transaction
 and restore-target tests passed. This changes deployment tooling only; no live
 cleanup, migration or routing action was performed. Actual isolated backup restore
 verification remains required before production deletion.
+
+
+## Bounded database media manifest — local preparation
+
+The read-only cleanup planner now reports non-null media object counts and byte
+totals for every bytea column in the scoped dependency graph. It uses the same
+frozen organisation predicates as deletion, excluding fresh organisations and
+global rows; it never returns image bytes, learner identifiers or file paths.
+These summaries are frozen in the private cleanup manifest and checked again
+after child-table locks. Changed summaries block the transaction. Existing
+media is database-owned; this does not authorize filesystem deletion. Tests cover
+nullable media, fresh/global exclusions, read-only planning and stale-manifest
+refusal. No production media or records were deleted.

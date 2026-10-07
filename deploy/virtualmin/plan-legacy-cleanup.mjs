@@ -25,7 +25,7 @@ export async function planLegacyCleanup(sql, selectedOrganisationIds) {
   const columns = await sql.query("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=ANY($1::text[])",[tables]);
   const organisations = (await sql.query('SELECT id FROM organisations'+(selectedOrganisationIds ? ' WHERE id=ANY($1::uuid[])' : '')+' ORDER BY id',selectedOrganisationIds ? [selectedOrganisationIds] : [])).rows.map(r=>r.id);
   const native = (await sql.query('SELECT native_id::text FROM foundation_organisations WHERE organisation_id=ANY($1::uuid[])',[organisations])).rows.map(r=>r.native_id);
-  const plan = [];
+  const plan = [], media = [];
   for (const table of order) {
     const quote = '"'+table.replaceAll('"','""')+'"';
     let predicate, values, scope;
@@ -41,7 +41,14 @@ export async function planLegacyCleanup(sql, selectedOrganisationIds) {
     } else throw new Error('Unclassified dependency requires explicit scope review: '+table);
     const count = await sql.query(`SELECT count(*)::text AS count FROM public.${quote} WHERE ${predicate}`,values);
     plan.push({table, scopedRows:count.rows[0].count, scope});
+    for (const column of inventory.databaseMediaColumns.filter(c=>c.table_name===table)) {
+      const field='"'+column.column_name.replaceAll('"','""')+'"';
+      const summary=await sql.query(`SELECT count(${field})::text AS objects,
+        COALESCE(sum(octet_length(${field})),0)::text AS bytes
+        FROM public.${quote} WHERE ${predicate}`,values);
+      media.push({table,column:column.column_name,objects:summary.rows[0].objects,bytes:summary.rows[0].bytes,scope});
+    }
   }
-  return {organisationCount:organisations.length, plan,
+  return {organisationCount:organisations.length, plan, media,
     pending:'Backup/restore verification, writes paused, exact private ID snapshot, sessions/non-admin users, global connector records and final transaction checks remain required. This plan performs no deletion.'};
 }

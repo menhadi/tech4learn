@@ -19,8 +19,12 @@ test('cleanup plan orders indirect children and scopes tenant audit while leavin
     await db.query('INSERT INTO exam_student_grants(id,organisation_id) VALUES($1,$2)',[grant,org]);
     await db.query("INSERT INTO exam_student_sessions(token_hash,grant_id) VALUES('unused-synthetic-token',$1)",[grant]);
     await db.query("INSERT INTO audit_events(id,actor_id,organisation_id,action) VALUES($1,$2,$3,'synthetic.tenant'),($4,$2,NULL,'synthetic.platform')",[randomUUID(),admin,org,randomUUID()]);
+    await db.exec('CREATE TABLE synthetic_media(id integer PRIMARY KEY,organisation_id uuid REFERENCES organisations(id),content bytea)');
+    const fresh=randomUUID();
+    await db.query("INSERT INTO organisations(id,name,slug) VALUES($1,'Fresh','fresh-media')",[fresh]);
+    await db.query("INSERT INTO synthetic_media VALUES(1,$1,decode('010203','hex')),(2,$1,NULL),(3,$2,decode('04050607','hex')),(4,NULL,decode('0809','hex'))",[org,fresh]);
     await db.exec('BEGIN TRANSACTION READ ONLY');
-    const result=await planLegacyCleanup(db);
+    const result=await planLegacyCleanup(db,[org]);
     const order=result.plan.map(p=>p.table);
     assert.ok(order.indexOf('foundation_staff')<order.indexOf('foundation_organisations'));
     assert.ok(order.indexOf('foundation_organisations')<order.indexOf('organisations'));
@@ -28,6 +32,8 @@ test('cleanup plan orders indirect children and scopes tenant audit while leavin
     assert.equal(result.plan.find(p=>p.table==='exam_student_sessions').scopedRows,'1');
     assert.ok(order.indexOf('exam_student_sessions')<order.indexOf('exam_student_grants'));
     assert.equal(result.organisationCount,1);
+    assert.deepEqual(result.media,[{table:'synthetic_media',column:'content',objects:'1',bytes:'3',scope:'previous organisation IDs; global rows excluded'}]);
+    assert.equal(JSON.stringify(result).includes('010203'),false);
     assert.equal(JSON.stringify(result).includes(admin),false);
     await db.exec('ROLLBACK');
     assert.equal((await db.query('SELECT password_hash FROM users')).rows[0].password_hash,'unchanged');

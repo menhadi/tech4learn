@@ -11,8 +11,9 @@ export async function captureLegacyCleanupManifest(sql) {
   if(roots.rows.length!==1)throw new Error('Review the retained administrator');
   const organisationIds=(await sql.query('SELECT id FROM organisations ORDER BY id')).rows.map(r=>r.id);
   const oldUserIds=(await sql.query('SELECT DISTINCT u.id FROM users u JOIN memberships m ON m.user_id=u.id WHERE m.organisation_id=ANY($1::uuid[]) AND NOT u.is_superadmin ORDER BY u.id',[organisationIds])).rows.map(r=>r.id);
+  const scoped=await planLegacyCleanup(sql,organisationIds);
   return {organisationIds,oldUserIds,administratorId:roots.rows[0].id,administratorPasswordDigest:digest(roots.rows[0].password_hash),
-    plan:(await planLegacyCleanup(sql,organisationIds)).plan};
+    plan:scoped.plan,media:scoped.media};
 }
 
 export async function cleanupLegacyOrganisationRecords(database,manifest) {
@@ -20,17 +21,18 @@ export async function cleanupLegacyOrganisationRecords(database,manifest) {
     || !manifest.organisationIds.length || manifest.organisationIds.some(id=>!uuid(id))
     || new Set(manifest.organisationIds).size!==manifest.organisationIds.length
     || !Array.isArray(manifest.oldUserIds) || manifest.oldUserIds.some(id=>!uuid(id) || id===manifest.administratorId)
-    || !Array.isArray(manifest.plan) || !/^[a-f0-9]{64}$/.test(manifest.administratorPasswordDigest))throw new Error('Invalid private cleanup manifest');
+    || !Array.isArray(manifest.media) || !Array.isArray(manifest.plan) || !/^[a-f0-9]{64}$/.test(manifest.administratorPasswordDigest))throw new Error('Invalid private cleanup manifest');
   return database.transaction(async sql=>{
     await sql.query("SET LOCAL lock_timeout='5s'");
     // Protect discovery and identity from concurrent writes/schema changes.
     await sql.query('LOCK TABLE public.organisations,public.users,public.sessions IN ACCESS EXCLUSIVE MODE');
     const current=await planLegacyCleanup(sql,manifest.organisationIds);
-    if(current.organisationCount!==manifest.organisationIds.length || JSON.stringify(current.plan)!==JSON.stringify(manifest.plan))throw new Error('Cleanup manifest changed; review again');
+    if(current.organisationCount!==manifest.organisationIds.length || JSON.stringify(current.plan)!==JSON.stringify(manifest.plan) || JSON.stringify(current.media)!==JSON.stringify(manifest.media))throw new Error('Cleanup manifest changed; review again');
     const names=current.plan.map(p=>'public."'+p.table.replaceAll('"','""')+'"');
     await sql.query('LOCK TABLE '+names.join(',')+' IN ACCESS EXCLUSIVE MODE');
     // Recount after all child locks are held: no writer can race deletion checks.
-    if(JSON.stringify((await planLegacyCleanup(sql,manifest.organisationIds)).plan)!==JSON.stringify(manifest.plan))throw new Error('Cleanup records changed');
+    const locked=await planLegacyCleanup(sql,manifest.organisationIds);
+    if(JSON.stringify(locked.plan)!==JSON.stringify(manifest.plan) || JSON.stringify(locked.media)!==JSON.stringify(manifest.media))throw new Error('Cleanup records changed');
     const roots=await sql.query('SELECT id,password_hash FROM users WHERE is_superadmin');
     if(roots.rows.length!==1 || roots.rows[0].id!==manifest.administratorId
       || digest(roots.rows[0].password_hash)!==manifest.administratorPasswordDigest)throw new Error('Administrator identity changed');
