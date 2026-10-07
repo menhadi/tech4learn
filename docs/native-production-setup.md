@@ -932,3 +932,21 @@ private ownership, permissions and actual archive bytes, and enforce paused
 writes before supplying evidence. Binding metadata is an internal precondition,
 not a substitute for actual isolated restore. No production receipt was created
 or destructive operation performed.
+
+
+## Private cleanup evidence loader — local implementation
+
+`load-cleanup-evidence.mjs` reads only the fixed Tech4Learn backup directory
+pattern. It rejects root execution, resolved paths outside the named directory,
+symlinks, hard-linked files, wrong ownership, shared permissions and oversized
+JSON metadata. It validates the actual receipt, streams the archive SHA-256
+without loading media into memory, checks size and detects archive inode/time
+or permission changes during reading. No private file contents are printed.
+Four receipt/filesystem-boundary tests passed, including changed bytes and
+replacement during hashing. Synthetic IO fixtures isolate these Unix metadata
+checks from the Windows host.
+
+This is a read-only loader with no live CLI. Paused-write enforcement and private
+frozen-manifest persistence still need to be connected before a production
+executor can invoke the guarded cleanup transaction. No real backup/receipt was
+modified, actual isolated restore performed or organisation deleted.
