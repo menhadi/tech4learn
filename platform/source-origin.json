@@ -2387,8 +2387,10 @@
     },
     {
       "path": "database/migrations/2024_12_20_090216_create_exams_table.php",
-      "sha256": "98574a8944511a249f7a5d941e96c28c270ff71d7d9bcb8c29318e1ad3888e9a",
-      "patches": []
+      "sha256": "a152a37dd607cdd4eee82e66b74418db0092498655bfcf867d7bf3edba2e1d8d",
+      "patches": [
+        "nullable-exam-schedule-fresh-mysql-install"
+      ]
     },
     {
       "path": "database/migrations/2024_12_20_090217_create_exam_packages_table.php",

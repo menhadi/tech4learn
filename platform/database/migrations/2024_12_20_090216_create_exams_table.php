@@ -18,8 +18,8 @@ return new class extends Migration {
             $table->text('syllabus')->nullable();
             $table->integer('duration')->default(0);
             $table->integer('attempt_count')->default(0);
-            $table->timestamp('start_date');
-            $table->timestamp('end_date');
+            $table->timestamp('start_date')->nullable();
+            $table->timestamp('end_date')->nullable();
             $table->boolean('show_answer_sheet')->default(false);
             $table->boolean('negative_marking')->default(false);
             $table->boolean('random_question')->default(false);
