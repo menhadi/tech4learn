@@ -213,3 +213,28 @@ language filtering and labels now use question translations. Seven native exam
 journey tests / 52 assertions passed, including translated-language filtering
 and foreign-organisation exclusion. The browser check loads authoring forms; it
 does not claim a browser student attempt or live exam acceptance.
+
+### Local native student browser acceptance
+
+The owned headless Chromium student journey passed sign-in on the synthetic
+tenant, rendering an exam question, choosing the correct answer, saving it,
+submitting through the confirmation modal and viewing the two-mark result with
+no runtime errors. A local database check confirmed the completion timestamp,
+correct answer status and persisted score. The exam-only layout no longer loads
+an unused Select2 script that requires absent jQuery.
+
+Repeat against the guarded ignored SQLite installation and local PHP server:
+
+```powershell
+php tests/prepare-native-exam-browser-pilot.php
+node tests/foundation-student-browser.mjs
+php tests/prepare-native-exam-browser-pilot.php --verify-result
+```
+
+Preparation validates the fixed synthetic tenant and creates a fresh synthetic
+student, question and exam for each run; it does not delete existing fixtures or
+reset completed attempts. Passwords and fixture metadata remain ignored. Result
+verification enables SQLite query-only mode before reading the result. No live
+or original ExamElite data is used. This is local acceptance of a single MCQ
+journey; production identity setup, full feature acceptance, cleanup and website
+cutover remain pending.

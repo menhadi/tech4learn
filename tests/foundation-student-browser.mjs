@@ -1,0 +1,45 @@
+// Synthetic local native student session only; no production or original data.
+if(process.env.NODE_ENV==='production')throw new Error('Local synthetic browser only');
+import {createRequire} from 'node:module';
+import {readFileSync} from 'node:fs';
+const base=new URL('../.local/tech4learn-foundation/',import.meta.url);
+const require=createRequire(new URL('package.json',base));
+const {chromium}=require('playwright');
+const fixture=JSON.parse(readFileSync(new URL('exam-browser-fixture.json',base),'utf8'));
+const credentials=JSON.parse(readFileSync(new URL('local-pilot-credentials.json',base),'utf8'));
+if(!Number.isSafeInteger(fixture.exam)||!/^synthetic-exam-[a-f0-9]+@example\.invalid$/.test(fixture.login))throw new Error('Synthetic fixture required');
+const browser=await chromium.launch({headless:true,args:['--host-resolver-rules=MAP two.localhost 127.0.0.1','--no-proxy-server']});
+let page,stage='sign-in';
+try {
+ page=await browser.newPage({viewport:{width:1366,height:900}});page.setDefaultTimeout(15000);
+ const runtimeErrors=[];page.on('pageerror',error=>runtimeErrors.push({name:error.name,undefinedIdentifier:error.message.match(/^([A-Za-z_$][\w$]*) is not defined/)?.[1]||null,kind:/MathJax/.test(error.message)?'mathjax':/select2/.test(error.message)?'select2':/null/.test(error.message)?'missing-element':'other'}));
+ await page.goto('http://two.localhost:8001/student/signin',{waitUntil:'networkidle'});
+ await page.locator('input[name="login"]').fill(fixture.login);
+ await page.locator('input[name="password"]').fill(credentials.password);
+ await page.locator('button[type="submit"]').click();
+ await page.waitForURL(url=>!url.pathname.includes('signin'),{timeout:20000});
+ stage='start';
+ const response=await page.goto('http://two.localhost:8001/exam/start/'+fixture.exam,{waitUntil:'networkidle'});
+ if(response?.status()!==200)throw new Error('Exam start unavailable');
+ await page.getByText('Synthetic browser: what is two plus two?',{exact:true}).first().waitFor();
+ console.log('PASS: native student sign-in and exam question rendered.');
+ stage='answer';
+ await page.locator('.answer-input[type="radio"][value="1"]').check();
+ const saved=page.waitForResponse(response=>response.url().endsWith('/student/save-answer')&&response.request().method()==='POST');
+ await page.locator('#nextButton').click();
+ if(!(await saved).ok())throw new Error('Answer save failed');
+ stage='submit';
+ await page.locator('[data-bs-target="#finalizeExamModal"]').click();
+ await page.locator('#finishExamButton').click();
+ await page.waitForURL(url=>url.pathname.includes('feedback'),{timeout:20000});
+ stage='result';
+ await page.getByRole('link',{name:'View Result',exact:true}).click();
+ await page.waitForURL(url=>/^\/student\/results\/\d+$/.test(url.pathname),{timeout:20000});
+ await page.locator('.score-display').filter({hasText:'2.00'}).first().waitFor();
+ if(runtimeErrors.length){console.log(JSON.stringify({runtimeErrors}));throw new Error('Browser runtime error');}
+ console.log('PASS: native student answered, submitted and viewed the two-mark result using browser controls.');
+ await page.screenshot({path:new URL('../.local/student-exam-review.png',import.meta.url).pathname.replace(/^\/([A-Z]:)/,'$1'),fullPage:true});
+} catch {
+ await page?.screenshot({path:new URL('../.local/student-exam-failure.png',import.meta.url).pathname.replace(/^\/([A-Z]:)/,'$1'),fullPage:true}).catch(()=>{});
+ console.log('BLOCKED: synthetic student browser stage '+stage+'.');process.exitCode=1;
+} finally {await browser.close();}

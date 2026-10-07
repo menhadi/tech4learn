@@ -35,7 +35,6 @@ $themeSecondaryRgb = $themeRgb($themeSecondary, '245, 158, 11');
     @else
     <link rel="shortcut icon" href="{{ URL::asset('build/images/favicon.ico') }}" type="image/x-icon">
     @endif
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <link href="{{ URL::asset('build/libs/sweetalert2/sweetalert2.min.css') }}" rel="stylesheet" type="text/css" />
     @include('layouts.head-css')
     <style>
@@ -132,7 +131,6 @@ $themeSecondaryRgb = $themeRgb($themeSecondary, '245, 158, 11');
         @yield('content')
     </div>
     @include('layouts.vendor-scripts')
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
     <script src="{{ URL::asset('build/libs/sweetalert2/sweetalert2.min.js') }}"></script>
     <script>
         window.alert = function (message) {

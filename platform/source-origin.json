@@ -177083,8 +177083,10 @@
     },
     {
       "path": "resources/views/students/layouts/simple.blade.php",
-      "sha256": "448ad0471f338618df3e065946b4f7828ea14269e47c1ba34df487184f6b4245",
-      "patches": []
+      "sha256": "6165c8eaeb8d32c81cbce1dcc6168f1e57e2ee50ec1cbeb1730cf2b1433b20c0",
+      "patches": [
+        "remove-unused-student-select2"
+      ]
     },
     {
       "path": "resources/views/students/layouts/student-topbar.blade.php",
