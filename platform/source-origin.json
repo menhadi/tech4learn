@@ -175982,8 +175982,10 @@
     },
     {
       "path": "resources/views/configurations/analytics.blade.php",
-      "sha256": "c61950f3826304511d65d888a8d8129af6624f89147403b65a8e3dcadbfe2701",
-      "patches": []
+      "sha256": "10c11f08c7ae2b7464f9a4d7e5c51876338217d1c9411e4f1f02e9835f974ca1",
+      "patches": [
+        "tech4learn-own-site-configuration-copy"
+      ]
     },
     {
       "path": "resources/views/configurations/general.blade.php",
@@ -176002,8 +176004,10 @@
     },
     {
       "path": "resources/views/configurations/website.blade.php",
-      "sha256": "36b051dfed92bfc9d58e60ec74c53d409ec1bf7c2f1d08a850c0699f60d7f5d8",
-      "patches": []
+      "sha256": "13e73773b55e64442cd47a8755162ab035b99f50b1a0c3efbf1450c98851e3c5",
+      "patches": [
+        "tech4learn-own-site-configuration-copy"
+      ]
     },
     {
       "path": "resources/views/counter/index.blade.php",

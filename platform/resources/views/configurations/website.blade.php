@@ -161,9 +161,9 @@
                             </div>
                             <hr class="my-4">
                             <h6>Admin share composer</h6>
-                            <p class="text-muted small">Prepare any public Exam Elite link, then open each selected platform's secure share window. You remain in control of the final post.</p>
+                            <p class="text-muted small">Prepare any public Tech4Learn link, then open each selected platform's secure share window. You remain in control of the final post.</p>
                             <div class="row g-2">
-                                <div class="col-md-5"><input type="url" class="form-control" id="adminShareUrl" placeholder="https://examelite.com/page"></div>
+                                <div class="col-md-5"><input type="url" class="form-control" id="adminShareUrl" placeholder="https://tech4learn.com/page"></div>
                                 <div class="col-md-5"><input type="text" class="form-control" id="adminShareText" placeholder="Post message or title"></div>
                                 <div class="col-md-2"><button type="button" class="btn btn-primary w-100" id="adminShareOpen"><i class="ri-share-forward-line me-1"></i>Share</button></div>
                             </div>
