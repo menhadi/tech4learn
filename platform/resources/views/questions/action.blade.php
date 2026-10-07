@@ -372,7 +372,9 @@
 
         // Dropdowns Logic
         
-        $('.select2').select2({ placeholder: "Select", allowClear: true });
+        if ($.fn.select2) {
+            $('.select2').select2({ placeholder: "Select", allowClear: true });
+        }
 
         $('#subject_id').on('select2:clear change', function() {
             if (!$(this).val()) {

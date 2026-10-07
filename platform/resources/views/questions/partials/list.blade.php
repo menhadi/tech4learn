@@ -169,7 +169,7 @@
                             <td>{{ $question->diff?->diff_level ?? 'N/A' }}</td>
                         @endif
                         @if($showLanguageColumn)
-                            <td>{{ $question->language?->name ?? 'N/A' }}</td>
+                            <td>{{ $question->langs->pluck('language.name')->filter()->unique()->join(', ') ?: 'N/A' }}</td>
                         @endif
                         @if($showMarksColumn)
                             <td>{{ $question->marks ?? '0' }}</td>

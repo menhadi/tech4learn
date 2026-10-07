@@ -276,7 +276,7 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        $('.select2').select2();
+        if ($.fn.select2) $('.select2').select2();
         let filterTimer;
         let activeQuestionRequest = null;
 

@@ -231,7 +231,9 @@ class QuestionController extends Controller
         }
 
         if ($request->filled('language')) {
-            $query->where('language_id', $request->input('language'));
+            $query->whereHas('langs', function ($translation) use ($request) {
+                $translation->where('language_id', $request->input('language'));
+            });
         }
 
         if ($request->filled('tag')) {
@@ -317,7 +319,6 @@ class QuestionController extends Controller
                 'questions.stopic_id',
                 'questions.qtype_id',
                 'questions.diff_id',
-                'questions.language_id',
                 'questions.passage_id',
                 'questions.question',
                 'questions.marks',
@@ -326,7 +327,7 @@ class QuestionController extends Controller
                 'questions.created_at',
             ])
             ->withCount('exams')
-            ->with('subject:id,subject_name', 'topic:id,name', 'stopic:id,name', 'qtype:id,question_type', 'diff:id,diff_level', 'language:id,name,code', 'groups:id,group_name', 'tags:id,name')
+            ->with('subject:id,subject_name', 'topic:id,name', 'stopic:id,name', 'qtype:id,question_type', 'diff:id,diff_level', 'langs.language:id,name,code', 'groups:id,group_name', 'tags:id,name')
             ->orderByDesc('questions.created_at')
             ->orderByDesc('questions.id')
             ->simplePaginate($perPage)

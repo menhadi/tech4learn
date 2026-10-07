@@ -147,4 +147,20 @@ class FoundationExamJourneyTest extends TestCase
         $this->get('https://synthetic-exams.test/exams')->assertOk()
             ->assertViewHas('stats',fn($stats)=>$stats['total']===2 && $stats['active']===1);
     }
+
+    public function test_question_directory_uses_translations_for_language_filter_and_keeps_tenant_scope(): void
+    {
+        [$org]=$this->owner();
+        $other=Organization::create(['name'=>'Synthetic other','slug'=>'directory-other','domain'=>'directory-other.test','status'=>'active']);
+        $language=\App\Models\Language::create(['organization_id'=>$org->id,'name'=>'English','code'=>'en','is_enabled'=>true]);
+        $type=\App\Models\Qtype::firstOrCreate(['type'=>'M'],['question_type'=>'Multiple Choice']);
+        $own=Question::create(['organization_id'=>$org->id,'qtype_id'=>$type->id,'question'=>'Synthetic translated question','status'=>'Yes']);
+        $untranslated=Question::create(['organization_id'=>$org->id,'qtype_id'=>$type->id,'question'=>'Synthetic untranslated question','status'=>'Yes']);
+        $foreign=Question::create(['organization_id'=>$other->id,'qtype_id'=>$type->id,'question'=>'Synthetic foreign question','status'=>'Yes']);
+        foreach([$own,$foreign] as $question) $question->langs()->create(['language_id'=>$language->id,'question'=>$question->question]);
+        $this->get('https://synthetic-exams.test/questions')->assertOk()
+            ->assertViewHas('questions',fn($rows)=>$rows->pluck('id')->sort()->values()->all()===[$own->id,$untranslated->id]);
+        $this->get('https://synthetic-exams.test/questions?language='.$language->id)->assertOk()
+            ->assertViewHas('questions',fn($rows)=>$rows->pluck('id')->all()===[$own->id]);
+    }
 }

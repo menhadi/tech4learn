@@ -778,7 +778,7 @@ document.addEventListener('DOMContentLoaded', function () {
             toggleToleranceCount(false);
         });
 
-        $('.select2').select2({
+        if ($.fn.select2) $('.select2').select2({
             placeholder: "Select an option",
             allowClear: true,
             closeOnSelect: false

@@ -203,3 +203,13 @@ photo submission also contributes an event. Restart only the owned synthetic
 API pilot before repeating the combined run; an already confirmed daily session
 is not a fresh capture fixture. This verifies the local browser/gateway workflow,
 not production acceptance or physical camera/location accuracy.
+
+The optional `--exams` browser check passed the signed-in native exam and
+question directories and their authoring forms on the synthetic tenant. It
+deliberately blocks the optional Select2 script: ordinary native controls remain
+available without aborting page initialization. This check found and fixed a
+question-directory query against the removed `questions.language_id` column;
+language filtering and labels now use question translations. Seven native exam
+journey tests / 52 assertions passed, including translated-language filtering
+and foreign-organisation exclusion. The browser check loads authoring forms; it
+does not claim a browser student attempt or live exam acceptance.

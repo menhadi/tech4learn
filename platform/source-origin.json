@@ -543,8 +543,10 @@
     },
     {
       "path": "app/Http/Controllers/QuestionController.php",
-      "sha256": "a735e47743344676f33aafa6f31a65fc8b8c87b3150bffb30706160ba740a133",
-      "patches": []
+      "sha256": "2c93e9d263e93f39efff15170179e1616584d5664858e19e0d3ac34425ac271d",
+      "patches": [
+        "question-directory-translation-language"
+      ]
     },
     {
       "path": "app/Http/Controllers/QuestionExamAssignmentController.php",
@@ -176146,9 +176148,10 @@
     },
     {
       "path": "resources/views/exams/action.blade.php",
-      "sha256": "40ca30dc8065f5e7a1dc8a0f926ca50e29bac2c8cfc90c1f516a8a5e7f0fa783",
+      "sha256": "e6f5d9ac72a6c168ed32303442744921e1cbcd8ba26106691af7bd94621efbd5",
       "patches": [
-        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007",
+        "optional-select2-native-controls"
       ]
     },
     {
@@ -176173,8 +176176,10 @@
     },
     {
       "path": "resources/views/exams/index.blade.php",
-      "sha256": "6c0a86e04024cdf86f227f19c3aed89270f2f9eba8643a576e6ec6bb83c2d39a",
-      "patches": []
+      "sha256": "026b739797cc726a8dd2340e3e62870379aa29b5681d1e10c0a2a7ee02366a04",
+      "patches": [
+        "optional-select2-native-controls"
+      ]
     },
     {
       "path": "resources/views/exams/paper-editor.blade.php",
@@ -176551,13 +176556,17 @@
     },
     {
       "path": "resources/views/questions/action.blade.php",
-      "sha256": "583d33bf44c1c7b8154344b17a353e81ff5f2f57dbe14759f3b1c28d7d844829",
-      "patches": []
+      "sha256": "e95bc46cdf76d658275a24fa039f0b34ebf60a2e87bbb39fe58e544ade4bcb01",
+      "patches": [
+        "optional-select2-native-controls"
+      ]
     },
     {
       "path": "resources/views/questions/index.blade.php",
-      "sha256": "51e80d4d09ac76a4c2da696927850637395bedb27f1a841da81dc4c57c20cf5d",
-      "patches": []
+      "sha256": "4689004e33374c05a48da610e3251d4305615bf186c3483704fca40adb5a380e",
+      "patches": [
+        "optional-select2-native-controls"
+      ]
     },
     {
       "path": "resources/views/questions/partials/exam-assignment-modal.blade.php",
@@ -176571,8 +176580,10 @@
     },
     {
       "path": "resources/views/questions/partials/list.blade.php",
-      "sha256": "c6f17d2c5d7e095894d8e12e5aa1729851ca7e3995d4e65f7808bd7e3a94bdd7",
-      "patches": []
+      "sha256": "d04a9c29824b7106364a7c770e83698a1a0cf80218ea3aa75046b7c226dc6ddf",
+      "patches": [
+        "question-directory-translation-language"
+      ]
     },
     {
       "path": "resources/views/questions_langs/create.blade.php",

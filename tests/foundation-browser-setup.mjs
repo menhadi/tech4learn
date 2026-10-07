@@ -8,13 +8,15 @@ const {chromium}=require('playwright');
 const credentials=JSON.parse(readFileSync(new URL('../.local/tech4learn-foundation/local-pilot-credentials.json',import.meta.url),'utf8'));
 const captureMode=process.argv.includes('--capture');
 const reviewMode=process.argv.includes('--review');
+const examMode=process.argv.includes('--exams');
 const browser=await chromium.launch({headless:true,args:['--host-resolver-rules=MAP two.localhost 127.0.0.1','--no-proxy-server',...(captureMode?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]});
 let activePage;
 try {
  const page=await browser.newPage({viewport:{width:1366,height:900},...(captureMode?{permissions:['camera','geolocation'],geolocation:{latitude:0,longitude:0,accuracy:5}}:{})});
  activePage=page;
  page.setDefaultTimeout(15000);
- const runtimeErrors=[];page.on('pageerror',()=>runtimeErrors.push(true));
+ if(examMode)await page.route('**/select2.min.js',route=>route.abort());
+ const runtimeErrors=[];page.on('pageerror',error=>runtimeErrors.push({name:error.name,kind:/jQuery|\$ is not defined/.test(error.message)?'jquery':/select2/.test(error.message)?'select2':/randomUUID/.test(error.message)?'crypto':'other'}));
  await page.goto('http://two.localhost:8001/login',{waitUntil:'domcontentloaded',timeout:15000});
  await page.locator('input[name="login"]').fill('synthetic@example.invalid');
  await page.locator('input[name="password"]').fill(credentials.password);
@@ -79,7 +81,16 @@ try {
   if(await marks.first().inputValue()!=='excused')throw new Error('Correction not retained');
   console.log('PASS: browser teacher confirmation and correction retained both history entries.');
  }
- if(runtimeErrors.length)throw new Error('Browser runtime error');
+ if(examMode) {
+  for(const path of ['/exams','/exams/create','/questions','/questions/create']) {
+   const response=await page.goto('http://two.localhost:8001'+path,{waitUntil:'networkidle',timeout:25000});
+   if(response?.status()!==200||new URL(page.url()).pathname!==path)throw new Error('Native exam page unavailable');
+   if(path==='/exams/create')await page.locator('input[name="name"]').waitFor();
+   if(path==='/questions/create')await page.locator('textarea[name="question"]').waitFor({state:'attached'});
+  }
+  console.log('PASS: signed-in native exam and question directories and authoring forms loaded.');
+ }
+ if(runtimeErrors.length){console.log(JSON.stringify({runtimeErrors}));throw new Error('Browser runtime error');}
  await page.screenshot({path:new URL('../.local/embedded-setup-review.png',import.meta.url).pathname.replace(/^\/([A-Z]:)/,'$1'),fullPage:true});
 } catch {await activePage?.screenshot({path:new URL('../.local/embedded-setup-failure.png',import.meta.url).pathname.replace(/^\/([A-Z]:)/,'$1'),fullPage:true}).catch(()=>{});console.log('BLOCKED: synthetic local sign-in or embedded workspace review failed.');process.exitCode=1;}
 finally {await browser.close();}
