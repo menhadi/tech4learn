@@ -11,6 +11,14 @@ def render(source, revision):
     names = re.findall(r'^\s*ServerName\s+(\S+)\s*$', source, re.M)
     if names != ['tech4learn.com', 'tech4learn.com'] or re.search(r'^\s*Include', source, re.M):
         raise ValueError('Unexpected site identity or include')
+    # Refuse additional routing directives rather than silently preserving them.
+    # Their ordering can override the intended API/native boundary.
+    proxies = re.findall(r'^\s*(ProxyPass\S*|ProxyPreserveHost)\s+(.+?)\s*$', source, re.M | re.I)
+    expected = [('ProxyPass', '/.well-known !'),
+                ('ProxyPass', '/ http://127.0.0.1:3101/'),
+                ('ProxyPassReverse', '/ http://127.0.0.1:3101/')]
+    if sorted(proxies) != sorted(expected * 2):
+        raise ValueError('Additional or changed proxy routing requires review')
     public = f'/home/tech4learn/releases/{revision}/platform/public'
     candidate = source
     replacements = [

@@ -28,6 +28,15 @@ class CandidateTests(unittest.TestCase):
         self.assertIn('^(?!index\\.php$).*\\.php$',candidate)
         self.assertIn('/run/php/tech4learn-native.sock',candidate)
         self.assertIn("Require expr \"%{REQUEST_FILENAME} == '/home/tech4learn/releases/"+'a'*40+"/platform/public/index.php'\"",candidate)
+    def test_extra_proxy_routes_and_options_require_review(self):
+        for directive in ['ProxyPass /api/ http://127.0.0.1:9999/',
+                          'ProxyPassMatch ^/(.*)$ http://127.0.0.1:9999/$1',
+                          'ProxyPassReverse /elsewhere/ http://127.0.0.1:3101/',
+                          'ProxyPreserveHost Off']:
+            source=current().replace('</VirtualHost>', '    '+directive+'\n</VirtualHost>', 1)
+            with self.assertRaises(ValueError):renderer.render(source,'a'*40)
+        with self.assertRaises(ValueError):
+            renderer.render(current().replace('3101/', '3101/ retry=0'),'a'*40)
     def test_unknown_site_routing_or_revision_is_rejected(self):
         for source in [current().replace('tech4learn.com','other.example'),current().replace('3101','9999'),current()+'\nInclude other.conf',current().replace('*:80','*:8080')]:
             with self.assertRaises(ValueError):renderer.render(source,'a'*40)

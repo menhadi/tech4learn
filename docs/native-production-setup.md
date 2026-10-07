@@ -715,3 +715,16 @@ retirement review after cutover; the database cleanup core does not unlink files
 or infer their ownership from a configured path. No credentials were inspected
 or removed. The combined inventory, plan, transaction and restore-target suite
 passed all seven tests after the bounded-media changes.
+
+
+## Apache candidate proxy guard — checked locally
+
+The renderer now rejects additional proxy routes, ProxyPassMatch directives,
+changed proxy options and pre-existing ProxyPreserveHost settings rather than
+silently retaining routing that could override the native/API boundary. Three
+renderer tests passed. A read-only retrieval of the actual Tech4Learn site
+configuration matched these guards and rendered successfully in memory. No
+configuration file was saved or installed, and this is not an Apache syntax
+check or cutover acceptance. The candidate still requires a prepared accepted
+release, native/API identity readiness and the narrowly scoped user-run root
+installation with rollback.
