@@ -8,8 +8,10 @@ if(in_array('--verify-result',$argv,true)) {
     $result=App\Models\ExamResult::where(['organization_id'=>2,'exam_id'=>$fixture['exam'],'student_id'=>$fixture['student']])->sole();
     $stat=App\Models\ExamStat::where(['exam_result_id'=>$result->id,'student_id'=>$fixture['student'],'question_id'=>$fixture['question']])->sole();
     if($fixture['subjective']??false) {
-        if(!$result->end_time || $stat->ques_status!=='P' || $stat->answer!=='Synthetic uploaded explanation' || !str_starts_with($stat->uploaded_answer_path??'', 'student_answers_private/2/'.$result->id.'/') || !Illuminate\Support\Facades\Storage::disk('local')->exists($stat->uploaded_answer_path))throw new RuntimeException('Written answer evidence missing');
-        echo "PASS: synthetic written answer and private evidence persisted; marking remains pending.\n";
+        $graded=in_array('--graded',$argv,true);
+        if(!$result->end_time || $stat->ques_status!==($graded?'R':'P') || $stat->answer!=='Synthetic uploaded explanation' || !str_starts_with($stat->uploaded_answer_path??'', 'student_answers_private/2/'.$result->id.'/') || !Illuminate\Support\Facades\Storage::disk('local')->exists($stat->uploaded_answer_path))throw new RuntimeException('Written answer evidence missing');
+        if($graded && ($result->result!=='Pass' || (float)$result->obtained_marks!==2.0))throw new RuntimeException('Published marking missing');
+        echo $graded?"PASS: synthetic teacher marking published a two-mark pass with evidence retained.\n":"PASS: synthetic written answer and private evidence persisted; marking remains pending.\n";
         exit(0);
     }
     if(!$result->end_time || (float)$result->obtained_marks!==2.0 || $stat->ques_status!=='R')throw new RuntimeException('Submission not scored');
@@ -26,7 +28,7 @@ $fixture=$db->transaction(function()use($base,$subjective){
     $credentials=json_decode(file_get_contents($base.'/local-pilot-credentials.json'),true,512,JSON_THROW_ON_ERROR);
     $suffix=bin2hex(random_bytes(8));
     if($subjective) {
-        $plan=App\Models\SaasPlan::create(['name'=>'Synthetic browser uploads','slug'=>'synthetic-browser-'.$suffix,'price'=>0,'billing_cycle'=>'monthly','status'=>true,'features'=>['ai_subjective_analysis'=>true]]);
+        $plan=App\Models\SaasPlan::create(['name'=>'Synthetic browser uploads','slug'=>'synthetic-browser-'.$suffix,'price'=>0,'billing_cycle'=>'monthly','status'=>true,'features'=>['ai_subjective_analysis'=>true,'reports'=>true]]);
         App\Models\Organization::where('id',2)->update(['saas_plan_id'=>$plan->id]);
     }
     $student=App\Models\Student::create([

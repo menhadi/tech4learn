@@ -1221,11 +1221,19 @@ display. The scoped database verifier confirmed the submitted answer text, priva
 file and pending marking status. Six separate extraction boundary tests passed for
 line endings, invalid encoding, empty text, oversized text, DOCX expansion and
 external entity declarations. This is local TXT acceptance; image/PDF/DOC OCR,
-teacher marking and authenticated production acceptance remain unverified.
+authenticated production acceptance remain unverified.
 
 Manual grading now validates numeric non-negative marks against each pending
 answer's maximum on the server. It rejects unknown/already-marked answers and
 open attempts, validates the whole batch before updates, and locks the submitted
 result and pending answers in a transaction. Partial grading retains `Pending`
 until every pending answer has been marked. Four local HTTP regression tests
-passed (13 assertions). Teacher browser acceptance remains pending.
+passed (13 assertions). The complete native suite then passed 306 tests / 1,286
+assertions.
+
+The `foundation-student-browser.mjs --grade` local journey uses separate student
+and teacher browser sessions. It verified the teacher's evaluation screen shows
+the uploaded explanation, saves two marks through the publish button, and the
+student's refreshed result shows 2.00. The scoped database verifier confirmed a
+`Pass`, two obtained marks and retained private evidence. This is synthetic local
+manual marking acceptance, without AI assessment or production sign-off.

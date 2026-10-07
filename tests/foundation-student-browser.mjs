@@ -47,6 +47,25 @@ try {
  await page.locator('.score-display').filter({hasText:fixture.subjective?'0.00':'2.00'}).first().waitFor();
  if(runtimeErrors.length){console.log(JSON.stringify({runtimeErrors}));throw new Error('Browser runtime error');}
  console.log(fixture.subjective?'PASS: native student submitted an uploaded written answer and opened its result; marking remains pending.':'PASS: native student answered, submitted and viewed the two-mark result using browser controls.');
+ if(fixture.subjective&&process.argv.includes('--grade')) {
+  stage='teacher-marking';
+  const resultId=new URL(page.url()).pathname.split('/').pop();
+  const teacher=await browser.newPage();teacher.setDefaultTimeout(15000);
+  await teacher.goto('http://two.localhost:8001/login',{waitUntil:'networkidle'});
+  await teacher.locator('input[name="login"]').fill('synthetic@example.invalid');
+  await teacher.locator('input[name="password"]').fill(credentials.password);
+  await teacher.locator('button[type="submit"]').click();
+  await teacher.waitForURL(url=>url.pathname!=='/login');
+  const evaluation=await teacher.goto('http://two.localhost:8001/results/'+resultId+'/evaluate',{waitUntil:'networkidle'});
+  if(!evaluation?.ok())throw new Error('Teacher evaluation unavailable');
+  await teacher.getByText('Synthetic uploaded explanation',{exact:true}).waitFor();
+  await teacher.locator('.marks-input').fill('2');
+  await teacher.getByRole('button',{name:'Save & Publish Result'}).click();
+  await teacher.waitForURL(url=>url.pathname==='/results');
+  await page.reload({waitUntil:'networkidle'});
+  await page.locator('.score-display').filter({hasText:'2.00'}).first().waitFor();
+  console.log('PASS: teacher reviewed and published marks; the student saw the updated two-mark result.');
+ }
  await page.screenshot({path:new URL('../.local/student-exam-review.png',import.meta.url).pathname.replace(/^\/([A-Z]:)/,'$1'),fullPage:true});
 } catch {
  await page?.screenshot({path:new URL('../.local/student-exam-failure.png',import.meta.url).pathname.replace(/^\/([A-Z]:)/,'$1'),fullPage:true}).catch(()=>{});
