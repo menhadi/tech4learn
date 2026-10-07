@@ -97,6 +97,9 @@ def render(source, revision):
         Options -Indexes -ExecCGI
         AllowOverride None
         Require all granted
+        <FilesMatch "(?i)\\.(?:php(?:[0-9]+(?:\\.[0-9]+)?)?|phtml|phar)$">
+            Require all denied
+        </FilesMatch>
     </Directory>
     <Directory {public}>
         Options -Indexes -MultiViews -ExecCGI +FollowSymLinks
@@ -109,7 +112,10 @@ def render(source, revision):
             Require expr "%{{REQUEST_FILENAME}} == '{public}/index.php'"
             SetHandler "proxy:unix:/run/php/tech4learn-native.sock|fcgi://localhost/"
         </Files>
-        <FilesMatch "^(?!index\\.php$).*\\.php$">
+        <FilesMatch "^(?!index\\.php$).*(?i:\\.(?:php(?:[0-9]+(?:\\.[0-9]+)?)?|phtml|phar))$">
+            Require all denied
+        </FilesMatch>
+        <FilesMatch "^\\.">
             Require all denied
         </FilesMatch>
     </Directory>

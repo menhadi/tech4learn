@@ -73,7 +73,7 @@ class CandidateTests(unittest.TestCase):
         self.assertEqual(candidate.count('ProxyPass /.well-known !'),2)
         self.assertEqual(candidate.count('Alias /.well-known/ /home/tech4learn/public_html/.well-known/'),2)
         self.assertIn('FallbackResource /index.php',candidate)
-        self.assertIn('^(?!index\\.php$).*\\.php$',candidate)
+        self.assertIn('^(?!index\\.php$).*(?i:\\.(?:php(?:[0-9]+(?:\\.[0-9]+)?)?|phtml|phar))$',candidate)
         self.assertIn('/run/php/tech4learn-native.sock',candidate)
         self.assertIn("Require expr \"%{REQUEST_FILENAME} == '/home/tech4learn/releases/"+'a'*40+"/platform/public/index.php'\"",candidate)
     def test_extra_proxy_routes_and_options_require_review(self):
@@ -102,5 +102,15 @@ class CandidateTests(unittest.TestCase):
                           'AliasMatch ^/legacy/(.*) /home/tech4learn/$1']:
             with self.subTest(directive=directive), self.assertRaises(ValueError):
                 renderer.render(current().replace('</VirtualHost>', '    '+directive+'\n</VirtualHost>', 1),'a'*40)
+
+    def test_alternate_php_extensions_and_hidden_public_files_are_denied(self):
+        candidate=renderer.render(current(),'a'*40)
+        import re
+        pattern=r'^(?!index\.php$).*(?i:\.(?:php(?:[0-9]+(?:\.[0-9]+)?)?|phtml|phar))$'
+        for name in ['extract_file.php','INDEX.PHP','upload.PHP','upload.php8','upload.php8.1','upload.PHP8.4','upload.phtml','archive.phar']:
+            self.assertIsNotNone(re.search(pattern,name))
+        self.assertIsNone(re.search(pattern,'index.php'))
+        self.assertEqual(candidate.count('<FilesMatch "^\\.">'),2)
+        self.assertEqual(candidate.count('<FilesMatch "(?i)\\.(?:php(?:[0-9]+(?:\\.[0-9]+)?)?|phtml|phar)$">'),2)
 
 if __name__=='__main__':unittest.main()

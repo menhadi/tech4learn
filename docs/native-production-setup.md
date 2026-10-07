@@ -1155,3 +1155,16 @@ or extra rewrite routes require review. Six tests passed, and the actual ignored
 read-only configuration snapshot produced a candidate in memory. Apache syntax,
 root installation and rollback are still unexecuted; no cutover command is ready
 for the user yet.
+
+The public-tree review identified the legacy `extract_file.php` OCR endpoint,
+still referenced by the native subjective-answer upload screen. The candidate
+blocks this standalone executable; an authenticated, tenant/result-scoped OCR
+integration is therefore required before subjective-file acceptance can pass.
+The verified MCQ browser journey does not cover that feature. No endpoint was
+enabled or removed on the live website.
+
+The candidate now also denies alternate/case-varied PHP, versioned PHP, PHTML
+and PHAR filenames, plus hidden public files. ACME's directory independently
+denies executable extensions. Only the exact root `index.php` gets the PHP-FPM
+handler. Seven renderer tests passed, including extension cases; these remain
+configuration-generation checks rather than Apache runtime acceptance.
