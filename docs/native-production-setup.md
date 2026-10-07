@@ -385,3 +385,28 @@ that gate. After deployment, compare the reviewed canonical UUID in the private
 native ledger with the API mapping separately; the native database check cannot
 verify a PostgreSQL identity. The new code and local tests do not make the
 currently deployed schema-18 website ready for native cutover.
+
+## Authorized previous-organisation cleanup inventory
+
+The later human instruction retains only the previous platform administrator
+and attendance implementation, uses fresh organisations in Laravel, and
+explicitly authorizes permanent deletion of previous organisations and linked
+records. This supersedes preserving their historical attendance during migration.
+No old organisation should be linked into the new native product.
+
+`deploy/virtualmin/inventory-legacy-organisations.mjs` enumerates direct and
+indirect foreign-key dependencies of `public.organisations`, using catalog
+identifiers safely quoted for whole-table counts. Its CLI uses a read-only
+repeatable-read transaction and ten-second statement timeout, prints no record
+values and contains no deletion operation. The synthetic test passed indirect
+dependency discovery inside a read-only transaction and preserved both tenant
+records and the administrator password hash.
+
+The read-only live inventory found four organisations, 16 learners, 10 attendance
+sessions and 34 organisation-dependent tables, with one canonical superadmin.
+Whole-table counts are not a deletion manifest: audit tables include global
+records, users/sessions can be shared, and media files require a separately
+bounded path manifest. Next prepare the private verified backup, dependency-aware
+transactional cleanup, session revocation and private-media cleanup, with checks
+preserving the existing administrator UUID/password and excluding the original
+ExamElite installation and new Laravel database. No deletion has run.
