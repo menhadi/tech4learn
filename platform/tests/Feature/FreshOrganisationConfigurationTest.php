@@ -35,6 +35,22 @@ class FreshOrganisationConfigurationTest extends TestCase
         $this->assertFalse($user->hasRole('admin'));
         $this->assertFalse((bool)$user->is_platform_admin);
         $this->assertDatabaseHas('organization_users',['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'staff']);
+        \Illuminate\Support\Facades\Cache::flush();\App\Support\Tenant::clear();
+        $this->actingAs($user,'web');
+        $this->get('https://staff-tenant.test/exams')->assertForbidden();
+    }
+    public function test_membership_failure_does_not_leave_an_orphan_admin_account(): void
+    {
+        $org=Organization::create(['name'=>'Synthetic membership failure','slug'=>'membership-failure','domain'=>'membership-failure.test','status'=>'active']);
+        \Spatie\Permission\Models\Role::findOrCreate('admin','web');
+        \Illuminate\Support\Facades\DB::statement("CREATE TRIGGER synthetic_membership_failure BEFORE INSERT ON organization_users BEGIN SELECT RAISE(ABORT, 'Synthetic membership failure'); END");
+        try {
+            $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic rollback admin','email'=>'rollback-admin@example.invalid','password'=>'long synthetic password','organization_role'=>'admin','status'=>'Active']);
+            try {app(SaasController::class)->storeOrganizationAdmin($request,$org);$this->fail('Failure expected');}
+            catch(\Illuminate\Database\QueryException $error){$this->assertStringContainsString('Synthetic membership failure',$error->getMessage());}
+            $this->assertDatabaseMissing('users',['email'=>'rollback-admin@example.invalid']);
+            $this->assertDatabaseCount('model_has_roles',0);
+        } finally {\Illuminate\Support\Facades\DB::statement('DROP TRIGGER synthetic_membership_failure');}
     }
     public function test_new_configuration_does_not_copy_another_organisations_credentials(): void
     {
