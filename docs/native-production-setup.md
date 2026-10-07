@@ -92,7 +92,7 @@ credentials stop setup without adopting existing databases or resetting password
 The sudo action allowlist is unchanged. Seven local boundary tests passed; the
 updated helper must be installed by root before live preparation can be retried.
 
-## Checked native database milestone â€” 7 October 2026
+## Checked native database milestone — 7 October 2026
 
 The restricted helper successfully created the dedicated database/account and
 root-owned private environment after root installed its protected MySQL
@@ -166,7 +166,7 @@ cover ordinary-user denial, cross-realm links, revocation/demotion after sign-in
 version conflicts, immutable mapping and private session handling. All of this
 is planned until implemented and checked.
 
-## Platform identity API â€” local implementation
+## Platform identity API — local implementation
 
 API migration 19 adds a native realm registry and explicit platform-staff links.
 Existing native organisation mappings register as organisation realms. Database
@@ -206,7 +206,7 @@ also passed mapped login, scoped attendance capture/review/history, learner
 identity resolution and logout with migration 19 present. No production
 accounts, mappings, migrations or routing were changed by this verification.
 
-## Native platform sessions â€” checked locally
+## Native platform sessions — checked locally
 
 The copied Laravel primary site's staff sign-in now uses the separate platform
 login endpoint. It requires both an active canonical superadmin link and an
@@ -368,7 +368,7 @@ Verification: all 284 native tests / 1,221 assertions passed. Schedule tests
 confirm core exam workers remain, provider jobs can be enabled independently
 and the initial one-worker schedule does not create a second worker slot.
 
-## Read-only live inventory â€” 7 October, 13:50 UTC
+## Read-only live inventory — 7 October, 13:50 UTC
 
 The restricted status helper reported the API active, the native PHP socket
 present and private native environment present. A read-only PostgreSQL inventory
@@ -433,7 +433,7 @@ This module intentionally has no deletion executor. A private frozen manifest,
 verified backup/restore, paused writes and reviewed user/session/global-connector
 cleanup are still required before execution.
 
-## Private pre-cleanup backup â€” 7 October 2026
+## Private pre-cleanup backup — 7 October 2026
 
 The checked `deploy/virtualmin/backup-legacy-database.mjs` was run through the
 existing deployment account. It created
@@ -469,7 +469,7 @@ for diagnosis and cannot be silently overwritten. Never run against the live
 database. Source database/account and fixed-target tests passed; actual isolated
 restore is pending the database setup above.
 
-## Organisation cleanup transaction â€” local preparation
+## Organisation cleanup transaction — local preparation
 
 `cleanup-legacy-organisation-records.mjs` provides an internal transactional core
 with no live CLI. Its private manifest freezes organisation UUIDs, scoped table
@@ -511,7 +511,7 @@ identity preservation and rejection of each changed field, missing identities
 and duplicate administrators. If the administrator changes after backup, create
 and verify a fresh backup rather than accepting a mismatched restore.
 
-## Fresh native organisation attendance companions â€” local implementation
+## Fresh native organisation attendance companions — local implementation
 
 API migration 20 adds a mapping-origin marker; previous mappings remain
 `reviewed`. The explicit management command is:
@@ -541,7 +541,7 @@ typechecks/builds and all 109 API tests. The new test covers atomic fresh creati
 permission initialization, exact retry/audit preservation, revoked links, occupied
 legacy slugs, ordinary staff denial and rejection of the global platform realm.
 
-## Attendance-only Node runtime â€” local preparation
+## Attendance-only Node runtime — local preparation
 
 `TECH4LEARN_API_MODE=attendance` selects the supporting Node runtime for the new
 Laravel product. It omits all previous exam connector/content/workspace/student
@@ -563,7 +563,7 @@ Verification: `npm run check` passed all workspace typechecks/builds and 111 API
 tests, including attendance runtime startup, missing retired routes/shell,
 retained health/protected identity and attendance routes, and invalid-mode refusal.
 
-## Verified platform page permissions â€” local correction
+## Verified platform page permissions — local correction
 
 The initial native platform administrator has no legacy role/page-right records.
 The copied page-right middleware and sidebar previously relied on those records,
@@ -590,7 +590,7 @@ The native readiness gate now requires those three entries before cutover.
 This verifies the connected middleware path and menu configuration, not actual
 authenticated production browser acceptance.
 
-## Native Apache routing candidate â€” local preparation
+## Native Apache routing candidate — local preparation
 
 `render-native-apache.py` is a pure renderer with no installer or reload action.
 It accepts only the inspected two-vhost Tech4Learn layout, exact current Node
@@ -616,7 +616,7 @@ health checks fail. No routing change has been made; the existing helper cannot
 edit Apache. The pending isolated restore-database setup remains the earlier
 required user action.
 
-## Latest checked native source prepared â€” 7 October 2026
+## Latest checked native source prepared — 7 October 2026
 
 Pinned release `e1aae9521a27ead522ffff75e785a0d29a031bf4` is now prepared privately
 under `/home/tech4learn/releases/`, preserving the previously prepared `22e35a3e`
@@ -648,7 +648,7 @@ before treating the new release as production-ready; no automatic dependency
 updates were applied. No migration, cleanup, account provisioning or routing
 change was performed while preparing this build.
 
-## API dependency audit remediation â€” local patch
+## API dependency audit remediation — local patch
 
 Targeted API/contracts production audit identified Multer 2.3.0, proxy-addr 2.0.7
 and shell-quote 1.9.0. The lockfile now resolves Multer 2.4.0, proxy-addr 2.0.8 and
