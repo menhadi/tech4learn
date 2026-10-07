@@ -85,6 +85,10 @@ The staged root command is:
 bash /home/tech4learn/releases/d5d2cd9fa48bc9c3dfac180000f1cd93f48b6deb/deploy/virtualmin/prepare-native-php.sh d5d2cd9fa48bc9c3dfac180000f1cd93f48b6deb
 ```
 
-The deployment account cannot execute that preparation with its existing sudo
-rules. The user was asked to run it from the server root terminal. Installation
-and socket checks still need verification after that action.
+The user completed the root preparation on 7 October 2026. Read-only server
+verification confirmed the pool configuration exists, PHP 8.4 FPM is active,
+and `/run/php/tech4learn-native.sock` has ownership `www-data:www-data` and
+mode `0660`. The existing Tech4Learn service is active and its local health
+endpoint returned `ok`. The pinned native release still has no production
+`.env`; native database setup and reviewed identity provisioning remain pending.
+These checks confirm PHP preparation, not a working Laravel production site.
