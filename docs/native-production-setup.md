@@ -1168,3 +1168,26 @@ and PHAR filenames, plus hidden public files. ACME's directory independently
 denies executable extensions. Only the exact root `index.php` gets the PHP-FPM
 handler. Seven renderer tests passed, including extension cases; these remain
 configuration-generation checks rather than Apache runtime acceptance.
+
+## Subjective answer evidence — local implementation
+
+New authenticated answer-file uploads now use private local storage with random
+filenames beneath the owning organisation and attempt. The result row is locked
+in the same order as exam finalization; completed attempts reject uploads with
+409, foreign student results with 403 and questions outside the attempt with
+404. File validation returns normal validation errors, and failed database
+writes remove only the newly created file. The response no longer returns a
+public file path. Existing public answer evidence is not deleted or migrated.
+The existing assessment reader supports the new private paths and rejects path
+traversal; existing legacy answer paths remain readable.
+
+The copied migrations lacked `uploaded_answer_path`, `extracted_answer_text` and
+`ai_assessed`, despite controllers using them. The new native migration adds
+only missing columns and preserves them on code rollback to retain evidence.
+It has not run live. Twenty-one targeted tests / 102 assertions passed,
+including private text readback, traversal rejection, ownership, attempt scope
+and completed-attempt protection. The standalone student OCR endpoint still
+requires authenticated integration; these upload checks do not claim OCR or
+complete subjective-answer browser acceptance.
+The full native suite subsequently passed 293 tests / 1,256 assertions against
+the updated local source and migration.

@@ -198,8 +198,10 @@
     },
     {
       "path": "app/Http/Controllers/AISubjectiveAssessmentController.php",
-      "sha256": "e1e526ebffa838743351d46dbb1909dc83f7abaafef3d556ca078221ee034297",
-      "patches": []
+      "sha256": "b567519d6fb8b3bd5bf38d6a34dbebdebba16d167079a39a50cf8be8634f3aac",
+      "patches": [
+        "private-subjective-answer-evidence"
+      ]
     },
     {
       "path": "app/Http/Controllers/AITranslationController.php",
@@ -763,8 +765,10 @@
     },
     {
       "path": "app/Http/Controllers/SubjectiveUploadController.php",
-      "sha256": "a14815d09c522317f704813d2a64687daf750dd1b8b82826d979c1052f14f719",
-      "patches": []
+      "sha256": "403555e362bbb614701e9614c5db6137f34b7979f1f678d8dd0315b9aa3f6481",
+      "patches": [
+        "private-subjective-answer-evidence"
+      ]
     },
     {
       "path": "app/Http/Controllers/TestController.php",

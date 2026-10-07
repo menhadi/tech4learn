@@ -114,7 +114,14 @@ class AISubjectiveAssessmentController extends Controller
     
     private function extractText($path)
     {
-        $full = storage_path('app/public/' . $path);
+        if (str_starts_with($path, 'student_answers_private/')) {
+            if (!preg_match('#^student_answers_private/[0-9]+/[0-9]+/[A-Za-z0-9]+\.[A-Za-z0-9]+$#', $path)) return '';
+            $full = \Illuminate\Support\Facades\Storage::disk('local')->path($path);
+        } else {
+            // Existing records remain readable; new uploads use private storage.
+            if (!preg_match('#^student_answers/[A-Za-z0-9_.-]+$#', $path)) return '';
+            $full = storage_path('app/public/' . $path);
+        }
         if (!file_exists($full)) return '';
         $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
         if ($ext === 'txt') return file_get_contents($full);
