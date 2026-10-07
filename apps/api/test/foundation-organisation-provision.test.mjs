@@ -23,6 +23,15 @@ test('fresh attendance provisioning is idempotent and never adopts old mappings 
   await assert.rejects(provisionAttendanceOrganisation(db,staff,'2','Synthetic fresh'));
   await assert.rejects(provisionAttendanceOrganisation(db,admin,'1','Synthetic platform'));
   await assert.rejects(provisionAttendanceOrganisation(db,admin,'9','Synthetic old'));
+  const interrupted={transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>{
+    if(q.startsWith('INSERT INTO foundation_organisations'))throw new Error('Synthetic organisation-link failure');
+    return sql.query(q,p);
+  }}))};
+  await assert.rejects(provisionAttendanceOrganisation(interrupted,admin,'2','Synthetic fresh'),/organisation-link failure/);
+  assert.equal((await pg.query("SELECT count(*)::integer AS total FROM organisations WHERE slug='native-org-2'")).rows[0].total,0);
+  assert.equal((await pg.query("SELECT count(*)::integer AS total FROM audit_events WHERE action='foundation.organisation_provisioned'")).rows[0].total,0);
+  assert.equal((await pg.query('SELECT count(*)::integer AS total FROM organisation_settings')).rows[0].total,0);
+  assert.equal((await pg.query('SELECT count(*)::integer AS total FROM access_roles')).rows[0].total,0);
   const first=await provisionAttendanceOrganisation(db,admin,'2','Synthetic fresh');
   assert.equal(first.created,true);assert.notEqual(first.organisationId,old);
   assert.deepEqual(await provisionAttendanceOrganisation(db,admin,'2','Synthetic fresh'),{created:false,organisationId:first.organisationId});
