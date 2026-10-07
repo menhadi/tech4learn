@@ -53,7 +53,7 @@ realm must never impersonate a tenant staff account for attendance capture.
 
 Operator organisation/staff provisioning, explicit learner mapping, native exam
 journey and connected attendance checks exist locally. Automatic native hooks,
-group/section mapping, canonical enrolment provisioning and deactivation
+native group/section mapping, automatic native-to-canonical enrolment provisioning and deactivation
 propagation do not yet exist. Production backup restore, legacy cleanup, native
 administrator activation, runtime configuration and Apache cutover remain
 separate prerequisites. No original ExamElite records are involved in cleanup.
@@ -74,5 +74,6 @@ records. Separate synthetic directory/history records still exercise isolation.
 This verifies the local backend setup sequence, not automatic onboarding or production acceptance. The embedded Classes and
 sections view now reuses the existing academic setup forms for accessible
 centres. A separate embedded Centres view now supports creation, editing, location
-approval and archiving through the existing records API. Learner
-provisioning/linking is not yet exposed through the embedded views.
+approval and archiving through the existing records API. The Attendance learners view now exposes the existing canonical learner
+enrolment and photo setup interface. Reviewed native student linking and
+automatic native provisioning remain separate and pending.

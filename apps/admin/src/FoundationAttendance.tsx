@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Learners } from "./Learners";
 import { Attendance } from "./Attendance";
 import { DraftScope } from "./DraftForm";
 import { api } from "./api";
@@ -46,10 +47,13 @@ export function FoundationAttendance() {
     {error?<div role="alert"><p>{error}</p><button type="button" onClick={()=>setRevision(v=>v+1)}>Retry</button> <a href="/login">Sign in again</a></div>:!context?<p role="status">Loading attendance…</p>:
       <DraftScope user={context.userId} org={context.organisation.id}>
         {context.permissions.includes('attendance.capture')&&!context.permissions.includes('groups.view')&&<p role="status">Section access is required to start a capture. Daily attendance and permitted reviews remain available below.</p>}
-        <GroupedMenu label="Attendance navigation" active={page} onSelect={setPage} groups={[{id:"attendance",label:"Attendance",icon:"attendance",items:[{id:"attendance",label:"Daily attendance"},...(context.permissions.includes('centres.view')?[{id:"centres",label:"Centres"}]:[]),...(context.permissions.includes('groups.view')&&context.permissions.includes('centres.view')?[{id:"structure",label:"Classes and sections"}]:[])]}]}/>
-        {page==='centres'&&context.permissions.includes('centres.view') ? <FoundationCentres org={context.organisation.id} centres={centres} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>setCentres(await api<AttendanceCentre[]>(`/organisations/${context.organisation.id}/centres`))}/> : page==='structure'&&context.permissions.includes('groups.view')&&context.permissions.includes('centres.view') ? <>
+        <GroupedMenu label="Attendance navigation" active={page} onSelect={setPage} groups={[{id:"attendance",label:"Attendance",icon:"attendance",items:[{id:"attendance",label:"Daily attendance"},...(context.permissions.includes('learners.view')?[{id:"learners",label:"Attendance learners"}]:[]),...(context.permissions.includes('centres.view')?[{id:"centres",label:"Centres"}]:[]),...(context.permissions.includes('groups.view')&&context.permissions.includes('centres.view')?[{id:"structure",label:"Classes and sections"}]:[])]}]}/>
+        {page==='learners'&&context.permissions.includes('learners.view') ? <>
+          <p>These are attendance enrolments. Links to native exam students require explicit review; they are not matched by name or email.</p>
+          <Learners key={selectedGroup} org={context.organisation.id} permissions={context.permissions} groups={groups} initialGroup={selectedGroup}/>
+        </> : page==='centres'&&context.permissions.includes('centres.view') ? <FoundationCentres org={context.organisation.id} centres={centres} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>setCentres(await api<AttendanceCentre[]>(`/organisations/${context.organisation.id}/centres`))}/> : page==='structure'&&context.permissions.includes('groups.view')&&context.permissions.includes('centres.view') ? <>
           <p>Use an approved attendance centre to organise years, classes and sections. Create and approve centres in the Centres view. Native student linking is still managed separately.</p>
-          <AcademicStructure org={context.organisation.id} centres={centres} groups={groups} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>{const rows=await api<AcademicGroup[]>(`/organisations/${context.organisation.id}/groups`);setGroups(rows);}} onStudents={()=>{}} onAttendance={id=>{setSelectedGroup(id);setPage('attendance');}}/>
+          <AcademicStructure org={context.organisation.id} centres={centres} groups={groups} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>{const rows=await api<AcademicGroup[]>(`/organisations/${context.organisation.id}/groups`);setGroups(rows);}} onStudents={id=>{setSelectedGroup(id);setPage('learners');}} onAttendance={id=>{setSelectedGroup(id);setPage('attendance');}}/>
         </> : <Attendance org={context.organisation.id} groups={groups.filter(g=>!g.archived)} permissions={context.permissions} mode="all" initialGroup={selectedGroup}/>}
       </DraftScope>}
   </section>;

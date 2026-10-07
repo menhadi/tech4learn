@@ -106,6 +106,18 @@ statusDenied(404,fn()=>$bridge->gateway($setupWrite,'organisations/11111111-1111
 statusDenied(404,fn()=>$bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/classes/arbitrary',$http));
 statusDenied(405,fn()=>$bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/centres/44444444-4444-4444-8444-444444444444/approve',$http));
 statusDenied(404,fn()=>$bridge->gateway($setupWrite,'organisations/11111111-1111-4111-8111-111111111111/centres/44444444-4444-4444-8444-444444444444/delete',$http));
+foreach (['learners','learner-fields','learners/44444444-4444-4444-8444-444444444444','learners/44444444-4444-4444-8444-444444444444/photos'] as $resource) {
+    $h=[];$mock=clientMock([responseJson($context),responseJson([]),responseJson($context)],$h);
+    $bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/'.$resource,$mock);
+}
+$h=[];$mock=clientMock([responseJson($context),new GuzzleHttp\Psr7\Response(200,['Content-Type'=>'image/jpeg'],'synthetic-learner-image'),responseJson($context)],$h);
+$portrait=$bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/learners/44444444-4444-4444-8444-444444444444/photos/55555555-5555-4555-8555-555555555555',$mock);
+if ($portrait->getContent()!=='synthetic-learner-image'||!str_contains($portrait->headers->get('Cache-Control'),'no-store')) throw new RuntimeException('Learner photo transport lost privacy');
+statusDenied(405,fn()=>$bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/learner-imports/preview',$http));
+statusDenied(405,fn()=>$bridge->gateway($setupWrite,'organisations/11111111-1111-4111-8111-111111111111/learners/44444444-4444-4444-8444-444444444444/photos/55555555-5555-4555-8555-555555555555',$http));
+statusDenied(404,fn()=>$bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/learners/44444444-4444-4444-8444-444444444444/delete',$http));
+$h=[];$mock=clientMock([responseJson($context)],$h);
+statusDenied(404,fn()=>$bridge->gateway($request,'organisations/22222222-2222-4222-8222-222222222222/learners',$mock));
 statusDenied(404,fn()=>$bridge->gateway($request,'platform/foundation/organisations',$http));
 $h=[];$mock=clientMock([responseJson($context)],$h);
 statusDenied(404,fn()=>$bridge->gateway($request,str_replace('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',$path),$mock));

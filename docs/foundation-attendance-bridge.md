@@ -102,8 +102,8 @@ The native gateway allows centre reads/creation, exact centre edits and
 location/approval/archive actions, plus exact academic-year/class/section
 paths with bounded methods. API permission, scope and version checks remain
 authoritative, and both mappings are rechecked before returning a response.
-It does not expose learner provisioning, platform management or arbitrary API
-routes. Explicit native student links still require the separately managed setup;
+It does not expose platform management or arbitrary API routes. Explicit native
+student links still require the separately managed setup;
 automatic onboarding remains pending.
 
 Synthetic connected checks cover scoped academic reads and a year creation through
@@ -130,3 +130,27 @@ The centre setup change passed `npm run check` (111 API tests, workspace
 typechecks and builds), native gateway boundary checks, and the connected
 PHP-to-Nest setup/attendance journey. No mobile sources or live configuration
 were changed. Actual browser/device and production acceptance remain pending.
+
+## Embedded attendance learner setup
+
+The Attendance learners view reuses the existing Learners and StudentPhotos
+components for scoped enrolment, profile edits, custom fields/imports, transfer,
+archive and photo permission/setup controls. Academic section actions can open
+that section's learner directory. These remain canonical attendance records;
+native exam students are not created or matched automatically. Reviewed explicit
+links remain a separate platform operation.
+
+The gateway permits exact learner, field, import and photo paths with bounded
+methods. Private photo responses retain no-store and current identity/scope
+checks. Face checks use a bounded extended timeout; configuring and calibrating
+the actual engine remains separate from displaying these controls.
+
+Synthetic connected checks cover learner creation, enrolment, scoped directory
+and detail, photo metadata and archive, followed by capture/review. Gateway tests
+cover foreign-organisation denial, unsupported methods/paths and private photo
+transport. Actual camera/photo/device and production acceptance remain pending.
+
+The learner interface change passed `npm run check` (111 API tests, workspace
+typechecks and builds), native gateway boundary checks and the connected
+PHP-to-Nest setup/attendance journey. Original ExamElite records, production
+learner data and live configuration were not changed.

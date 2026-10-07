@@ -53,6 +53,17 @@ echo "PASS: connected centre creation, separate approval and approval invalidati
 $createdYear=gatewayRequest($setup.'/academic-years','POST',['name'=>'Synthetic gateway year','starts_on'=>'2027-04-01','ends_on'=>'2028-03-31']);
 if (empty($createdYear['id'])) throw new RuntimeException('Academic setup write failed');
 echo "PASS: connected scoped academic directories and year creation through native gateway.\n";
+$createdLearner=gatewayRequest($setup.'/learners','POST',['group_id'=>getenv('FOUNDATION_TEST_GROUP'),'code'=>'SYNTHETIC-GATEWAY-02','name'=>'Synthetic gateway learner']);
+$learnerDetail=gatewayRequest($setup.'/learners/'.$createdLearner['id']);
+if ($learnerDetail['group_id']!==getenv('FOUNDATION_TEST_GROUP')) throw new RuntimeException('Learner enrolment changed section');
+$photos=gatewayRequest($setup.'/learners/'.$createdLearner['id'].'/photos');
+gatewayRequest($setup.'/learner-fields');
+$directory=gatewayRequest($setup.'/learners');
+if (!in_array($createdLearner['id'],array_column($directory['items'],'id'),true)) throw new RuntimeException('New learner missing from authorised directory');
+gatewayRequest($setup.'/learners/'.$createdLearner['id'].'/archive','POST',['version'=>$learnerDetail['version']]);
+$archived=gatewayRequest($setup.'/learners/'.$createdLearner['id']);
+if ($archived['archived']!==true) throw new RuntimeException('Learner archive did not persist');
+echo "PASS: connected learner creation, enrolment, scoped directory/detail and photo metadata.\n";
 $base='organisations/'.$org.'/attendance';
 $capture=gatewayRequest($base.'/captures','POST',['group_id'=>getenv('FOUNDATION_TEST_GROUP')]);
 if (empty($capture['id'])) { throw new RuntimeException('Capture intent missing'); }
