@@ -349,8 +349,10 @@
     },
     {
       "path": "app/Http/Controllers/ExamController.php",
-      "sha256": "499dc3ababbd7c1e3f1593398ea929c39475988c48abeffec65df2403a6807be",
-      "patches": []
+      "sha256": "6c4b915d66ad8d45a498bb30ac165d6976c513082cc159be87a8064963c5068e",
+      "patches": [
+        "native-open-ended-exam-counter-browser-check-20261007"
+      ]
     },
     {
       "path": "app/Http/Controllers/ExamDocumentController.php",

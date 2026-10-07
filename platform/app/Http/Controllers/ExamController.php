@@ -313,7 +313,10 @@ class ExamController extends Controller
         
         // Active Exams Count
         $activeQuery = clone $statsQuery;
-        $activeExams = $activeQuery->where('status', 'Active')->where('end_date', '>=', Carbon::now())->count();
+        $activeExams = $activeQuery->where('status', 'Active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')->orWhere('end_date', '>=', Carbon::now());
+            })->count();
         
         $totalAttempts = ExamResult::where('organization_id', \App\Support\Tenant::id())->count();
         $totalPassed = ExamResult::where('organization_id', \App\Support\Tenant::id())

@@ -136,4 +136,15 @@ class FoundationExamJourneyTest extends TestCase
         $this->postJson('https://synthetic-exams.test/api/student/exam/submit',['exam_result_id'=>$id])->assertOk()->assertJsonPath('result.result','Pending');
         $this->assertSame('P',ExamStat::where('exam_result_id',$id)->firstOrFail()->ques_status);
     }
+
+    public function test_exam_directory_counts_open_ended_active_exams_only_in_its_tenant(): void
+    {
+        [$org]=$this->owner();
+        $other=Organization::create(['name'=>'Synthetic other','slug'=>'synthetic-other','domain'=>'other.test','status'=>'active']);
+        foreach ([[$org->id,'open',null],[$org->id,'expired',now()->subDay()],[$other->id,'foreign',null]] as [$organisation,$slug,$end]) {
+            Exam::create(['organization_id'=>$organisation,'name'=>'Synthetic '.$slug,'slug'=>$slug,'status'=>'Active','end_date'=>$end,'passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam']);
+        }
+        $this->get('https://synthetic-exams.test/exams')->assertOk()
+            ->assertViewHas('stats',fn($stats)=>$stats['total']===2 && $stats['active']===1);
+    }
 }

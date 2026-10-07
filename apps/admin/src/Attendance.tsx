@@ -221,6 +221,15 @@ export function Attendance({
   async function open(id: string, preserveMarks = false) {
     const d = await api<Detail>(`${base}/${id}`);
     if (!mounted.current) return;
+    if (!d.evidence || !Array.isArray(d.evidence.warnings)
+      || !d.snapshot?.policy || !d.snapshot.centre
+      || !Array.isArray(d.snapshot.roster) || !Array.isArray(d.snapshot.fields)
+      || !d.marks || !Array.isArray(d.extraPhotos) || !Array.isArray(d.reviews)
+      || d.extraPhotos.some(photo => !photo.evidence || !Array.isArray(photo.evidence.warnings))) {
+      setDetail(null);
+      setExtraPhotos([]);
+      throw new Error("This attendance record has incomplete capture evidence. It cannot be reviewed; contact your administrator.");
+    }
     setDetail(d);
     if (!preserveMarks) setMarks(d.marks);
     setExtraPhotos(d.extraPhotos);
