@@ -896,3 +896,21 @@ No automatic retry is introduced. The targeted cleanup transaction test passed
 its stale-manifest and rollback checks and confirmed timeout settings revert to
 the connection defaults after completion. No live cleanup or database setting
 was changed.
+
+
+## Cleanup backup receipt validation — local preparation
+
+`cleanup-backup-proof.mjs` validates matching backup/isolated-restore metadata
+for the future operator executor. It requires the exact archive SHA-256, full
+archive list/decode flags, unchanged live database, a preserved sole administrator
+and valid aggregate restore counts. Backup creation must precede verification;
+future timestamps, malformed values or a backup older than one hour block.
+This conservative freshness window requires a new backup/restore when the
+cutover window is delayed. Two pure boundary tests passed.
+
+This validator is not yet wired to a live cleanup command. The executor must
+also check actual private file ownership/permissions and hash the archive, pause
+writes, capture the frozen deletion manifest and use the transactional core.
+Metadata alone is not proof of a restored database or authorization to delete.
+The earlier preserved backup remains a recovery artifact; no receipt was
+invented and no production deletion or isolated restore occurred.
