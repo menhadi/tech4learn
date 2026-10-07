@@ -825,3 +825,27 @@ targeted test passed without application-code changes after the full 111-test
 workspace check. GitHub temporarily rejected pushes with internal server errors;
 checked commits remain local with an ignored verified recovery bundle until
 pushing succeeds. No deployment was attempted from an unpushed revision.
+
+
+## Fresh-organisation attendance acceptance prerequisites
+
+Source review confirms the embedded attendance page loads explicit tenant
+context and authorised sections, then reuses capture/review/history. Its native
+gateway permits section reads and attendance operations only. It currently
+provides no centre, section or learner creation flow. Therefore a fresh companion
+and staff identity alone cannot make attendance operational.
+
+Before claiming fresh-organisation acceptance, complete and verify: an approved
+attendance centre location/policy; active class/section references; canonical
+learner records enrolled in the intended section; explicit native student links;
+and current staff membership/scopes. The native exam Group model must not be
+assumed to be an attendance section or centre by numeric ID/name matching.
+The existing connected fixture supplies synthetic centre/section/enrolment data
+explicitly; its success does not prove automatic production onboarding.
+
+The implementation still needs native onboarding/lifecycle integration for those
+references and reviewed organisation/staff deactivation propagation. Keep the
+current gateway allowlist narrow while implementing that integration; widening
+it alone would recreate a separate administration product without synchronising
+native identities. No live setup or production acceptance was performed by this
+source review.
