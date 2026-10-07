@@ -111,13 +111,10 @@ class AiProvider
 
     private static function platformConfiguration(): ?Configuration
     {
-        if (! Schema::hasColumn('configurations', 'organization_id') || ! Schema::hasTable('organizations')) {
-            return Configuration::query()->first();
-        }
-        $platformOrganizationId = DB::table('organizations')->where('slug', 'examelite')->value('id');
-        if (! $platformOrganizationId) return Configuration::query()->first();
-        return Configuration::where('organization_id', $platformOrganizationId)->first()
-            ?: Configuration::query()->first();
+        if (! Schema::hasColumn('configurations', 'organization_id') || ! Schema::hasTable('organizations')) return null;
+        $realms = DB::table('organizations')->where('status', 'active')->where('settings->is_primary_platform', true)->pluck('id');
+        if ($realms->count() !== 1) return null;
+        return Configuration::where('organization_id', $realms->first())->first();
     }
 
     private static function usable(?string $key): bool

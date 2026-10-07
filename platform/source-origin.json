@@ -2081,8 +2081,10 @@
     },
     {
       "path": "app/Support/AiProvider.php",
-      "sha256": "bcde58260e77ca117f1f347d99cad11b15d9a7b10c86efac8eca1083e89582ab",
-      "patches": []
+      "sha256": "9254a56551f535f3b616934800ebe080eef300a2a29ce744391470a37008ec0d",
+      "patches": [
+        "explicit-unique-platform-provider-configuration"
+      ]
     },
     {
       "path": "app/Support/AiQuestionPrompt.php",

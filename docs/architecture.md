@@ -25,6 +25,11 @@ organisation, configuration and creation audit are saved in one transaction.
 Local regression tests verify credential isolation and rollback on configuration
 failure. This does not yet provision the attendance-side companion automatically.
 
+Shared AI provider configuration is selected only from the unique active realm
+explicitly marked `is_primary_platform`. Missing or ambiguous platform realms,
+or missing platform configuration, yield no shared provider. Never fall back to
+the first tenant's configuration or infer the platform solely from its slug.
+
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
 checks before executing it. No production cleanup has been executed. Preserve the existing administrator's

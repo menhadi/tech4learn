@@ -34,4 +34,18 @@ class FreshOrganisationConfigurationTest extends TestCase
             $this->assertDatabaseMissing('organizations',['domain'=>'rollback.test']);
         } finally {Event::forget($event);}
     }
+    public function test_platform_provider_lookup_never_falls_back_to_a_tenant_configuration(): void
+    {
+        Organization::query()->update(['settings'=>json_encode(['is_primary_platform'=>false])]);
+        $tenant=Organization::create(['name'=>'Synthetic provider tenant','slug'=>'provider-tenant','domain'=>'provider.test','status'=>'active','settings'=>['is_primary_platform'=>false]]);
+        Configuration::create(['organization_id'=>$tenant->id,'openai_api_key'=>'synthetic-tenant-private']);
+        $method=new \ReflectionMethod(\App\Support\AiProvider::class,'platformConfiguration');
+        $this->assertNull($method->invoke(null));
+        $platform=Organization::create(['name'=>'Synthetic platform','slug'=>'provider-platform','domain'=>'platform.test','status'=>'active','settings'=>['is_primary_platform'=>true]]);
+        $this->assertNull($method->invoke(null));
+        $config=Configuration::create(['organization_id'=>$platform->id,'openai_api_key'=>'synthetic-platform-private']);
+        $this->assertSame($config->id,$method->invoke(null)->id);
+        $tenant->update(['settings'=>['is_primary_platform'=>true]]);
+        $this->assertNull($method->invoke(null));
+    }
 }
