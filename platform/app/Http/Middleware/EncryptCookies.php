@@ -12,6 +12,8 @@ class EncryptCookies extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        // Opaque cookies owned and validated by the existing attendance API.
+        't4l_session',
+        '__Host-t4l_session',
     ];
 }

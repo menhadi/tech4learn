@@ -126,6 +126,11 @@ production transition remain required.
 
 ## Attendance integration boundary
 
+The first implemented read boundary is documented in
+[native attendance bridge](foundation-attendance-bridge.md). It includes explicit
+organisation/staff mappings, revocation and real PHP-to-Nest synthetic read evidence.
+It does not establish full attendance integration or single sign-on.
+
 Keep the existing attendance API, PostgreSQL records, private photos, consent,
 capture evidence, corrections and job leases intact during the transition.
 Relevant existing implementation: `apps/api/src/attendance.controller.ts`,

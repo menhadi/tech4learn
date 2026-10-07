@@ -818,6 +818,11 @@ Route::post('/admin/seo/bulk-generator', [SeoGeneratorController::class, 'bulkGe
 Route::get('/admin/ai-content/bulk-generator', [SeoGeneratorController::class, 'bulkContentForm'])->middleware(['auth', 'checkPageRights', 'plan.feature:ai_content_generation'])->name('admin.ai-content.bulk');
 
 Route::post('/admin/ai-content/bulk-generator', [SeoGeneratorController::class, 'bulkContentGenerate'])->middleware(['auth', 'checkPageRights', 'plan.feature:ai_content_generation'])->name('admin.ai-content.bulk.generate');
+Route::middleware('auth')->group(function () {
+    Route::get('/attendance/context', [\App\Http\Controllers\AttendanceBridgeController::class, 'context'])->name('attendance.context');
+    Route::get('/attendance/records', [\App\Http\Controllers\AttendanceBridgeController::class, 'records'])->name('attendance.records');
+});
+
 Route::middleware('plan.feature:public_website')->get('/{slug}', [WebsiteController::class, 'show'])
     ->where('slug', '^(?!(admin|api|auth|cart|checkout|contact|contact-store|course-detail|courses|exam-detail|exam-groups|guest|index|lang-swap|login|logout|password|previous-year-papers|register|results|student|students|storage|uploads|vendor|robots\.txt|sitemap\.xml)$).+$')
     ->name('page.show');

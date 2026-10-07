@@ -818,8 +818,10 @@
     },
     {
       "path": "app/Http/Middleware/EncryptCookies.php",
-      "sha256": "088eca6e2163bbb949d386c91bd8f5b916dfb278f04cad26da7aad57a9005412",
-      "patches": []
+      "sha256": "70988991a113f533bc0857056545d1dfe22417f37dc9e50848fcaca46ef1b3c0",
+      "patches": [
+        "preserve-api-owned-opaque-attendance-session"
+      ]
     },
     {
       "path": "app/Http/Middleware/EnsureGoogleSheetsAdmin.php",
@@ -177303,8 +177305,10 @@
     },
     {
       "path": "routes/web.php",
-      "sha256": "ddc3382350466c69a5f2c08453e298664455242f3bd0206ec766b9e151fe4ec9",
-      "patches": []
+      "sha256": "b4d8bf28d78ceba027e751e1a7b585672b4786861767c4daa596d5e28ab91a07",
+      "patches": [
+        "authenticated-native-attendance-read-routes"
+      ]
     },
     {
       "path": "routes/web.php.broken",

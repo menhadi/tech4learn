@@ -13,6 +13,10 @@ $loader->addClassMap([
 ]);
 $app = require $base.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+set_exception_handler(function (Throwable $error): void {
+    fwrite(STDERR, get_class($error).': '.$error->getMessage()."\n");
+    exit(1);
+});
 if (!$app->environment('local')) { throw new RuntimeException('Local environment required'); }
 config(['database.connections.sqlite.database' => ':memory:', 'cache.default' => 'array', 'session.driver' => 'array']);
 Illuminate\Support\Facades\DB::purge('sqlite');

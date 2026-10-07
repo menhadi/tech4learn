@@ -1,4 +1,6 @@
 import { FaceControlController } from "./face-control.controller.js";
+import { FoundationController } from "./foundation.controller.js";
+import { FoundationService } from "./foundation.service.js";
 import { ExamStudentAccessService } from "./exam-student-access.service.js";
 import { ExamStudentAttemptService } from "./exam-student-attempt.service.js";
 import { ExamStudentAccessController } from "./exam-student-access.controller.js";
@@ -42,6 +44,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        FoundationController,
         ExamStudentAccessController,
         ExamContentController,
         ExamEliteController,
@@ -59,6 +62,7 @@ export class AppModule {
         LearnersController,
       ],
       providers: [
+        FoundationService,
         ExamStudentAccessService,
         ExamStudentAttemptService,
         ExamContentService,

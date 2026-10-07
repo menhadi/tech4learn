@@ -13,6 +13,12 @@ automatic consequence of the source copy. Laravel numeric identities and
 Tech4Learn UUIDs need explicit organisation/user/student mapping and permission
 checks before attendance access is exposed. No email-based automatic merging.
 
+The first [attendance bridge](foundation-attendance-bridge.md) adds explicit,
+revocable organisation/staff mappings in API migration 17 and native read-only
+context/directory endpoints. It requires both existing sessions and retains the
+API's permissions and location scopes. SSO, learner mappings and the native
+capture/review interface are not implemented by this slice.
+
 Initial source preparation is isolated beneath ignored `.local`; source origin,
 working-tree edits and copied-file hashes are recorded there. Dependencies,
 credentials, uploads, databases, compiled server caches and learner data are not
