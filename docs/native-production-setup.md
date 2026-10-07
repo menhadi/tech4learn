@@ -1253,3 +1253,12 @@ trimming. Upload, submission, teacher publication and student score refresh all
 passed, and the database verifier confirmed the two-mark pass with retained
 evidence. This does not verify scanned-image PDFs, handwriting or Linux
 production runtime availability.
+
+Printed English PNG acceptance passed through the same local student and
+teacher journey (`--subjective --png`, then `--png --grade`). The actual local
+Tesseract executable extracted the synthetic printed answer. Submission,
+teacher publication, student score refresh and the private-evidence database
+check passed. This establishes a controlled printed-text example only;
+handwriting, other languages, physical camera quality and production OCR
+runtime acceptance remain unverified. The PNG fixture uses local GD and a
+Windows system font, stays ignored, and contains no learner data.

@@ -19,6 +19,16 @@ if(in_array('--verify-result',$argv,true)) {
     exit(0);
 }
 $subjective=in_array('--subjective',$argv,true);
+if(in_array('--png',$argv,true)) {
+    if(!$subjective || !function_exists('imagettftext'))throw new RuntimeException('Image fixture requires GD and a written answer');
+    $document=$base.'/synthetic-answer.png';
+    $font='C:/Windows/Fonts/arial.ttf';
+    if(is_link($document) || !is_file($font))throw new RuntimeException('Image fixture unavailable');
+    $image=imagecreatetruecolor(1200,200);
+    imagefill($image,0,0,imagecolorallocate($image,255,255,255));
+    imagettftext($image,36,0,40,110,imagecolorallocate($image,0,0,0),$font,'Synthetic uploaded explanation');
+    imagepng($image,$document);imagedestroy($image);
+}
 if(in_array('--pdf',$argv,true)) {
     if(!$subjective)throw new RuntimeException('PDF fixture requires a written answer');
     $document=$base.'/synthetic-answer.pdf';

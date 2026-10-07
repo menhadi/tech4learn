@@ -31,10 +31,11 @@ try {
   const uploaded=page.waitForResponse(response=>response.url().endsWith('/subjective-upload')&&response.request().method()==='POST');
   const docx=process.argv.includes('--docx');
   const pdf=process.argv.includes('--pdf');
-  await (await chooser).setFiles(pdf?{name:'answer.pdf',mimeType:'application/pdf',buffer:readFileSync(new URL('synthetic-answer.pdf',base))}:docx?{name:'answer.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',buffer:readFileSync(new URL('synthetic-answer.docx',base))}:{name:'answer.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic uploaded explanation')});
+  const png=process.argv.includes('--png');
+  await (await chooser).setFiles(png?{name:'answer.png',mimeType:'image/png',buffer:readFileSync(new URL('synthetic-answer.png',base))}:pdf?{name:'answer.pdf',mimeType:'application/pdf',buffer:readFileSync(new URL('synthetic-answer.pdf',base))}:docx?{name:'answer.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',buffer:readFileSync(new URL('synthetic-answer.docx',base))}:{name:'answer.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic uploaded explanation')});
   if(!(await extracted).ok()||!(await uploaded).ok())throw new Error('Written answer upload failed');
   if(await page.locator('textarea.answer-input').inputValue()!=='Synthetic uploaded explanation')throw new Error('Extracted answer not inserted');
-  console.log('PASS: uploaded '+(pdf?'PDF':docx?'DOCX':'TXT')+' extracted into the answer and evidence saved privately.');
+  console.log('PASS: uploaded '+(png?'PNG':pdf?'PDF':docx?'DOCX':'TXT')+' extracted into the answer and evidence saved privately.');
  } else await page.locator('.answer-input[type="radio"][value="1"]').check();
  const saved=page.waitForResponse(response=>response.url().endsWith('/student/save-answer')&&response.request().method()==='POST');
  await page.locator('#nextButton').click();
