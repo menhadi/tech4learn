@@ -21,6 +21,9 @@ class CheckPageRights
         }
 
         $user = Auth::user();
+        if (\App\Support\VerifiedPlatformAccess::allowed($request,$user)) {
+            return $next($request);
+        }
 
         try {
             if (method_exists($user, 'hasRole') && $user->hasRole('admin')) {

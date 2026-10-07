@@ -562,3 +562,20 @@ is separate from physical source cleanup. No live environment was changed.
 Verification: `npm run check` passed all workspace typechecks/builds and 111 API
 tests, including attendance runtime startup, missing retired routes/shell,
 retained health/protected identity and attendance routes, and invalid-mode refusal.
+
+## Verified platform page permissions — local correction
+
+The initial native platform administrator has no legacy role/page-right records.
+The copied page-right middleware and sidebar previously relied on those records,
+so a valid platform sign-in could still be denied exam administration screens.
+The platform identity middleware now grants a server-only, request-scoped actor
+marker after canonical identity verification. Page rights and sidebar page
+selection accept that marker only with a fresh active, undeleted native admin
+record. No legacy role is assigned and ordinary native staff cannot use this
+path. The marker is removed after successful responses and controller failures;
+the existing canonical pre/post identity checks remain in force.
+
+All 286 native tests / 1,228 assertions passed. New checks verify role-free native
+page access only within a verified request, marker cleanup on failure and refusal
+to promote ordinary staff. This correction is local; production authenticated
+page/menu acceptance remains pending provisioning and routing.

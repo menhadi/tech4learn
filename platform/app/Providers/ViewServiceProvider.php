@@ -26,7 +26,9 @@ class ViewServiceProvider extends ServiceProvider
             $user = Auth::user();
             $groupIds = function_exists('getUserPermissionRoleIds') ? getUserPermissionRoleIds() : [];
 
-            if ($user && ! empty($groupIds)) {
+            if (\App\Support\VerifiedPlatformAccess::allowed(request(),$user)) {
+                $pages = Page::with('children')->orderBy('ordering')->get();
+            } elseif ($user && ! empty($groupIds)) {
                 $pages = Page::with('children')->whereHas('pageRights', function ($query) use ($groupIds) {
                     $query->whereIn('ugroup_id', $groupIds)
                         ->where('view_right', 1);

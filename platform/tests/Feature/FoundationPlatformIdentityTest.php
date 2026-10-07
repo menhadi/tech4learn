@@ -142,6 +142,34 @@ class FoundationPlatformIdentityTest extends TestCase
         $this->assertCount(2,$this->history);
     }
 
+    public function test_verified_platform_actor_can_use_native_page_rights_without_a_legacy_role(): void
+    {
+        $actor=User::findOrFail(1);Auth::guard('web')->setUser($actor);$request=$this->request();
+        $request->session()->put('foundation_platform_identity',$this->identity);
+        $this->bindClient($this->client([$this->response($this->identity),$this->response($this->identity)]));
+        $this->assertFalse(\App\Support\VerifiedPlatformAccess::allowed($request,$actor));
+        $response=(new VerifyPlatformIdentity)->handle($request,function($request)use($actor){
+            $this->assertTrue(\App\Support\VerifiedPlatformAccess::allowed($request,$actor));
+            return (new \App\Http\Middleware\CheckPageRights)->handle($request,fn()=>response('verified exam administration'));
+        });
+        $this->assertSame('verified exam administration',$response->getContent());
+        $this->assertFalse(\App\Support\VerifiedPlatformAccess::allowed($request,$actor));
+    }
+
+    public function test_request_permission_marker_is_cleared_after_failure_and_cannot_promote_staff(): void
+    {
+        $actor=User::findOrFail(1);Auth::guard('web')->setUser($actor);$request=$this->request();
+        $request->session()->put('foundation_platform_identity',$this->identity);
+        $this->bindClient($this->client([$this->response($this->identity)]));
+        try {
+            (new VerifyPlatformIdentity)->handle($request,function(){throw new \RuntimeException('synthetic controller failure');});
+            $this->fail('Expected controller failure');
+        }catch(\RuntimeException $error){$this->assertSame('synthetic controller failure',$error->getMessage());}
+        $this->assertFalse($request->attributes->has('foundation_verified_platform_actor'));
+        $request->attributes->set('foundation_verified_platform_actor','2');
+        $this->assertFalse(\App\Support\VerifiedPlatformAccess::allowed($request,User::findOrFail(2)));
+    }
+
     public function test_revocation_during_controller_withholds_its_private_response(): void
     {
         Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request();

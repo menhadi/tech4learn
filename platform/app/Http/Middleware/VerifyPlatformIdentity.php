@@ -14,6 +14,7 @@ class VerifyPlatformIdentity
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $request->attributes->remove('foundation_verified_platform_actor');
         // Logout must remain usable when the remote account/session was revoked.
         if (!config('attendance.api_url') || ($request->is('logout') && $request->isMethod('POST'))) {
             return $next($request);
@@ -27,10 +28,15 @@ class VerifyPlatformIdentity
         $bridge=app(AttendanceBridge::class);
         $identity=$bridge->platformIdentity($request,$actor);
         abort_unless($identity===$marker,403);
-        $response=$next($request);
-        // Long requests must not release privileged data after role/link revocation.
-        abort_unless($bridge->platformIdentity($request,$actor)===$identity,403);
-        $response->headers->set('Cache-Control','no-store');
-        return $response;
+        $request->attributes->set('foundation_verified_platform_actor',(string)$actor->id);
+        try {
+            $response=$next($request);
+            // Long requests must not release privileged data after role/link revocation.
+            abort_unless($bridge->platformIdentity($request,$actor)===$identity,403);
+            $response->headers->set('Cache-Control','no-store');
+            return $response;
+        } finally {
+            $request->attributes->remove('foundation_verified_platform_actor');
+        }
     }
 }

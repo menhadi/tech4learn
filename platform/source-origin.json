@@ -836,8 +836,10 @@
     },
     {
       "path": "app/Http/Middleware/CheckPageRights.php",
-      "sha256": "64772aa8998d2d71942b7bd52f59b860bec90e76b03a7e379a1459d83617e25e",
-      "patches": []
+      "sha256": "b725cad0b7ced9bff949c5fb4000a02abb037b5a1b60fa664a3c34b9e2af57d8",
+      "patches": [
+        "tech4learn-verified-platform-page-access"
+      ]
     },
     {
       "path": "app/Http/Middleware/EncryptCookies.php",
@@ -1609,8 +1611,10 @@
     },
     {
       "path": "app/Providers/ViewServiceProvider.php",
-      "sha256": "e5da7274ccc6b0c437754ef9d88b9903c8914361b73359f9417b27565807cd74",
-      "patches": []
+      "sha256": "5224b5909b2a892f1c046fc6bd011a10df8a380d46c9d5ba07b871c73e5351d4",
+      "patches": [
+        "tech4learn-verified-platform-page-access"
+      ]
     },
     {
       "path": "app/Services/AdmissionDatasetLifecycleService.php",
