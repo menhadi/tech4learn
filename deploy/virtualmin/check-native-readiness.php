@@ -41,6 +41,7 @@ try {
     $applied = $db->query('SELECT migration FROM migrations')->fetchAll(PDO::FETCH_COLUMN);
     $expected = array_map(fn ($file) => basename($file, '.php'), glob($root.'/database/migrations/*.php'));
     $check(count(array_diff($expected, $applied)) === 0, 'all checked native migrations applied');
+    $check((int)$db->query("SELECT COUNT(DISTINCT action_name) FROM pages WHERE action_name IN ('exams.index','questions.index','students.index')")->fetchColumn() === 3, 'native exams, questions and students menu entries present');
     $check((int)$db->query("SELECT COUNT(*) FROM organizations WHERE domain = 'tech4learn.com' AND status = 'active'")->fetchColumn() === 1, 'active canonical website organisation');
     $check((int)$db->query("SELECT COUNT(*) FROM organizations WHERE status = 'active' AND JSON_EXTRACT(settings, '$.is_primary_platform') = true")->fetchColumn() === 1
         && (int)$db->query("SELECT COUNT(*) FROM organizations WHERE domain = 'tech4learn.com' AND status = 'active' AND JSON_EXTRACT(settings, '$.is_primary_platform') = true")->fetchColumn() === 1, 'unique active primary platform realm on canonical website');

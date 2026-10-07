@@ -579,3 +579,13 @@ All 286 native tests / 1,228 assertions passed. New checks verify role-free nati
 page access only within a verified request, marker cleanup on failure and refusal
 to promote ordinary staff. This correction is local; production authenticated
 page/menu acceptance remains pending provisioning and routing.
+
+The connected real PHP-to-Nest fixture now exercises `CheckPageRights` inside the
+verified platform middleware after password sign-in, then checks request-marker
+cleanup, link revocation during a controller and logout. Ordinary tenant attendance
+capture/review/history and learner identity checks remain in the same connected
+run. A read-only native production menu inventory found 46 menu entries, including
+all three core exam/question/student entries; no menu reseeding was performed.
+The native readiness gate now requires those three entries before cutover.
+This verifies the connected middleware path and menu configuration, not actual
+authenticated production browser acceptance.

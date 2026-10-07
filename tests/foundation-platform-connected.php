@@ -30,8 +30,10 @@ $request->setLaravelSession($login->session());
 $request->setUserResolver(fn()=>Illuminate\Support\Facades\Auth::guard('web')->user());
 $app->instance('request',$request);
 $middleware=new App\Http\Middleware\VerifyPlatformIdentity;
-$response=$middleware->handle($request,fn()=>response('Synthetic protected platform page'));
+$response=$middleware->handle($request,fn($request)=>(new App\Http\Middleware\CheckPageRights)
+    ->handle($request,fn()=>response('Synthetic protected platform page')));
 if ($response->getContent()!=='Synthetic protected platform page')throw new RuntimeException('Connected platform page was not authorized');
+if ($request->attributes->has('foundation_verified_platform_actor'))throw new RuntimeException('Connected platform permission marker survived the request');
 $http=new GuzzleHttp\Client(['http_errors'=>false,'allow_redirects'=>false,'timeout'=>5]);
 try {
     $middleware->handle($request,function()use($http,$api,$token){
@@ -53,4 +55,4 @@ try {
 }catch(Symfony\Component\HttpKernel\Exception\HttpException $error){
     if($error->getStatusCode()!==401)throw $error;
 }
-echo "PASS: connected platform password sign-in, private metadata, protected response, mid-request link revocation and logout.\n";
+echo "PASS: connected platform password sign-in, native page rights, private metadata, protected response, mid-request link revocation and logout.\n";
