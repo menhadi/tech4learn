@@ -1291,3 +1291,9 @@ case: during the fake HTTP response the teacher's one-mark grade is persisted,
 then AI saving returns HTTP 409 and leaves that grade and total unchanged.
 The test blocks stray HTTP requests and uses no real provider credential or
 learner data. Real provider and production concurrency acceptance remain pending.
+
+A second simulated provider test verified an out-of-range score of 999 is capped
+at the question's two-mark maximum, remains pending teacher publication, and is
+not reassessed on a bulk retry. The teacher then overrides the suggestion and
+publishes the final total. All eleven local marking tests passed (51 assertions);
+these tests fake provider HTTP responses and establish no real AI quality claim.

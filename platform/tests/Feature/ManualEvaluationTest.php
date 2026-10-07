@@ -128,4 +128,23 @@ class ManualEvaluationTest extends TestCase
         $this->assertEquals(1,$result->fresh()->obtained_marks);
         $this->assertFalse((bool)$stats[0]->fresh()->ai_assessed);
     }
+    public function test_simulated_ai_score_is_bounded_and_requires_teacher_publication(): void
+    {
+        [$result,$stats]=$this->fixture();
+        \App\Models\Configuration::create(['organization_id'=>$result->organization_id,'openai_api_key'=>'synthetic-never-sent','openai_model'=>'synthetic-model','ai_provider'=>'openai']);
+        DB::table('exam_stats')->where('id',$stats[0]->id)->update(['answer'=>'Synthetic explanation']);
+        Http::preventStrayRequests();
+        Http::fake(['https://api.openai.com/*'=>Http::response(['choices'=>[['message'=>['content'=>'{"score":999}']]]])]);
+        $this->postJson('https://grading.test/ai/subjective/bulk-assess')->assertOk()->assertJson(['total'=>1]);
+        Http::assertSentCount(1);
+        $this->assertEquals(2,$stats[0]->fresh()->marks_obtained);
+        $this->assertEquals(2,$stats[0]->fresh()->ai_score);
+        $this->assertSame('P',$stats[0]->fresh()->ques_status);
+        $this->assertSame('Pending',$result->fresh()->result);
+        $this->postJson('https://grading.test/ai/subjective/bulk-assess')->assertOk()->assertJson(['total'=>0]);
+        Http::assertSentCount(1);
+        $this->grade($result,[$stats[0]->id=>1.5,$stats[1]->id=>1])->assertRedirect();
+        $this->assertSame('Pass',$result->fresh()->result);
+        $this->assertEquals(2.5,$result->fresh()->obtained_marks);
+    }
 }
