@@ -211,7 +211,7 @@ export class FoundationService {
     const access = await this.access.require(actor, mapped.organisation_id, "attendance.view");
     return { nativeOrganisationId: native, nativeUserId: user, userId: actor.id,
       organisation: { id: mapped.organisation_id, name: mapped.name },
-      permissions: access.permissions.filter(p => p.startsWith("attendance.") || p === "groups.view"),
+      permissions: access.permissions.filter(p => p.startsWith("attendance.") || ["groups.view","groups.create","groups.edit","groups.archive","centres.view"].includes(p)),
       scope: { type: access.scope_type, ids: access.scope_ids } };
   }
   async loginIdentity(actor: Account, nativeValue: unknown) {

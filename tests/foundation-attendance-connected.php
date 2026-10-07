@@ -35,6 +35,13 @@ function gatewayRequest(string $path, string $method='GET', ?array $body=null): 
     if (!in_array($response->getStatusCode(),[200,201],true)) { throw new RuntimeException('Connected attendance action rejected: '.$response->getContent()); }
     return json_decode($response->getContent(),true);
 }
+$setup='organisations/'.$org;
+foreach (['centres','academic-years','classes','groups'] as $resource) {
+    if (count(gatewayRequest($setup.'/'.$resource))<1) throw new RuntimeException('Academic setup directory was not forwarded');
+}
+$createdYear=gatewayRequest($setup.'/academic-years','POST',['name'=>'Synthetic gateway year','starts_on'=>'2027-04-01','ends_on'=>'2028-03-31']);
+if (empty($createdYear['id'])) throw new RuntimeException('Academic setup write failed');
+echo "PASS: connected scoped academic directories and year creation through native gateway.\n";
 $base='organisations/'.$org.'/attendance';
 $capture=gatewayRequest($base.'/captures','POST',['group_id'=>getenv('FOUNDATION_TEST_GROUP')]);
 if (empty($capture['id'])) { throw new RuntimeException('Capture intent missing'); }

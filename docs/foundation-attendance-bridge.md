@@ -36,7 +36,7 @@ Build with the admin workspace build; generated assets are ignored under
 
 Every gateway request checks current native authority and the exact mapped API
 account. Client organisation UUIDs must match the resolved link. Only approved
-attendance/group paths and GET/POST/PATCH methods are forwarded. Native CSRF and
+attendance and academic setup paths and their allowed methods are forwarded. Native CSRF and
 existing API Origin/JSON/custom-header checks protect writes. JSON values including
 empty objects are preserved. Both systems' current module, permission and location
 scope checks remain in force. Context is rechecked after the remote operation;
@@ -87,3 +87,26 @@ Native API result summaries follow the stored result_after_finish setting. Hidde
 ## Browser verification — 7 October 2026
 
 The right-panel browser signed in through the mapped native login and loaded both native exams and attendance. The attendance directory, synthetic learner review, confirmation, saved draft clearing, daily totals and history count were verified in the UI. A deliberately incomplete synthetic record exposed a rendering crash; review now rejects missing evidence/snapshot collections with a clear error while retaining the directory. No real learner photo/location or browser camera/location permission was used. The native active-exam counter now includes exams without an end date while excluding expired and foreign-tenant exams. Six focused native regression tests (48 assertions) and npm run check (99 API tests, typechecks/builds) passed for these changes. This is initial browser acceptance, not a complete mobile or production release.
+
+## Embedded academic setup
+
+The attendance workspace now includes a permission-filtered Classes and sections
+view using the existing AcademicStructure, GroupedMenu, DraftForm and table
+components. It can create and archive years/classes, and create, edit and archive
+sections for accessible existing centres. Section actions return to attendance
+with that section selected. Scoped drafts remain inside the mapped user and
+organisation boundary. Archived sections remain visible through the academic
+view filter while capture options exclude them.
+
+The native gateway allows centre reads and exact academic-year/class/section
+paths with bounded methods. API permission, scope and version checks remain
+authoritative, and both mappings are rechecked before returning a response.
+It does not expose centre writes, learner provisioning, platform management or
+arbitrary API routes. Centre creation/approval and explicit native student links
+still require the separately managed setup; automatic onboarding remains pending.
+
+Synthetic connected checks cover scoped academic reads and a year creation through
+the PHP gateway followed by attendance capture, review and history. Production
+activation and actual browser acceptance remain pending. The matching scaffold
+check passed all 111 API tests, workspace typechecks and both admin builds;
+native gateway boundary and connected PHP-to-Nest checks also passed.

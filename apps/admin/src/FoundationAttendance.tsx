@@ -2,21 +2,26 @@ import { useEffect, useState } from "react";
 import { Attendance } from "./Attendance";
 import { DraftScope } from "./DraftForm";
 import { api } from "./api";
-import type { AcademicGroup } from "./AcademicStructure";
+import { GroupedMenu } from "./GroupedMenu";
+import { AcademicStructure, type AcademicGroup } from "./AcademicStructure";
 
 export type FoundationContext = {
   userId: string;
   organisation: { id: string; name: string };
   permissions: string[];
+  scope: { type: string; ids: string[] };
 };
 
 export function FoundationAttendance() {
   const [context,setContext]=useState<FoundationContext|null>(null);
   const [groups,setGroups]=useState<AcademicGroup[]>([]);
+  const [page,setPage]=useState("attendance");
+  const [selectedGroup,setSelectedGroup]=useState("");
+  const [centres,setCentres]=useState<{id:string;name:string;archived:boolean}[]>([]);
   const [error,setError]=useState("");
   const [revision,setRevision]=useState(0);
   useEffect(()=>{
-    const reload=()=>{setContext(null);setRevision(v=>v+1);};
+    const reload=()=>{setContext(null);setPage("attendance");setRevision(v=>v+1);};
     window.addEventListener('t4l:foundation-access-changed',reload);
     return()=>window.removeEventListener('t4l:foundation-access-changed',reload);
   },[]);
@@ -30,7 +35,8 @@ export function FoundationAttendance() {
       const resolved=data as FoundationContext;
       if(!resolved?.userId||!resolved.organisation?.id||!resolved.permissions?.includes('attendance.view'))throw new Error("You do not have attendance access.");
       const sections=resolved.permissions.includes('groups.view')?await api<AcademicGroup[]>(`/organisations/${resolved.organisation.id}/groups`):[];
-      if(current){setGroups(sections.filter(g=>!g.archived));setContext(resolved);}
+      const locations=resolved.permissions.includes("centres.view")?await api<{id:string;name:string;archived:boolean}[]>(`/organisations/${resolved.organisation.id}/centres`):[];
+      if(current){setCentres(locations);setGroups(sections);setContext(resolved);}
     })().catch(e=>{if(current)setError(e instanceof Error?e.message:"Attendance could not load.");});
     return()=>{current=false;};
   },[revision]);
@@ -39,7 +45,11 @@ export function FoundationAttendance() {
     {error?<div role="alert"><p>{error}</p><button type="button" onClick={()=>setRevision(v=>v+1)}>Retry</button> <a href="/login">Sign in again</a></div>:!context?<p role="status">Loading attendance…</p>:
       <DraftScope user={context.userId} org={context.organisation.id}>
         {context.permissions.includes('attendance.capture')&&!context.permissions.includes('groups.view')&&<p role="status">Section access is required to start a capture. Daily attendance and permitted reviews remain available below.</p>}
-        <Attendance org={context.organisation.id} groups={groups} permissions={context.permissions} mode="all"/>
+        <GroupedMenu label="Attendance navigation" active={page} onSelect={setPage} groups={[{id:"attendance",label:"Attendance",icon:"attendance",items:[{id:"attendance",label:"Daily attendance"},...(context.permissions.includes('groups.view')&&context.permissions.includes('centres.view')?[{id:"structure",label:"Classes and sections"}]:[])]}]}/>
+        {page==='structure'&&context.permissions.includes('groups.view')&&context.permissions.includes('centres.view') ? <>
+          <p>Use an approved attendance centre to organise years, classes and sections. Centre creation and native student linking are still managed separately.</p>
+          <AcademicStructure org={context.organisation.id} centres={centres} groups={groups} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>{const rows=await api<AcademicGroup[]>(`/organisations/${context.organisation.id}/groups`);setGroups(rows);}} onStudents={()=>{}} onAttendance={id=>{setSelectedGroup(id);setPage('attendance');}}/>
+        </> : <Attendance org={context.organisation.id} groups={groups.filter(g=>!g.archived)} permissions={context.permissions} mode="all" initialGroup={selectedGroup}/>}
       </DraftScope>}
   </section>;
 }

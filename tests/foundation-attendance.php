@@ -94,6 +94,16 @@ $h=[];$mock=clientMock([responseJson($context),responseJson(['rows'=>[]]),respon
 $proxied=$bridge->gateway($request,$path,$mock);
 if ($proxied->headers->get('Cache-Control')!=='no-store, private' && $proxied->headers->get('Cache-Control')!=='no-store') { throw new RuntimeException('Gateway cache policy failed'); }
 if (json_decode($proxied->getContent(),true)!==['rows'=>[]]) { throw new RuntimeException('Gateway JSON changed'); }
+foreach (['centres','academic-years','classes','groups'] as $resource) {
+    $h=[];$mock=clientMock([responseJson($context),responseJson([]),responseJson($context)],$h);
+    $bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/'.$resource,$mock);
+}
+$setupWrite=Illuminate\Http\Request::create('https://two.example.invalid/attendance/api/setup','POST',[],['t4l_session'=>str_repeat('d',64)],[],['CONTENT_TYPE'=>'application/json'],'{"name":"Synthetic year"}');
+$setupWrite->setUserResolver(fn()=>Illuminate\Support\Facades\Auth::user());
+$h=[];$mock=clientMock([responseJson($context),responseJson(['id'=>'synthetic']),responseJson($context)],$h);
+$bridge->gateway($setupWrite,'organisations/11111111-1111-4111-8111-111111111111/academic-years',$mock);
+statusDenied(405,fn()=>$bridge->gateway($setupWrite,'organisations/11111111-1111-4111-8111-111111111111/centres',$http));
+statusDenied(404,fn()=>$bridge->gateway($request,'organisations/11111111-1111-4111-8111-111111111111/classes/arbitrary',$http));
 statusDenied(404,fn()=>$bridge->gateway($request,'platform/foundation/organisations',$http));
 $h=[];$mock=clientMock([responseJson($context)],$h);
 statusDenied(404,fn()=>$bridge->gateway($request,str_replace('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',$path),$mock));

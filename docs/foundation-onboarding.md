@@ -71,5 +71,7 @@ records service creates the section. The learner service creates the learner
 and current enrolment; the platform identity service links the native student.
 The connected attendance journey passes using these synthetic service-created
 records. Separate synthetic directory/history records still exercise isolation.
-This verifies the local backend setup sequence, not Laravel setup screens,
-automatic onboarding or production acceptance.
+This verifies the local backend setup sequence, not automatic onboarding or production acceptance. The embedded Classes and
+sections view now reuses the existing academic setup forms for accessible
+centres. Centre creation/approval and learner provisioning/linking are not yet
+exposed through that embedded view.

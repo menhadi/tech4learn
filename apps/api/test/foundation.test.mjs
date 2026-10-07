@@ -64,7 +64,7 @@ test('foundation identity links require explicit accounts, current authority and
       assert.equal((await request(context.replace('/7/','/8/'),'GET',undefined,'staff')).status,404);
       const res=await request(context,'GET',undefined,'staff'); assert.equal(res.status,200);
       assert.equal(res.headers.get('cache-control'),'no-store');
-      const body=await res.json(); assert.equal(body.organisation.id,orgA); assert.ok(body.permissions.includes('attendance.view'));
+      const body=await res.json(); assert.equal(body.organisation.id,orgA); assert.ok(body.permissions.includes('attendance.view')); assert.ok(body.permissions.includes('groups.create')); assert.ok(body.permissions.includes('centres.view')); assert.ok(!body.permissions.includes('learners.view'));
       assert.equal(body.nativeUserId,'9'); assert.equal(body.scope.type,'organisation');
     });
     await t.test('one-login identity uses the stored link and revokes sessions on failed mapping',async()=>{
