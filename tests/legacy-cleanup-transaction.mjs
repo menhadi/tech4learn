@@ -28,6 +28,15 @@ test('cleanup removes only frozen old organisations, revokes sessions and preser
   staleMedia.media.push({table:'synthetic_media',column:'content',objects:'1',bytes:'1'});
   await assert.rejects(cleanupLegacyOrganisationRecords(db,staleMedia),/manifest changed/);
   assert.equal((await pg.query('SELECT count(*)::integer AS total FROM sessions')).rows[0].total,1);
+  // Replacing a member leaves scoped row counts unchanged, but changes deletion ownership.
+  const replacement=randomUUID();
+  await pg.query("INSERT INTO users(id,email,name,password_hash,is_superadmin) VALUES($1,'replacement@example.invalid','Replacement','unused',false)",[replacement]);
+  await pg.query('UPDATE memberships SET user_id=$1 WHERE user_id=$2 AND organisation_id=$3',[replacement,teacher,old]);
+  await assert.rejects(cleanupLegacyOrganisationRecords(db,manifest),/account snapshot changed/);
+  assert.equal((await pg.query('SELECT count(*)::integer AS total FROM sessions')).rows[0].total,1);
+  assert.equal((await pg.query('SELECT user_id FROM memberships WHERE organisation_id=$1',[old])).rows[0].user_id,replacement);
+  await pg.query('UPDATE memberships SET user_id=$1 WHERE user_id=$2 AND organisation_id=$3',[teacher,replacement,old]);
+  await pg.query('DELETE FROM users WHERE id=$1',[replacement]);
   const failing={transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>{
     if(q.startsWith('DELETE FROM public."foundation_organisations"'))throw new Error('Synthetic mid-cleanup failure');
     return sql.query(q,p);

@@ -21,6 +21,7 @@ export async function cleanupLegacyOrganisationRecords(database,manifest) {
     || !manifest.organisationIds.length || manifest.organisationIds.some(id=>!uuid(id))
     || new Set(manifest.organisationIds).size!==manifest.organisationIds.length
     || !Array.isArray(manifest.oldUserIds) || manifest.oldUserIds.some(id=>!uuid(id) || id===manifest.administratorId)
+    || new Set(manifest.oldUserIds).size!==manifest.oldUserIds.length
     || !Array.isArray(manifest.media) || !Array.isArray(manifest.plan) || !/^[a-f0-9]{64}$/.test(manifest.administratorPasswordDigest))throw new Error('Invalid private cleanup manifest');
   return database.transaction(async sql=>{
     await sql.query("SET LOCAL lock_timeout='5s'");
@@ -36,6 +37,8 @@ export async function cleanupLegacyOrganisationRecords(database,manifest) {
     const roots=await sql.query('SELECT id,password_hash FROM users WHERE is_superadmin');
     if(roots.rows.length!==1 || roots.rows[0].id!==manifest.administratorId
       || digest(roots.rows[0].password_hash)!==manifest.administratorPasswordDigest)throw new Error('Administrator identity changed');
+    const currentOldUsers=(await sql.query('SELECT DISTINCT u.id FROM users u JOIN memberships m ON m.user_id=u.id WHERE m.organisation_id=ANY($1::uuid[]) AND NOT u.is_superadmin ORDER BY u.id',[manifest.organisationIds])).rows.map(r=>r.id);
+    if(JSON.stringify(currentOldUsers)!==JSON.stringify([...manifest.oldUserIds].sort()))throw new Error('Cleanup account snapshot changed; review again');
     const native=(await sql.query('SELECT native_id::text FROM foundation_organisations WHERE organisation_id=ANY($1::uuid[])',[manifest.organisationIds])).rows.map(r=>r.native_id);
     const users=(await sql.query('SELECT DISTINCT user_id FROM memberships WHERE organisation_id=ANY($1::uuid[])',[manifest.organisationIds])).rows.map(r=>r.user_id);
     // Revoke sessions belonging to previous organisation members, including the admin.

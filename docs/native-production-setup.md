@@ -871,3 +871,16 @@ provisioning time; a read-only report does not lock authority across databases.
 
 Pure boundary checks and CLI PHP syntax validation passed. No production
 identity review/provisioning or native application behaviour was changed.
+
+
+## Frozen cleanup account set — local correction
+
+The internal cleanup transaction now rechecks the exact non-admin account UUID
+set belonging to the frozen previous organisations after all dependency locks
+are held. Replacing a membership can preserve table row counts while changing
+which account would be retired; that now blocks cleanup for manifest review.
+Duplicate account IDs also fail manifest validation. The regression test replaces
+an organisation member without changing counts and verifies refusal before
+session or data deletion, then restores the synthetic fixture and checks the
+normal cleanup path. All six plan/transaction/restore-target tests passed. No
+production cleanup was executed; isolated restore verification remains pending.
