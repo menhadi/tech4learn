@@ -181,6 +181,9 @@
                     </li>
                 @endif
 
+                @if(config('attendance.api_url') && Auth::check())
+                    <li class="nav-item"><a href="{{ route('attendance.workspace') }}" class="nav-link {{ request()->routeIs('attendance.*') ? 'active' : '' }}"><i class="ri-calendar-check-line"></i><span>Attendance</span></a></li>
+                @endif
                 @foreach(($sidebarGroups ?? collect([['label' => 'Menu', 'icon' => 'ri-menu-line', 'pages' => $pages]])) as $groupIndex => $group)
                     @php
                         $groupPages = collect($group['pages'] ?? []);

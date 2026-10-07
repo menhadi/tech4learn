@@ -88,6 +88,7 @@ class StudentExamsController extends Controller
     {
         $exam = $this->tenantExamQuery()->with(['questions.subject', 'questions.qtype', 'questions.langs'])->findOrFail($id);
         abort_unless($exam->canAttemptOnline(), 409, 'This paper is currently available as a PDF download only.');
+        abort_unless($exam->isAvailableAt(), 403, 'This exam is outside its scheduled availability.');
         $languageService = app(\App\Services\ExamLanguageService::class);
         $selectedLanguage = $languageService->resolve($exam, $request->query('lang'));
         $selectedLanguageId = $selectedLanguage?->id;
@@ -193,7 +194,7 @@ class StudentExamsController extends Controller
         }
         if ($existingStats->isNotEmpty()) {
             $orderedQuestions = collect();
-            // ✅ CRITICAL FIX: keyBy('question_id') ensures status mapping works
+            // âœ… CRITICAL FIX: keyBy('question_id') ensures status mapping works
             $statsMap = $existingStats->keyBy('question_id');
             
             foreach ($existingStats as $stat) {
@@ -248,7 +249,7 @@ class StudentExamsController extends Controller
                     'attempt_time' => $index === 0 ? Carbon::now() : null,
                     'bookmark' => false,
                 ]);
-                // ✅ Key by question_id for new stats as well
+                // âœ… Key by question_id for new stats as well
                 $newStats->put($question->id, $stat);
             }
             \DB::commit();
@@ -379,7 +380,7 @@ class StudentExamsController extends Controller
         
         $testTime = $startTime->diffInSeconds($endTime, false);
 
-        // ✅ FIX FOR TIME ISSUE: Cap time at Max Duration (Handles Network Latency)
+        // âœ… FIX FOR TIME ISSUE: Cap time at Max Duration (Handles Network Latency)
         if ($exam->duration > 0) {
             $maxDurationInSeconds = $exam->duration * 60;
             // Agar calculated time Duration se zyada hai, to Duration hi maano

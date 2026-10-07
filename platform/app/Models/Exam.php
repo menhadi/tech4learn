@@ -9,6 +9,23 @@ class Exam extends Model
 {
     use HasFactory;
 
+    public function availabilityStatus(?\Carbon\CarbonInterface $at = null): string
+    {
+        $at ??= now();
+        if ($this->start_date && $at->lt($this->start_date)) {
+            return 'Upcoming';
+        }
+        if ($this->end_date && $at->gt($this->end_date)) {
+            return 'Expired';
+        }
+        return 'Live';
+    }
+
+    public function isAvailableAt(?\Carbon\CarbonInterface $at = null): bool
+    {
+        return $this->availabilityStatus($at) === 'Live';
+    }
+
     public const TEST_TYPE_FULL_LENGTH = 'full_length';
     public const TEST_TYPE_SUBJECT = 'subject_test';
     public const TEST_TYPE_TOPIC = 'topic_test';
@@ -51,6 +68,7 @@ class Exam extends Model
         'attempt_count',
         'start_date',
         'end_date',
+        'offline_enabled',
         'show_answer_sheet',
         'negative_marking',
         'random_question',
@@ -82,6 +100,7 @@ class Exam extends Model
 
 
     protected $casts = [
+        'offline_enabled' => 'boolean',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
         'is_student_practice' => 'boolean',
@@ -146,8 +165,8 @@ class Exam extends Model
     public function canAttemptOnline(): bool
     {
         if ($this->status !== 'Active') return false;
-        if ($this->relationLoaded('questions')) return $this->questions->contains(fn ($question) => strtolower((string) $question->status) === 'active');
-        return $this->questions()->where('questions.status', 'active')->exists();
+        if ($this->relationLoaded('questions')) return $this->questions->contains(fn ($question) => in_array(strtolower((string) $question->status), ['active','yes'], true));
+        return $this->questions()->whereIn('questions.status', ['active','Active','Yes','yes'])->exists();
     }
 
     public function scopeStandalonePdfPapers($query)

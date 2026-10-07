@@ -43,7 +43,6 @@ class Question extends Model
         'status',
         'correct_option_indices',
         'si_answer1',
-        'language_id'
     ];
 
     protected $casts = [

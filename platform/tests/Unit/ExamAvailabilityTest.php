@@ -5,7 +5,7 @@ namespace Tests\Unit;
 use App\Models\Exam;
 use App\Services\ExamWorkbookService;
 use Illuminate\Support\Carbon;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class ExamAvailabilityTest extends TestCase
 {

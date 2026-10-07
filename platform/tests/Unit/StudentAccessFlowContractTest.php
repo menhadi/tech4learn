@@ -31,8 +31,11 @@ class StudentAccessFlowContractTest extends TestCase
         );
         $this->assertStringContainsString("json_encode(['1' => \$otp])", $service);
         $this->assertStringNotContainsString("strtok(\$message, ' ')", $service);
-        $this->assertStringContainsString('Only the newest code will work.', $view);
-        $this->assertStringContainsString('WhatsApp has already been tried twice.', $view);
+        $this->assertStringContainsString("__('ui.otp_security_copy')", $view);
+        $translations = $this->source('lang/en/ui.php');
+        $this->assertStringContainsString('Only the newest code will work.', $translations);
+        $this->assertStringContainsString("__('ui.whatsapp_limit_copy')", $view);
+        $this->assertStringContainsString('WhatsApp has already been tried twice.', $translations);
     }
 
     public function test_inactive_exams_are_excluded_from_public_student_and_guest_surfaces(): void
@@ -97,6 +100,6 @@ class StudentAccessFlowContractTest extends TestCase
 
     private function source(string $path): string
     {
-        return (string) file_get_contents(dirname(__DIR__, 2).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path));
+        return str_replace("\r\n", "\n", (string) file_get_contents(dirname(__DIR__, 2).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path)));
     }
 }

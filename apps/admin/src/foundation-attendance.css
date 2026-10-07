@@ -1,0 +1,8 @@
+#foundation-attendance { min-width:0; max-width:100%; }
+#foundation-attendance .workspace { display:block; min-height:0; padding:0; }
+#foundation-attendance .org-workspace { padding:20px; margin:0; }
+#foundation-attendance .panel { box-shadow:none; }
+#foundation-attendance .org-workspace > header { margin-bottom:20px; }
+#foundation-attendance .directory-table { max-width:100%; }
+#foundation-attendance video { max-width:100%; }
+@media(max-width:700px) { #foundation-attendance .org-workspace { padding:12px; } }

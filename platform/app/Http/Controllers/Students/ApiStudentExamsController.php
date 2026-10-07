@@ -11,6 +11,8 @@ use App\Models\ExamResult;
 use App\Models\ExamSubjectDuration;
 use App\Models\ExamProctorImage;
 use App\Models\Language;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ApiStudentExamsController extends Controller
 {
@@ -37,6 +39,7 @@ class ApiStudentExamsController extends Controller
         
         $exam = $this->tenantExamQuery()->with(['questions.subject', 'questions.qtype'])->findOrFail($id);
         abort_unless($exam->canAttemptOnline(), 409, 'This paper is currently available as a PDF download only.');
+        abort_unless($exam->isAvailableAt(), 403, 'This exam is outside its scheduled availability.');
         $groupingService = app(\App\Services\ExamGroupingService::class);
         $groupingService->decorate($exam, $exam->questions);
 
@@ -194,7 +197,7 @@ class ApiStudentExamsController extends Controller
             'exam' => $exam,
             'remainingTime' => $remainingTime,
             'examResult' => $examResult,
-            'examStats' => $examStats, // App ko pata chal jayega ki kaunse answered hain
+            'examStats' => $examStats->map(fn ($stat) => $stat->makeHidden(['correct_answer'])),
             'subjectDurations' => $subjectDurations,
             'languages' => $languages
         ]);
@@ -292,36 +295,103 @@ class ApiStudentExamsController extends Controller
      */
     private function finalizeExam(ExamResult $examResult, Exam $exam)
     {
+        return DB::transaction(function () use ($examResult,$exam) {
+        $examResult=ExamResult::whereKey($examResult->id)->lockForUpdate()->firstOrFail();
+        if ($examResult->end_time !== null) {
+            return ['exam_result_id'=>$examResult->id,'result'=>$examResult->result,'percent'=>$examResult->percent,
+                'obtained_marks'=>$examResult->obtained_marks,'total_marks'=>$examResult->total_marks,'result_after_finish'=>$exam->result_after_finish];
+        }
         $startTime = Carbon::parse($examResult->start_time)->setTimezone(config('app.timezone'));
         $endTime = Carbon::now()->setTimezone(config('app.timezone'));
         $testTime = $startTime->diffInSeconds($endTime, false);
 
         if ($testTime < 0) $testTime = 0;
 
-        $examStats = ExamStat::with(['question.qtype'])->where('exam_result_id', $examResult->id)->get();
+        $examStats = ExamStat::with(['question.qtype'])->where('exam_result_id', $examResult->id)->lockForUpdate()->get();
         $obtainedMarks = 0;
-        
+        $hasManualGrading = false;
+
         foreach($examStats as $stat) {
-            $isCorrect = false;
-            $marksObtained = 0;
+            if (! $stat->question) {
+                Log::warning('Exam finalization skipped an orphaned answer record.', [
+                    'exam_result_id' => $examResult->id,
+                    'exam_stat_id' => $stat->id,
+                    'question_id' => $stat->question_id,
+                ]);
+                $stat->update(['ques_status' => 'P', 'marks_obtained' => 0]);
+                $hasManualGrading = true;
+                continue;
+            }
+
+            // Check for Subjective Questions
+            $isSubjective = false;
+            $qTypeChar = 'M';
+
+            if ($stat->question && $stat->question->qtype) {
+                $qTypeChar = $stat->question->qtype->type;
+                $typeName = strtolower($stat->question->qtype->question_type ?? '');
+
+                if (str_contains($typeName, 'text') || str_contains($typeName, 'subjective') || str_contains($typeName, 'descriptive') || $qTypeChar == 'S') {
+                    $isSubjective = true;
+                }
+            } else {
+                // If NO options and NO true/false, assume subjective
+                if ($stat->question->correctOptionIndices() === [] && !$stat->question->true_false && !$stat->question->fill_blank) {
+                    $isSubjective = true;
+                }
+            }
 
             $marksToAll = $stat->question && app(\App\Services\QuestionAnswerEvaluator::class)->awardsMarksToAll($stat->question);
 
-            if (($stat->answered || $marksToAll) && $stat->question) {
-                $isCorrect = app(\App\Services\QuestionAnswerEvaluator::class)->isCorrect($stat->question, $stat);
+            if ($isSubjective && ! $marksToAll) {
+                $stat->update(['ques_status' => 'P', 'marks_obtained' => 0]);
+                $hasManualGrading = true;
+                continue;
             }
 
-            if ($isCorrect) $marksObtained = $stat->marks;
-            elseif ($stat->answered && ! $marksToAll && $stat->negative_marks) $marksObtained = -1 * $stat->negative_marks;
+            // Grading Logic
+            $isCorrect = false;
+            $marksObtained = 0;
+            $finalStatus = 'S';
 
-            $stat->update(['ques_status' => $isCorrect ? 'R' : 'W', 'marks_obtained' => $marksObtained]);
+            if (($stat->answered || $marksToAll) && $stat->question) {
+                $isCorrect = app(\App\Services\QuestionAnswerEvaluator::class)->isCorrect($stat->question, $stat);
+
+                // 4. Assign Marks
+                if ($isCorrect) {
+                    $marksObtained = (float) $stat->marks;
+                    $finalStatus = 'R';
+                } else {
+                    if ($exam->negative_marking && $stat->negative_marks > 0) {
+                        $marksObtained = -1 * (float) $stat->negative_marks;
+                    }
+                    $finalStatus = 'W';
+                }
+            } else {
+                $finalStatus = 'S';
+                $marksObtained = 0;
+            }
+
+            $stat->update([
+                'ques_status' => $finalStatus,
+                'marks_obtained' => $marksObtained,
+                'correct_answer' => $stat->correct_answer
+            ]);
+
             $obtainedMarks += $marksObtained;
         }
 
         $totalAnswered = $examStats->where('answered', true)->count();
-        $passingMarks = $examResult->total_marks * ($exam->passing_percentage / 100);
-        $result = $obtainedMarks >= $passingMarks ? 'Pass' : 'Fail';
-        $percent = $examResult->total_marks > 0 ? ($obtainedMarks / $examResult->total_marks) * 100 : 0;
+
+        // Result Status
+        if ($hasManualGrading) {
+            $result = 'Pending';
+            $percent = 0;
+        } else {
+            $passingMarks = $examResult->total_marks * ($exam->passing_percentage / 100);
+            $result = $obtainedMarks >= $passingMarks ? 'Pass' : 'Fail';
+            $percent = $examResult->total_marks > 0 ? ($obtainedMarks / $examResult->total_marks) * 100 : 0;
+        }
 
         $examResult->update([
             'end_time' => $endTime,
@@ -341,5 +411,6 @@ class ApiStudentExamsController extends Controller
             'total_marks' => $examResult->total_marks,
             'result_after_finish' => $exam->result_after_finish
         ];
+        });
     }
 }

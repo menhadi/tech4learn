@@ -23,7 +23,7 @@ class ExamWorkbookService
         'duration', 'attempt_count', 'start_date', 'end_date', 'grouping_mode', 'timer_mode',
         'show_answer_sheet', 'negative_marking', 'random_question', 'result_after_finish',
         'mode', 'instant_result', 'option_shuffle', 'allow_answer_change', 'multi_language', 'math_editor',
-        'browser_tolerance', 'proctor', 'calculator_allowed', 'tolerance_count', 'status',
+        'browser_tolerance', 'proctor', 'calculator_allowed', 'offline_enabled', 'tolerance_count', 'status',
         'meta_title', 'meta_description', 'meta_keywords', 'canonical_url', 'og_title',
         'og_description', 'og_image', 'robots_meta', 'seo_schema',
     ];
@@ -31,7 +31,7 @@ class ExamWorkbookService
     private array $booleanColumns = [
         'show_answer_sheet', 'negative_marking', 'random_question', 'result_after_finish',
         'instant_result', 'option_shuffle', 'allow_answer_change', 'multi_language', 'math_editor',
-        'browser_tolerance', 'proctor', 'calculator_allowed',
+        'browser_tolerance', 'proctor', 'calculator_allowed', 'offline_enabled',
     ];
 
     private array $classificationColumns = [

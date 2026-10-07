@@ -58,8 +58,10 @@
     },
     {
       "path": "app/Console/Commands/NormalizeQuestionContent.php",
-      "sha256": "2fc67b2b176dc420f8ed05b68f03ee296bc033580359abde145a94f488742f55",
-      "patches": []
+      "sha256": "e914258da7bff20a849191f2bb691a70e1d621bc31057997fdd50e87d26f2ee5",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Console/Commands/ProbeAdmissionOfficialSource.php",
@@ -128,8 +130,10 @@
     },
     {
       "path": "app/Console/Kernel.php",
-      "sha256": "5c066cfd55ec64e96e10c7bf41e53684ecff61081cb74c3b1dba2f780ee56548",
-      "patches": []
+      "sha256": "1717550eeed5fabf9e093fbf579346c54c777c06a60af413df46e59b56fa1da8",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Contracts/AdmissionPdfParser.php",
@@ -248,8 +252,10 @@
     },
     {
       "path": "app/Http/Controllers/Auth/LoginController.php",
-      "sha256": "2c30b15c8e29ec16eb293725487b63b6f923e103fb155e697bcfda4d7311e7e3",
-      "patches": []
+      "sha256": "a160eb89fb474447db5dccaee46b04b2d28d6ed88687426aa4f3f58850cb559d",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Http/Controllers/Auth/RegisterController.php",
@@ -663,8 +669,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/ApiStudentExamsController.php",
-      "sha256": "fd5214546c258e393eb8f144c098ab0eca167eaaca70212c08162fbe46dd2fde",
-      "patches": []
+      "sha256": "906d40405fca2508a7410a809c698e3aeb468cffa657f4859380fbf93b8fdc9c",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Http/Controllers/Students/ApiStudentProfileController.php",
@@ -678,8 +686,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/GuestExamsController.php",
-      "sha256": "3b004a786eb9af2b7dbfbafea9de968446dfefa08f0a773ab7647b1af5275a76",
-      "patches": []
+      "sha256": "654d3d454ca8e2666183437b229e30be8746667ae4a07bad739dfbf98c4f2a1d",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Http/Controllers/Students/MyExamController.php",
@@ -718,8 +728,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/StudentExamsController.php",
-      "sha256": "91b496783c69c08518e8ce332612282a31d9f807f453ff81b0d0911c91d13823",
-      "patches": []
+      "sha256": "4494578032a9b214f04acb121dde5550e1d3fe2ab4b444acc0ea11728e4150dd",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Http/Controllers/Students/StudentForgotPasswordController.php",
@@ -912,8 +924,10 @@
     },
     {
       "path": "app/Imports/QuestionsImport.php",
-      "sha256": "398ad44c8c1092069ead2595769cda8e0939cc5f3e96ce8d4a471a7fc7d60fae",
-      "patches": []
+      "sha256": "82894da44171b4ee2dd4de8c195ee554ed44ce113625e4c7b26b555ca4ddb210",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Imports/RowsImport.php",
@@ -1067,8 +1081,10 @@
     },
     {
       "path": "app/Models/Exam.php",
-      "sha256": "bf8d5237ab5567be4284443ce8dfc8d4bbc28a7bb13b0985e808954aff845de8",
-      "patches": []
+      "sha256": "9c514fee3cbfffb91e92c08bf30d929784e3f1ab0d7abf1b4978aa9a29fdd645",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Models/ExamFeedback.php",
@@ -1322,8 +1338,10 @@
     },
     {
       "path": "app/Models/Question.php",
-      "sha256": "964edd381ef0d86b5136838b5b4f2060654eae6f3864bbd938ea9345d1f3d62c",
-      "patches": []
+      "sha256": "bc9f0d9ee130da6b6513dab7254156fc3cff1fef173439690f43653b0af92fc5",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Models/QuestionGroup.php",
@@ -1664,8 +1682,10 @@
     },
     {
       "path": "app/Services/ExamAnswerPersistenceService.php",
-      "sha256": "8217f8bb678ea4a29b51776181ed451acd2cb5de6fb2ef4db00e91254b18a4cf",
-      "patches": []
+      "sha256": "65542143dcad3dda196bf90f30505d148eea9c6dda97f307857a7ade0393ecc5",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Services/ExamDisplayOrder.php",
@@ -1744,8 +1764,10 @@
     },
     {
       "path": "app/Services/ExamWorkbookService.php",
-      "sha256": "775738a7e57a5db6e6b550f492133f5bf2304f851a49361c141382ded130767c",
-      "patches": []
+      "sha256": "fcdb6f5e45210bd9897d9e105d6b03684cd4f32fc114753105e840e5dc9eaed5",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Services/FlashcardAiGeneratorService.php",
@@ -1809,8 +1831,10 @@
     },
     {
       "path": "app/Services/MathContentNormalizer.php",
-      "sha256": "50cffdd158c7e54ad696a8d82a3cce834ea33c3f1723ad1e175ba167f1e1b077",
-      "patches": []
+      "sha256": "8bdb6114789976fca17be3a7c3910a00eac1901cec79f301107275926bbbba30",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "app/Services/MathpixOcrService.php",
@@ -3541,8 +3565,10 @@
     },
     {
       "path": "phpunit.xml",
-      "sha256": "d94ec3ca3edb9f3f783bc6ff7213c90bd1c80c3abad0de26cc11eed73d1f7a4a",
-      "patches": []
+      "sha256": "083b2da87d99847da8a4a43fc22202c70c1e88f6be7ed2f603c1bb93307d09d0",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "public/.htaccess",
@@ -175845,8 +175871,10 @@
     },
     {
       "path": "resources/views/auth/login.blade.php",
-      "sha256": "cac750f7da65f74b8135f49164ff4164ed27ad50445de5a3a10f5f80ddc69466",
-      "patches": []
+      "sha256": "7c475bebb062a61d395a61331e92e6e62ff5833acce8ed95fba1e1e235729377",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "resources/views/auth/passwords/confirm.blade.php",
@@ -176085,8 +176113,10 @@
     },
     {
       "path": "resources/views/exams/action.blade.php",
-      "sha256": "54b5c9de2b9e5f4ce30ff90ba7c226a04d99c94c70ac0849164182b872952f73",
-      "patches": []
+      "sha256": "40ca30dc8065f5e7a1dc8a0f926ca50e29bac2c8cfc90c1f516a8a5e7f0fa783",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "resources/views/exams/add_questions.blade.php",
@@ -176240,8 +176270,10 @@
     },
     {
       "path": "resources/views/import_export/index.blade.php",
-      "sha256": "7e3552695b04d579f501154645967093adaff8a73114695dbedcbe7dd6cb9987",
-      "patches": []
+      "sha256": "17ac4f7c1dea2c71f27213ceb6845410f408423a7b4fabf84370b72f44becf35",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "resources/views/installer/database.blade.php",
@@ -176325,8 +176357,10 @@
     },
     {
       "path": "resources/views/layouts/master.blade.php",
-      "sha256": "a88e02a30d7214d2fab38cd7472a8ab9eda41e28467cd3edd39f07b6893fc6f5",
-      "patches": []
+      "sha256": "0d680b688d6532129f43e57d93031e9e0ef09d29009c484d78e1191cafe3d29e",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "resources/views/layouts/menu.blade.php",
@@ -176340,8 +176374,10 @@
     },
     {
       "path": "resources/views/layouts/sidebar.blade.php",
-      "sha256": "120abb3a4e9e9dda9877890f5135e24e49c0dec307d3bd2268dae6395ab30d42",
-      "patches": []
+      "sha256": "1f9c0bfef6603fd02c90e8b3ca0275225f174b71eb22e14ba20604a18b080e9b",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "resources/views/layouts/title-meta.blade.php",
@@ -176350,8 +176386,10 @@
     },
     {
       "path": "resources/views/layouts/topbar.blade.php",
-      "sha256": "12023c0018a046a9b3b8a5943b730632c6269826ae1890f380b496d4e0714a4f",
-      "patches": []
+      "sha256": "a2b6aacee9d5c64ac56fac41f2bfe5f2b87d743c4ad380e36a95424efb14bac0",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "resources/views/layouts/vendor-scripts.blade.php",
@@ -176675,13 +176713,17 @@
     },
     {
       "path": "resources/views/source-question-import/adapter.blade.php",
-      "sha256": "e37cd693ee92e78194f4c8758843c36d7029e353dacc3db60f837c571e192381",
-      "patches": []
+      "sha256": "0759618f6cd91e9d6b7ee72003abf2c3202453b0315c1f80d143d76aa9e39ff2",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "resources/views/source-question-import/index.blade.php",
-      "sha256": "3994be52a548ce3036b8d9c8bbf0897218fd41a1ed28c4dea5c5d7057e1d42f5",
-      "patches": []
+      "sha256": "482e3262d82686d55f8da666c015151531a5593306ecd811e69700c3b0fec063",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "resources/views/source-question-import/item.blade.php",
@@ -176700,8 +176742,10 @@
     },
     {
       "path": "resources/views/source-question-import/show.blade.php",
-      "sha256": "595a130ddb0db7abfd81906b7496bea1baf4bdd4dc9ef5231df2ad0e17f04865",
-      "patches": []
+      "sha256": "c0264c5edbdf4d0ee631c99b2f1c6b1b3e2a113adb1a342e09ee75836e25d1cb",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "resources/views/stopics/index.blade.php",
@@ -177305,9 +177349,10 @@
     },
     {
       "path": "routes/web.php",
-      "sha256": "b4d8bf28d78ceba027e751e1a7b585672b4786861767c4daa596d5e28ab91a07",
+      "sha256": "85b340b9e27057047e08680b46f2a37de0de8f6d384603c56d1755c580b1aa4f",
       "patches": [
-        "authenticated-native-attendance-read-routes"
+        "authenticated-native-attendance-read-routes",
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
       ]
     },
     {
@@ -177857,8 +177902,10 @@
     },
     {
       "path": "tests/Unit/ExamAvailabilityTest.php",
-      "sha256": "f9249a56e395a08b1c9e3913ca9ea11b904aaecb3d7e5e109ac5c0beecb2f5a9",
-      "patches": []
+      "sha256": "ec0f7e9a60501c66f5ab37e8dbc90dfb4fedb86a9d20d301605808a531d1b66e",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "tests/Unit/ExamImportExportHierarchyContractTest.php",
@@ -178097,8 +178144,10 @@
     },
     {
       "path": "tests/Unit/StudentAccessFlowContractTest.php",
-      "sha256": "5cdf36bde4dabcb13a47b977fbcb33ed2d3bdc0f21f65a5395dc34d7780476c9",
-      "patches": []
+      "sha256": "9248bf7094dc605d7b2cdb31c948530d9854f6600e8b7bc15b7f3c326728c208",
+      "patches": [
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+      ]
     },
     {
       "path": "tests/Unit/SubcategoryVisibilityTest.php",

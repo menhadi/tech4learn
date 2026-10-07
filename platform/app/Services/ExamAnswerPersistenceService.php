@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ExamStat;
+use App\Models\ExamResult;
 use Illuminate\Support\Facades\DB;
 
 class ExamAnswerPersistenceService
@@ -10,6 +11,10 @@ class ExamAnswerPersistenceService
     public function save(ExamStat $authorizedStat, array $payload): array
     {
         return DB::transaction(function () use ($authorizedStat, $payload) {
+            $result=ExamResult::whereKey($authorizedStat->exam_result_id)->lockForUpdate()->firstOrFail();
+            if ($result->end_time !== null) {
+                return ['success'=>false,'message'=>'This exam has already been submitted.'];
+            }
             $stat = ExamStat::query()->with('exam')->lockForUpdate()->findOrFail($authorizedStat->id);
             $questionType = (string) ($payload['question_type'] ?? '');
             $answerData = $this->answerData($questionType, $payload['option_selected'] ?? null);

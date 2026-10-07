@@ -257,6 +257,15 @@ Route::middleware(['auth', 'checkPageRights'])->group(function () {
     Route::post('image-cleanup/{run}/reject', [ImageCleanupController::class, 'reject'])->name('image-cleanup.reject');
     Route::post('image-cleanup/publish-runs', [ImageCleanupController::class, 'publishRuns'])->name('image-cleanup.publish-runs');
     Route::get('image-cleanup/{run}', [ImageCleanupController::class, 'show'])->name('image-cleanup.show');
+    Route::middleware('plan.feature:exam_quality_ai')->group(function () {
+        Route::get('content-normalization', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'index'])->name('content-normalization.index');
+        Route::get('content-normalization/exams/search', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'examSearch'])->name('content-normalization.exams.search');
+        Route::get('content-normalization/exams/selection-summary', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'selectionSummary'])->name('content-normalization.exams.selection-summary');
+        Route::post('content-normalization/runs', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'store'])->name('content-normalization.runs.store');
+        Route::post('content-normalization/runs/{run}/step', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'step'])->name('content-normalization.runs.step');
+        Route::post('content-normalization/runs/{run}/restore', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'startRestore'])->name('content-normalization.runs.restore');
+        Route::post('content-normalization/runs/{run}/restore-step', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'restoreStep'])->name('content-normalization.runs.restore-step');
+    });
     Route::get('image-converter', [ImageConversionController::class, 'index'])->name('image-converter.index');
     Route::post('image-converter/preview', [ImageConversionController::class, 'preview'])->name('image-converter.preview');
     Route::post('image-converter', [ImageConversionController::class, 'store'])->name('image-converter.store');
@@ -506,12 +515,6 @@ Route::middleware('platform.admin')->group(function () {
     Route::get('configurations/analytics', [\App\Http\Controllers\GoogleAnalyticsController::class, 'index'])->name('configurations.analytics');
     Route::put('configurations/analytics', [\App\Http\Controllers\GoogleAnalyticsController::class, 'update'])->middleware('throttle:10,1')->name('configurations.analytics.update');
     Route::get('saas', [\App\Http\Controllers\SaasController::class, 'index'])->name('saas.index');
-    Route::get('saas/content-normalization', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'index'])->name('saas.content-normalization.index');
-    Route::get('saas/content-normalization/options', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'options'])->name('saas.content-normalization.options');
-    Route::post('saas/content-normalization/runs', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'store'])->name('saas.content-normalization.runs.store');
-    Route::post('saas/content-normalization/runs/{run}/step', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'step'])->name('saas.content-normalization.runs.step');
-    Route::post('saas/content-normalization/runs/{run}/restore', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'startRestore'])->name('saas.content-normalization.runs.restore');
-    Route::post('saas/content-normalization/runs/{run}/restore-step', [\App\Http\Controllers\ContentNormalizationAdminController::class, 'restoreStep'])->name('saas.content-normalization.runs.restore-step');
     Route::get('saas/question-sharing', [\App\Http\Controllers\SaasQuestionSharingController::class, 'index'])->name('saas.question-sharing.index');
     Route::post('saas/question-sharing/share', [\App\Http\Controllers\SaasQuestionSharingController::class, 'shareToOrganizations'])->name('saas.question-sharing.share');
     Route::post('saas/question-sharing/copy-to-master', [\App\Http\Controllers\SaasQuestionSharingController::class, 'copyToMaster'])->name('saas.question-sharing.copy-to-master');
@@ -819,8 +822,10 @@ Route::get('/admin/ai-content/bulk-generator', [SeoGeneratorController::class, '
 
 Route::post('/admin/ai-content/bulk-generator', [SeoGeneratorController::class, 'bulkContentGenerate'])->middleware(['auth', 'checkPageRights', 'plan.feature:ai_content_generation'])->name('admin.ai-content.bulk.generate');
 Route::middleware('auth')->group(function () {
+    Route::get('/attendance', [\App\Http\Controllers\AttendanceBridgeController::class, 'workspace'])->name('attendance.workspace');
     Route::get('/attendance/context', [\App\Http\Controllers\AttendanceBridgeController::class, 'context'])->name('attendance.context');
     Route::get('/attendance/records', [\App\Http\Controllers\AttendanceBridgeController::class, 'records'])->name('attendance.records');
+    Route::match(['GET','POST','PATCH'],'/attendance/api/{path}',[\App\Http\Controllers\AttendanceBridgeController::class,'gateway'])->where('path','.*')->name('attendance.gateway');
 });
 
 Route::middleware('plan.feature:public_website')->get('/{slug}', [WebsiteController::class, 'show'])

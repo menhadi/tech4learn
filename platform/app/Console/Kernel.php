@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
+        $schedule->command('questions:process-imports --limit=1')->everyMinute()->withoutOverlapping(120)->runInBackground();
         $schedule->command('students:process-lifecycle-emails')->everyMinute()->withoutOverlapping();
         $schedule->command('exam-documents:reconcile')->everyFiveMinutes()->withoutOverlapping(10);
         foreach (range(1, config('paper_processing.workers', 4)) as $worker) {

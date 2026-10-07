@@ -8,7 +8,7 @@ import { accessMigration } from '../dist/migration-access.js';
 import { learnerMigration } from '../dist/migration-learners.js';
 import { configurationMigration } from '../dist/migration-configuration.js';
 import { foundationMigration } from '../dist/migration-foundation.js';
-import { digest } from '../dist/security.js';
+import { digest,hashPassword } from '../dist/security.js';
 
 test('foundation identity links require explicit accounts, current authority and revocable attendance grants', async t => {
   const pg = new PGlite();
@@ -18,8 +18,10 @@ test('foundation identity links require explicit accounts, current authority and
     await pg.query('INSERT INTO organisations(id,name,slug) VALUES($1,$2,$2)',[id,slug]);
   await pg.exec(accessMigration); await pg.exec(learnerMigration); await pg.exec(configurationMigration); await pg.exec(foundationMigration);
   const tokens = { owner:'a'.repeat(64), staff:'b'.repeat(64), outsider:'c'.repeat(64) };
+  const password='long synthetic foundation password';
+  const hash=await hashPassword(password);
   for (const [id,name,admin] of [[owner,'owner',true],[staff,'staff',false],[outsider,'outsider',false]]) {
-    await pg.query('INSERT INTO users(id,email,name,password_hash,is_superadmin) VALUES($1,$2,$3,$4,$5)',[id,`${name}@example.invalid`,name,'unused synthetic hash',admin]);
+    await pg.query('INSERT INTO users(id,email,name,password_hash,is_superadmin) VALUES($1,$2,$3,$4,$5)',[id,`${name}@example.invalid`,name,hash,admin]);
     await pg.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[digest(tokens[name]),id]);
   }
   for (const [user,org] of [[staff,orgA],[outsider,orgB]])
@@ -55,6 +57,17 @@ test('foundation identity links require explicit accounts, current authority and
       assert.equal(res.headers.get('cache-control'),'no-store');
       const body=await res.json(); assert.equal(body.organisation.id,orgA); assert.ok(body.permissions.includes('attendance.view'));
       assert.equal(body.nativeUserId,'9'); assert.equal(body.scope.type,'organisation');
+    });
+    await t.test('one-login identity uses the stored link and revokes sessions on failed mapping',async()=>{
+      const before=(await pg.query('SELECT count(*)::int AS n FROM sessions')).rows[0].n;
+      const denied=await request('/foundation/auth/login','POST',{email:'staff@example.invalid',password,nativeOrganisationId:'999'});
+      assert.equal(denied.status,404);assert.equal(denied.headers.get('set-cookie'),null);
+      assert.equal((await pg.query('SELECT count(*)::int AS n FROM sessions')).rows[0].n,before);
+      const logged=await request('/foundation/auth/login','POST',{email:'staff@example.invalid',password,nativeOrganisationId:'7',nativeUserId:'99',is_superadmin:true});
+      assert.equal(logged.status,200,await logged.clone().text());
+      assert.deepEqual(await logged.json(),{nativeOrganisationId:'7',nativeUserId:'9'});
+      assert.match(logged.headers.get('set-cookie'),/HttpOnly/);
+      assert.equal((await request('/foundation/auth/login','POST',{email:'staff@example.invalid',password:'incorrect synthetic password',nativeOrganisationId:'7'})).status,401);
     });
     await t.test('mapping versions, module switches, membership and scope changes take effect on existing sessions', async()=>{
       assert.equal((await request(staffPath+'/9','PATCH',{active:false,version:1})).status,200);

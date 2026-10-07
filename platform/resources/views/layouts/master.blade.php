@@ -690,6 +690,14 @@ document.addEventListener('click', function (event) {
 @stack('scripts')
 <script src="{{ URL::asset('js/admin-table-enhancements.js') }}?v={{ filemtime(public_path('js/admin-table-enhancements.js')) }}"></script>
 
+<script>
+document.addEventListener('submit', function(event) {
+    if (event.target.id !== 'logout-form') return;
+    try {
+        Object.keys(localStorage).filter(key => key.startsWith('t4l:draft:v1:')).forEach(key => localStorage.removeItem(key));
+    } catch (error) { /* Sign-out must work when browser storage is unavailable. */ }
+}, true);
+</script>
 </body>
 </html>
 <!-- ========================================================================= -->

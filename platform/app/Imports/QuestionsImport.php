@@ -11,6 +11,7 @@ use App\Models\Language;
 use App\Models\Package;
 use App\Models\Passage;
 use App\Models\Question;
+use App\Models\QuestionLang;
 use App\Models\QuestionTag;
 use App\Models\QuestionSection;
 use App\Models\ExamSection;
@@ -134,7 +135,6 @@ class QuestionsImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithCh
             'stopic_id' => $subtopic?->id,
             'diff_id' => $difficulty?->id,
             'passage_id' => $passage?->id,
-            'language_id' => $language?->id,
             'source_url' => $this->value($row, ['question_source_url', 'source_url']),
             'source_reference' => $this->value($row, ['question_source_reference', 'source_reference']),
             'question' => $questionText,
@@ -202,6 +202,7 @@ class QuestionsImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithCh
             ? $existing->fill($attributes)
             : new Question($attributes);
         $question->save();
+        $this->syncImportedLanguage($question,$language);
         if ($existing && in_array($this->importMode, ['update', 'upsert'], true)) $this->updatedCount++;
         $question->groups()->sync($groupIds);
         app(CurriculumTaxonomyService::class)->syncQuestion($question->fresh(['topic', 'stopic']), $groupIds);
@@ -482,7 +483,7 @@ class QuestionsImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithCh
         $difficultyValue = $this->nonBlankValue($row, ['difficulty_level', 'difficulty']);
         if ($difficultyValue !== null) $updates['diff_id'] = $this->resolveDifficulty($difficultyValue)?->id;
         $languageValue = $this->nonBlankValue($row, ['language', 'language_name', 'language_code']);
-        if ($languageValue !== null) $updates['language_id'] = $this->resolveLanguage($languageValue)?->id;
+        $language = $languageValue !== null ? $this->resolveLanguage($languageValue) : null;
         $passageValue = $this->nonBlankValue($row, ['passage', 'passage_name']);
         if ($passageValue !== null) $updates['passage_id'] = $this->resolvePassage($passageValue)?->id;
 
@@ -523,6 +524,7 @@ class QuestionsImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithCh
             (int) ($updates['stopic_id'] ?? $question->stopic_id) ?: null,
         );
         if ($updates !== []) $question->fill($updates)->save();
+        $this->syncImportedLanguage($question,$language);
         app(CurriculumTaxonomyService::class)->syncQuestion($question->fresh(['topic', 'stopic']), $groupIds);
 
         $tagValue = $this->nonBlankValue($row, ['tags', 'question_tags', 'tag']);
@@ -658,6 +660,15 @@ class QuestionsImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithCh
             $this->createdRecordCount++;
         }
         return $qtype;
+    }
+
+    private function syncImportedLanguage(Question $question, ?Language $language): void
+    {
+        if (!$language) return;
+        $fields=['question','option1','option2','option3','option4','option5','option6','hint','explanation','fill_blank','si_answer1'];
+        $translation=QuestionLang::updateOrCreate(['question_id'=>$question->id,'language_id'=>$language->id],
+            array_intersect_key($question->getAttributes(),array_flip($fields)));
+        if ($translation->wasRecentlyCreated) $this->createdRecordCount++;
     }
 
     private function resolveDifficulty($value): ?Diff

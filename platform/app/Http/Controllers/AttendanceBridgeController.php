@@ -8,6 +8,15 @@ use Illuminate\Http\JsonResponse;
 
 class AttendanceBridgeController extends Controller
 {
+    public function workspace()
+    {
+        \App\Support\Tenant::assertAccess(\App\Support\Tenant::current(),true);
+        $path=public_path('attendance-ui/manifest.json');
+        $manifest=is_file($path)?json_decode(file_get_contents($path),true):[];
+        $assets=$manifest['src/foundation-attendance.tsx']??null;
+        abort_unless($assets && preg_match('#^assets/[A-Za-z0-9_.-]+\.js$#D',$assets['file']??''),503,'Attendance assets need to be built.');
+        return response()->view('attendance.workspace',['attendanceAssets'=>$assets])->header('Cache-Control','no-store');
+    }
     public function context(Request $request, AttendanceBridge $bridge): JsonResponse
     {
         return response()->json($bridge->context($request))->header('Cache-Control', 'no-store');
@@ -16,5 +25,9 @@ class AttendanceBridgeController extends Controller
     public function records(Request $request, AttendanceBridge $bridge): JsonResponse
     {
         return response()->json($bridge->records($request))->header('Cache-Control', 'no-store');
+    }
+    public function gateway(Request $request, string $path, AttendanceBridge $bridge)
+    {
+        return $bridge->gateway($request,$path);
     }
 }

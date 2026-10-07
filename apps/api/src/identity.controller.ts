@@ -22,7 +22,7 @@ export function session(cookie?: string) {
     .find((part) => part.startsWith(`${cookieName()}=`))
     ?.slice(cookieName().length + 1);
 }
-function setCookie(
+export function setCookie(
   response: Response,
   value: string,
   maxAge = 12 * 60 * 60 * 1000,

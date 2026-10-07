@@ -1,0 +1,83 @@
+{
+  "reason": "Recover missing native import and content-normalization implementations and their matching command/routes from original Git history",
+  "files": [
+    {
+      "path": "app/Http/Controllers/QuestionLargeImportController.php",
+      "upstream_commit": "5c33bd7e97564dd8f11a011861ad1d3cbcecac98",
+      "upstream_sha256": "23d0f0ed3bd3f30331eebee02b23224b76a49fc1b00323729e0d4bd6c642b219",
+      "sha256": "23d0f0ed3bd3f30331eebee02b23224b76a49fc1b00323729e0d4bd6c642b219"
+    },
+    {
+      "path": "app/Models/QuestionImportRun.php",
+      "upstream_commit": "5c33bd7e97564dd8f11a011861ad1d3cbcecac98",
+      "upstream_sha256": "54d49eaf7409e938ca34fe0ba2775e7660b7dfc166edb84418c755582aa3ecfc",
+      "sha256": "54d49eaf7409e938ca34fe0ba2775e7660b7dfc166edb84418c755582aa3ecfc"
+    },
+    {
+      "path": "app/Services/QuestionImportRunService.php",
+      "upstream_commit": "5c33bd7e97564dd8f11a011861ad1d3cbcecac98",
+      "upstream_sha256": "0b37a8df798eaacebfa1912d1ef7cc6c225feaeafa0e46083b386b1e93ba5bff",
+      "sha256": "e0611f69415cf64e0a78ab2f4ea9f93f226258e5c714ef1267e235bb054e9701"
+    },
+    {
+      "path": "app/Console/Commands/ProcessQuestionImports.php",
+      "upstream_commit": "5c33bd7e97564dd8f11a011861ad1d3cbcecac98",
+      "upstream_sha256": "5187026fb55951c37401a050b2f96b09637ab1ecd2608fa35c8184f01522ce35",
+      "sha256": "5187026fb55951c37401a050b2f96b09637ab1ecd2608fa35c8184f01522ce35"
+    },
+    {
+      "path": "database/migrations/2026_08_08_000001_create_question_import_runs_table.php",
+      "upstream_commit": "5c33bd7e97564dd8f11a011861ad1d3cbcecac98",
+      "upstream_sha256": "cc94382ec164789d08e2e70ae8cecdbb7a82339be727b68088e4c3802be10ba6",
+      "sha256": "cc94382ec164789d08e2e70ae8cecdbb7a82339be727b68088e4c3802be10ba6"
+    },
+    {
+      "path": "app/Http/Controllers/ContentNormalizationAdminController.php",
+      "upstream_commit": "ebf0b61efd2a8f1ede39f2413decf4ca62eb2632",
+      "upstream_sha256": "8f56a14d10b9bc4fbccf39f4bc32b0b07cb4c7010299c1530ba71d00e7ebfcbe",
+      "sha256": "8f56a14d10b9bc4fbccf39f4bc32b0b07cb4c7010299c1530ba71d00e7ebfcbe"
+    },
+    {
+      "path": "app/Models/ContentNormalizationRun.php",
+      "upstream_commit": "ebf0b61efd2a8f1ede39f2413decf4ca62eb2632",
+      "upstream_sha256": "37d5f5295cb2229e3b799a48d29c6f8d85fb94dd7f4376d7ec0626b0a76cfa2d",
+      "sha256": "37d5f5295cb2229e3b799a48d29c6f8d85fb94dd7f4376d7ec0626b0a76cfa2d"
+    },
+    {
+      "path": "database/migrations/2026_08_03_000001_create_content_normalization_runs_table.php",
+      "upstream_commit": "ebf0b61efd2a8f1ede39f2413decf4ca62eb2632",
+      "upstream_sha256": "31b306ec04913ed6552e09c7c0c6a6170c902a681447bd09b55485d59193520f",
+      "sha256": "31b306ec04913ed6552e09c7c0c6a6170c902a681447bd09b55485d59193520f"
+    },
+    {
+      "path": "database/migrations/2026_08_03_000002_add_content_normalization_tenant_menu.php",
+      "upstream_commit": "ebf0b61efd2a8f1ede39f2413decf4ca62eb2632",
+      "upstream_sha256": "2f381c1e7cc464d116c72862a945d14286e70cdd163861774e70025467054bf9",
+      "sha256": "2f381c1e7cc464d116c72862a945d14286e70cdd163861774e70025467054bf9"
+    },
+    {
+      "path": "database/migrations/2026_08_03_000002_add_paper_restore_tracking_to_content_normalization_runs.php",
+      "upstream_commit": "ebf0b61efd2a8f1ede39f2413decf4ca62eb2632",
+      "upstream_sha256": "710234a84e95b4a499ee6deff9ab131aa646fcecfca16312d8c3808ecc700b11",
+      "sha256": "710234a84e95b4a499ee6deff9ab131aa646fcecfca16312d8c3808ecc700b11"
+    },
+    {
+      "path": "resources/views/content-normalization/index.blade.php",
+      "upstream_commit": "ebf0b61efd2a8f1ede39f2413decf4ca62eb2632",
+      "upstream_sha256": "c00510505c7c36beb7dca7ac5a6ea63ebac56f2e7c50c30bfdcfcba13a0cc598",
+      "sha256": "3845af6249cd58b1dff0f3272212093dbaf92713bbc2d91e3a01243818592c93"
+    },
+    {
+      "path": "tests/Feature/ContentNormalizationAdminTest.php",
+      "upstream_commit": "ebf0b61efd2a8f1ede39f2413decf4ca62eb2632",
+      "upstream_sha256": "264da839c68315aa0cdaba4c199354d16945e56727ed547201538d720e4c2a6a",
+      "sha256": "264da839c68315aa0cdaba4c199354d16945e56727ed547201538d720e4c2a6a"
+    },
+    {
+      "path": "app/Console/Commands/NormalizeQuestionContent.php",
+      "upstream_commit": "ebf0b61efd2a8f1ede39f2413decf4ca62eb2632",
+      "upstream_sha256": "e914258da7bff20a849191f2bb691a70e1d621bc31057997fdd50e87d26f2ee5",
+      "sha256": "e914258da7bff20a849191f2bb691a70e1d621bc31057997fdd50e87d26f2ee5"
+    }
+  ]
+}

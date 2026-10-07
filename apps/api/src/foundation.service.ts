@@ -108,9 +108,19 @@ export class FoundationService {
        WHERE f.native_id=$1 AND s.native_user_id=$2 AND s.user_id=$3 AND f.active AND s.active`, [native,user,actor.id])).rows[0];
     if (!mapped) throw new NotFoundException("Attendance identity is not linked.");
     const access = await this.access.require(actor, mapped.organisation_id, "attendance.view");
-    return { nativeOrganisationId: native, nativeUserId: user,
+    return { nativeOrganisationId: native, nativeUserId: user, userId: actor.id,
       organisation: { id: mapped.organisation_id, name: mapped.name },
-      permissions: access.permissions.filter(p => p.startsWith("attendance.")),
+      permissions: access.permissions.filter(p => p.startsWith("attendance.") || p === "groups.view"),
       scope: { type: access.scope_type, ids: access.scope_ids } };
+  }
+  async loginIdentity(actor: Account, nativeValue: unknown) {
+    const native = nativeId(nativeValue);
+    const link = (await this.db.query<{organisation_id:string; native_user_id:string}>(
+      `SELECT f.organisation_id,s.native_user_id::text FROM foundation_organisations f
+       JOIN foundation_staff s ON s.native_organisation_id=f.native_id
+       WHERE f.native_id=$1 AND s.user_id=$2 AND f.active AND s.active`, [native,actor.id])).rows[0];
+    if (!link) throw new NotFoundException("Native account is not linked.");
+    await this.access.resolve(actor,link.organisation_id);
+    return {nativeOrganisationId:native,nativeUserId:link.native_user_id};
   }
 }

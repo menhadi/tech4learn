@@ -72,7 +72,7 @@
                     </button>
                     <div class="dropdown-menu dropdown-menu-end">
                         <a class="dropdown-item " href="javascript:void();"
-                            onclick="event.preventDefault(); document.getElementById('logout-form').submit();"><i
+                            onclick="event.preventDefault(); document.getElementById('logout-form').requestSubmit();"><i
                                 class="bx bx-power-off font-size-16 align-middle me-1"></i> <span
                                 key="t-logout">@lang('translation.logout')</span></a>
                         <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">

@@ -19,6 +19,9 @@ class NormalizeQuestionContent extends Command
         {--restore= : Restore one previously applied run ID}
         {--chunk=250 : Records processed per database batch (10-1000)}
         {--from-id=0 : Start after this question ID}
+        {--to-id=0 : Stop at this question ID, inclusive; zero means no upper bound}
+        {--exam= : Limit to questions linked to one exam in this organization}
+        {--only-mathml : Process only fields containing MathML or generated MathJax markup}
         {--limit=0 : Maximum primary questions to inspect; zero means all}
         {--question=* : Limit to specific question IDs and their related translations/passages}';
 
@@ -49,6 +52,8 @@ class NormalizeQuestionContent extends Command
         'math_expressions' => 0,
     ];
 
+    private bool $onlyMathml = false;
+
     public function handle(MathContentNormalizer $normalizer): int
     {
         $organizationId = filter_var($this->option('organization'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -57,21 +62,42 @@ class NormalizeQuestionContent extends Command
             return self::INVALID;
         }
 
+        $questionOptions = (array) $this->option('question');
+        $questionIds = collect($questionOptions)
+            ->map(fn ($id) => filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]))
+            ->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+        if ($questionOptions !== [] && $questionIds === []) {
+            $this->error('Every --question value was invalid.');
+            return self::INVALID;
+        }
         $restoreRun = trim((string) $this->option('restore'));
         if ($restoreRun !== '') {
             if ($this->option('apply')) {
                 $this->error('--apply and --restore cannot be used together.');
                 return self::INVALID;
             }
-            return $this->restore($organizationId, $restoreRun);
+            return $this->restore($organizationId, $restoreRun, $questionIds);
         }
 
         $chunk = max(10, min(1000, (int) $this->option('chunk')));
         $limit = max(0, (int) $this->option('limit'));
         $fromId = max(0, (int) $this->option('from-id'));
-        $questionIds = collect((array) $this->option('question'))
-            ->map(fn ($id) => filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]))
-            ->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $toId = max(0, (int) $this->option('to-id'));
+        if ($toId > 0 && $toId <= $fromId) {
+            $this->error('--to-id must be greater than --from-id. Remember that --from-id is exclusive.');
+            return self::INVALID;
+        }
+        $examId = null;
+        $examOption = trim((string) $this->option('exam'));
+        if ($examOption !== '') {
+            $examId = filter_var($examOption, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (! $examId || ! DB::table('exams')->where('organization_id', $organizationId)->where('id', $examId)->exists()) {
+                $this->error('Provide an exam that belongs to the selected organization.');
+                return self::INVALID;
+            }
+            $examId = (int) $examId;
+        }
+        $this->onlyMathml = (bool) $this->option('only-mathml');
         $apply = (bool) $this->option('apply');
         $runId = (string) Str::uuid();
         $reportPath = storage_path('app/content-normalization/'.$runId.'.jsonl');
@@ -85,7 +111,7 @@ class NormalizeQuestionContent extends Command
 
         try {
             $processedQuestionIds = $this->processQuestions(
-                $normalizer, $organizationId, $runId, $apply, $chunk, $fromId, $limit, $questionIds, $report
+                $normalizer, $organizationId, $runId, $apply, $chunk, $fromId, $toId, $limit, $questionIds, $examId, $report
             );
             $this->processQuestionTranslations(
                 $normalizer, $organizationId, $runId, $apply, $chunk, $processedQuestionIds, $report
@@ -116,8 +142,10 @@ class NormalizeQuestionContent extends Command
         bool $apply,
         int $chunk,
         int $fromId,
+        int $toId,
         int $limit,
         array $questionIds,
+        ?int $examId,
         $report
     ): array {
         $query = DB::table('questions')
@@ -125,6 +153,17 @@ class NormalizeQuestionContent extends Command
             ->where('id', '>', $fromId);
         if ($questionIds !== []) {
             $query->whereIn('id', $questionIds);
+        }
+        if ($examId !== null) {
+            $query->whereExists(function (Builder $examQuestions) use ($examId) {
+                $examQuestions->selectRaw('1')
+                    ->from('exam_questions')
+                    ->whereColumn('exam_questions.question_id', 'questions.id')
+                    ->where('exam_questions.exam_id', $examId);
+            });
+        }
+        if ($toId > 0) {
+            $query->where('id', '<=', $toId);
         }
 
         $processed = [];
@@ -236,6 +275,12 @@ class NormalizeQuestionContent extends Command
         bool $apply,
         $report
     ): void {
+        if ($this->onlyMathml && ! collect(self::TABLE_FIELDS[$table])->contains(
+            fn (string $field) => $this->containsMathMarkup($row->{$field} ?? null)
+        )) {
+            return;
+        }
+
         $original = [];
         $normalized = [];
         $fieldResults = [];
@@ -245,8 +290,8 @@ class NormalizeQuestionContent extends Command
         foreach (self::TABLE_FIELDS[$table] as $field) {
             $value = $row->{$field} ?? null;
             $original[$field] = $value;
-            $result = $value === null
-                ? ['content' => null, 'candidate' => null, 'status' => 'clean', 'changed' => false, 'math_count' => 0, 'issues' => []]
+            $result = $value === null || ($this->onlyMathml && ! $this->containsMathMarkup($value))
+                ? ['content' => $value, 'candidate' => null, 'status' => 'clean', 'changed' => false, 'math_count' => 0, 'issues' => []]
                 : $normalizer->normalize($value);
             $fieldResults[$field] = $result;
             $normalized[$field] = $result['content'];
@@ -324,19 +369,54 @@ class NormalizeQuestionContent extends Command
         }, 3);
     }
 
-    private function restore(int $organizationId, string $runId): int
+    private function restore(int $organizationId, string $runId, array $questionIds = []): int
     {
         if (! Str::isUuid($runId)) {
             $this->error('The restore run ID must be a valid UUID.');
             return self::INVALID;
+        }
+        $questionTranslationIds = [];
+        $passageTranslationIds = [];
+        if ($questionIds !== []) {
+            $questionIds = DB::table('questions')->where('organization_id', $organizationId)
+                ->whereIn('id', $questionIds)->pluck('id')->map(fn ($id) => (int) $id)->all();
+            if ($questionIds === []) {
+                $this->error('No selected questions belong to this tenant.');
+                return self::INVALID;
+            }
+            $questionTranslationIds = DB::table('question_langs')
+                ->whereIn('question_id', $questionIds)->pluck('id')->map(fn ($id) => (int) $id)->all();
+            $passageIds = DB::table('questions')->where('organization_id', $organizationId)
+                ->whereIn('id', $questionIds)->whereNotNull('passage_id')->pluck('passage_id')->unique()->all();
+            if ($passageIds !== []) {
+                $passageTranslationIds = DB::table('passage_langs')
+                    ->whereIn('passage_id', $passageIds)->pluck('id')->map(fn ($id) => (int) $id)->all();
+            }
         }
 
         $backups = DB::table('content_normalization_backups')
             ->where('organization_id', $organizationId)
             ->where('run_id', $runId)
             ->where('status', '!=', 'restored')
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
+        if ($questionIds !== []) {
+            $backups->where(function (Builder $records) use ($questionIds, $questionTranslationIds, $passageTranslationIds) {
+                $records->where(function (Builder $questions) use ($questionIds) {
+                    $questions->where('record_table', 'questions')->whereIn('record_id', $questionIds);
+                });
+                if ($questionTranslationIds !== []) {
+                    $records->orWhere(function (Builder $translations) use ($questionTranslationIds) {
+                        $translations->where('record_table', 'question_langs')->whereIn('record_id', $questionTranslationIds);
+                    });
+                }
+                if ($passageTranslationIds !== []) {
+                    $records->orWhere(function (Builder $passages) use ($passageTranslationIds) {
+                        $passages->where('record_table', 'passage_langs')->whereIn('record_id', $passageTranslationIds);
+                    });
+                }
+            });
+        }
+        $backups = $backups->get();
         if ($backups->isEmpty()) {
             $this->error('No unrestored backup records were found for this tenant and run ID.');
             return self::FAILURE;
@@ -376,6 +456,12 @@ class NormalizeQuestionContent extends Command
     {
         ksort($content);
         return hash('sha256', json_encode($content, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    }
+
+    private function containsMathMarkup(?string $content): bool
+    {
+        return $content !== null
+            && preg_match('/<math\b|<mjx-|mathjax-mathml|mjx-assistive-mml/i', $content) === 1;
     }
 
     private function scopedRecordQuery(string $table, int $recordId, int $organizationId): Builder

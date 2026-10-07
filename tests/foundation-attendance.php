@@ -17,7 +17,7 @@ $request->setUserResolver(fn()=>Illuminate\Support\Facades\Auth::user());
 $app->instance('request',$request);
 config(['attendance.api_url'=>'http://127.0.0.1:3000/api/v1']);
 $bridge = new App\Support\AttendanceBridge;
-$context = ['nativeOrganisationId'=>'2','nativeUserId'=>'2','organisation'=>['id'=>'11111111-1111-4111-8111-111111111111','name'=>'Synthetic Two'],
+$context = ['nativeOrganisationId'=>'2','nativeUserId'=>'2','userId'=>'33333333-3333-4333-8333-333333333333','organisation'=>['id'=>'11111111-1111-4111-8111-111111111111','name'=>'Synthetic Two'],
     'permissions'=>['attendance.view'],'scope'=>['type'=>'organisation','ids'=>[]]];
 function responseJson(array $body, int $status=200): GuzzleHttp\Psr7\Response {
     return new GuzzleHttp\Psr7\Response($status,['Content-Type'=>'application/json'],json_encode($body));
@@ -74,4 +74,36 @@ statusDenied(403,fn()=>$bridge->records($request,$mock));
 $db->table('users')->where('id',2)->update(['status'=>'Active']);
 $request->query->set('date','2026-02-30');
 statusDenied(422,fn()=>$bridge->records($request,$http));
+$request->query->set('date','2026-10-07');
+$path='organisations/11111111-1111-4111-8111-111111111111/attendance';
+$h=[];$mock=clientMock([responseJson($context),responseJson(['rows'=>[]]),responseJson($context)],$h);
+$proxied=$bridge->gateway($request,$path,$mock);
+if ($proxied->headers->get('Cache-Control')!=='no-store, private' && $proxied->headers->get('Cache-Control')!=='no-store') { throw new RuntimeException('Gateway cache policy failed'); }
+if (json_decode($proxied->getContent(),true)!==['rows'=>[]]) { throw new RuntimeException('Gateway JSON changed'); }
+statusDenied(404,fn()=>$bridge->gateway($request,'platform/foundation/organisations',$http));
+$h=[];$mock=clientMock([responseJson($context)],$h);
+statusDenied(404,fn()=>$bridge->gateway($request,str_replace('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',$path),$mock));
+$h=[];$mock=clientMock([responseJson($context),new GuzzleHttp\Psr7\Response(200,['Content-Type'=>'image/jpeg'],'synthetic-image-bytes'),responseJson($context)],$h);
+$media=$bridge->gateway($request,$path.'/44444444-4444-4444-8444-444444444444/photo',$mock);
+if ($media->getContent()!=='synthetic-image-bytes'||$media->headers->get('Content-Type')!=='image/jpeg') { throw new RuntimeException('Scoped media transport failed'); }
+$write=Illuminate\Http\Request::create('https://two.example.invalid/attendance/api/'.$path.'/policy','PATCH',[],['t4l_session'=>str_repeat('d',64)],[],['CONTENT_TYPE'=>'application/json'],json_encode(['version'=>0,'timezone'=>'Asia/Kolkata']));
+$write->setUserResolver(fn()=>Illuminate\Support\Facades\Auth::user());
+$h=[];$mock=clientMock([responseJson($context),responseJson(['version'=>1]),responseJson($context)],$h);
+$bridge->gateway($write,$path.'/policy',$mock);
+if ($h[1]['request']->getMethod()!=='PATCH'||$h[1]['request']->getHeaderLine('X-Tech4Learn-Request')!=='1') { throw new RuntimeException('Write transport did not preserve CSRF protocol'); }
+$login=Illuminate\Http\Request::create('https://two.example.invalid/login','POST',['login'=>'synthetic@example.invalid','password'=>'synthetic password']);
+$app->instance('request',$login);actor(2);
+$sessionToken=str_repeat('e',64);
+$h=[];$mock=clientMock([new GuzzleHttp\Psr7\Response(200,['set-cookie'=>'t4l_session='.$sessionToken.'; Path=/; HttpOnly'],json_encode(['nativeOrganisationId'=>'2','nativeUserId'=>'2']))],$h);
+if ($bridge->authenticate($login,$mock)->id!==2) { throw new RuntimeException('Mapped login picked another native account'); }
+$cookie=Illuminate\Support\Facades\Cookie::queued('t4l_session');
+if (!$cookie||!$cookie->isHttpOnly()||$cookie->getDomain()!==null||$cookie->getValue()!==$sessionToken) { throw new RuntimeException('API session was not queued safely'); }
+$db->table('users')->where('id',2)->update(['status'=>'Suspended']);
+Illuminate\Support\Facades\Auth::forgetGuards();
+Illuminate\Support\Facades\Auth::shouldUse('web');
+App\Support\Tenant::clear();
+$h=[];$mock=clientMock([new GuzzleHttp\Psr7\Response(200,['Set-Cookie'=>'t4l_session='.$sessionToken.'; Path=/; HttpOnly'],json_encode(['nativeOrganisationId'=>'2','nativeUserId'=>'2'])),responseJson(['ok'=>true])],$h);
+statusDenied(403,fn()=>$bridge->authenticate($login,$mock));
+if (count($h)!==2||$h[1]['request']->getUri()->getPath()!=='/api/v1/auth/logout') { throw new RuntimeException('Denied native login did not revoke its API session'); }
+$db->table('users')->where('id',2)->update(['status'=>'Active']);
 echo "PASS: native attendance mapping context, safe transport, cookie ownership, bounded reads and post-read revocation.\n";

@@ -118,14 +118,23 @@
                             ->filter()->map(fn ($id) => (int) $id)->all();
                     @endphp
                     <div class="mb-3">
-                        <label for="language_ids" class="form-label">Student languages</label>
-                        <select class="form-control select2" id="language_ids" name="language_ids[]" multiple>
+                        <label class="form-label">Student languages</label>
+                        @if($englishLanguage)
+                            <input type="hidden" name="language_ids[]" value="{{ $englishLanguage->id }}">
+                        @endif
+                        <div id="language_ids">
                             @foreach($languages as $language)
-                                <option value="{{ $language->id }}" @selected(in_array((int) $language->id, $selectedLanguageIds, true))>
-                                    {{ $language->name }}{{ strtolower((string) $language->code) === 'en' ? ' (default)' : '' }}
-                                </option>
+                                @php $isEnglish = (int) $language->id === (int) $englishLanguage?->id; @endphp
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input student-language-checkbox"
+                                        id="student-language-{{ $language->id }}" value="{{ $language->id }}"
+                                        @if(!$isEnglish) name="language_ids[]" @endif
+                                        @checked($isEnglish || in_array((int) $language->id, $selectedLanguageIds, true))
+                                        @disabled($isEnglish)>
+                                    <label class="form-check-label" for="student-language-{{ $language->id }}">{{ $language->name }}{{ $isEnglish ? ' (default)' : '' }}</label>
+                                </div>
                             @endforeach
-                        </select>
+                        </div>
                         <div class="form-text">English is always available. Students see this selector only when another language is enabled; missing translations are generated and saved in batches of five when selected.</div>
                     </div>
                     @if(isset($exam))

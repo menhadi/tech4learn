@@ -91,7 +91,8 @@ class MathContentNormalizer
                     throw new \RuntimeException('A MathML expression produced empty TeX source.');
                 }
 
-                $display = strtolower((string) $this->attribute($math, 'display')) === 'block';
+                $display = strtolower((string) $this->attribute($math, 'display')) === 'block'
+                    || $math->getElementsByTagName('mtable')->length > 0;
                 $replacement = $document->createTextNode($display ? '\\['.$tex.'\\]' : '\\('.$tex.'\\)');
                 $target->parentNode?->replaceChild($replacement, $target);
                 $converted++;

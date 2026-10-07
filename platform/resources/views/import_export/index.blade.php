@@ -392,7 +392,7 @@
             if (!largeImport.initialize || !largeImport.chunk || !largeImport.finalize || !largeImport.status) {
                 throw new Error('Large imports are not enabled on this staging deployment. Please use a CSV smaller than 5 MB.');
             }
-            const chunkSize = 4 * 1024 * 1024;
+            const chunkSize = 512 * 1024;
             const totalChunks = Math.ceil(file.size / chunkSize);
             setLargeImportUi('Uploading CSV', 0, 'Keep this page open until all file chunks reach the server.');
             $('#import-submit-button, #remove-file').prop('disabled', true);

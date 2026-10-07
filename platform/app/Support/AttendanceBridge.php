@@ -6,9 +6,59 @@ use App\Models\User;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 
 class AttendanceBridge
 {
+    public function authenticate(Request $request, ?ClientInterface $http = null): User
+    {
+        $organization=Tenant::current();
+        $headers=[];
+        $identity=$this->read($request,'/foundation/auth/login',[],$http,'POST',[
+            'email'=>$request->input('login'),'password'=>$request->input('password'),
+            'nativeOrganisationId'=>(string)$organization->id,
+        ],false,$headers);
+        abort_unless(($identity['nativeOrganisationId']??null)===(string)$organization->id
+            && is_string($identity['nativeUserId']??null) && preg_match('/^[1-9][0-9]{0,14}$/D',$identity['nativeUserId']),502);
+        $name=$this->cookieName();$token=null;
+        foreach ($headers['set-cookie']??[] as $cookie) {
+            if (preg_match('/^'.preg_quote($name,'/').'=([a-f0-9]{64});/D',$cookie,$match)) { $token=$match[1]; }
+        }
+        abort_unless($token,502,'Sign-in did not establish an attendance session.');
+        $guard=Auth::guard('web');$previous=$guard->user();
+        try {
+            $user=User::findOrFail($identity['nativeUserId']);
+            $guard->setUser($user);
+            Tenant::assertAccess($organization,true);
+        } catch (\Throwable $error) {
+            $old=$request->cookie($name);$request->cookies->set($name,$token);
+            try { $this->signOut($request,$http); } finally {
+                if ($old===null) { $request->cookies->remove($name); } else { $request->cookies->set($name,$old); }
+            }
+            throw $error;
+        } finally {
+            if ($previous) { $guard->setUser($previous); } else { $guard->forgetUser(); }
+            Tenant::clear();
+        }
+        Cookie::queue(new \Symfony\Component\HttpFoundation\Cookie($name,$token,time()+43200,'/',null,app()->environment('production'),true,false,'lax'));
+        return $user;
+    }
+
+    public function signOut(Request $request, ?ClientInterface $http = null): void
+    {
+        try {
+            if (config('attendance.api_url')) { $this->read($request,'/auth/logout',[],$http,'POST',[]); }
+        } catch (\Throwable $error) {
+            // Always clear the browser cookie even when the service is unavailable.
+        }
+        Cookie::queue(new \Symfony\Component\HttpFoundation\Cookie($this->cookieName(),'',time()-300,'/',null,app()->environment('production'),true,false,'lax'));
+    }
+
+    private function cookieName(): string
+    {
+        return app()->environment('production') ? '__Host-t4l_session' : 't4l_session';
+    }
     public function context(Request $request, ?ClientInterface $http = null): array
     {
         $organization = Tenant::assertAccess(Tenant::current(), true);
@@ -39,7 +89,30 @@ class AttendanceBridge
         return $data;
     }
 
-    private function read(Request $request, string $path, array $query, ?ClientInterface $http): array
+    public function gateway(Request $request, string $path, ?ClientInterface $http = null): \Symfony\Component\HttpFoundation\Response
+    {
+        abort_unless(strlen($path)<300 && preg_match('#^organisations/([a-f0-9-]{36})/(groups|attendance(?:/[A-Za-z0-9-]+)*)$#D',$path,$match),404);
+        abort_unless(in_array($request->method(),['GET','POST','PATCH'],true),405);
+        abort_if($match[2]==='groups' && $request->method()!=='GET',405);
+        $context=$this->context($request,$http);
+        abort_unless($match[1]===($context['organisation']['id']??null),404);
+        $body=null;
+        if ($request->method()!=='GET') {
+            abort_unless($request->isJson() && strlen($request->getContent())<=1048576,422);
+            try { $body=json_decode($request->getContent(),false,64,JSON_THROW_ON_ERROR); }
+            catch (\JsonException $error) { abort(400,'Use a valid JSON request.'); }
+            abort_unless($body instanceof \stdClass,422);
+        }
+        $result=$this->read($request,'/'.$path,$request->query(),$http,$request->method(),$body,true,$headers,true);
+        abort_unless($this->context($request,$http)===$context,403);
+        return new \Symfony\Component\HttpFoundation\Response($result['body'],$result['status'],[
+            'Content-Type'=>$result['content_type'],'Cache-Control'=>'no-store',
+            'X-Content-Type-Options'=>'nosniff',
+        ]);
+    }
+
+    private function read(Request $request, string $path, array $query, ?ClientInterface $http,
+        string $method='GET', array|\stdClass|null $payload=null, bool $needsSession=true, ?array &$responseHeaders=null, bool $opaque=false): array
     {
         $base = rtrim((string) config('attendance.api_url'), '/');
         $parts = parse_url($base);
@@ -48,17 +121,29 @@ class AttendanceBridge
         abort_unless($parts && ($scheme === 'https' || ($scheme === 'http' && $local && app()->environment('local')))
             && !isset($parts['user']) && !isset($parts['pass']) && !isset($parts['query']) && !isset($parts['fragment'])
             && ($parts['path'] ?? '') === '/api/v1', 503, 'Attendance connection is not configured.');
-        $name = app()->environment('production') ? '__Host-t4l_session' : 't4l_session';
+        $name = $this->cookieName();
         $token = $request->cookie($name);
-        abort_unless(is_string($token) && preg_match('/^[a-f0-9]{64}$/D', $token), 401, 'Sign in to your linked attendance account.');
+        if ($needsSession) { abort_unless(is_string($token) && preg_match('/^[a-f0-9]{64}$/D', $token), 401, 'Sign in to your linked attendance account.'); }
+        $requestHeaders=['Accept'=>'application/json'];
+        if ($needsSession) { $requestHeaders['Cookie']=$name.'='.$token; }
+        if (in_array($method,['POST','PATCH'],true)) {
+            $requestHeaders['Origin']=$request->getSchemeAndHttpHost();
+            $requestHeaders['Host']=$request->getHttpHost();
+            $requestHeaders['X-Tech4Learn-Request']='1';
+        }
         try {
-            $response = ($http ?? new Client())->request('GET', $base.$path, [
-                'headers' => ['Accept' => 'application/json', 'Cookie' => $name.'='.$token],
+            $options=[
+                'headers' => $requestHeaders,
                 'query' => $query, 'allow_redirects' => false, 'http_errors' => false,
-                'connect_timeout' => 3, 'timeout' => 8, 'stream' => true,
-            ]);
+                'connect_timeout' => 3,
+                'timeout' => $method === 'POST' && preg_match('#^/organisations/[a-f0-9-]{36}/attendance/[a-f0-9-]{36}/analyse$#D', $path) ? 45 : 8,
+                'stream' => true,
+            ];
+            if ($payload!==null) { $options['json']=$payload?:new \stdClass; }
+            $response = ($http ?? new Client())->request($method, $base.$path, $options);
+            $responseHeaders=['set-cookie'=>$response->getHeader('Set-Cookie')];
             $status = $response->getStatusCode();
-            if ($status !== 200) {
+            if (!in_array($status,[200,201],true) && !($opaque && in_array($status,[400,401,403,404,409,422,429],true))) {
                 $response->getBody()->close();
                 abort(in_array($status, [401,403,404], true) ? $status : 502, 'Attendance access is unavailable.');
             }
@@ -72,6 +157,13 @@ class AttendanceBridge
                 }
             } finally { $stream->close(); }
             abort_if(strlen($body) > 1048576, 502);
+            if ($opaque) {
+                $mime=strtolower(explode(';',$response->getHeaderLine('Content-Type'))[0]);
+                abort_unless(in_array($mime,['application/json','image/jpeg'],true),502);
+                if ($mime==='application/json') { json_decode($body,true,32,JSON_THROW_ON_ERROR); }
+                abort_unless($status<400 || $mime==='application/json',502);
+                return ['body'=>$body,'status'=>$status,'content_type'=>$mime];
+            }
             $data = json_decode($body, true, 32, JSON_THROW_ON_ERROR);
             abort_unless(is_array($data), 502);
             return $data;

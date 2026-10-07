@@ -41,11 +41,11 @@
                             <form action="{{ route('login') }}" method="POST">
                                 @csrf
                                 <div class="mb-3">
-                                    <label class="form-label fw-semibold auth-label">Username or Email</label>
+                                    <label class="form-label fw-semibold auth-label">{{ config('attendance.api_url') ? 'Tech4Learn email' : 'Username or Email' }}</label>
                                     <div class="position-relative">
                                         <i class="fas fa-envelope auth-input-icon"></i>
                                         <input type="text" class="form-control auth-input @error('login', 'username', 'email') is-invalid @enderror"
-                                               name="login" placeholder="Enter username or email"
+                                               name="login" placeholder="{{ config('attendance.api_url') ? 'Enter your Tech4Learn email' : 'Enter username or email' }}"
                                                value="{{ old('login') }}" required autofocus>
                                     </div>
                                     @error('login') <div class="invalid-feedback">{{ $message }}</div> @enderror
