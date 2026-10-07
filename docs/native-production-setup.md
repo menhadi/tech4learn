@@ -1212,4 +1212,13 @@ No external provider is silently required or configured by this change.
 Seven upload/extraction tests passed, including private text extraction,
 unauthorized processing rejection and submission during extraction. The complete
 native suite passed 296 tests / 1,265 assertions. These are local synthetic tests;
-subjective file browser acceptance and production OCR/runtime checks remain.
+production OCR/runtime checks remain.
+
+The local browser runner also supports a fresh `--subjective` synthetic fixture.
+It verified student sign-in, TXT upload through authenticated extraction, insertion
+into the answer field, private evidence storage, answer save, submission and result
+display. The scoped database verifier confirmed the submitted answer text, private
+file and pending marking status. Six separate extraction boundary tests passed for
+line endings, invalid encoding, empty text, oversized text, DOCX expansion and
+external entity declarations. This is local TXT acceptance; image/PDF/DOC OCR,
+teacher marking and authenticated production acceptance remain unverified.

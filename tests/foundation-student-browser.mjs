@@ -21,10 +21,19 @@ try {
  stage='start';
  const response=await page.goto('http://two.localhost:8001/exam/start/'+fixture.exam,{waitUntil:'networkidle'});
  if(response?.status()!==200)throw new Error('Exam start unavailable');
- await page.getByText('Synthetic browser: what is two plus two?',{exact:true}).first().waitFor();
+ await page.getByText(fixture.subjective?'Synthetic browser: explain your answer.':'Synthetic browser: what is two plus two?',{exact:true}).first().waitFor();
  console.log('PASS: native student sign-in and exam question rendered.');
  stage='answer';
- await page.locator('.answer-input[type="radio"][value="1"]').check();
+ if(fixture.subjective) {
+  const chooser=page.waitForEvent('filechooser');
+  await page.locator('.upload-single-btn').click();
+  const extracted=page.waitForResponse(response=>response.url().endsWith('/student/answer-extraction')&&response.request().method()==='POST');
+  const uploaded=page.waitForResponse(response=>response.url().endsWith('/subjective-upload')&&response.request().method()==='POST');
+  await (await chooser).setFiles({name:'answer.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic uploaded explanation')});
+  if(!(await extracted).ok()||!(await uploaded).ok())throw new Error('Written answer upload failed');
+  if(await page.locator('textarea.answer-input').inputValue()!=='Synthetic uploaded explanation')throw new Error('Extracted answer not inserted');
+  console.log('PASS: uploaded text extracted into the answer and evidence saved privately.');
+ } else await page.locator('.answer-input[type="radio"][value="1"]').check();
  const saved=page.waitForResponse(response=>response.url().endsWith('/student/save-answer')&&response.request().method()==='POST');
  await page.locator('#nextButton').click();
  if(!(await saved).ok())throw new Error('Answer save failed');
@@ -35,9 +44,9 @@ try {
  stage='result';
  await page.getByRole('link',{name:'View Result',exact:true}).click();
  await page.waitForURL(url=>/^\/student\/results\/\d+$/.test(url.pathname),{timeout:20000});
- await page.locator('.score-display').filter({hasText:'2.00'}).first().waitFor();
+ await page.locator('.score-display').filter({hasText:fixture.subjective?'0.00':'2.00'}).first().waitFor();
  if(runtimeErrors.length){console.log(JSON.stringify({runtimeErrors}));throw new Error('Browser runtime error');}
- console.log('PASS: native student answered, submitted and viewed the two-mark result using browser controls.');
+ console.log(fixture.subjective?'PASS: native student submitted an uploaded written answer and opened its result; marking remains pending.':'PASS: native student answered, submitted and viewed the two-mark result using browser controls.');
  await page.screenshot({path:new URL('../.local/student-exam-review.png',import.meta.url).pathname.replace(/^\/([A-Z]:)/,'$1'),fullPage:true});
 } catch {
  await page?.screenshot({path:new URL('../.local/student-exam-failure.png',import.meta.url).pathname.replace(/^\/([A-Z]:)/,'$1'),fullPage:true}).catch(()=>{});
