@@ -1002,3 +1002,30 @@ maintenance window. No production manifest was saved or database record changed.
 The eventual deletion entry point must load/revalidate this private manifest
 and current evidence, then invoke the guarded transactional core; it remains
 unimplemented and must not infer old organisation IDs from current table counts.
+
+
+## Guarded cleanup operator entry point — not executed
+
+`execute-legacy-cleanup.mjs PRIVATE_BACKUP_DIRECTORY
+--confirm-authorized-previous-organisation-deletion` is now prepared. It accepts
+only a clean pinned release under `/home/tech4learn/releases/FULL_REVISION`,
+verifies Git HEAD, private restored backup evidence and a fresh private versioned
+manifest, rejects an existing completion receipt, validates the fixed source
+database/account and invokes the guarded transactional core. The core enforces
+paused API/database clients, frozen scope, administrator preservation and
+dependency checks. Completion metadata is written privately with exclusive
+creation. No identities, passwords or media are printed.
+
+A failure before commit reports blocked/rolled back. Lost commit acknowledgement
+or failure to save a receipt after commit reports uncertain/committed status
+and explicitly prohibits a blind retry; inspect the database first. Eight
+targeted proof/input/filesystem/pause/transaction tests passed, followed by the
+executor input test and syntax check after commit-state handling was tightened.
+The actual Linux operator success path remains unexecuted.
+
+Do not run until a fresh isolated restore is verified, explicit old UUIDs are
+reviewed privately, the maintenance window is authorised and API writes stopped,
+and the captured manifest is checked. Current restricted helper permissions
+do not stop the API. No live data was deleted and no site/service was modified.
+The earlier documentation describing the absence of an executor records the
+previous implementation state; this entry supersedes that limitation only.

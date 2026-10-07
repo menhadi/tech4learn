@@ -8,3 +8,10 @@ test('manifest CLI refuses invalid inputs without exposing their contents or tou
  assert.match(result.stderr,/No deletion attempted/);
  assert.equal((result.stdout+result.stderr).includes(secretMarker),false);
 });
+
+test('executor refuses missing explicit execution flag without echoing private input',()=>{
+ const marker='synthetic-private-execution-marker';
+ const result=spawnSync(process.execPath,['deploy/virtualmin/execute-legacy-cleanup.mjs',marker],{encoding:'utf8'});
+ assert.equal(result.status,1);assert.match(result.stderr,/blocked or rolled back/);
+ assert.equal((result.stdout+result.stderr).includes(marker),false);
+});
