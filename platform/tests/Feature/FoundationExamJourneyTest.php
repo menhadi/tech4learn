@@ -142,6 +142,24 @@ class FoundationExamJourneyTest extends TestCase
         $this->assertSame('P',ExamStat::where('exam_result_id',$id)->firstOrFail()->ques_status);
     }
 
+    public function test_expired_api_attempt_is_finalised_and_cannot_be_reopened(): void
+    {
+        [$org]=$this->owner();
+        $type=\App\Models\Qtype::firstOrCreate(['type'=>'M'],['question_type'=>'Multiple Choice']);
+        $question=Question::create(['organization_id'=>$org->id,'qtype_id'=>$type->id,'question'=>'Synthetic timed question','option1'=>'4','option2'=>'5','correct_option_indices'=>[1],'marks'=>2,'status'=>'Yes']);
+        $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic timed exam','slug'=>'synthetic-timed','result_after_finish'=>true,'status'=>'Active','passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam','start_date'=>now()->subDay(),'end_date'=>now()->addDay()]);
+        $exam->questions()->attach($question->id);
+        $student=Student::create(['organization_id'=>$org->id,'name'=>'Synthetic learner','email'=>'timed@example.invalid','password'=>'synthetic-unused-password','status'=>'Active']);
+        Auth::forgetGuards();Sanctum::actingAs($student,['*'],'student-api');Tenant::clear();
+        $url='https://synthetic-exams.test/api/student/exam/start/'.$exam->id;
+        $id=$this->postJson($url)->assertOk()->json('examResult.id');
+        ExamResult::findOrFail($id)->update(['start_time'=>now()->subMinutes(31)]);
+        $this->postJson($url)->assertStatus(410)->assertJson(['exam_finished'=>true]);
+        $this->assertNotNull(ExamResult::findOrFail($id)->end_time);
+        $this->postJson($url)->assertForbidden();
+        $this->assertSame(1,ExamResult::where('student_id',$student->id)->where('exam_id',$exam->id)->count());
+    }
+
     public function test_exam_directory_counts_open_ended_active_exams_only_in_its_tenant(): void
     {
         [$org]=$this->owner();
