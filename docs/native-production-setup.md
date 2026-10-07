@@ -272,3 +272,32 @@ global attendance alias before exiting. Without that flag it serves the local
 pilot on port 8010. The native synthetic database must contain matching reviewed
 IDs, and old browser sessions must be signed out before using the new setup.
 This fixture does not provision production accounts or change native records.
+
+## Explicit platform administrator link command
+
+The checked API management CLI now supports:
+
+```text
+node dist/manage.js foundation-platform-admin CANONICAL_SUPERADMIN_UUID NATIVE_PRIMARY_ORG_ID NATIVE_USER_ID --confirm-reviewed-native-identity
+```
+
+Run only through the trusted deployment account with its existing private API
+environment, after backing up the database and independently reviewing the
+native primary organisation and active native platform-admin user. The command
+requires migration 19 and an account that is already a stored superadmin. It
+does not promote an account, create a native user, copy a password or match email.
+The native numeric IDs must belong to this Tech4Learn installation; the API
+database cannot verify records in the separate MySQL database.
+
+Creation and audit are atomic under a provisioning lock. Retrying the exact
+active link leaves its version and audit history unchanged. A revoked link,
+reassigned account, duplicate account identity or attendance tenant realm blocks
+the command; it never silently reactivates or repairs a mapping. Output contains
+only the outcome. The audit identifies the selected existing superadmin and
+marks the source as server_cli; this is a trusted server operation, not evidence
+of a browser password sign-in. Existing authenticated management endpoints remain
+available for later reviewed status changes. No production provisioning has
+been performed by implementing this command.
+
+Verification: `npm run check` passed workspace typechecks/builds and all 108 API
+tests, including explicit provisioning and the existing realm-upgrade checks.

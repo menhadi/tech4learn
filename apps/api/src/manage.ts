@@ -2,6 +2,7 @@ import { attendanceTestingMigration } from "./migration-attendance-testing.js";
 import { foundationMigration } from "./migration-foundation.js";
 import { foundationLearnerMigration } from "./migration-foundation-learners.js";
 import { foundationPlatformMigration } from "./migration-foundation-platform.js";
+import { provisionPlatformAdministrator } from "./foundation-platform-provision.js";
 import { examEliteMigration } from "./migration-examelite.js";
 import { examWorkspaceMigration } from "./migration-exam-workspace.js";
 import { examStudentAccessMigration } from "./migration-exam-student-access.js";
@@ -187,6 +188,11 @@ try {
           await sql.query(foundationPlatformMigration);
     });
     console.log("Database migrations through version 19 are applied.");
+  } else if (command === "foundation-platform-admin") {
+    if (process.argv.length !== 7 || process.argv[6] !== "--confirm-reviewed-native-identity")
+      throw new Error("Use foundation-platform-admin CANONICAL_SUPERADMIN_UUID NATIVE_PRIMARY_ORG_ID NATIVE_USER_ID --confirm-reviewed-native-identity after reviewing the native account.");
+    const result = await provisionPlatformAdministrator(db, process.argv[3], process.argv[4], process.argv[5]);
+    console.log(result.created ? "Explicit platform administrator link created and audited." : "Exact active platform administrator link already exists; unchanged.");
   } else if (command === "demo-academic") {
     const confirmation = process.argv[4] || "";
     if (!confirmation.startsWith("--confirm-name="))
