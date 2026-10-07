@@ -884,3 +884,15 @@ an organisation member without changing counts and verifies refusal before
 session or data deletion, then restores the synthetic fixture and checks the
 normal cleanup path. All six plan/transaction/restore-target tests passed. No
 production cleanup was executed; isolated restore verification remains pending.
+
+
+## Cleanup query timeout bounds
+
+The internal cleanup transaction now sets transaction-local 60-second statement
+and 15-second idle-transaction timeouts, alongside its five-second lock timeout.
+A slow statement aborts the transaction for rollback/review instead of waiting
+indefinitely; these are per-statement/idle limits, not a total transaction timer.
+No automatic retry is introduced. The targeted cleanup transaction test passed
+its stale-manifest and rollback checks and confirmed timeout settings revert to
+the connection defaults after completion. No live cleanup or database setting
+was changed.

@@ -19,6 +19,7 @@ test('cleanup removes only frozen old organisations, revokes sessions and preser
   await pg.query("INSERT INTO memberships(user_id,organisation_id,role) VALUES($1,$2,'organisation_admin')",[teacher,old]);
   await pg.query("INSERT INTO audit_events(id,actor_id,organisation_id,action) VALUES($1,$2,$3,'old'),($4,$5,NULL,'global')",[randomUUID(),admin,old,randomUUID(),teacher]);
   await pg.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES('synthetic',$1,now()+interval '1 hour')",[admin]);
+  const initialTimeouts=(await pg.query("SELECT current_setting('statement_timeout') AS statement,current_setting('idle_in_transaction_session_timeout') AS idle")).rows[0];
   const manifest=await captureLegacyCleanupManifest(pg);
   await pg.query("INSERT INTO organisations(id,name,slug) VALUES($1,'Fresh synthetic','fresh-synthetic')",[fresh]);
   const stale=structuredClone(manifest);stale.plan[0].scopedRows='999';
@@ -61,6 +62,7 @@ test('cleanup removes only frozen old organisations, revokes sessions and preser
   assert.equal((await pg.query('SELECT count(*)::integer AS total FROM memberships')).rows[0].total,1);
   await pg.exec('DELETE FROM retained_account_records');
   assert.deepEqual(await cleanupLegacyOrganisationRecords(db,manifest),{removedOrganisations:1,retiredAccounts:1,administratorPreserved:true});
+  assert.deepEqual((await pg.query("SELECT current_setting('statement_timeout') AS statement,current_setting('idle_in_transaction_session_timeout') AS idle")).rows[0],initialTimeouts);
   assert.deepEqual((await pg.query('SELECT id FROM organisations')).rows,[{id:fresh}]);
   assert.equal((await pg.query('SELECT password_hash FROM users')).rows[0].password_hash,'unchanged');
   assert.equal((await pg.query('SELECT count(*)::integer AS total FROM sessions')).rows[0].total,0);

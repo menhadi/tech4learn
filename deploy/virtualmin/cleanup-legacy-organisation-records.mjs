@@ -25,6 +25,8 @@ export async function cleanupLegacyOrganisationRecords(database,manifest) {
     || !Array.isArray(manifest.media) || !Array.isArray(manifest.plan) || !/^[a-f0-9]{64}$/.test(manifest.administratorPasswordDigest))throw new Error('Invalid private cleanup manifest');
   return database.transaction(async sql=>{
     await sql.query("SET LOCAL lock_timeout='5s'");
+    await sql.query("SET LOCAL statement_timeout='60s'");
+    await sql.query("SET LOCAL idle_in_transaction_session_timeout='15s'");
     // Protect discovery and identity from concurrent writes/schema changes.
     await sql.query('LOCK TABLE public.organisations,public.users,public.sessions IN ACCESS EXCLUSIVE MODE');
     const current=await planLegacyCleanup(sql,manifest.organisationIds);
