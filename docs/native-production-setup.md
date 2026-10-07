@@ -914,3 +914,21 @@ writes, capture the frozen deletion manifest and use the transactional core.
 Metadata alone is not proof of a restored database or authorization to delete.
 The earlier preserved backup remains a recovery artifact; no receipt was
 invented and no production deletion or isolated restore occurred.
+
+
+## Restore gate connected to cleanup core
+
+The internal cleanup entry point now requires validated backup/restore evidence
+and a deletion manifest bound to that exact archive SHA-256. Missing proof or
+a different archive blocks before entering the database transaction. Frozen
+manifest capture accepts the reviewed archive hash explicitly. The transaction
+test uses labelled synthetic receipt data, verifies missing/mismatched proof
+leaves sessions intact, and still passes stale membership/media, trigger failure,
+shared dependency rollback and administrator preservation checks. Three targeted
+receipt/transaction tests passed.
+
+There remains no live cleanup CLI. Its trusted file-loading layer must verify
+private ownership, permissions and actual archive bytes, and enforce paused
+writes before supplying evidence. Binding metadata is an internal precondition,
+not a substitute for actual isolated restore. No production receipt was created
+or destructive operation performed.
