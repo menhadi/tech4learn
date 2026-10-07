@@ -1269,3 +1269,11 @@ This supports DOCX readback and the same process timeout, output and encoding
 limits as student extraction. Eight upload/access/readback tests passed, including
 retained DOCX extraction and oversized text rejection. Actual AI provider marking
 and production acceptance are still unverified.
+
+The copied AI controller also writes `ai_score` and `ai_providers_used`, which
+were absent from the migration history. Migration
+`2026_10_08_000002_add_ai_assessment_metadata_to_exam_stats` adds nullable score
+and provider metadata fields only when missing. Its rollback preserves evidence.
+A local regression test verified existing metadata survives repeat application
+and rollback. This migration is checked locally and has not run in production;
+actual AI provider marking and attempt-state/concurrency acceptance remain pending.

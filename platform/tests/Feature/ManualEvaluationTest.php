@@ -90,4 +90,14 @@ class ManualEvaluationTest extends TestCase
         $this->assertSame('Fail',$result->fresh()->result);
         $this->assertEquals(1.5,$result->fresh()->obtained_marks);
     }
+    public function test_ai_metadata_migration_preserves_existing_evidence_on_retry_and_rollback(): void
+    {
+        [,$stats]=$this->fixture();
+        DB::table('exam_stats')->where('id',$stats[0]->id)->update(['ai_score'=>1.5,'ai_providers_used'=>'Synthetic provider']);
+        $migration=require database_path('migrations/2026_10_08_000002_add_ai_assessment_metadata_to_exam_stats.php');
+        $migration->up();$migration->down();
+        $row=DB::table('exam_stats')->where('id',$stats[0]->id)->first();
+        $this->assertEquals(1.5,$row->ai_score);
+        $this->assertSame('Synthetic provider',$row->ai_providers_used);
+    }
 }
