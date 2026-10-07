@@ -154,3 +154,24 @@ The learner interface change passed `npm run check` (111 API tests, workspace
 typechecks and builds), native gateway boundary checks and the connected
 PHP-to-Nest setup/attendance journey. Original ExamElite records, production
 learner data and live configuration were not changed.
+
+## Synthetic browser milestone
+
+The ignored local SQLite fixture now has a separate synthetic native tenant and
+staff matching the synthetic API pilot. `php tests/prepare-native-browser-pilot.php`
+is CLI-only, requires the fixed ignored local SQLite installation and local
+environment, refuses occupied conflicting IDs, and does not repair existing
+identities. No source or production ExamElite database is involved.
+
+`node tests/foundation-browser-pilot.mjs --tenant-browser` serves the matching
+API on loopback port 8011 with origin `http://two.localhost:8001`. Configure that
+ignored native fixture's attendance API URL accordingly. Resolve `two.localhost`
+to loopback in the owned test browser; the .localhost name provides the secure
+context needed by browser crypto/camera APIs. This does not relax production
+HTTPS requirements or change a user's normal browser settings.
+
+Actual headless Chromium checks passed synthetic tenant sign-in, the attendance
+workspace, centre form save through the native gateway, academic setup view and
+populated learner directory without runtime errors. Both default and tenant
+pilot identity checks passed. Camera/photo capture, native device checks and
+production authenticated acceptance remain pending.

@@ -25,7 +25,8 @@ if(process.env.NODE_ENV==='production') throw new Error('Local synthetic pilot o
 process.env.NODE_ENV='test';
 // Exercise the replacement attendance support runtime, including retired-route removal.
 process.env.TECH4LEARN_API_MODE='attendance';
-process.env.ADMIN_ORIGIN='http://127.0.0.1:8001';
+const tenantBrowser=process.argv.includes('--tenant-browser');
+process.env.ADMIN_ORIGIN=tenantBrowser?'http://two.localhost:8001':'http://127.0.0.1:8001';
 const pg=new PGlite();
 let app;
 try {
@@ -54,7 +55,7 @@ try {
   await pg.query("INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES($1,$2,$3,'Synthetic capture section')",[captureGroup,org,captureCentre]);
   await pg.query("INSERT INTO learners(id,organisation_id,group_id,code,name) VALUES($1,$2,$3,'SYNTHETIC-01','Synthetic learner')",[learner,org,captureGroup]);
   const adapter={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>sql.query(q,p)})),onModuleDestroy:async()=>{}};
-  app=await createApp(undefined,adapter); await app.listen(process.argv.includes('--check') ? 0 : 8010,'127.0.0.1');
+  app=await createApp(undefined,adapter); await app.listen(process.argv.includes('--check') ? 0 : tenantBrowser ? 8011 : 8010,'127.0.0.1');
   const api=`${await app.getUrl()}/api/v1`;
   if (process.argv.includes('--check')) {
     const login=await fetch(api+'/foundation/auth/platform/login',{method:'POST',headers:{Origin:process.env.ADMIN_ORIGIN,'Content-Type':'application/json','X-Tech4Learn-Request':'1'},body:JSON.stringify({email:'synthetic-platform@example.invalid',password:credentials.password,nativeOrganisationId:'1'})});
@@ -74,5 +75,5 @@ try {
     assert.equal((await pg.query('SELECT native_organisation_id::text,native_user_id::text FROM foundation_staff')).rows[0].native_organisation_id,'2');
     await app.close();await pg.close();
     console.log('PASS: browser pilot has separate platform and attendance identities and working platform password login.');
-  } else console.log('Local synthetic foundation API ready on 127.0.0.1:8010; platform and tenant staff have separate identities; passwords remain in ignored local credentials.');
+  } else console.log('Local synthetic foundation API ready; tenant browser mode uses loopback port 8011; platform and tenant staff have separate identities; passwords remain in ignored local credentials.');
 } catch(error) { await app?.close();await pg.close();throw error; }
