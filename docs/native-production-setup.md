@@ -420,3 +420,15 @@ deletion step for these database-backed photos. Native Laravel uploads, original
 ExamElite uploads, private backups and other sites remain outside cleanup scope.
 Any separately discovered external media must still have its own reviewed,
 bounded manifest before removal.
+
+The read-only planner in `deploy/virtualmin/plan-legacy-cleanup.mjs` computes
+child-before-parent order from the actual foreign-key graph. Cycles, duplicate
+table entries and unclassified scope block planning. Direct organisation rows
+use the current previous-organisation ID snapshot; native staff use its explicit
+native mappings, and old student sessions use grants owned by those organisations.
+Tenant audit rows are counted separately from global audit rows. Counts reveal
+no UUIDs, credentials or records. The two isolated planner tests passed, including
+indirect grants, global audit exclusion, cycle rejection and unchanged admin/data.
+This module intentionally has no deletion executor. A private frozen manifest,
+verified backup/restore, paused writes and reviewed user/session/global-connector
+cleanup are still required before execution.
