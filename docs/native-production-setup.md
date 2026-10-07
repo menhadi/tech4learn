@@ -141,3 +141,27 @@ then reviewed tenant/staff/student provisioning, scheduled jobs and actual
 exam/attendance acceptance. Apache remains on the existing Node website.
 The restricted helper has no Apache edit privileges; the eventual checked
 cutover still requires a separately scoped root installation.
+
+## Administrator boundary hardening
+
+The upstream platform-flag migration previously promoted a user by a hardcoded
+email address. That promotion has been removed from the copied Tech4Learn
+source. Installing or retrying the flag migration now grants no authority and
+preserves explicitly assigned administrator flags. Regression tests cover the
+former matching email, an ordinary account and an explicitly assigned admin.
+This changes fresh setup behavior; it does not revoke or alter existing live
+accounts, and it does not complete administrator provisioning or sign-in.
+
+The next sign-in implementation needs a distinct global platform identity
+realm. Do not map native platform organisation 1 to one of the actual attendance
+tenants just to enable login. Proposed implementation, still pending: an explicit
+immutable link between a verified native platform administrator ID and a stored
+canonical superadmin UUID, with revocable/versioned activation; API password
+verification followed by stored-role and link checks; native stored-admin checks;
+and current API-role/link/session validation on every privileged native request.
+The platform realm must be mutually exclusive with tenant organisation mappings,
+including concurrent creation, and must grant no implicit attendance tenant
+context. Rejected sign-in must revoke its provisional API session. Tests must
+cover ordinary-user denial, cross-realm links, revocation/demotion after sign-in,
+version conflicts, immutable mapping and private session handling. All of this
+is planned until implemented and checked.

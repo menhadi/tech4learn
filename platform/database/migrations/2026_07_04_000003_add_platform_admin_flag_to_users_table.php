@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -15,11 +14,8 @@ return new class extends Migration
             });
         }
 
-        if (Schema::hasTable('users') && Schema::hasColumn('users', 'is_platform_admin')) {
-            DB::table('users')
-                ->where('email', 'menhadi@gmail.com')
-                ->update(['is_platform_admin' => true]);
-        }
+        // Installing a flag never grants authority. Platform administrators
+        // must be explicitly provisioned and linked to a verified API account.
     }
 
     public function down(): void

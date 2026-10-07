@@ -9,6 +9,36 @@ use Tests\TestCase;
 
 class FreshNativeFoundationMigrationTest extends TestCase
 {
+    public function test_platform_flag_migration_never_promotes_accounts_by_email(): void
+    {
+        config(['database.default'=>'fresh_native', 'database.connections.fresh_native'=>[
+            'driver'=>'sqlite', 'database'=>':memory:', 'prefix'=>'', 'foreign_key_constraints'=>true,
+        ]]);
+        try {
+            Schema::create('users', function (Blueprint $table) {
+                $table->id();
+                $table->string('email');
+                $table->string('status');
+            });
+            // This value triggered the original upstream migration's promotion.
+            DB::table('users')->insert([
+                ['id'=>1, 'email'=>'menhadi@gmail.com', 'status'=>'Active'],
+                ['id'=>2, 'email'=>'synthetic@example.invalid', 'status'=>'Active'],
+            ]);
+            $migration = require database_path('migrations/2026_07_04_000003_add_platform_admin_flag_to_users_table.php');
+            $migration->up();
+            $this->assertSame(0, DB::table('users')->where('is_platform_admin', true)->count());
+            DB::table('users')->where('id', 2)->update(['is_platform_admin'=>true]);
+            $migration->up();
+            $this->assertSame(1, DB::table('users')->where('is_platform_admin', true)->count());
+            $this->assertEquals(0, DB::table('users')->where('id', 1)->value('is_platform_admin'));
+            $this->assertEquals(1, DB::table('users')->where('id', 2)->value('is_platform_admin'));
+        } finally {
+            DB::purge('fresh_native');
+            config(['database.default'=>'sqlite']);
+        }
+    }
+
     public function test_admission_schema_repairs_only_empty_partial_resources(): void
     {
         config(['database.default'=>'fresh_native', 'database.connections.fresh_native'=>[

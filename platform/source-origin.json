@@ -2938,8 +2938,10 @@
     },
     {
       "path": "database/migrations/2026_07_04_000003_add_platform_admin_flag_to_users_table.php",
-      "sha256": "0d9034a67530a78904dbe0603131fd3358aab3120765ea242b451f5be294ec50",
-      "patches": []
+      "sha256": "8bd690a72a930ac269e9166ce8f7e4969f65346001ac2110e908937fc8d98ce8",
+      "patches": [
+        "explicit-platform-authority-no-email-promotion"
+      ]
     },
     {
       "path": "database/migrations/2026_07_06_000001_create_saas_leads_table.php",
