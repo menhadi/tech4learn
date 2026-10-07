@@ -51,6 +51,22 @@ Connect findings to activities, intervention, reassessment and progress. Start w
 
 ## ExamElite
 
+### Foundation decision — 7 October 2026
+
+The user now requests a complete application-code copy of ExamElite as the
+Tech4Learn foundation, followed by integration of the already-built attendance
+module, FLN development and the mobile app. This supersedes the strategy of
+reproducing all exam screens in React or connecting two separately branded SaaS
+products. Preserve native exam functionality and organisation isolation.
+
+The existing deployed attendance application and records remain authoritative
+until a verified transition. Application source is separate from question-bank
+content, learner records, uploads and provider configuration: copying code does
+not copy those records or establish feature readiness. The isolated foundation
+is development work, not a deployed replacement. FLN and mobile integration
+remain planned until implemented and checked. Historical integration notes below
+record earlier work and do not override this decision.
+
 Revised requirement: all exam work stays inside the organisation's Tech4Learn domain and interface. Superadmin controls module availability and organisation/plan enablement, and can share central questions or pull organisation questions into central ownership as independent copies. See [central content implementation and remaining work](examelite-central-content.md). The previous external native-workspace launch is superseded as a user interface; it does not satisfy this requirement.
 
 The user confirms ExamElite provides complete exam capabilities and millions of questions. Integrate question selection, exam creation/delivery, online/paper/OMR workflows, subjective exams, evaluation and results. Do not rebuild its engine or question bank.

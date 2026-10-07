@@ -4,6 +4,13 @@ Updated 7 October 2026. This is the current summary; the central-content and
 student-attempt documents also contain historical milestone notes. A historical
 “pending” statement does not override a later implemented milestone.
 
+**Architecture direction changed later on 7 October:** the user requests a
+complete ExamElite application-code foundation for Tech4Learn, integration of
+the existing attendance module, then FLN and mobile development. See the
+[foundation transition](examelite-foundation-transition.md). The checked
+connector work below is retained evidence, not a claim that the new combined
+application is built or deployed.
+
 **The full requested integration is not complete.** The same-domain core pilot
 works in isolated local checks. No complete live release or full ExamElite
 feature parity has been verified. Development remains local; the user deploys

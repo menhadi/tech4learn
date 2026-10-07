@@ -2,6 +2,25 @@
 
 ## Stack and boundaries
 
+### Revised application foundation — 7 October 2026
+
+The agreed direction is to copy the complete ExamElite Laravel application into
+the Tech4Learn product and preserve its native SaaS/exam screens and engine.
+The TypeScript repository below contains the existing attendance implementation
+and mobile scaffold; it must remain available while integration is developed.
+Do not replace the deployed service, merge databases or migrate identities as an
+automatic consequence of the source copy. Laravel numeric identities and
+Tech4Learn UUIDs need explicit organisation/user/student mapping and permission
+checks before attendance access is exposed. No email-based automatic merging.
+
+Initial source preparation is isolated beneath ignored `.local`; source origin,
+working-tree edits and copied-file hashes are recorded there. Dependencies,
+credentials, uploads, databases, compiled server caches and learner data are not
+part of the source import. Audit copied code for embedded credentials before
+versioning it. A local boot is not complete exam, attendance, FLN or mobile
+acceptance. The former remote-connector architecture is historical during this
+transition.
+
 One TypeScript repository using npm workspaces: React Native/Expo mobile, React/Vite admin, NestJS API and shared types. PostgreSQL now stores identity, sessions, organisations, invitations and audit events. Redis jobs and S3-compatible storage remain planned.
 
 Start with a modular backend: identity, organisations, configuration, learners, attendance, learning assessment, integrations and reporting. Separate compute-heavy services only when needed. AI provider keys stay server-side; track per-organisation usage/cost when calls are introduced.
