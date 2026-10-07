@@ -8,11 +8,14 @@ import { isAbsolute, join } from "node:path";
 import type { Request, Response, NextFunction } from "express";
 import { json } from "express";
 import type { Database } from "./database.js";
+import { apiRuntimeMode } from "./runtime-mode.js";
 
 export async function createApp(
   adminDirectory = process.env.ADMIN_DIST_PATH,
   database?: Database,
 ) {
+  const mode=apiRuntimeMode();
+  if(mode==="attendance")adminDirectory=undefined;
   if (
     adminDirectory &&
     (!isAbsolute(adminDirectory) ||
@@ -31,7 +34,7 @@ export async function createApp(
       "ADMIN_ORIGIN must be an exact origin; HTTPS is required in production.",
     );
   const app = await NestFactory.create<NestExpressApplication>(
-    AppModule.configure(database),
+    AppModule.configure(database,mode),
     { logger: ["error", "warn", "log"] },
   );
   app.setGlobalPrefix("api/v1");

@@ -540,3 +540,25 @@ Verification for fresh attendance provisioning: `npm run check` passed workspace
 typechecks/builds and all 109 API tests. The new test covers atomic fresh creation,
 permission initialization, exact retry/audit preservation, revoked links, occupied
 legacy slugs, ordinary staff denial and rejection of the global platform realm.
+
+## Attendance-only Node runtime — local preparation
+
+`TECH4LEARN_API_MODE=attendance` selects the supporting Node runtime for the new
+Laravel product. It omits all previous exam connector/content/workspace/student
+delivery/OMR controllers and their providers. The React admin directory is ignored
+in this mode, so the Node process no longer serves the previous product shell.
+Authentication, native identity bridges, permissions, academics, learner/photo
+records, attendance, configuration, face-engine controls and health APIs remain
+available with their existing checks. These support attendance; they do not
+establish a second exam product.
+
+The default is `legacy`, preserving the currently deployed website until the
+reviewed cutover. Unknown values fail startup rather than selecting a fallback.
+Activate attendance mode only with Laravel website routing: Node `/` returns 404
+in attendance mode. This switch does not delete any organisations or data.
+Old source remains in Git for rollback pending native acceptance; runtime removal
+is separate from physical source cleanup. No live environment was changed.
+
+Verification: `npm run check` passed all workspace typechecks/builds and 111 API
+tests, including attendance runtime startup, missing retired routes/shell,
+retained health/protected identity and attendance routes, and invalid-mode refusal.

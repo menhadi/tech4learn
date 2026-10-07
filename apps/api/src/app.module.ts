@@ -37,20 +37,21 @@ import { LearnersController } from "./learners.controller.js";
 import { LearnersService } from "./learners.service.js";
 import { AcademicService } from "./academic.service.js";
 import { AcademicController } from "./academic.controller.js";
+import type { ApiRuntimeMode } from "./runtime-mode.js";
 
 @Module({})
 export class AppModule {
-  static configure(database?: Database): DynamicModule {
+  static configure(database?: Database,mode: ApiRuntimeMode = "legacy"): DynamicModule {
     return {
       module: AppModule,
       controllers: [
         FoundationController,
-        ExamStudentAccessController,
+        ...(mode === "legacy" ? [ExamStudentAccessController,
         ExamContentController,
         ExamEliteController,
         ExamElitePlatformController,
         ExamWorkspaceController,
-        ExamOmrController,
+        ExamOmrController] : []),
         FaceControlController,
         LearnerPhotosController,
         AcademicController,
@@ -63,12 +64,12 @@ export class AppModule {
       ],
       providers: [
         FoundationService,
-        ExamStudentAccessService,
+        ...(mode === "legacy" ? [ExamStudentAccessService,
         ExamStudentAttemptService,
         ExamContentService,
         ExamEliteService,
         ExamWorkspaceService,
-        ExamOmrService,
+        ExamOmrService] : []),
         FaceControlService,
         FaceControlClient,
         LearnerPhotosService,
