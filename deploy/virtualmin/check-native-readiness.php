@@ -44,7 +44,11 @@ try {
     $check((int)$db->query("SELECT COUNT(*) FROM organizations WHERE domain = 'tech4learn.com' AND status = 'active'")->fetchColumn() === 1, 'active canonical website organisation');
     $check((int)$db->query("SELECT COUNT(*) FROM organizations WHERE status = 'active' AND JSON_EXTRACT(settings, '$.is_primary_platform') = true")->fetchColumn() === 1
         && (int)$db->query("SELECT COUNT(*) FROM organizations WHERE domain = 'tech4learn.com' AND status = 'active' AND JSON_EXTRACT(settings, '$.is_primary_platform') = true")->fetchColumn() === 1, 'unique active primary platform realm on canonical website');
-    $check((int)$db->query("SELECT COUNT(*) FROM users WHERE is_platform_admin = 1 AND status = 'Active' AND deleted = 0")->fetchColumn() > 0, 'active native platform administrator');
+    $ledgerExists = (int)$db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'tech4learn_exams' AND table_name = 'foundation_platform_administrators'")->fetchColumn() === 1;
+    $check($ledgerExists, 'explicit native administrator identity ledger installed');
+    if ($ledgerExists) {
+        $check((int)$db->query("SELECT COUNT(*) FROM foundation_platform_administrators p JOIN users u ON u.id = p.user_id JOIN organizations o ON o.id = p.organization_id WHERE o.domain = 'tech4learn.com' AND o.status = 'active' AND JSON_EXTRACT(o.settings, '$.is_primary_platform') = true AND u.is_platform_admin = 1 AND u.status = 'Active' AND u.deleted = 0")->fetchColumn() === 1, 'active native platform administrator with explicit primary identity');
+    }
     $db->rollBack();
     echo "PENDING: reviewed API organisation/staff/learner links, sign-in, attendance and exam acceptance must be checked separately.\n";
     echo "PENDING: Apache routing, shared writable storage and scheduled workers require separate deployment verification.\n";

@@ -367,3 +367,21 @@ environment explicitly; changing this public template does not update live.
 Verification: all 284 native tests / 1,221 assertions passed. Schedule tests
 confirm core exam workers remain, provider jobs can be enabled independently
 and the initial one-worker schedule does not create a second worker slot.
+
+## Read-only live inventory — 7 October, 13:50 UTC
+
+The restricted status helper reported the API active, the native PHP socket
+present and private native environment present. A read-only PostgreSQL inventory
+confirmed schema 18, one existing canonical superadmin and zero active native
+organisation, staff or learner mappings. The pinned native readiness check
+passed environment/schema/domain checks and blocked on the missing native
+platform administrator. No migrations, account provisioning, website routing
+or scheduler activation were performed by this inventory.
+
+The current checked native readiness script additionally requires the explicit
+administrator ledger and an active administrator linked to the canonical primary
+realm. Merely setting an arbitrary user's platform-admin flag no longer passes
+that gate. After deployment, compare the reviewed canonical UUID in the private
+native ledger with the API mapping separately; the native database check cannot
+verify a PostgreSQL identity. The new code and local tests do not make the
+currently deployed schema-18 website ready for native cutover.
