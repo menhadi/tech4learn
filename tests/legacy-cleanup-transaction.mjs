@@ -31,6 +31,16 @@ test('cleanup removes only frozen old organisations, revokes sessions and preser
   await assert.rejects(cleanupLegacyOrganisationRecords(failing,manifest),/mid-cleanup/);
   assert.equal((await pg.query('SELECT count(*)::integer AS total FROM sessions')).rows[0].total,1);
   assert.equal((await pg.query('SELECT count(*)::integer AS total FROM foundation_staff')).rows[0].total,1);
+  // A trigger can suppress DELETE without raising an error, including on non-FK audit/media rows.
+  await pg.exec(`CREATE FUNCTION suppress_old_audit_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN RETURN NULL; END $$;
+    CREATE TRIGGER suppress_old_audit_delete BEFORE DELETE ON audit_events
+    FOR EACH ROW EXECUTE FUNCTION suppress_old_audit_delete()`);
+  await assert.rejects(cleanupLegacyOrganisationRecords(db,manifest),/Scoped deletion incomplete: audit_events/);
+  assert.equal((await pg.query('SELECT count(*)::integer AS total FROM sessions')).rows[0].total,1);
+  assert.equal((await pg.query('SELECT count(*)::integer AS total FROM audit_events')).rows[0].total,2);
+  assert.equal((await pg.query('SELECT count(*)::integer AS total FROM foundation_staff')).rows[0].total,1);
+  await pg.exec('DROP TRIGGER suppress_old_audit_delete ON audit_events; DROP FUNCTION suppress_old_audit_delete()');
   await pg.exec('CREATE TABLE retained_account_records(id integer PRIMARY KEY,actor_id uuid REFERENCES users(id))');
   await pg.query('INSERT INTO retained_account_records(id,actor_id) VALUES(1,$1)',[teacher]);
   await assert.rejects(cleanupLegacyOrganisationRecords(db,manifest),/Retained account records/);

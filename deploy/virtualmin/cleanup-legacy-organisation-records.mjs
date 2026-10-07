@@ -48,6 +48,8 @@ export async function cleanupLegacyOrganisationRecords(database,manifest) {
       else if(item.table==='exam_student_sessions'){predicate='grant_id IN (SELECT id FROM public.exam_student_grants WHERE organisation_id=ANY($1::uuid[]))';values=[manifest.organisationIds];}
       else throw new Error('Unclassified deletion scope');
       await sql.query('DELETE FROM '+table+' WHERE '+predicate,values);
+      const remaining=await sql.query('SELECT count(*)::text AS count FROM '+table+' WHERE '+predicate,values);
+      if(remaining.rows[0]?.count!=='0')throw new Error('Scoped deletion incomplete: '+item.table);
     }
     const retiredAccounts=await retireLegacyAccounts(sql,manifest.oldUserIds,manifest.administratorId);
     const root=await sql.query('SELECT id,password_hash,is_superadmin FROM users WHERE id=$1',[manifest.administratorId]);
