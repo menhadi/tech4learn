@@ -87,10 +87,11 @@ class SaasController extends Controller
             'created_from_admin' => true,
         ];
 
-        $organization = Organization::create($validated);
-
-        $this->ensureOrganizationConfiguration($organization);
-        audit_log('organization.created', $organization, ['name' => $organization->name]);
+        DB::transaction(function () use ($validated) {
+            $organization = Organization::create($validated);
+            $this->ensureOrganizationConfiguration($organization);
+            audit_log('organization.created', $organization, ['name' => $organization->name]);
+        });
 
         return redirect()->route('saas.index')->with('success', 'Organization created successfully.');
     }
@@ -456,36 +457,14 @@ class SaasController extends Controller
             return;
         }
 
-        $defaultOrganizationId = Organization::where('slug', 'examelite')->value('id');
-
-        $source = Configuration::where('organization_id', $defaultOrganizationId)->first()
-            ?: Configuration::query()->first();
-
-        if (! $source) {
-            Configuration::create([
-                'organization_id' => $organization->id,
-                'name' => $organization->name,
-                'organization_name' => $organization->name,
-                'domain_name' => $organization->domain,
-                'email' => $organization->email,
-                'organization_phone' => $organization->phone,
-            ]);
-
-            return;
-        }
-
-        $data = $source->replicate()->toArray();
-
-        unset($data['id'], $data['created_at'], $data['updated_at']);
-
-        $data['organization_id'] = $organization->id;
-        $data['name'] = $organization->name;
-        $data['organization_name'] = $organization->name;
-        $data['domain_name'] = $organization->domain ?: $source->domain_name;
-        $data['email'] = $organization->email ?: $source->email;
-        $data['organization_phone'] = $organization->phone ?: $source->organization_phone;
-
-        Configuration::create($data);
+        Configuration::create([
+            "organization_id" => $organization->id,
+            "name" => $organization->name,
+            "organization_name" => $organization->name,
+            "domain_name" => $organization->domain,
+            "email" => $organization->email,
+            "organization_phone" => $organization->phone,
+        ]);
     }
 
     private function validateOrganization(Request $request, ?int $organizationId = null): array

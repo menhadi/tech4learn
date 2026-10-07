@@ -581,8 +581,10 @@
     },
     {
       "path": "app/Http/Controllers/SaasController.php",
-      "sha256": "d71e3cc691afd7dd4d6815ac1472720be470f230648fa8585f20044bbbf8ac75",
-      "patches": []
+      "sha256": "85fc38e4518b767f3b26d6235423e6adbf3c18ebb57b6a8ac4349e2e3130d9e3",
+      "patches": [
+        "isolated-atomic-fresh-organisation-configuration"
+      ]
     },
     {
       "path": "app/Http/Controllers/SaasQuestionSharingController.php",

@@ -18,6 +18,13 @@ second organisation-management interface. An explicit trusted-operator companion
 provisioning command is implemented locally; automatic native lifecycle integration
 remains pending. Existing mappings are explicit reviewed controls.
 
+Fresh Laravel organisation creation uses independent configuration defaults and
+the new organisation's own contact fields. It must never replicate another
+organisation's configuration, provider credentials or private settings. The
+organisation, configuration and creation audit are saved in one transaction.
+Local regression tests verify credential isolation and rollback on configuration
+failure. This does not yet provision the attendance-side companion automatically.
+
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
 checks before executing it. No production cleanup has been executed. Preserve the existing administrator's
