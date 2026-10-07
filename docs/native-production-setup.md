@@ -487,3 +487,17 @@ phase only. Non-admin account retirement, global old-connector records and optio
 realm-registry cleanup require separate review. It is not connected to a live
 execution command; verified restore, private manifest persistence and paused
 application writes remain prerequisites. No production deletion has run.
+
+The account phase now freezes non-admin UUIDs belonging to previous organisations
+in the same private manifest. After scoped organisation deletion, it retires only
+those accounts with no remaining memberships. It revokes their sessions, retains
+global audit events with a null actor reference, and checks every incoming user
+foreign key before deletion. Remaining shared/global account records block the
+entire transaction for explicit review rather than being silently deleted. The
+retained superadmin and accounts outside the frozen snapshot are excluded.
+The local transaction test passed retirement and rollback when an unexpected
+retained user dependency was present, alongside the existing administrator and
+fresh-organisation preservation checks. A read-only live count found 11 non-admin
+accounts, all members of previous organisations; no account values were printed.
+The isolated restore database was still absent at this check, so live cleanup
+remains pending its setup and actual restore verification.
