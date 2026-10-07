@@ -205,7 +205,7 @@ export function OrganisationWorkspace({
     ...(can("audit.view") ? ["History"] : []),
   ];
   if (can("exams.manage") && data?.modules?.exams === true) tabs.push("Exam workspace");
-  if (can("configuration.view") || can("exams.manage")) tabs.push("Exam results");
+  if (can("exams.manage") && data?.modules?.exams === true) tabs.push("Exam results");
   const upcoming = [...(can("groups.view") ? ["FLN workspace"] : []),...(can("configuration.view") ? ["Email settings","Email templates","Message settings","Delivery history"] : [])];
   const menuGroups=organisationMenu(org.centre_label,tabs,upcoming);
   const currentGroup=menuGroups.find(g=>g.items.some(i=>i.id===tab));

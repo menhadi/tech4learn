@@ -25,8 +25,8 @@ on 7 October: `tests/browser/exam-answer-files.html` now passes with synthetic
 transport, including Hindi selection, identical upload/extraction retries,
 private download URL, explicit reviewed save and native answer-lock display.
 A stale unsaved-extraction notice after saving was fixed and regression checked.
-The connected browser/native file-answer journey remains the next verification
-task. Full release acceptance, media reconciliation,
+The connected browser/native file-answer journey also passed in the subsequent
+7 October check described below. Full release acceptance, media reconciliation,
 representative paper/device coverage and the deployment handoff below remain
 open. No live edits or migrations were performed.
 
@@ -36,7 +36,38 @@ defaults and retries, and academic section filtering for student exam links.
 Its synthetic browser regression and real application shell checks passed at
 desktop and 390px mobile sizes. `npm run check` passed 94 tests and builds;
 the final admin build also passed after the keyboard fix. None of these checks
-establish production deployment or browser-to-native file upload acceptance.
+establish production deployment. The subsequent connected file check supplies
+the browser/native upload evidence separately.
+
+## Connected file-answer acceptance — 7 October 2026
+
+The real student and staff React screens now pass private answer-file upload,
+replacement, superseded-file denial, private download bytes/headers, remount and
+resume, native text extraction, explicit reviewed answer save, submission,
+staff attachment download, marking, publication, history and revocation through
+real Nest HTTP and registered native PHP controllers. Uploads (including the
+replacement), extraction, answer save, submission and marking each lose their
+first successful acknowledgement deliberately; retries preserve the request
+body and outcome. Extraction is checked against the persisted attempt and does
+not save the written draft. Submitted students cannot download/extract the file,
+and revoked grants cannot read results.
+
+This uses isolated PGlite/SQLite records and temporary native files. The native
+transport remains PHP CLI, not production Laravel HTTP/TLS middleware; staff
+provisioning/session and paper creation/publication are test/API setup rather
+than a complete staff-login/authoring-UI journey. The native extractor processes
+real plain-text files; no response payload is mocked by this browser check.
+
+A separate real-PDF smoke test passed the private extraction adapter and native
+`pdftotext` branch, malformed-PDF guidance and temporary cleanup. On Windows it
+changes only `2>/dev/null` to `2>NUL` in a temporary native-script copy. It does
+not verify production helper installation, DOC/DOCX tools, OCR/provider quality
+or descendant-process termination on the Linux host. No live files changed.
+
+The Results navigation entry now requires both `exams.manage` and the enabled
+Exams module, matching its existing working screen/API boundary. Synthetic
+browser shell variants verify that configuration-only staff and a disabled
+module expose neither the results entry nor an exam search result.
 
 ## Implemented and checked locally
 
@@ -50,7 +81,7 @@ establish production deployment or browser-to-native file upload acceptance.
 | Translated wording | Review, edit, refresh request and approval; retain existing opaque images while editing question text/model answers and exam instructions/syllabus. Saved question and exam translations support raster upload, replacement and reference removal. |
 | Exam management | Native settings, question assembly, sections, subject timers, activation and result visibility for organisation and central owners. |
 | Student and marking pilot | Same-domain scoped entry, staff-issued grants, start/resume, answer save/retry, submit, staff marking and published result history. |
-| Answer files | Private upload/download and native text extraction adapters checked locally. The synthetic student browser fixture now passes upload/extraction retries, language choice, explicit save and locks. Connected browser/native file-answer acceptance and real document/OCR formats remain pending. |
+| Answer files | Synthetic UI and connected browser/Nest/native checks pass upload/replacement/retries, private downloads, native text extraction, reviewed saving, submitted closure and staff file review. A separate real-PDF native adapter smoke test passes. DOC/DOCX/OCR formats, production helpers/middleware/concurrency and representative devices remain pending. |
 | Documents | Native PDF request/status/approved download adapters and screens. The native queue/worker/renderer publishes a checked PDF from synthetic pages. Actual native question/solution templates render an English MCQ with real MathJax; native signatures and cross-process local file locks are checked. Deployed middleware/cache and production daemon acceptance remain unverified. |
 
 ## First-release scope and confirmed engine gaps
@@ -81,8 +112,8 @@ and API/admin production builds. The connected native/browser journeys were chec
 milestones. The connected non-browser pilot now also passes private upload,
 replacement/retry, native text extraction, reviewed save, staff file download
 and marking through 48 real gateway/native calls, including scoped language
-selection. Synthetic browser upload checks passed on 7 October; the connected
-browser/native upload journey remains pending. The existing large-bundle
+selection. Synthetic and connected browser/native upload journeys passed on
+7 October. The existing large-bundle
 warning remains.
 Extraction failures now distinguish unreadable text, oversized extracted answers
 and timeouts, with a manual-answer fallback. Native error messages and traces

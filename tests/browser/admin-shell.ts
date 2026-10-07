@@ -3,6 +3,10 @@ const organisations = [
   {id:"11111111-1111-4111-8111-111111111111",name:"Community Learning Academy",slug:"synthetic-academy",colour:"#175d50",centre_label:"Centre"},
   {id:"22222222-2222-4222-8222-222222222222",name:"Synthetic Learning Programme",slug:"synthetic-programme",colour:"#9a3412",centre_label:"Centre"},
 ];
+const mode = new URLSearchParams(location.search).get("mode");
+const permissions = mode === "viewer"
+  ? ["organisation.view", "configuration.view"]
+  : ["organisation.view","centres.view","groups.view","learners.view","exams.manage"];
 window.fetch = async (input, options = {}) => {
   if(options.method && options.method !== "GET") throw Error("Writes are disabled in this synthetic preview");
   const url = new URL(String(input),location.origin);
@@ -11,7 +15,7 @@ window.fetch = async (input, options = {}) => {
   else if(url.pathname.endsWith("/public/branding")) {
     const org=organisations.find(item=>item.slug===url.searchParams.get("slug"))||organisations[0];
     data={...org,template:"community",welcome:"Synthetic local preview",logo:""};
-  } else if(url.pathname.endsWith("/access")) data={access:{roleId:null,roleName:"Organisation administrator",permissions:["organisation.view","centres.view","groups.view","learners.view","exams.manage"],owner:true,scope_type:"organisation",scope_ids:[]},modules:{learners:true,exams:true,attendance:false},catalogue:[]};
+  } else if(url.pathname.endsWith("/access")) data={access:{roleId:null,roleName:"Organisation administrator",permissions,owner:true,scope_type:"organisation",scope_ids:[]},modules:{learners:true,exams:mode !== "exams-disabled",attendance:false},catalogue:[]};
   else if(/\/(roles|members|centres|groups)$/.test(url.pathname)) data=[];
   else if(url.pathname.endsWith("/exam-workspace")) data={revision:1,restrictions:["questions","subjects","taking","results"]};
   else throw Error("Unsupported synthetic preview route: "+url.pathname);

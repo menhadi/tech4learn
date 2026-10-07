@@ -30,8 +30,11 @@ checks do not prove a complete production release.
 
 The synthetic answer-file browser check passed on 7 October, including language
 choice, retries, explicit save and locking. The [15-item admin/exam batch](development-batch-20261007.md)
-also passed local checks. Resume with the connected browser/native file-upload
-journey, then representative paper/device and class/section workflows, media
+also passed local checks. The connected browser/native file-answer journey now
+passes upload/replacement/retries, extraction/resume, reviewed save, staff file
+review, marking/publication and revocation. A separate real-PDF native extraction
+smoke check passes. Continue with broader DOC/DOCX/OCR and representative
+paper/device and class/section workflows, media
 reconciliation, background-worker acceptance and the checked deployment handoff.
 Automatic OMR interpretation and scored paper-attempt integration are unfinished.
 Use [current delivery status](examelite-delivery-status.md) for the detailed

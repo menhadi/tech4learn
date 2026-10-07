@@ -223,8 +223,17 @@ Append `--browser` to launch the connected browser check on
 `http://127.0.0.1:5195/tests/browser/pilot-api-native.html`. Close any existing test
 server on port 5195 first. This mounts the actual student and staff marking React
 screens and uses real HTTP requests throughout, including student-token exchange,
-student selection, answer saving, submission, marking, publication and result
-refresh. Wait for the PASS/FAIL heading. Restart the harness before rerunning
+private file upload/replacement/download, remount/resume, native extraction,
+explicit reviewed answer saving, student selection, staff private file download,
+submission, marking, publication, history and revocation. A transport wrapper
+drops the first successful acknowledgement of each upload/replacement,
+extraction, answer save, submission and marking request; every call still reaches
+the real backend. Exact retry bodies and persisted outcomes are checked. It also
+checks private download headers, superseded-file denial, no implicit answer save
+after extraction, and closed student file access after submission. No payload
+response is replaced by recorded data. Wait for the PASS/FAIL heading; the
+extended file path passed in the in-app browser on 7 October 2026.
+Restart the harness before rerunning
 because the student grant is single-use. Stop with Ctrl+C when finished.
 
 Both checks passed locally. These use synthetic records only and never bootstrap
@@ -363,8 +372,9 @@ replacement, exact retries, superseded-file denial, student download, native
 text extraction without an implicit answer save, resumed attachment metadata,
 explicit answer save, submitted student denial and mapped staff download before
 marking. It uses the native subjective upload controller and existing text
-extractor with an isolated temporary storage root. The browser variant has not
-yet been extended to this upload path. `exam-answer-files.html` is the synthetic
+extractor with an isolated temporary storage root. The browser variant now
+passes this file path with real transport and deliberate lost acknowledgements.
+`exam-answer-files.html` is the synthetic
 UI fixture for retry, extraction-draft and answer-lock behaviour. It passed in
 the in-app browser on 7 October 2026, including Hindi selection and the saved
 answer notice. Transport remains synthetic; browser-to-native file acceptance
@@ -387,3 +397,21 @@ handling, skip navigation and organisation/search reset, with no horizontal
 mobile page overflow. This preview refuses writes and is not a staff login or
 a live integration check. Keep it in the local fixture server, not the
 production build.
+
+`admin-shell.html?mode=viewer` supplies configuration-only permissions, and
+`admin-shell.html?mode=exams-disabled` retains exam-management permission but
+disables the module. Both variants hide the exam/results menu; searching for
+results does not reveal the restricted entry. These browser checks passed.
+
+## Real PDF answer extraction smoke check
+
+Run `php deploy/examelite/test-answer-pdf-extraction.php VENDOR_AUTOLOAD NATIVE_EXTRACT_FILE`.
+It generates a small real PDF, invokes the existing private adapter and actual
+native `pdftotext` branch, verifies extracted wording and malformed-PDF guidance,
+and checks private temporary cleanup. It passed locally using the already
+installed `pdftotext`. On Windows, only the native shell's stderr sink is changed
+to `NUL` in a private temporary script copy; extraction/cleaning logic is preserved.
+On Linux it uses the unmodified native script. The fixture does not load the
+configured application or process real learner files. Missing native helpers
+must be resolved by the operator; this check installs nothing and does not prove
+DOC/DOCX/OCR support or production subprocess/container behavior.
