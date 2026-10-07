@@ -849,3 +849,25 @@ current gateway allowlist narrow while implementing that integration; widening
 it alone would recreate a separate administration product without synchronising
 native identities. No live setup or production acceptance was performed by this
 source review.
+
+
+## Read-only native attendance administrator review
+
+Before the fresh attendance administrator provisioning command, run:
+
+```text
+php8.4 deploy/virtualmin/check-native-attendance-staff.php /home/tech4learn/releases/CHECKED_FULL_REVISION/platform NATIVE_ORG_ID NATIVE_USER_ID
+```
+
+The CLI accepts only a pinned Tech4Learn native release and positive numeric
+IDs, parses private configuration without booting application providers, and
+uses the dedicated native MySQL account in a read-only transaction. It requires
+one active non-primary organisation membership, an active undeleted ordinary
+native user and an owner/admin role. Missing, ambiguous, platform, inactive or
+revoked identities block. It prints only pass/block status, never names, emails
+or credentials. It creates no canonical account or mapping and does not replace
+review of canonical companion origin or intended native ownership. Recheck at
+provisioning time; a read-only report does not lock authority across databases.
+
+Pure boundary checks and CLI PHP syntax validation passed. No production
+identity review/provisioning or native application behaviour was changed.
