@@ -2676,8 +2676,10 @@
     },
     {
       "path": "database/migrations/2026_06_24_222133_create_saas_foundation_tables.php",
-      "sha256": "7fef42ba0903f4f20d143e94078b22054306abcaa4cf0953da9c04e809f88293",
-      "patches": []
+      "sha256": "60a7a00aedfdd9e157a2c72577d52a20d1fe8e39fd90c9a7e17dc63244ff6be8",
+      "patches": [
+        "fresh-configuration-optional-platform-phone"
+      ]
     },
     {
       "path": "database/migrations/2026_06_24_222454_add_organization_id_to_core_tables.php",

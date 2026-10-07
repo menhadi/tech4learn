@@ -111,7 +111,8 @@ return new class extends Migration
                 'domain' => 'examelite.com',
                 'subdomain' => 'examelite',
                 'email' => DB::table('configurations')->value('email'),
-                'phone' => DB::table('configurations')->value('organization_phone'),
+                'phone' => Schema::hasColumn('configurations', 'organization_phone')
+                    ? DB::table('configurations')->value('organization_phone') : null,
                 'logo' => DB::table('configurations')->value('logo'),
                 'favicon' => DB::table('configurations')->value('favicon'),
                 'status' => 'active',
