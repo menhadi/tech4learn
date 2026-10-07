@@ -816,3 +816,12 @@ account creation without superadmin authority, exact retry preserving password
 and audit count, changed identity rejection and revoked/suspended access refusal.
 Mobile and native Laravel application code were unchanged by this operator CLI
 addition; it does not establish mobile device or authenticated live acceptance.
+
+
+The fresh staff provisioning test also injects a failure at identity-link
+insertion after creating the account and membership. PostgreSQL transaction
+rollback leaves no new account, membership or provisioning audit behind. This
+targeted test passed without application-code changes after the full 111-test
+workspace check. GitHub temporarily rejected pushes with internal server errors;
+checked commits remain local with an ignored verified recovery bundle until
+pushing succeeds. No deployment was attempted from an unpushed revision.

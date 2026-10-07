@@ -32,6 +32,14 @@ test('fresh attendance provisioning is idempotent and never adopts old mappings 
   await assert.rejects(provisionAttendanceAdministrator(db,staff,'2','22','fresh@example.invalid','Fresh',password));
   await assert.rejects(provisionAttendanceAdministrator(db,admin,'1','22','fresh@example.invalid','Fresh',password));
   await assert.rejects(provisionAttendanceAdministrator(db,admin,'2','22',staff+'@example.invalid','Fresh',password),/never adopted/);
+  const failing={transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>{
+    if(q.startsWith('INSERT INTO foundation_staff'))throw new Error('Synthetic staff-link failure');
+    return sql.query(q,p);
+  }}))};
+  await assert.rejects(provisionAttendanceAdministrator(failing,admin,'2','23','rollback@example.invalid','Rollback',password),/staff-link failure/);
+  assert.equal((await pg.query("SELECT count(*)::integer AS total FROM users WHERE email='rollback@example.invalid'")).rows[0].total,0);
+  assert.equal((await pg.query("SELECT count(*)::integer AS total FROM memberships WHERE organisation_id=$1",[first.organisationId])).rows[0].total,0);
+  assert.equal((await pg.query("SELECT count(*)::integer AS total FROM audit_events WHERE action='foundation.staff_provisioned'")).rows[0].total,0);
   const account=await provisionAttendanceAdministrator(db,admin,'2','22','fresh@example.invalid','Fresh',password);
   assert.equal(account.created,true);
   const before=(await pg.query('SELECT password_hash,is_superadmin FROM users WHERE id=$1',[account.userId])).rows[0];
