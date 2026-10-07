@@ -128,7 +128,7 @@ if (! function_exists('getConfiguration')) {
         $query = Configuration::query();
 
         try {
-            if ($hasOrganizationColumn) {
+            if ($hasOrganizationColumn && $tenantId !== null) {
                 $tenantConfig = (clone $query)
                     ->where('organization_id', $tenantId)
                     ->first();
@@ -136,27 +136,13 @@ if (! function_exists('getConfiguration')) {
                 if ($tenantConfig) {
                     return $remember($tenantConfig);
                 }
-
-                $defaultOrganizationId = \DB::table('organizations')
-                    ->where('slug', 'examelite')
-                    ->value('id');
-
-                if ($defaultOrganizationId) {
-                    $defaultConfig = (clone $query)
-                        ->where('organization_id', $defaultOrganizationId)
-                        ->first();
-
-                    if ($defaultConfig) {
-                        return $remember($defaultConfig);
-                    }
-                }
             }
         } catch (\Throwable $e) {
             // Fallback to legacy configuration below.
         }
 
-        $configuration = Configuration::query()->first() ?? new Configuration([
-            'name'        => 'Exam Frame',
+        $configuration = ($hasOrganizationColumn ? null : Configuration::query()->first()) ?? new Configuration([
+            'name'        => config('app.name', 'Tech4Learn'),
             'domain_name' => config('app.url'),
             'email'       => config('mail.from.address'),
         ]);

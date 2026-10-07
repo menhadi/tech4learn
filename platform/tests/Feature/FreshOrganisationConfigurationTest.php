@@ -48,4 +48,19 @@ class FreshOrganisationConfigurationTest extends TestCase
         $tenant->update(['settings'=>['is_primary_platform'=>true]]);
         $this->assertNull($method->invoke(null));
     }
+    public function test_missing_tenant_configuration_returns_neutral_defaults(): void
+    {
+        \Illuminate\Support\Facades\Cache::flush();\App\Support\Tenant::clear();
+        $source=Organization::create(['name'=>'Synthetic private source','slug'=>'private-source','domain'=>'private-source.test','status'=>'active']);
+        Configuration::create(['organization_id'=>$source->id,'name'=>'Synthetic private source','openai_api_key'=>'synthetic-private-source']);
+        Configuration::create(['organization_id'=>null,'name'=>'Synthetic private source','openai_api_key'=>'synthetic-legacy-private']);
+        Organization::create(['name'=>'Synthetic unconfigured','slug'=>'unconfigured','domain'=>'unconfigured.test','status'=>'active']);
+        foreach(['unconfigured.test','unknown.example.invalid'] as $host) {
+            app()->instance('request',Request::create('https://'.$host));\App\Support\Tenant::clear();
+            $config=getConfiguration();
+            $this->assertFalse($config->exists);
+            $this->assertEmpty($config->openai_api_key);
+            $this->assertNotSame('Synthetic private source',$config->name);
+        }
+    }
 }

@@ -178,8 +178,10 @@
     },
     {
       "path": "app/Helpers/Helpers.php",
-      "sha256": "670a57dc23722e40a59e17f14d1f8e4ce437141968305fbe54d96963af0f81c7",
-      "patches": []
+      "sha256": "985a12efaf88a5abb22481a440d7d4c68dd91ed6d9f0326d6d543d6a7e550cc0",
+      "patches": [
+        "neutral-missing-tenant-configuration"
+      ]
     },
     {
       "path": "app/Helpers/ResultHelper.php",

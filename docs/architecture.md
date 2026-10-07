@@ -30,6 +30,11 @@ explicitly marked `is_primary_platform`. Missing or ambiguous platform realms,
 or missing platform configuration, yield no shared provider. Never fall back to
 the first tenant's configuration or infer the platform solely from its slug.
 
+The general tenant configuration loader likewise returns neutral, unsaved
+defaults when a scoped configuration or recognised host is missing. It does not
+fall back to platform or another tenant's settings. The legacy unscoped lookup
+is retained only for schemas without the organisation column.
+
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
 checks before executing it. No production cleanup has been executed. Preserve the existing administrator's

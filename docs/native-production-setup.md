@@ -1,5 +1,12 @@
 # Native production setup
 
+For the local fixture that reuses installed upstream vendor libraries, run
+`php tests/run-native-local-tests.php` (optionally with PHPUnit filters).
+The guarded launcher loads the copied application's helpers and verifies source
+paths before starting PHPUnit. Calling the upstream PHPUnit executable directly
+loads upstream global helper functions first and cannot verify helper changes;
+do not use that launcher for this fixture. The original installation is unchanged.
+
 The private PHP 8.4 pool, production environment and dedicated MySQL schema
 are verified. Native accounts, identity mappings and Apache cutover remain
 pending. The existing PostgreSQL attendance service remains authoritative
