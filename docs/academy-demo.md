@@ -1,5 +1,10 @@
 # Demo data in an existing organisation
 
+> Historical plan, superseded on 7 October 2026. The user chose fresh native
+> organisations and permanent deletion of previous organisations and linked
+> records. Do not run this setup against the previous organisation or recreate
+> it as part of the transition.
+
 Use the privileged CLI `demo-academic ORG_ADDRESS --confirm-name="Exact organisation name"` after deploying the academic release. It resolves the unique address, verifies the stored display name, locks that organisation and creates only its records. A mismatch or collision rolls the whole transaction back. It does not create organisations, users, invitations, role grants, photos, attendance marks or assessment results, or change module settings.
 
 For the user's test organisation, the address shown is `vector-academy`, with display name `Vecotrial Career Academy`. The command adds one DEMO academic year, two DEMO centres (school/coaching), two classes, four sections and eight labelled synthetic students, including required learner custom-field sample values. Locations remain unset and unapproved; configure the actual test location before checking location verification.
