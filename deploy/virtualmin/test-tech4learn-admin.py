@@ -53,6 +53,15 @@ class RestrictedAdminTests(unittest.TestCase):
                     helper.main()
                 run.assert_not_called()
 
+    def test_stop_action_cannot_select_another_service(self):
+        with patch.object(helper.sys, 'argv', ['helper', 'stop-api']), patch.object(helper.os, 'geteuid', return_value=0, create=True), patch.object(helper, 'run') as run:
+            helper.main()
+            run.assert_called_once_with(['/usr/bin/systemctl', 'stop', 'tech4learn.service'])
+        for args in [['helper', 'stop-api', 'examelite'], ['helper', 'stop-api;other'], ['helper', 'stop']]:
+            with patch.object(helper.sys, 'argv', args), patch.object(helper.os, 'geteuid', return_value=0, create=True), patch.object(helper, 'run') as run:
+                with self.assertRaises(RuntimeError): helper.main()
+                run.assert_not_called()
+
     def test_existing_database_is_not_adopted(self):
         with tempfile.TemporaryDirectory() as directory:
             private = Path(directory)/'private'

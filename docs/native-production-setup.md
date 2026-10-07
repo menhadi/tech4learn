@@ -1029,3 +1029,19 @@ and the captured manifest is checked. Current restricted helper permissions
 do not stop the API. No live data was deleted and no site/service was modified.
 The earlier documentation describing the absence of an executor records the
 previous implementation state; this entry supersedes that limitation only.
+
+
+## Narrow maintenance stop action — local proposal
+
+The helper source now includes `stop-api`, which invokes only
+`/usr/bin/systemctl stop tech4learn.service` with no caller-supplied paths, service
+names or shell. Eight helper boundary tests passed, including rejection of other
+service names, extra arguments and unknown stop actions. Service execution was
+mocked; no production API was stopped.
+
+This is not an installed permission. The current installer/sudo action allowlist
+and deployed helper remain unchanged, so the deployment account still cannot
+use this action. A separately reviewed root-owned helper upgrade and exact
+Tech4Learn-only sudoers addition must be prepared before requesting the narrow
+maintenance permission. It does not authorize Apache changes, arbitrary root
+commands, other-site edits or original ExamElite service control.

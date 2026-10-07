@@ -96,6 +96,9 @@ def main():
     action = sys.argv[1]
     if action == 'prepare-database':
         prepare_database()
+    elif action == 'stop-api':
+        run(['/usr/bin/systemctl', 'stop', 'tech4learn.service'])
+        print('Tech4Learn API stopped for the reviewed maintenance window.')
     elif action == 'restart-api':
         run(['/usr/bin/systemctl', 'restart', 'tech4learn.service'])
         print('Tech4Learn API restarted.')
