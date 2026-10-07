@@ -746,3 +746,25 @@ not activate the scheduler until the approved settings are installed and this
 gate passes. No private values were printed, environment files edited or jobs
 started. This gate covers the conservative initial release profile; later
 provider enablement requires its own verified deployment review.
+
+
+## Pinned scheduler candidate — local preparation
+
+`render-native-cron.py` renders a per-user crontab candidate without reading
+server files, installing cron or executing jobs. The per-minute command uses
+PHP 8.4, a full checked Git revision, a fixed shared non-blocking flock and a
+private shared log. Umask 077 keeps newly created lock/log files private.
+It replaces only an exact previously generated managed block, preserves all
+other cron jobs and rejects unmanaged Tech4Learn schedulers, duplicate blocks
+and altered commands. The shared flock serializes scheduler invocations across
+release changes; native per-job overlap locks still handle background workers.
+
+Three renderer tests passed, including exact retries, release replacement and
+unknown/duplicate refusal. Read-only inspection of the existing Tech4Learn user
+crontab passed the guards; no crontab contents or credentials were printed.
+Before installation, verify the accepted pinned release, runtime profile and
+identity/schema checks, review schedule:list, check PHP/flock availability and
+private ownership/permissions of shared storage/framework and storage/logs, and
+back up the user crontab. Previously existing log/lock files also need private
+permissions; umask does not change them. Only then install as the Tech4Learn user
+and verify a bounded run. No scheduler was activated.
