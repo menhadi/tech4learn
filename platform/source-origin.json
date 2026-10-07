@@ -646,8 +646,10 @@
     },
     {
       "path": "app/Http/Controllers/StudentAdminController.php",
-      "sha256": "5fed9c177a5efdc7cc754c1e388c1a3c53113d334e976bf7dcaf7f9acc7e0313",
-      "patches": []
+      "sha256": "5c270b4e4ebf02eee1e22257f153fe2c4d82014bfee9d8edc494da78c2d907d5",
+      "patches": [
+        "explicit-canonical-learner-identity-boundary-20261007"
+      ]
     },
     {
       "path": "app/Http/Controllers/StudentFunnelReportController.php",
@@ -177354,10 +177356,11 @@
     },
     {
       "path": "routes/web.php",
-      "sha256": "85b340b9e27057047e08680b46f2a37de0de8f6d384603c56d1755c580b1aa4f",
+      "sha256": "035b0cf149684de0409884fdef418ce914fd5874a81f45ca01e6d646012bbc4d",
       "patches": [
         "authenticated-native-attendance-read-routes",
-        "foundation-attendance-integration-and-native-exam-acceptance-20261007"
+        "foundation-attendance-integration-and-native-exam-acceptance-20261007",
+        "explicit-canonical-learner-identity-boundary-20261007"
       ]
     },
     {

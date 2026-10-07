@@ -11,6 +11,27 @@ use Illuminate\Support\Facades\Cookie;
 
 class AttendanceBridge
 {
+    public function learnerIdentity(Request $request, \App\Models\Student $student, ?ClientInterface $http = null): array
+    {
+        $organisation=Tenant::assertAccess(Tenant::current(),true);
+        $actor=$request->user();
+        abort_unless($actor instanceof \App\Models\User,403);
+        abort_unless((int)$student->organization_id===(int)$organisation->id && $student->status==='Active',404);
+        $path='/foundation/organisations/'.$organisation->id.'/staff/'.$actor->id.'/students/'.$student->id.'/learner-identity';
+        $identity=$this->read($request,$path,[],$http);
+        abort_unless(($identity['nativeOrganisationId']??null)===(string)$organisation->id
+            && ($identity['nativeUserId']??null)===(string)$actor->id
+            && ($identity['nativeStudentId']??null)===(string)$student->id
+            && is_int($identity['version']??null) && $identity['version']>0,502);
+        foreach (['organisationId','learnerId'] as $key) {
+            abort_unless(is_string($identity[$key]??null)
+                && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D',$identity[$key]),502);
+        }
+        abort_unless($this->read($request,$path,[],$http)===$identity,403);
+        Tenant::assertAccess($organisation,true);
+        abort_unless(\App\Models\Student::whereKey($student->id)->where('organization_id',$organisation->id)->where('status','Active')->exists(),404);
+        return array_intersect_key($identity,array_flip(['nativeOrganisationId','nativeUserId','nativeStudentId','organisationId','learnerId','version']));
+    }
     public function authenticate(Request $request, ?ClientInterface $http = null): User
     {
         $organization=Tenant::current();

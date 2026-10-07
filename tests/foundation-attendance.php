@@ -72,6 +72,20 @@ $h=[]; $mock=clientMock([responseJson($context),function () use ($db) {
 }],$h);
 statusDenied(403,fn()=>$bridge->records($request,$mock));
 $db->table('users')->where('id',2)->update(['status'=>'Active']);
+actor(2);$app->instance('request',$request);
+$student=App\Models\Student::findOrFail(10);
+$identity=['nativeOrganisationId'=>'2','nativeUserId'=>'2','nativeStudentId'=>'10','organisationId'=>'11111111-1111-4111-8111-111111111111','learnerId'=>'44444444-4444-4444-8444-444444444444','version'=>1];
+$h=[];$mock=clientMock([responseJson($identity),responseJson($identity)],$h);
+if ($bridge->learnerIdentity($request,$student,$mock)!==$identity || count($h)!==2) { throw new RuntimeException('Native learner identity was not checked twice'); }
+$foreign=new App\Models\Student(['organization_id'=>1,'status'=>'Active']);$foreign->id=99;
+$h=[];statusDenied(404,fn()=>$bridge->learnerIdentity($request,$foreign,clientMock([],$h)));
+$h=[];$changed=array_merge($identity,['version'=>2]);
+statusDenied(403,fn()=>$bridge->learnerIdentity($request,$student,clientMock([responseJson($identity),responseJson($changed)],$h)));
+$h=[];$mock=clientMock([responseJson($identity),function () use ($db,$identity) {
+    $db->table('students')->where('id',10)->update(['status'=>'Inactive']);return responseJson($identity);
+}],$h);
+statusDenied(404,fn()=>$bridge->learnerIdentity($request,$student,$mock));
+$db->table('students')->where('id',10)->update(['status'=>'Active']);
 $request->query->set('date','2026-02-30');
 statusDenied(422,fn()=>$bridge->records($request,$http));
 $request->query->set('date','2026-10-07');

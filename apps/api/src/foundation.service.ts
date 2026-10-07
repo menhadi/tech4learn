@@ -3,6 +3,7 @@ import { Database, type SqlClient } from "./database.js";
 import { AccessService } from "./access.service.js";
 import type { Account } from "./identity.service.js";
 import { uuid } from "./security.js";
+import { LearnersService } from "./learners.service.js";
 
 function nativeId(value: unknown): string {
   if (typeof value !== "string" || !/^[1-9][0-9]{0,14}$/.test(value))
@@ -19,7 +20,56 @@ function recordId(value: unknown): string {
 }
 @Injectable()
 export class FoundationService {
-  constructor(private readonly db: Database, private readonly access: AccessService) {}
+  constructor(private readonly db: Database, private readonly access: AccessService, private readonly learners: LearnersService) {}
+  async learnerLinks(actor: Account, nativeValue: string) {
+    await this.platform(actor, this.db);
+    const native = nativeId(nativeValue);
+    await this.organisation(this.db, native);
+    return (await this.db.query("SELECT native_student_id::text,learner_id,active,version FROM foundation_learners WHERE native_organisation_id=$1 ORDER BY native_student_id LIMIT 500", [native])).rows;
+  }
+  async linkLearner(actor: Account, nativeValue: string, body: Record<string, unknown>) {
+    const native = nativeId(nativeValue), student = nativeId(body.nativeStudentId), learner = recordId(body.learnerId);
+    return this.db.transaction(async sql => {
+      await this.platform(actor, sql);
+      const organisation = await this.organisation(sql, native, true);
+      if (!organisation.active) throw new ForbiddenException("Organisation link is inactive.");
+      await this.access.lock(sql, organisation.organisation_id);
+      await this.learners.linkedIdentity(actor, organisation.organisation_id, learner, sql);
+      const result = await sql.query("INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING native_student_id::text,learner_id,active,version", [native,student,organisation.organisation_id,learner]);
+      if (!result.rows.length) throw new ConflictException("A learner is already linked; existing links cannot be reassigned.");
+      await this.access.audit(sql,actor,organisation.organisation_id,"foundation.learner_linked",{nativeOrganisationId:native,nativeStudentId:student,learnerId:learner});
+      return result.rows[0];
+    });
+  }
+  async setLearner(actor: Account, nativeValue: string, studentValue: string, body: Record<string, unknown>) {
+    const native = nativeId(nativeValue), student = nativeId(studentValue); change(body);
+    return this.db.transaction(async sql => {
+      await this.platform(actor,sql);
+      const organisation = await this.organisation(sql,native,true);
+      const link = (await sql.query<{learner_id:string}>("SELECT learner_id FROM foundation_learners WHERE native_organisation_id=$1 AND native_student_id=$2",[native,student])).rows[0];
+      if (!link) throw new NotFoundException("Learner link not found.");
+      if (body.active) {
+        if (!organisation.active) throw new ForbiddenException("Organisation link is inactive.");
+        await this.access.lock(sql,organisation.organisation_id);
+        await this.learners.linkedIdentity(actor,organisation.organisation_id,link.learner_id,sql);
+      }
+      const result=await sql.query("UPDATE foundation_learners SET active=$3,version=version+1 WHERE native_organisation_id=$1 AND native_student_id=$2 AND version=$4 RETURNING native_student_id::text,learner_id,active,version",[native,student,body.active,body.version]);
+      if (!result.rows.length) throw new ConflictException("The link changed; reload its current version.");
+      await this.access.audit(sql,actor,organisation.organisation_id,"foundation.learner_status",{nativeOrganisationId:native,nativeStudentId:student,active:body.active});
+      return result.rows[0];
+    });
+  }
+  async learnerIdentity(actor: Account, nativeValue: string, userValue: string, studentValue: string) {
+    const native=nativeId(nativeValue), user=nativeId(userValue), student=nativeId(studentValue);
+    return this.db.transaction(async sql => {
+      const organisation=await this.organisation(sql,native,true);
+      const mapping=(await sql.query<{learner_id:string;version:number}>(`SELECT l.learner_id,l.version FROM foundation_learners l JOIN foundation_staff s ON s.native_organisation_id=l.native_organisation_id WHERE l.native_organisation_id=$1 AND l.native_student_id=$2 AND s.native_user_id=$3 AND s.user_id=$4 AND l.active AND s.active`,[native,student,user,actor.id])).rows[0];
+      if (!organisation.active || !mapping) throw new NotFoundException("Learner identity is not linked.");
+      await this.access.lock(sql,organisation.organisation_id);
+      const learner=await this.learners.linkedIdentity(actor,organisation.organisation_id,mapping.learner_id,sql);
+      return {nativeOrganisationId:native,nativeUserId:user,nativeStudentId:student,organisationId:organisation.organisation_id,learnerId:learner,version:mapping.version};
+    });
+  }
   private async platform(actor: Account, sql: SqlClient) {
     // Do not inherit platform authority from a native role or a stale caller object.
     const stored = await sql.query<{ is_superadmin: boolean }>("SELECT is_superadmin FROM users WHERE id=$1", [actor.id]);

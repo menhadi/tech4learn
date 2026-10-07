@@ -85,6 +85,13 @@ export class LearnersService {
     const { guardian_name, guardian_phone, ...rest } = l;
     return rest;
   }
+  async linkedIdentity(user: Account, org: string, id: string, sql: SqlClient = this.db) {
+    const access = await this.access.require(user, org, "learners.view", sql);
+    const learner = await this.get(sql, org, id, access);
+    if (learner.archived) throw new NotFoundException("Active learner not found.");
+    await this.group(sql, org, learner.group_id, access);
+    return learner.id;
+  }
   async list(
     user: Account,
     org: string,

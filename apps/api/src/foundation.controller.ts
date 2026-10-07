@@ -8,6 +8,14 @@ import { FoundationService } from "./foundation.service.js";
 export class FoundationController {
   constructor(private readonly identity: IdentityService, private readonly links: FoundationService) {}
   private actor(cookie?: string) { return this.identity.account(session(cookie)); }
+  @Get("platform/foundation/organisations/:native/learners")
+  async learners(@Param("native") n:string,@Headers("cookie") c?:string) {return this.links.learnerLinks(await this.actor(c),n);}
+  @Post("platform/foundation/organisations/:native/learners")
+  async addLearner(@Param("native") n:string,@Body() b:Record<string,unknown>,@Headers("cookie") c?:string) {return this.links.linkLearner(await this.actor(c),n,b??{});}
+  @Patch("platform/foundation/organisations/:native/learners/:student")
+  async updateLearner(@Param("native") n:string,@Param("student") s:string,@Body() b:Record<string,unknown>,@Headers("cookie") c?:string) {return this.links.setLearner(await this.actor(c),n,s,b??{});}
+  @Get("foundation/organisations/:native/staff/:user/students/:student/learner-identity")
+  async learnerIdentity(@Param("native") n:string,@Param("user") u:string,@Param("student") s:string,@Headers("cookie") c?:string) {return this.links.learnerIdentity(await this.actor(c),n,u,s);}
   @Post("foundation/auth/login")
   @HttpCode(200)
   async login(@Body() b: Record<string,unknown>, @Res({passthrough:true}) response:Response) {

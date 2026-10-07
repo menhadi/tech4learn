@@ -16,6 +16,11 @@ if (($data['total']??null)!==1 || count($data['rows']??[])!==1 || $data['rows'][
 }
 echo "PASS: real PHP-to-Nest attendance read preserves explicit identity and excludes the foreign organisation record.\n";
 $bridge=new App\Support\AttendanceBridge;
+$identity=$bridge->learnerIdentity($request,App\Models\Student::findOrFail(10));
+if ($identity['learnerId']!==getenv('FOUNDATION_TEST_LEARNER') || $identity['nativeStudentId']!=='10') {
+    throw new RuntimeException('Connected learner identity selected another canonical record');
+}
+echo "PASS: real native student resolves its explicit canonical learner identity.\n";
 $login=Illuminate\Http\Request::create('https://two.example.invalid/login','POST',['login'=>'synthetic@example.invalid','password'=>'long synthetic foundation password']);
 $user=$bridge->authenticate($login);
 if ($user->id!==2) { throw new RuntimeException('Connected sign-in mapped another native account'); }

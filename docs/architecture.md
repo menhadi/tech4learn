@@ -18,7 +18,9 @@ organisation/staff mappings in API migration 17. When configured, native staff
 sign-in verifies the existing API password and opens both mapped sessions. The
 native attendance page mounts the existing React attendance interface through a
 protected same-origin gateway, retaining API permissions and location scopes.
-Canonical learner-to-native-student mapping and mobile integration remain pending.
+The [learner identity ledger](foundation-learner-identity.md) in API migration 18
+adds explicit learner/native-student links and scoped native resolution. Account
+provisioning, enrolment synchronization and mobile integration remain pending.
 
 Initial source preparation is isolated beneath ignored `.local`; source origin,
 working-tree edits and copied-file hashes are recorded there. Dependencies,

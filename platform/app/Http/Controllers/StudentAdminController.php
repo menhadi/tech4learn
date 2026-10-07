@@ -341,6 +341,11 @@ class StudentAdminController extends Controller
         $this->ensureTenantOwnsStudent($student);
         return redirect()->route('students.index');
     }
+    public function identity(Request $request, Student $student, \App\Support\AttendanceBridge $bridge)
+    {
+        $this->ensureTenantOwnsStudent($student);
+        return response()->json($bridge->learnerIdentity($request,$student))->header('Cache-Control','no-store');
+    }
     public function update(Request $request, Student $student)
     {
         $this->ensureTenantOwnsStudent($student);

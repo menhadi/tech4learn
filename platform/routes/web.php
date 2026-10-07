@@ -375,6 +375,7 @@ Route::middleware(['auth', 'checkPageRights'])->group(function () {
     Route::post('students/import', [StudentAdminController::class, 'import'])->middleware('plan.limit:students')->name('students.import');
     Route::get('students/download-template', [StudentAdminController::class, 'downloadTemplate'])->name('students.downloadTemplate');
 
+    Route::get('students/{student}/identity', [StudentAdminController::class, 'identity'])->name('students.identity');
     Route::resource('students', StudentAdminController::class);
     Route::post('students/remove', [StudentAdminController::class, 'bulkRemove'])->name('students.remove');
     Route::post('students/bulk-assign-group', [StudentAdminController::class, 'bulkAssignGroup'])->name('students.bulkAssignGroup'); 

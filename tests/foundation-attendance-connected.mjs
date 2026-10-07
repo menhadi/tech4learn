@@ -16,6 +16,7 @@ import { faceControlMigration } from '../apps/api/dist/migration-face-control.js
 import { photoNamesMigration } from '../apps/api/dist/migration-photo-names.js';
 import { attendanceTestingMigration } from '../apps/api/dist/migration-attendance-testing.js';
 import { foundationMigration } from '../apps/api/dist/migration-foundation.js';
+import { foundationLearnerMigration } from '../apps/api/dist/migration-foundation-learners.js';
 import { digest,hashPassword } from '../apps/api/dist/security.js';
 if (!process.argv[2]) throw new Error('Provide the prepared local foundation dependency directory');
 process.env.NODE_ENV='test';
@@ -27,7 +28,7 @@ try {
   const org='11111111-1111-4111-8111-111111111111', foreign='22222222-2222-4222-8222-222222222222', actor=randomUUID();
   for (const [id,slug] of [[org,'synthetic-own'],[foreign,'synthetic-foreign']])
     await pg.query('INSERT INTO organisations(id,name,slug) VALUES($1,$2,$2)',[id,slug]);
-  for(const sql of [accessMigration,learnerMigration,configurationMigration,attendanceMigration,visionMigration,academicMigration,photoMigration,bulkAttendanceMigration,faceControlMigration,photoNamesMigration,attendanceTestingMigration,foundationMigration]) await pg.exec(sql);
+  for(const sql of [accessMigration,learnerMigration,configurationMigration,attendanceMigration,visionMigration,academicMigration,photoMigration,bulkAttendanceMigration,faceControlMigration,photoNamesMigration,attendanceTestingMigration,foundationMigration,foundationLearnerMigration]) await pg.exec(sql);
   await pg.query('INSERT INTO users(id,email,name,password_hash) VALUES($1,$2,$3,$4)',[actor,'synthetic@example.invalid','Synthetic staff',await hashPassword('long synthetic foundation password')]);
   await pg.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[digest('d'.repeat(64)),actor]);
   await pg.query("INSERT INTO memberships(user_id,organisation_id,role,role_id) SELECT $1,$2,'organisation_admin',id FROM access_roles WHERE organisation_id=$2 AND protected",[actor,org]);
@@ -45,6 +46,7 @@ try {
   await pg.query("INSERT INTO centres(id,organisation_id,name,latitude,longitude,location_approved) VALUES($1,$2,'Synthetic capture centre',0,0,true)",[captureCentre,org]);
   await pg.query("INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES($1,$2,$3,'Synthetic capture section')",[captureGroup,org,captureCentre]);
   await pg.query("INSERT INTO learners(id,organisation_id,group_id,code,name) VALUES($1,$2,$3,'SYNTHETIC-01','Synthetic learner')",[learner,org,captureGroup]);
+  await pg.query('INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id) VALUES(2,10,$1,$2)',[org,learner]);
   const adapter={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>sql.query(q,p)})),onModuleDestroy:async()=>{}};
   app=await createApp(undefined,adapter); await app.listen(0,'127.0.0.1');
   const api=`${await app.getUrl()}/api/v1`;
