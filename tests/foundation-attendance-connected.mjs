@@ -21,6 +21,8 @@ import { foundationPlatformMigration } from '../apps/api/dist/migration-foundati
 import { foundationProvisioningMigration } from '../apps/api/dist/migration-foundation-provisioning.js';
 import { provisionAttendanceOrganisation } from '../apps/api/dist/foundation-organisation-provision.js';
 import { provisionAttendanceAdministrator } from '../apps/api/dist/foundation-staff-provision.js';
+import { RecordsService } from '../apps/api/dist/records.service.js';
+import { AcademicService } from '../apps/api/dist/academic.service.js';
 import { AccessService } from '../apps/api/dist/access.service.js';
 import { LearnersService } from '../apps/api/dist/learners.service.js';
 import { FoundationService } from '../apps/api/dist/foundation.service.js';
@@ -55,12 +57,17 @@ try {
     await pg.query('INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES($1,$2,$3,$4)',[group,organisation,centre,label]);
     await pg.query("INSERT INTO attendance_sessions(id,organisation_id,centre_id,group_id,attendance_date,status,snapshot) VALUES($1,$2,$3,$4,'2026-10-07','pending',$5)",[randomUUID(),organisation,centre,group,JSON.stringify({group_name:label,centre_name:'Synthetic centre'})]);
   }
-  const captureCentre=randomUUID(),captureGroup=randomUUID();
-  await pg.query("INSERT INTO centres(id,organisation_id,name,latitude,longitude,location_approved) VALUES($1,$2,'Synthetic capture centre',0,0,true)",[captureCentre,org]);
-  await pg.query("INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES($1,$2,$3,'Synthetic capture section')",[captureGroup,org,captureCentre]);
   const access=new AccessService(adapter), learners=new LearnersService(adapter,access), links=new FoundationService(adapter,access,learners);
+  const records=new RecordsService(adapter,access), academic=new AcademicService(adapter,access,records);
   const staffAccount=(await pg.query('SELECT id,email,name,is_superadmin FROM users WHERE id=$1',[actor])).rows[0];
   const platformAccount=(await pg.query('SELECT id,email,name,is_superadmin FROM users WHERE id=$1',[platformUser])).rows[0];
+  const centre=await records.saveCentre(staffAccount,org,{name:'Synthetic capture centre',address:'Synthetic address',latitude:0,longitude:0,radius:100});
+  if(centre.location_approved)throw new Error('Centre coordinates were automatically approved');
+  await records.centreAction(staffAccount,org,centre.id,'approve');
+  const year=await academic.createYear(staffAccount,org,{name:'Synthetic year',starts_on:'2026-04-01',ends_on:'2027-03-31'});
+  const academicClass=await academic.createClass(staffAccount,org,{name:'Synthetic class',centre_id:centre.id,academic_year_id:year.id});
+  const section=await records.saveGroup(staffAccount,org,{name:'Synthetic capture section',centre_id:centre.id,class_id:academicClass.id});
+  const captureCentre=centre.id,captureGroup=section.id;
   const learner=(await learners.save(staffAccount,org,{group_id:captureGroup,code:'SYNTHETIC-01',name:'Synthetic learner'})).id;
   await links.linkLearner(platformAccount,'2',{nativeStudentId:'10',learnerId:learner});
   if(Number((await pg.query('SELECT count(*) AS n FROM learner_enrolments WHERE organisation_id=$1 AND learner_id=$2 AND group_id=$3 AND ended_at IS NULL',[org,learner,captureGroup])).rows[0].n)!==1)throw new Error('Learner creation did not establish current enrolment');

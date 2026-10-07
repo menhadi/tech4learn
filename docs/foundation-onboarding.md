@@ -65,8 +65,11 @@ companion and staff identity through the actual operator functions, including
 migration 20. Exact retries preserve both identities, do not duplicate audit
 events and preserve the initial password, verified by subsequent mapped login.
 Capture, submission, teacher review, history, tenant isolation and logout passed
-against these provisioned synthetic identities. Centre/section references remain explicit local fixtures. The learner is now
-created through the existing learner service, establishing its current enrolment,
-and linked through the platform identity service before the connected attendance
-journey. This does not implement automatic onboarding or verify production
-acceptance.
+against these provisioned synthetic identities. The capture centre is created through the records service and its location is
+approved separately. The academic service creates its year and class, and the
+records service creates the section. The learner service creates the learner
+and current enrolment; the platform identity service links the native student.
+The connected attendance journey passes using these synthetic service-created
+records. Separate synthetic directory/history records still exercise isolation.
+This verifies the local backend setup sequence, not Laravel setup screens,
+automatic onboarding or production acceptance.
