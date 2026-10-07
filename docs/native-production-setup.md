@@ -1237,3 +1237,11 @@ the uploaded explanation, saves two marks through the publish button, and the
 student's refreshed result shows 2.00. The scoped database verifier confirmed a
 `Pass`, two obtained marks and retained private evidence. This is synthetic local
 manual marking acceptance, without AI assessment or production sign-off.
+
+The same student/teacher browser journey passed with a synthetic DOCX file
+(`prepare-native-exam-browser-pilot.php --subjective --docx`, then
+`foundation-student-browser.mjs --docx --grade`). It exercised actual document
+MIME validation, authenticated extraction, private upload, submission, teacher
+publication and the student's updated score. The database verifier confirmed
+the two-mark pass with evidence retained. TXT and DOCX are locally verified;
+image/PDF/legacy DOC processing and production acceptance remain pending.

@@ -19,6 +19,17 @@ if(in_array('--verify-result',$argv,true)) {
     exit(0);
 }
 $subjective=in_array('--subjective',$argv,true);
+if(in_array('--docx',$argv,true)) {
+    if(!$subjective)throw new RuntimeException('DOCX fixture requires a written answer');
+    $document=$base.'/synthetic-answer.docx';
+    if(is_link($document))throw new RuntimeException('Document fixture symlink refused');
+    $zip=new ZipArchive;
+    if($zip->open($document,ZipArchive::CREATE|ZipArchive::OVERWRITE)!==true)throw new RuntimeException('Document fixture unavailable');
+    $zip->addFromString('[Content_Types].xml','<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+    $zip->addFromString('_rels/.rels','<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    $zip->addFromString('word/document.xml','<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Synthetic uploaded explanation</w:t></w:r></w:p></w:body></w:document>');
+    $zip->close();
+}
 if($subjective) {
     // The included guard has already restricted this to the fixed local SQLite fixture.
     $migration=require dirname(__DIR__).'/platform/database/migrations/2026_10_08_000001_add_subjective_answer_evidence_to_exam_stats.php';

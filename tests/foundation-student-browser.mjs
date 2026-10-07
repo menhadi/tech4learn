@@ -29,10 +29,11 @@ try {
   await page.locator('.upload-single-btn').click();
   const extracted=page.waitForResponse(response=>response.url().endsWith('/student/answer-extraction')&&response.request().method()==='POST');
   const uploaded=page.waitForResponse(response=>response.url().endsWith('/subjective-upload')&&response.request().method()==='POST');
-  await (await chooser).setFiles({name:'answer.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic uploaded explanation')});
+  const docx=process.argv.includes('--docx');
+  await (await chooser).setFiles(docx?{name:'answer.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',buffer:readFileSync(new URL('synthetic-answer.docx',base))}:{name:'answer.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic uploaded explanation')});
   if(!(await extracted).ok()||!(await uploaded).ok())throw new Error('Written answer upload failed');
   if(await page.locator('textarea.answer-input').inputValue()!=='Synthetic uploaded explanation')throw new Error('Extracted answer not inserted');
-  console.log('PASS: uploaded text extracted into the answer and evidence saved privately.');
+  console.log('PASS: uploaded '+(docx?'DOCX':'TXT')+' extracted into the answer and evidence saved privately.');
  } else await page.locator('.answer-input[type="radio"][value="1"]').check();
  const saved=page.waitForResponse(response=>response.url().endsWith('/student/save-answer')&&response.request().method()==='POST');
  await page.locator('#nextButton').click();
