@@ -184,3 +184,12 @@ saving a fresh enrolment through the native gateway, and rejects runtime errors.
 It writes its synthetic screenshot only under ignored `.local`. The matching
 API pilot must already run on loopback port 8011. Browser enrolment save passed;
 this does not create a native exam student or perform automatic identity linking.
+
+The browser runner's optional `--capture` mode uses Chromium's virtual camera
+and a synthetic geolocation at the fixture centre. It passed opening the live
+preview, taking a JPEG with location and submitting through the native gateway
+for teacher review. It does not open a real camera, prove device GPS accuracy or
+confirm learner marks. Repeated runs use the fixture's normal daily-session and
+photo-count rules; start a fresh synthetic API pilot for a fresh capture run.
+Real camera, recognition calibration, native devices and live acceptance remain
+pending.

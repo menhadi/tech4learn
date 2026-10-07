@@ -6,9 +6,10 @@ import {readFileSync} from 'node:fs';
 const require=createRequire(new URL('../.local/tech4learn-foundation/package.json',import.meta.url));
 const {chromium}=require('playwright');
 const credentials=JSON.parse(readFileSync(new URL('../.local/tech4learn-foundation/local-pilot-credentials.json',import.meta.url),'utf8'));
-const browser=await chromium.launch({headless:true,args:['--host-resolver-rules=MAP two.localhost 127.0.0.1','--no-proxy-server']});
+const captureMode=process.argv.includes('--capture');
+const browser=await chromium.launch({headless:true,args:['--host-resolver-rules=MAP two.localhost 127.0.0.1','--no-proxy-server',...(captureMode?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]});
 try {
- const page=await browser.newPage({viewport:{width:1366,height:900}});
+ const page=await browser.newPage({viewport:{width:1366,height:900},...(captureMode?{permissions:['camera','geolocation'],geolocation:{latitude:0,longitude:0,accuracy:5}}:{})});
  const runtimeErrors=[];page.on('pageerror',()=>runtimeErrors.push(true));
  await page.goto('http://two.localhost:8001/login',{waitUntil:'domcontentloaded',timeout:15000});
  await page.locator('input[name="login"]').fill('synthetic@example.invalid');
@@ -35,6 +36,18 @@ try {
  await page.getByRole('button',{name:'Save enrolment',exact:true}).click();
  await page.getByText('Student enrolment saved. Photos can be added or retaken separately.',{exact:true}).waitFor({timeout:25000});
  console.log('PASS: actual browser learner form saved an enrolment through the native gateway.');
+ if(captureMode) {
+  await page.getByRole('button',{name:'Daily attendance',exact:true}).click();
+  await page.locator('select[name="group_id"]').first().selectOption(section);
+  await page.getByRole('button',{name:'Open camera',exact:true}).click();
+  await page.getByLabel('Live attendance camera preview').waitFor({timeout:20000});
+  await page.waitForFunction(()=>document.querySelector('video[aria-label="Live attendance camera preview"]')?.readyState>=2,{},{timeout:15000});
+  await page.getByRole('button',{name:'Take photo and get location',exact:true}).click();
+  await page.getByRole('button',{name:'Submit for review',exact:true}).waitFor({timeout:20000});
+  await page.getByRole('button',{name:'Submit for review',exact:true}).click();
+  await page.getByText('Submitted for review. No learner marks have been confirmed yet.',{exact:true}).waitFor({timeout:25000});
+  console.log('PASS: virtual-camera browser capture with synthetic location submitted for teacher review.');
+ }
  if(runtimeErrors.length)throw new Error('Browser runtime error');
  await page.screenshot({path:new URL('../.local/embedded-setup-review.png',import.meta.url).pathname.replace(/^\/([A-Z]:)/,'$1'),fullPage:true});
 } catch {console.log('BLOCKED: synthetic local sign-in or embedded workspace review failed.');process.exitCode=1;}
