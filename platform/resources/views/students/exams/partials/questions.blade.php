@@ -549,7 +549,7 @@
             return;
         }
 
-        var extractUrl = @json(asset('extract_file.php'));
+        var extractUrl = @json(route('student.answer-extraction'));
         var uploadUrl = @json(route('student.subjective-upload'));
         var csrfToken = @json(csrf_token());
         var examResultElement = document.querySelector('[data-exam-result-id]');
@@ -593,6 +593,9 @@
 
                     var extractData = new FormData();
                     extractData.append('file', file);
+                    extractData.append('question_id', questionId);
+                    extractData.append('exam_result_id', examResultId);
+                    extractData.append('_token', csrfToken);
 
                     fetch(extractUrl, { method: 'POST', body: extractData })
                         .then(function (response) { return response.json(); })

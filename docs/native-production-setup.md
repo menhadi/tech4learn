@@ -1191,3 +1191,25 @@ requires authenticated integration; these upload checks do not claim OCR or
 complete subjective-answer browser acceptance.
 The full native suite subsequently passed 293 tests / 1,256 assertions against
 the updated local source and migration.
+
+## Authenticated answer extraction — local implementation
+
+The subjective upload screen now sends CSRF, attempt and question identifiers
+to the authenticated, rate-limited Laravel `student.answer-extraction` route.
+It validates the file and owning student/organisation/question, checks an open
+attempt before processing and rechecks submission state afterward. Text responses
+use private no-store caching. The former standalone public extractor is retired
+with HTTP 410; original ExamElite source is unchanged.
+
+The bounded extractor uses existing PHP ZIP support for DOCX, existing native
+process support for PDF/Word/image tools and UTF-8 text reading. External tools
+have 20-second total / 10-second idle limits and a 512 KiB combined output limit;
+DOCX XML is size-bounded and rejects document-type declarations. Image OCR
+currently uses the existing Tesseract English language path. Additional-language,
+real-image accuracy and Linux binary/provider acceptance remain unverified.
+No external provider is silently required or configured by this change.
+
+Seven upload/extraction tests passed, including private text extraction,
+unauthorized processing rejection and submission during extraction. The complete
+native suite passed 296 tests / 1,265 assertions. These are local synthetic tests;
+subjective file browser acceptance and production OCR/runtime checks remain.

@@ -68,4 +68,33 @@ class SubjectiveUploadAccessTest extends TestCase
         $this->assertNull($stat->fresh()->uploaded_answer_path);
         $this->assertSame([],Storage::disk('local')->allFiles());
     }
+    private function extraction($question,$result)
+    {
+        return $this->post('https://uploads.test/student/answer-extraction',[
+            'question_id'=>$question->id,'exam_result_id'=>$result->id,
+            'file'=>UploadedFile::fake()->createWithContent('answer.txt','Synthetic extracted text'),
+        ],['Accept'=>'application/json']);
+    }
+    public function test_owned_answer_text_extraction_is_private_and_does_not_save_evidence(): void
+    {
+        [,,$question,$result]=$this->fixture();
+        $this->extraction($question,$result)->assertOk()->assertJson(['success'=>true,'text'=>'Synthetic extracted text'])
+            ->assertHeader('Cache-Control','no-store, private');
+        $this->assertSame([],Storage::disk('local')->allFiles());
+    }
+    public function test_foreign_result_never_reaches_the_extractor(): void
+    {
+        [$org,,$question,$result]=$this->fixture();
+        $other=Student::create(['organization_id'=>$org->id,'name'=>'Synthetic other','email'=>'extract-other@example.invalid','password'=>'unused','status'=>'Active']);
+        $this->actingAs($other,'student');
+        $this->mock(\App\Services\StudentAnswerTextExtractor::class)->shouldNotReceive('extract');
+        $this->extraction($question,$result)->assertForbidden();
+    }
+    public function test_submission_during_extraction_is_rechecked_before_returning_text(): void
+    {
+        [,,$question,$result]=$this->fixture();
+        $this->mock(\App\Services\StudentAnswerTextExtractor::class)->shouldReceive('extract')->once()
+            ->andReturnUsing(function()use($result){$result->update(['end_time'=>now()]);return 'Synthetic text';});
+        $this->extraction($question,$result)->assertStatus(409);
+    }
 }

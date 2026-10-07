@@ -765,9 +765,10 @@
     },
     {
       "path": "app/Http/Controllers/SubjectiveUploadController.php",
-      "sha256": "403555e362bbb614701e9614c5db6137f34b7979f1f678d8dd0315b9aa3f6481",
+      "sha256": "6a6a37a23427cdc26198b5ac742ca03b14c218ba646b44788f00b747c5babf42",
       "patches": [
-        "private-subjective-answer-evidence"
+        "private-subjective-answer-evidence",
+        "authenticated-answer-text-extraction"
       ]
     },
     {
@@ -170831,9 +170832,10 @@
     },
     {
       "path": "public/extract_file.php",
-      "sha256": "d3f943f5fd50f1ea1b3c531e07cc01eb3fe56535c254dc7be4b5b6aea361383a",
+      "sha256": "540f7f42338f4593e95c94015183a83614c0655400deb2ab18134300ab2edb79",
       "patches": [
-        "ocr-key-from-environment"
+        "ocr-key-from-environment",
+        "authenticated-answer-text-extraction"
       ]
     },
     {
@@ -176941,8 +176943,10 @@
     },
     {
       "path": "resources/views/students/exams/partials/questions.blade.php",
-      "sha256": "1f6d99babaafc8acbd76cbba207956ce5a1f67d0f06f955e40386f27c9cbeb5c",
-      "patches": []
+      "sha256": "5c2e2e12c0700261d42fcfdb64998e1fa9fe648b324f840f96500eb34791bb41",
+      "patches": [
+        "authenticated-answer-text-extraction"
+      ]
     },
     {
       "path": "resources/views/students/exams/partials/questions.blade1.php",
@@ -177393,8 +177397,10 @@
     },
     {
       "path": "routes/student_routes.php",
-      "sha256": "ae967b8079edcb6d439d81c8c776a16fc10c4da8dc7c38b26faa1e6cc12e1e54",
-      "patches": []
+      "sha256": "3f3ddfacec3fed63e8356afe2b61bc85ad30a0c8af3e575aded9cace12e2d66c",
+      "patches": [
+        "authenticated-answer-text-extraction"
+      ]
     },
     {
       "path": "routes/test.php",

@@ -113,6 +113,8 @@ Route::middleware('auth:student')->group(function () {
     Route::post('/subjective-upload', [SubjectiveUploadController::class, 'upload'])
         ->middleware('plan.feature:ai_subjective_analysis')
         ->name('student.subjective-upload');
+    Route::post('/student/answer-extraction', [SubjectiveUploadController::class, 'extract'])
+        ->middleware(['plan.feature:ai_subjective_analysis','throttle:10,1'])->name('student.answer-extraction');
 
     // Finalize Pending Exam
     Route::post('student/finalize-pending', [MyExamController::class, 'finalizePending'])->name('student.finalizePending');
