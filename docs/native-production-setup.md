@@ -432,3 +432,20 @@ indirect grants, global audit exclusion, cycle rejection and unchanged admin/dat
 This module intentionally has no deletion executor. A private frozen manifest,
 verified backup/restore, paused writes and reviewed user/session/global-connector
 cleanup are still required before execution.
+
+## Private pre-cleanup backup — 7 October 2026
+
+The checked `deploy/virtualmin/backup-legacy-database.mjs` was run through the
+existing deployment account. It created
+`/home/tech4learn/private-backups/legacy-cleanup-bftBtx/database.dump` with a
+private archive list and checksum manifest. The directory is account-owned 0700;
+the archive and metadata are 0600. The script rejects a symlinked, differently
+owned or publicly accessible backup root and never places credentials in command
+arguments/output. PostgreSQL custom-format backup includes database-backed media.
+
+`pg_restore --list` succeeded and `pg_restore --file=/dev/null` decoded all
+archive entries without executing SQL. SHA-256 and size remain in the private
+manifest. This establishes archive readability, not a successful database
+restore. The manifest explicitly records `restoreTested: false`. Actual isolated
+restore verification is still required before destructive cleanup. No database,
+application configuration, scheduler or website routing was changed by backup.
