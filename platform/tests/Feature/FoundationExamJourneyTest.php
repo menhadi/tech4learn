@@ -56,7 +56,9 @@ class FoundationExamJourneyTest extends TestCase
         $start=$this->postJson($base.'/api/student/exam/start/'.$exam->id)->assertOk()->assertJson(['success'=>true]);
         $resultId=$start->json('examResult.id');
         $questionPayload=$start->json('exam.questions.0');
-        $this->assertArrayNotHasKey('correct_option_indices',$questionPayload);
+        foreach(['correct_option_indices','si_answer1','answer','true_false','fill_blank','fill_blank_config','nat_config','explanation'] as $answerKey) {
+            $this->assertArrayNotHasKey($answerKey,$questionPayload,'Answer keys must not reach a student during an attempt');
+        }
         $statPayload=array_values($start->json('examStats'))[0];
         $this->assertArrayNotHasKey('correct_answer',$statPayload,'Answer keys must not reach a student before submission');
         $this->postJson($base.'/api/student/exam/save-answer',[
@@ -130,12 +132,14 @@ class FoundationExamJourneyTest extends TestCase
     {
         [$org]=$this->owner();
         $type=\App\Models\Qtype::firstOrCreate(['type'=>'S'],['question_type'=>'Subjective']);
-        $question=Question::create(['organization_id'=>$org->id,'qtype_id'=>$type->id,'question'=>'Explain the synthetic problem','marks'=>2,'status'=>'Yes']);
+        $question=Question::create(['organization_id'=>$org->id,'qtype_id'=>$type->id,'question'=>'Explain the synthetic problem','si_answer1'=>'Synthetic private marking guide','explanation'=>'Synthetic private explanation','marks'=>2,'status'=>'Yes']);
         $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic subjective exam','slug'=>'synthetic-subjective','result_after_finish'=>true,'status'=>'Active','passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam','start_date'=>now()->subMinute(),'end_date'=>now()->addDay()]);
         $exam->questions()->attach($question->id);
         $student=Student::create(['organization_id'=>$org->id,'name'=>'Synthetic learner','email'=>'subjective@example.invalid','password'=>'synthetic-unused-password','status'=>'Active']);
         Auth::forgetGuards();Sanctum::actingAs($student,['*'],'student-api');Tenant::clear();
         $start=$this->postJson('https://synthetic-exams.test/api/student/exam/start/'.$exam->id)->assertOk();
+        $this->assertStringNotContainsString('Synthetic private marking guide',$start->getContent());
+        $this->assertStringNotContainsString('Synthetic private explanation',$start->getContent());
         $id=$start->json('examResult.id');
         $this->postJson('https://synthetic-exams.test/api/student/exam/save-answer',['exam_result_id'=>$id,'question_id'=>$question->id,'question_type'=>'subjective','option_selected'=>'Synthetic explanation','answered'=>true])->assertOk();
         $this->postJson('https://synthetic-exams.test/api/student/exam/submit',['exam_result_id'=>$id])->assertOk()->assertJsonPath('result.result','Pending');
