@@ -175,3 +175,12 @@ workspace, centre form save through the native gateway, academic setup view and
 populated learner directory without runtime errors. Both default and tenant
 pilot identity checks passed. Camera/photo capture, native device checks and
 production authenticated acceptance remain pending.
+
+`node tests/foundation-browser-setup.mjs` repeats the owned headless Chromium
+check against the fixed synthetic `two.localhost:8001` fixture, using the ignored
+local pilot credentials and prepared local Playwright dependency. It checks
+secure context, tenant sign-in, academic view, populated learner directory and
+saving a fresh enrolment through the native gateway, and rejects runtime errors.
+It writes its synthetic screenshot only under ignored `.local`. The matching
+API pilot must already run on loopback port 8011. Browser enrolment save passed;
+this does not create a native exam student or perform automatic identity linking.
