@@ -9,6 +9,7 @@ import { learnerMigration } from '../dist/migration-learners.js';
 import { configurationMigration } from '../dist/migration-configuration.js';
 import { foundationMigration } from '../dist/migration-foundation.js';
 import { foundationLearnerMigration } from '../dist/migration-foundation-learners.js';
+import { foundationPlatformMigration } from '../dist/migration-foundation-platform.js';
 import { digest,hashPassword } from '../dist/security.js';
 
 test('foundation identity links require explicit accounts, current authority and revocable attendance grants', async t => {
@@ -18,7 +19,7 @@ test('foundation identity links require explicit accounts, current authority and
   for (const [id,slug] of [[orgA,'synthetic-one'],[orgB,'synthetic-two']])
     await pg.query('INSERT INTO organisations(id,name,slug) VALUES($1,$2,$2)',[id,slug]);
   await pg.exec(accessMigration); await pg.exec(learnerMigration); await pg.exec(configurationMigration); await pg.exec(foundationMigration);
-  await pg.exec(foundationLearnerMigration);
+  await pg.exec(foundationLearnerMigration); await pg.exec(foundationPlatformMigration);
   const learnerA=randomUUID(),learnerB=randomUUID(),centreA=randomUUID(),groupA=randomUUID();
   for(const [org,learner,centre,group] of [[orgA,learnerA,centreA,groupA],[orgB,learnerB,randomUUID(),randomUUID()]]) {
     await pg.query('INSERT INTO centres(id,organisation_id,name) VALUES($1,$2,$3)',[centre,org,'Synthetic centre']);
@@ -76,6 +77,56 @@ test('foundation identity links require explicit accounts, current authority and
       assert.deepEqual(await logged.json(),{nativeOrganisationId:'7',nativeUserId:'9'});
       assert.match(logged.headers.get('set-cookie'),/HttpOnly/);
       assert.equal((await request('/foundation/auth/login','POST',{email:'staff@example.invalid',password:'incorrect synthetic password',nativeOrganisationId:'7'})).status,401);
+    });
+    const platformPath='/platform/foundation/platforms/1/staff', platformIdentity='/foundation/platforms/1/staff/11/identity';
+    await t.test('platform identities require stored superadmin authority and cannot alias attendance tenants',async()=>{
+      assert.equal((await request(platformPath,'POST',{nativeUserId:'11',userId:owner,is_superadmin:true},'staff')).status,403);
+      assert.equal((await request(platformPath,'POST',{nativeUserId:'11',userId:staff,is_superadmin:true})).status,403);
+      assert.equal((await request(platformPath,'POST',{nativeUserId:'11',userId:owner})).status,201);
+      await assert.rejects(pg.query("UPDATE foundation_realms SET kind='organisation' WHERE native_id=1"));
+      assert.equal((await request(platformPath,'POST',{nativeUserId:'12',userId:owner})).status,409);
+      assert.equal((await request(platformPath.replace('/1/','/7/'),'POST',{nativeUserId:'11',userId:owner})).status,409);
+      assert.equal((await request(linkPath,'POST',{nativeOrganisationId:'1',organisationId:orgB})).status,409);
+      await assert.rejects(pg.query('INSERT INTO foundation_organisations(native_id,organisation_id) VALUES(1,$1)',[orgB]));
+      await assert.rejects(pg.query('INSERT INTO foundation_platform_staff(native_organisation_id,native_user_id,user_id) VALUES(7,11,$1)',[owner]));
+      assert.equal((await request(platformPath,'GET',undefined,'staff')).status,403);
+      assert.equal((await request('/foundation/organisations/1/staff/11/attendance-context')).status,404);
+      assert.equal((await request(platformIdentity,'GET',undefined,'outsider')).status,403);
+      const res=await request(platformIdentity);assert.equal(res.status,200);
+      assert.equal(res.headers.get('cache-control'),'no-store');
+      assert.deepEqual(await res.json(),{nativeOrganisationId:'1',nativeUserId:'11',userId:owner,version:1,realm:'platform'});
+    });
+    await t.test('platform login uses the explicit root mapping and cleans up denied sessions',async()=>{
+      const before=(await pg.query('SELECT count(*)::int AS n FROM sessions')).rows[0].n;
+      const denied=await request('/foundation/auth/platform/login','POST',{email:'staff@example.invalid',password,nativeOrganisationId:'1',is_superadmin:true});
+      assert.equal(denied.status,403);assert.equal(denied.headers.get('set-cookie'),null);
+      assert.equal((await pg.query('SELECT count(*)::int AS n FROM sessions')).rows[0].n,before);
+      const logged=await request('/foundation/auth/platform/login','POST',{email:'owner@example.invalid',password,nativeOrganisationId:'1',nativeUserId:'99'});
+      assert.equal(logged.status,200,await logged.clone().text());
+      assert.deepEqual(await logged.json(),{nativeOrganisationId:'1',nativeUserId:'11',userId:owner,version:1,realm:'platform'});
+      assert.match(logged.headers.get('set-cookie'),/HttpOnly/);
+      assert.equal((await request('/foundation/auth/platform/login','POST',{email:'owner@example.invalid',password,nativeOrganisationId:'7'})).status,404);
+    });
+    await t.test('platform identity activation versions and role demotion affect existing sessions',async()=>{
+      assert.equal((await request(platformPath+'/11','PATCH',{active:false,version:1})).status,200);
+      assert.equal((await request(platformIdentity)).status,404);
+      assert.equal((await request(platformPath+'/11','PATCH',{active:true,version:1})).status,409);
+      assert.equal((await request(platformPath+'/11','PATCH',{active:true,version:2})).status,200);
+      assert.equal((await request(platformIdentity)).status,200);
+      await pg.query('UPDATE users SET is_superadmin=false WHERE id=$1',[owner]);
+      assert.equal((await request(platformIdentity)).status,403);
+      assert.equal((await request(platformPath+'/11','PATCH',{active:true,version:3})).status,403);
+      await pg.query('UPDATE users SET is_superadmin=true WHERE id=$1',[owner]);
+      assert.equal((await request(platformIdentity)).status,200);
+    });
+    await t.test('concurrent platform and tenant mapping attempts cannot share a native realm',async()=>{
+      const results=await Promise.all([
+        request(linkPath,'POST',{nativeOrganisationId:'20',organisationId:orgB}),
+        request('/platform/foundation/platforms/20/staff','POST',{nativeUserId:'50',userId:owner}),
+      ]);
+      assert.deepEqual(results.map(r=>r.status).sort(),[201,409]);
+      const count=(await pg.query('SELECT (SELECT count(*) FROM foundation_organisations WHERE native_id=20)+(SELECT count(*) FROM foundation_platform_staff WHERE native_organisation_id=20) AS n')).rows[0].n;
+      assert.equal(Number(count),1);
     });
     await t.test('learner links are immutable and reject tenant authority or foreign records',async()=>{
       const path=linkPath+'/7/learners';

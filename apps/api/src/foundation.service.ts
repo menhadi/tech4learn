@@ -4,6 +4,7 @@ import { AccessService } from "./access.service.js";
 import type { Account } from "./identity.service.js";
 import { uuid } from "./security.js";
 import { LearnersService } from "./learners.service.js";
+import { randomUUID } from "node:crypto";
 
 function nativeId(value: unknown): string {
   if (typeof value !== "string" || !/^[1-9][0-9]{0,14}$/.test(value))
@@ -21,6 +22,53 @@ function recordId(value: unknown): string {
 @Injectable()
 export class FoundationService {
   constructor(private readonly db: Database, private readonly access: AccessService, private readonly learners: LearnersService) {}
+  async platformStaff(actor: Account, nativeValue: string) {
+    await this.platform(actor,this.db);
+    return (await this.db.query("SELECT native_user_id::text,user_id,active,version FROM foundation_platform_staff WHERE native_organisation_id=$1 ORDER BY native_user_id LIMIT 500",[nativeId(nativeValue)])).rows;
+  }
+  private async realm(sql: SqlClient,native: string) {
+    const row=(await sql.query<{kind:string}>("SELECT kind FROM foundation_realms WHERE native_id=$1",[native])).rows[0];
+    if(row && row.kind!=="platform") throw new ConflictException("An attendance organisation cannot become a platform realm.");
+  }
+  private async platformAudit(sql: SqlClient,actor: Account,action: string,details: unknown) {
+    await sql.query("INSERT INTO audit_events(id,actor_id,organisation_id,action,details) VALUES($1,$2,NULL,$3,$4)",[randomUUID(),actor.id,action,JSON.stringify(details)]);
+  }
+  async linkPlatformStaff(actor: Account,nativeValue: string,body: Record<string,unknown>) {
+    const native=nativeId(nativeValue),user=nativeId(body.nativeUserId),target=recordId(body.userId);
+    return this.db.transaction(async sql=>{
+      await this.platform(actor,sql);await this.platform({id:target},sql);
+      await this.realm(sql,native);
+      const result=await sql.query("INSERT INTO foundation_platform_staff(native_organisation_id,native_user_id,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING native_user_id::text,user_id,active,version",[native,user,target]).catch(error=>{
+        if(error.code==="23514")throw new ConflictException("Native identity realm conflicts with an attendance organisation.");
+        throw error;
+      });
+      if(!result.rows.length) throw new ConflictException("Platform identities are immutable and already linked.");
+      await this.platformAudit(sql,actor,"foundation.platform_staff_linked",{nativeOrganisationId:native,nativeUserId:user,userId:target});
+      return result.rows[0];
+    });
+  }
+  async setPlatformStaff(actor: Account,nativeValue: string,userValue: string,body: Record<string,unknown>) {
+    const native=nativeId(nativeValue),user=nativeId(userValue);change(body);
+    return this.db.transaction(async sql=>{
+      await this.platform(actor,sql);
+      const link=(await sql.query<{user_id:string}>("SELECT user_id FROM foundation_platform_staff WHERE native_organisation_id=$1 AND native_user_id=$2 FOR UPDATE",[native,user])).rows[0];
+      if(!link)throw new NotFoundException("Platform identity is not linked.");
+      if(body.active)await this.platform({id:link.user_id},sql);
+      const result=await sql.query("UPDATE foundation_platform_staff SET active=$3,version=version+1 WHERE native_organisation_id=$1 AND native_user_id=$2 AND version=$4 RETURNING native_user_id::text,user_id,active,version",[native,user,body.active,body.version]);
+      if(!result.rows.length)throw new ConflictException("The link changed; reload its current version.");
+      await this.platformAudit(sql,actor,"foundation.platform_staff_status",{nativeOrganisationId:native,nativeUserId:user,active:body.active});
+      return result.rows[0];
+    });
+  }
+  async platformIdentity(actor: Account,nativeValue: unknown,userValue?: string) {
+    const native=nativeId(nativeValue),user=userValue===undefined?undefined:nativeId(userValue);
+    return this.db.transaction(async sql=>{
+      await this.platform(actor,sql);
+      const link=(await sql.query<{native_user_id:string;version:number}>("SELECT native_user_id::text,version FROM foundation_platform_staff WHERE native_organisation_id=$1 AND user_id=$2 AND active"+(user===undefined?"":" AND native_user_id=$3"),user===undefined?[native,actor.id]:[native,actor.id,user])).rows[0];
+      if(!link)throw new NotFoundException("Platform identity is not linked.");
+      return {nativeOrganisationId:native,nativeUserId:link.native_user_id,userId:actor.id,version:link.version,realm:"platform"};
+    });
+  }
   async learnerLinks(actor: Account, nativeValue: string) {
     await this.platform(actor, this.db);
     const native = nativeId(nativeValue);
@@ -70,9 +118,9 @@ export class FoundationService {
       return {nativeOrganisationId:native,nativeUserId:user,nativeStudentId:student,organisationId:organisation.organisation_id,learnerId:learner,version:mapping.version};
     });
   }
-  private async platform(actor: Account, sql: SqlClient) {
+  private async platform(actor: Pick<Account,"id">, sql: SqlClient) {
     // Do not inherit platform authority from a native role or a stale caller object.
-    const stored = await sql.query<{ is_superadmin: boolean }>("SELECT is_superadmin FROM users WHERE id=$1", [actor.id]);
+    const stored = await sql.query<{ is_superadmin: boolean }>("SELECT is_superadmin FROM users WHERE id=$1 FOR SHARE", [actor.id]);
     if (!stored.rows[0]?.is_superadmin) throw new ForbiddenException("Only platform superadmins can manage identity links.");
   }
   async list(actor: Account) {
@@ -85,7 +133,10 @@ export class FoundationService {
     return this.db.transaction(async sql => {
       await this.platform(actor, sql);
       await this.access.lock(sql, org);
-      const result = await sql.query("INSERT INTO foundation_organisations(native_id,organisation_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING native_id::text,organisation_id,active,version", [native, org]);
+      const result = await sql.query("INSERT INTO foundation_organisations(native_id,organisation_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING native_id::text,organisation_id,active,version", [native, org]).catch(error=>{
+        if(error.code==="23514")throw new ConflictException("A platform identity realm cannot become an attendance organisation.");
+        throw error;
+      });
       if (!result.rows.length) throw new ConflictException("An identity is already linked; existing links cannot be reassigned.");
       await this.access.audit(sql, actor, org, "foundation.organisation_linked", { nativeOrganisationId: native });
       return result.rows[0];

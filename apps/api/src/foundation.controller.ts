@@ -8,6 +8,23 @@ import { FoundationService } from "./foundation.service.js";
 export class FoundationController {
   constructor(private readonly identity: IdentityService, private readonly links: FoundationService) {}
   private actor(cookie?: string) { return this.identity.account(session(cookie)); }
+  @Get("platform/foundation/platforms/:native/staff")
+  async platformStaff(@Param("native") n:string,@Headers("cookie") c?:string) {return this.links.platformStaff(await this.actor(c),n);}
+  @Post("platform/foundation/platforms/:native/staff")
+  async addPlatformStaff(@Param("native") n:string,@Body() b:Record<string,unknown>,@Headers("cookie") c?:string) {return this.links.linkPlatformStaff(await this.actor(c),n,b??{});}
+  @Patch("platform/foundation/platforms/:native/staff/:user")
+  async updatePlatformStaff(@Param("native") n:string,@Param("user") u:string,@Body() b:Record<string,unknown>,@Headers("cookie") c?:string) {return this.links.setPlatformStaff(await this.actor(c),n,u,b??{});}
+  @Get("foundation/platforms/:native/staff/:user/identity")
+  async platformIdentity(@Param("native") n:string,@Param("user") u:string,@Headers("cookie") c?:string) {return this.links.platformIdentity(await this.actor(c),n,u);}
+  @Post("foundation/auth/platform/login")
+  @HttpCode(200)
+  async platformLogin(@Body() b:Record<string,unknown>,@Res({passthrough:true}) response:Response) {
+    const raw=await this.identity.login(b??{});
+    try {
+      const link=await this.links.platformIdentity(await this.identity.account(raw),b?.nativeOrganisationId);
+      setCookie(response,raw);return link;
+    } catch(error){await this.identity.logout(raw);throw error;}
+  }
   @Get("platform/foundation/organisations/:native/learners")
   async learners(@Param("native") n:string,@Headers("cookie") c?:string) {return this.links.learnerLinks(await this.actor(c),n);}
   @Post("platform/foundation/organisations/:native/learners")

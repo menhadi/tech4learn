@@ -17,6 +17,7 @@ import { photoNamesMigration } from '../apps/api/dist/migration-photo-names.js';
 import { attendanceTestingMigration } from '../apps/api/dist/migration-attendance-testing.js';
 import { foundationMigration } from '../apps/api/dist/migration-foundation.js';
 import { foundationLearnerMigration } from '../apps/api/dist/migration-foundation-learners.js';
+import { foundationPlatformMigration } from '../apps/api/dist/migration-foundation-platform.js';
 import { digest,hashPassword } from '../apps/api/dist/security.js';
 if (!process.argv[2]) throw new Error('Provide the prepared local foundation dependency directory');
 process.env.NODE_ENV='test';
@@ -28,7 +29,7 @@ try {
   const org='11111111-1111-4111-8111-111111111111', foreign='22222222-2222-4222-8222-222222222222', actor=randomUUID();
   for (const [id,slug] of [[org,'synthetic-own'],[foreign,'synthetic-foreign']])
     await pg.query('INSERT INTO organisations(id,name,slug) VALUES($1,$2,$2)',[id,slug]);
-  for(const sql of [accessMigration,learnerMigration,configurationMigration,attendanceMigration,visionMigration,academicMigration,photoMigration,bulkAttendanceMigration,faceControlMigration,photoNamesMigration,attendanceTestingMigration,foundationMigration,foundationLearnerMigration]) await pg.exec(sql);
+  for(const sql of [accessMigration,learnerMigration,configurationMigration,attendanceMigration,visionMigration,academicMigration,photoMigration,bulkAttendanceMigration,faceControlMigration,photoNamesMigration,attendanceTestingMigration,foundationMigration,foundationLearnerMigration,foundationPlatformMigration]) await pg.exec(sql);
   await pg.query('INSERT INTO users(id,email,name,password_hash) VALUES($1,$2,$3,$4)',[actor,'synthetic@example.invalid','Synthetic staff',await hashPassword('long synthetic foundation password')]);
   await pg.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '1 hour')",[digest('d'.repeat(64)),actor]);
   await pg.query("INSERT INTO memberships(user_id,organisation_id,role,role_id) SELECT $1,$2,'organisation_admin',id FROM access_roles WHERE organisation_id=$2 AND protected",[actor,org]);

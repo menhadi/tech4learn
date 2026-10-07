@@ -165,3 +165,43 @@ context. Rejected sign-in must revoke its provisional API session. Tests must
 cover ordinary-user denial, cross-realm links, revocation/demotion after sign-in,
 version conflicts, immutable mapping and private session handling. All of this
 is planned until implemented and checked.
+
+## Platform identity API — local implementation
+
+API migration 19 adds a native realm registry and explicit platform-staff links.
+Existing native organisation mappings register as organisation realms. Database
+triggers serialize realm registration and reject platform/organisation aliasing,
+even when creation is concurrent or SQL bypasses the service. Registered realm
+kinds cannot change. The migration copies no accounts, learners or exam data and
+must be applied explicitly by the management CLI before deploying this API slice.
+
+Stored canonical superadmins can list/create links at
+`/api/v1/platform/foundation/platforms/:native/staff`, and change active status at
+`/:user` using the current version. A target must itself be a stored superadmin.
+The native IDs require prior verification in the intended installation. Account
+links cannot be reassigned; duplicate identities conflict. Changes are audited
+without attributing the global platform to a real tenant. Role reads take shared
+locks inside transactions so demotion cannot race an in-progress authority check.
+
+`POST /api/v1/foundation/auth/platform/login` verifies the existing API password,
+then the exact account's active global mapping and current stored superadmin role.
+A successful reply contains only native organisation/user IDs, canonical user UUID,
+link version and `realm: platform`; the API session uses the existing private
+HttpOnly cookie. Failed mapping/role checks revoke the provisional session. Client
+role/native-user claims never select the returned identity.
+
+`GET /api/v1/foundation/platforms/:native/staff/:user/identity` requires the exact
+mapped account, active link and current stored superadmin role. Role demotion or
+link deactivation immediately denies subsequent reads using existing sessions.
+No attendance tenant context is created by this mapping. Native Laravel login,
+privileged-request revalidation and reviewed provisioning still need to consume
+this API before administrator sign-in is a completed feature. Migration 19,
+production global mappings and this API slice have not yet been activated live.
+
+Verification for the local API slice: `npm run check` passed all typechecks,
+workspace builds and 106 API tests. The separate realm-upgrade test passed,
+preserving existing tenant link versions and disabled states and rejecting
+realm reassignment/orphaning. The real connected PHP-to-Nest synthetic test
+also passed mapped login, scoped attendance capture/review/history, learner
+identity resolution and logout with migration 19 present. No production
+accounts, mappings, migrations or routing were changed by this verification.

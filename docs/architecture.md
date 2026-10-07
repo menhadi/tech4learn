@@ -19,8 +19,10 @@ sign-in verifies the existing API password and opens both mapped sessions. The
 native attendance page mounts the existing React attendance interface through a
 protected same-origin gateway, retaining API permissions and location scopes.
 The [learner identity ledger](foundation-learner-identity.md) in API migration 18
-adds explicit learner/native-student links and scoped native resolution. Account
-provisioning, enrolment synchronization and mobile integration remain pending.
+adds explicit learner/native-student links and scoped native resolution. The locally implemented platform identity API in migration 19 separates global
+administrator mappings from attendance tenants using an immutable realm registry.
+Native sign-in integration and production activation of that boundary are pending.
+Account provisioning, enrolment synchronization and mobile integration remain pending.
 
 Initial source preparation is isolated beneath ignored `.local`; source origin,
 working-tree edits and copied-file hashes are recorded there. Dependencies,
