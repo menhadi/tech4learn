@@ -32,6 +32,12 @@ organisation owners/admins, never for a selected `staff` membership. Account,
 role and membership writes are transactional. This fixes fresh provisioning;
 existing role assignments are not automatically revoked or altered.
 
+Native web and student API start/resume paths lock the current active student's
+tenant-scoped row inside a transaction before attempt checks and creation. Both
+paths use the same lock so overlapping requests serialize without relying on
+`firstOrCreate` alone. Local SQLite regressions verify resume, expiry and attempt
+limits; true concurrent MySQL acceptance remains a separate unverified check.
+
 Shared AI provider configuration is selected only from the unique active realm
 explicitly marked `is_primary_platform`. Missing or ambiguous platform realms,
 or missing platform configuration, yield no shared provider. Never fall back to

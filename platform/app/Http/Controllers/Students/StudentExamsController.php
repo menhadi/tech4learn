@@ -87,6 +87,8 @@ class StudentExamsController extends Controller
     }
     public function startExam(Request $request, $id)
     {
+        return DB::transaction(function () use ($request, $id) {
+            \App\Models\Student::where('id', Auth::guard('student')->id())->where('organization_id', $this->tenantId())->where('status', 'Active')->lockForUpdate()->firstOrFail();
         $exam = $this->tenantExamQuery()->with(['questions.subject', 'questions.qtype', 'questions.langs'])->findOrFail($id);
         abort_unless($exam->canAttemptOnline(), 409, 'This paper is currently available as a PDF download only.');
         abort_unless($exam->isAvailableAt(), 403, 'This exam is outside its scheduled availability.');
@@ -303,6 +305,7 @@ class StudentExamsController extends Controller
         $configuration = getConfiguration();
 
         return view('students.exams.exam_start', compact('exam', 'remainingTime', 'examResult', 'examStats', 'subjectDurations', 'configuration', 'languages', 'selectedLanguageId'));
+        });
     }
 
     public function examFeedback(Request $request)

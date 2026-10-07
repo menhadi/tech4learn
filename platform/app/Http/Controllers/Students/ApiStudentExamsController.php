@@ -34,6 +34,8 @@ class ApiStudentExamsController extends Controller
      */
     public function startOrResumeExam(Request $request, $id)
     {
+        return DB::transaction(function () use ($request, $id) {
+            \App\Models\Student::where('id', $request->user()->id)->where('organization_id', $this->tenantId())->where('status', 'Active')->lockForUpdate()->firstOrFail();
         $student = $request->user();
         $studentId = $student->id;
         
@@ -201,6 +203,7 @@ class ApiStudentExamsController extends Controller
             'subjectDurations' => $subjectDurations,
             'languages' => $languages
         ]);
+        });
     }
 
     /**
