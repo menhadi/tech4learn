@@ -21,6 +21,9 @@ import { foundationPlatformMigration } from '../apps/api/dist/migration-foundati
 import { foundationProvisioningMigration } from '../apps/api/dist/migration-foundation-provisioning.js';
 import { provisionAttendanceOrganisation } from '../apps/api/dist/foundation-organisation-provision.js';
 import { provisionAttendanceAdministrator } from '../apps/api/dist/foundation-staff-provision.js';
+import { AccessService } from '../apps/api/dist/access.service.js';
+import { LearnersService } from '../apps/api/dist/learners.service.js';
+import { FoundationService } from '../apps/api/dist/foundation.service.js';
 import { digest,hashPassword } from '../apps/api/dist/security.js';
 if (!process.argv[2]) throw new Error('Provide the prepared local foundation dependency directory');
 process.env.NODE_ENV='test';
@@ -52,11 +55,15 @@ try {
     await pg.query('INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES($1,$2,$3,$4)',[group,organisation,centre,label]);
     await pg.query("INSERT INTO attendance_sessions(id,organisation_id,centre_id,group_id,attendance_date,status,snapshot) VALUES($1,$2,$3,$4,'2026-10-07','pending',$5)",[randomUUID(),organisation,centre,group,JSON.stringify({group_name:label,centre_name:'Synthetic centre'})]);
   }
-  const captureCentre=randomUUID(),captureGroup=randomUUID(),learner=randomUUID();
+  const captureCentre=randomUUID(),captureGroup=randomUUID();
   await pg.query("INSERT INTO centres(id,organisation_id,name,latitude,longitude,location_approved) VALUES($1,$2,'Synthetic capture centre',0,0,true)",[captureCentre,org]);
   await pg.query("INSERT INTO learning_groups(id,organisation_id,centre_id,name) VALUES($1,$2,$3,'Synthetic capture section')",[captureGroup,org,captureCentre]);
-  await pg.query("INSERT INTO learners(id,organisation_id,group_id,code,name) VALUES($1,$2,$3,'SYNTHETIC-01','Synthetic learner')",[learner,org,captureGroup]);
-  await pg.query('INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id) VALUES(2,10,$1,$2)',[org,learner]);
+  const access=new AccessService(adapter), learners=new LearnersService(adapter,access), links=new FoundationService(adapter,access,learners);
+  const staffAccount=(await pg.query('SELECT id,email,name,is_superadmin FROM users WHERE id=$1',[actor])).rows[0];
+  const platformAccount=(await pg.query('SELECT id,email,name,is_superadmin FROM users WHERE id=$1',[platformUser])).rows[0];
+  const learner=(await learners.save(staffAccount,org,{group_id:captureGroup,code:'SYNTHETIC-01',name:'Synthetic learner'})).id;
+  await links.linkLearner(platformAccount,'2',{nativeStudentId:'10',learnerId:learner});
+  if(Number((await pg.query('SELECT count(*) AS n FROM learner_enrolments WHERE organisation_id=$1 AND learner_id=$2 AND group_id=$3 AND ended_at IS NULL',[org,learner,captureGroup])).rows[0].n)!==1)throw new Error('Learner creation did not establish current enrolment');
   await pg.query('INSERT INTO foundation_platform_staff(native_organisation_id,native_user_id,user_id) VALUES(1,1,$1)',[platformUser]);
   app=await createApp(undefined,adapter); await app.listen(0,'127.0.0.1');
   const api=`${await app.getUrl()}/api/v1`;

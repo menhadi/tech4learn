@@ -65,6 +65,8 @@ companion and staff identity through the actual operator functions, including
 migration 20. Exact retries preserve both identities, do not duplicate audit
 events and preserve the initial password, verified by subsequent mapped login.
 Capture, submission, teacher review, history, tenant isolation and logout passed
-against these provisioned synthetic identities. Centre/section/learner references
-remain explicit local fixtures; this does not implement automatic onboarding or
-verify production acceptance.
+against these provisioned synthetic identities. Centre/section references remain explicit local fixtures. The learner is now
+created through the existing learner service, establishing its current enrolment,
+and linked through the platform identity service before the connected attendance
+journey. This does not implement automatic onboarding or verify production
+acceptance.
