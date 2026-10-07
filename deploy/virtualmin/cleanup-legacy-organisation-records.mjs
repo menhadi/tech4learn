@@ -1,3 +1,4 @@
+import { assertLegacyWritesPaused } from './check-legacy-writes-paused.mjs';
 // Internal transactional core, intentionally no live CLI. Requires separately verified backup.
 import { createHash } from 'node:crypto';
 import { planLegacyCleanup } from './plan-legacy-cleanup.mjs';
@@ -30,6 +31,7 @@ export async function cleanupLegacyOrganisationRecords(database,manifest,evidenc
     await sql.query("SET LOCAL lock_timeout='5s'");
     await sql.query("SET LOCAL statement_timeout='60s'");
     await sql.query("SET LOCAL idle_in_transaction_session_timeout='15s'");
+    await assertLegacyWritesPaused(sql,evidence?.observeService);
     // Protect discovery and identity from concurrent writes/schema changes.
     await sql.query('LOCK TABLE public.organisations,public.users,public.sessions IN ACCESS EXCLUSIVE MODE');
     const current=await planLegacyCleanup(sql,manifest.organisationIds);

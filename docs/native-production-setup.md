@@ -950,3 +950,22 @@ This is a read-only loader with no live CLI. Paused-write enforcement and privat
 frozen-manifest persistence still need to be connected before a production
 executor can invoke the guarded cleanup transaction. No real backup/receipt was
 modified, actual isolated restore performed or organisation deleted.
+
+
+## Paused-write gate connected to cleanup core
+
+Before acquiring cleanup locks, the internal transaction now checks the fixed
+Tech4Learn systemd service reports exactly `inactive` and no other client backend
+is connected to the source database. Active, failed, unknown or timed-out service
+observations and remaining database clients block. The guard performs only
+read-only status/connection queries; it does not stop services, kill sessions or
+modify systemd. Two targeted guard/transaction tests passed, with synthetic
+service observation for the Windows fixture and actual PostgreSQL-compatible
+connection discovery in the cleanup test.
+
+The eventual operator must maintain the reviewed maintenance window and prevent
+service restarts/other writers while cleanup runs. Restricted deployment
+permissions do not currently include stopping the API, so preparation alone
+does not authorize or perform that stop. Private frozen-manifest persistence
+and the live execution entry point remain pending; no production service was
+stopped or organisation deleted.

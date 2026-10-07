@@ -9,7 +9,7 @@ import {captureLegacyCleanupManifest,cleanupLegacyOrganisationRecords} from '../
 test('cleanup removes only frozen old organisations, revokes sessions and preserves global history and administrator',async()=>{
  const pg=new PGlite(),admin=randomUUID(),teacher=randomUUID(),old=randomUUID(),fresh=randomUUID();
  const timestamp=new Date().toISOString(),archive='a'.repeat(64);
- const evidence={backupManifest:{createdAt:timestamp,bytes:1234,sha256:archive,archiveListed:true,archiveDecoded:true,restoreTested:false,liveDatabaseChanged:false},restoreReceipt:{verifiedAt:timestamp,database:'tech4learn_cleanup_restore',archiveSha256:archive,counts:{admins:1,organisations:1,learners:0,attendance_sessions:0},administratorPreserved:true,liveDatabaseChanged:false}};
+ const evidence={observeService:()=>({status:3,stdout:'inactive'}),backupManifest:{createdAt:timestamp,bytes:1234,sha256:archive,archiveListed:true,archiveDecoded:true,restoreTested:false,liveDatabaseChanged:false},restoreReceipt:{verifiedAt:timestamp,database:'tech4learn_cleanup_restore',archiveSha256:archive,counts:{admins:1,organisations:1,learners:0,attendance_sessions:0},administratorPreserved:true,liveDatabaseChanged:false}};
  const cleanup=(database,manifest)=>cleanupLegacyOrganisationRecords(database,manifest,evidence);
  const db={transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>sql.query(q,p)}))};
  try{
