@@ -2,6 +2,30 @@
 
 ## Purpose
 
+### Revised transition scope — 7 October 2026
+
+Keep only the existing platform administrator identity and the attendance
+implementation from the previous Tech4Learn application. Use the copied complete
+ExamElite Laravel foundation for the new product and create fresh organisations
+there. Do not import or adopt previous Tech4Learn organisations into the new
+organisation directory. The previous React exam implementation and remote
+ExamElite connector are retired product paths; native Laravel owns exams.
+FLN and mobile remain later work after exams and attendance are verified.
+
+Attendance still requires scoped identities, organisation/centre/section/learner
+references, permissions, private media and audit records. Retain the backend
+dependencies needed for that module while replacing their organisation lifecycle
+with explicitly linked new native organisations. Keeping this support is not a
+decision to retain the previous application as a second product.
+The user explicitly chose permanent deletion of previous organisations and all
+linked records, preserving the platform administrator. This cleanup is authorized
+but has not been executed. Prepare a private verified backup and dependency-aware
+cleanup first; keep original ExamElite data and the new native installation outside
+the deletion scope.
+This transition supersedes the previous requirement to carry old organisations
+into the revised product. Existing deployment remains active until replacement
+and rollback are checked.
+
 Make educational work easy, accurate and technology-enabled, saving teachers and field staff time in attendance, assessments, exam preparation, marking and reporting. Prioritise low-income learners, government-school programmes and NGOs, with CSR partners as potential funders. Also support coaching centres and other learning organisations.
 
 Multi-tenant SaaS: superadmin manages the platform; organisation admins manage their own branded operations. The clarified target flow is organisation → centre → class/academic year → section → student, with configurable terminology for other programmes. See [registration workflow](registration-workflow.md) for all eleven requested steps and their implementation status.

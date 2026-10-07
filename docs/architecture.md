@@ -2,6 +2,34 @@
 
 ## Stack and boundaries
 
+### Fresh organisation transition — 7 October 2026
+
+The user has clarified that the previous application contributes its existing
+platform administrator and attendance module only. New organisations belong to
+the copied Laravel application; previous PostgreSQL organisations must not be
+automatically mapped or imported. Retire the previous React product shell and
+remote exam connector from the replacement user flow after native acceptance.
+Keep the dependencies attendance actually uses: canonical authentication,
+permission checks, scoped centre/section/learner references, media and audit.
+Provision a fresh attendance-side organisation record only as an explicit,
+idempotent companion to a new native organisation, never by matching old names
+or emails. This companion is an internal attendance boundary rather than a
+second organisation-management interface. That lifecycle integration remains
+to be implemented and verified; present mappings are explicit manual controls.
+
+The user explicitly authorized permanent deletion of all previous organisations
+and linked records. Prepare the private backup, scoped cleanup and post-cleanup
+checks before executing it. No production cleanup has been executed. Preserve the existing administrator's
+canonical UUID and password; the native ledger and API global realm remain
+separate from all attendance tenant mappings.
+
+Cleanup must include old memberships/invitations, academic and learner records,
+attendance evidence/reviews/jobs, private media and old exam connector ledgers.
+Revoke old organisation access sessions; preserve the canonical platform admin
+UUID and password hash. Shared/global dependencies require review before removal.
+Database deletion and private-media cleanup are distinct operations; neither
+must target the original ExamElite installation or the copied native database.
+
 ### Revised application foundation — 7 October 2026
 
 The agreed direction is to copy the complete ExamElite Laravel application into
