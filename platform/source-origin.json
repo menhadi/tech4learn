@@ -176459,7 +176459,8 @@
       "patches": []
     },
     {
-      $138b6cb9e75e4a843914acc07cf05798e62755ab632fde278ec7daa6fb2c62404",
+      "path": "resources/views/layouts/sidebar.blade.php",
+      "sha256": "38b6cb9e75e4a843914acc07cf05798e62755ab632fde278ec7daa6fb2c62404",
       "patches": [
         "foundation-attendance-integration-and-native-exam-acceptance-20261007"
       ]
