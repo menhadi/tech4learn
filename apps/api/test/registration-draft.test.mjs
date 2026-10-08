@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseRegistrationDraft } from '../dist/registration-draft.js';
+import { runRegistrationVision, visionProviders } from '../dist/vision-providers.js';
 
 const page = () => ({fields:{code:' DEMO-001 ',name:' Synthetic Student ',age:8,
   guardian_name:'',guardian_phone:''},warnings:[' Check the handwritten code. ']});
@@ -35,4 +36,35 @@ test('registration parser rejects malformed, oversized and invalid field values'
   }
   assert.throws(()=>parseRegistrationDraft('not JSON'));
   assert.throws(()=>parseRegistrationDraft(' '.repeat(16001)));
+});
+
+test('registration extraction uses existing fixed provider transports and never accepts model authority', async () => {
+  for (const provider of visionProviders) {
+    const key=`T4L_${provider.prefix}_API_KEY`, model=`T4L_${provider.prefix}_VISION_MODEL`;
+    const previousKey=process.env[key], previousModel=process.env[model];
+    try {
+      process.env[key]='synthetic-secret';process.env[model]='synthetic-model';
+      const input=page();input.fields.organisation_id='untrusted';
+      const text=JSON.stringify(input);
+      const response=provider.id==='openai' ? {output:[{content:[{text}]}]} :
+        provider.id==='claude' ? {content:[{type:'text',text}]} :
+        provider.id==='gemini' ? {candidates:[{content:{parts:[{text}]}}]} :
+        {choices:[{message:{content:text}}]};
+      const draft=await runRegistrationVision(provider.id,Buffer.from('synthetic page'),async (url,options)=>{
+        assert.equal(options.redirect,'error');
+        assert.ok(options.body.includes('student registration page'));
+        assert.ok(!options.body.includes('synthetic-secret'));
+        if(provider.id==='openai')assert.equal(JSON.parse(options.body).store,false);
+        return Response.json(response);
+      });
+      assert.equal(draft.result.requiresReview,true);
+      assert.equal(draft.result.fields.organisation_id,undefined);
+      await assert.rejects(()=>runRegistrationVision(provider.id,Buffer.alloc(0),()=>{throw new Error('must not send');}),e=>e.getStatus()===400);
+      await assert.rejects(()=>runRegistrationVision(provider.id,Buffer.alloc(5*1024*1024+1),()=>{throw new Error('must not send');}),e=>e.getStatus()===400);
+      await assert.rejects(()=>runRegistrationVision(provider.id,Buffer.from('synthetic'),async()=>new Response('secret',{status:401})),e=>e.getStatus()===503&&!e.message.includes('secret'));
+    } finally {
+      if(previousKey===undefined)delete process.env[key];else process.env[key]=previousKey;
+      if(previousModel===undefined)delete process.env[model];else process.env[model]=previousModel;
+    }
+  }
 });

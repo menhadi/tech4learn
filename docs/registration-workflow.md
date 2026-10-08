@@ -27,8 +27,10 @@ point does not yet synchronise their profiles or enrolments.
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact
 text and an explicitly written age; it discards model-provided tenant, section,
-student IDs, credentials and consent. Provider calls, scoped document upload and
-the editable draft form are still pending. This parser is not a live OCR feature
+student IDs, credentials and consent. The four existing provider transports now
+support this draft purpose with bounded input and validated output in local
+synthetic checks. Scoped document upload and the editable draft form are still
+pending. This adapter is not a live OCR feature
 and never saves a student.
 
 User clarification, 12 September 2026. This is the target workflow; the status column distinguishes implementation from planned work.
