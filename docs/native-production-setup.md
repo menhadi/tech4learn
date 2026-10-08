@@ -1496,3 +1496,11 @@ Additional local HTTP retry checks passed within 4 tests / 36 assertions: short
 passwords are rejected without flashing the password into old-input session data,
 and substituting another organisation in the route cannot provision the target
 user without a matching administrator membership. No live changes were made.
+
+Administrator retry now verifies the re-entered password against the stored native
+account hash before contacting attendance. A wrong password cannot create a new
+canonical account with a different password. Local creation/onboarding checks
+passed 15 tests / 88 assertions, including wrong-password rejection, no password
+flashed into recovery data, and successful retry with the current native password.
+This does not synchronize later password changes or reset an existing canonical
+attendance password; those lifecycle operations remain pending.

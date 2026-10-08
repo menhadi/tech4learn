@@ -401,6 +401,10 @@ class SaasController extends Controller
         abort_unless(DB::table('organization_users')->where('organization_id',$organization->id)->where('user_id',$user->id)
             ->whereIn('role',['owner','admin'])->where('status',1)->exists(),403);
         $validated=$request->validate(['password'=>['required','string','min:15','max:128']]);
+        $stored=User::findOrFail($user->id);
+        if (!\Illuminate\Support\Facades\Hash::check($validated['password'],$stored->password)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['password'=>'Re-enter the current native account password.']);
+        }
         try {
             app(\App\Support\AttendanceBridge::class)->provisionAdministrator($request,$actor,$organization,$user,$validated['password']);
             $message='Attendance administrator account is ready.';

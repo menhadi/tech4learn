@@ -39,7 +39,7 @@ class AttendanceOnboardingTest extends TestCase
         Organization::where('slug','examelite')->update(['domain'=>'platform-admin-retry.test']);
         \Illuminate\Support\Facades\Cache::flush();\App\Support\Tenant::clear();
         $org=Organization::create(['name'=>'Synthetic retry tenant','slug'=>'retry-tenant','status'=>'active']);
-        $user=User::create(['name'=>'Synthetic retry admin','username'=>'retry-admin','email'=>'retry-admin@example.invalid','password'=>'Synthetic unused password 42','status'=>'Active','is_platform_admin'=>false]);
+        $user=User::create(['name'=>'Synthetic retry admin','username'=>'retry-admin','email'=>'retry-admin@example.invalid','password'=>'Synthetic retry password 42','status'=>'Active','is_platform_admin'=>false]);
         DB::table('organization_users')->insert(['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'admin','status'=>1,'created_at'=>now(),'updated_at'=>now()]);
         $actor=User::create(['name'=>'Synthetic retry operator','username'=>'retry-operator','email'=>'retry-operator@example.invalid','password'=>'Synthetic unused password 42','status'=>'Active','is_platform_admin'=>false]);
         $url='https://platform-admin-retry.test/saas/organizations/'.$org->id.'/admin-users/'.$user->id.'/attendance';
@@ -48,6 +48,8 @@ class AttendanceOnboardingTest extends TestCase
         \Spatie\Permission\Models\Role::findOrCreate('admin','web');$actor->assignRole('admin');
         \Illuminate\Support\Facades\Auth::forgetGuards();$this->actingAs($actor->fresh(),'web');
         $this->from('https://platform-admin-retry.test/saas')->post($url,['password'=>'short'])->assertRedirect()->assertSessionHasErrors('password');
+        $this->assertArrayNotHasKey('password',session()->get('_old_input',[]));
+        $this->from('https://platform-admin-retry.test/saas')->post($url,['password'=>'Wrong synthetic account password 42'])->assertRedirect()->assertSessionHasErrors('password');
         $this->assertArrayNotHasKey('password',session()->get('_old_input',[]));
         $other=Organization::create(['name'=>'Synthetic other retry tenant','slug'=>'other-retry-tenant','status'=>'active']);
         $otherUrl='https://platform-admin-retry.test/saas/organizations/'.$other->id.'/admin-users/'.$user->id.'/attendance';

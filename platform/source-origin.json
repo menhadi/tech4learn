@@ -590,7 +590,7 @@
     },
     {
       "path": "app/Http/Controllers/SaasController.php",
-      "sha256": "c188d6044c09540ab7483cd6104ae33ea86f9e7f90384b241d00f39cdeafb7c7",
+      "sha256": "b162d8a3332d04a898b3bcac0bca42b4a5a8c9ad1c66afd2dc7c4977cb867460",
       "patches": [
         "isolated-atomic-fresh-organisation-configuration",
         "required-organisation-creation-audit",
@@ -598,7 +598,8 @@
         "transactional-attendance-onboarding-request",
         "fresh-attendance-delivery-and-retry-action",
         "postcommit-attendance-administrator-delivery",
-        "password-reentry-attendance-administrator-retry"
+        "password-reentry-attendance-administrator-retry",
+        "attendance-retry-current-native-password-verification"
       ]
     },
     {
