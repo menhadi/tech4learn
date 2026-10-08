@@ -199,6 +199,10 @@ if (! function_exists('user_can_route_action')) {
         try {
             $user = Auth::user();
 
+            if (\App\Support\VerifiedPlatformAccess::allowed(request(),$user)) {
+                return true;
+            }
+
             if (! $user) {
                 return false;
             }

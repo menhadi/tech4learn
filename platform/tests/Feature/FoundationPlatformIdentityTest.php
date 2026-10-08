@@ -238,6 +238,16 @@ class FoundationPlatformIdentityTest extends TestCase
         $this->denied(403,fn()=>$bridge->provisionAdministrator($request,$actor,$organization,$user,'Synthetic password 42',$client));
     }
 
+    public function test_verified_platform_identity_enables_rendered_action_controls(): void
+    {
+        $actor=User::findOrFail(1);Auth::guard('web')->setUser($actor);$request=$this->request();
+        $this->assertFalse(user_can_route_action('exams.edit','edit'));
+        $request->attributes->set('foundation_verified_platform_actor','1');
+        $this->assertTrue(user_can_route_action('exams.edit','edit'));
+        DB::table('users')->where('id',1)->update(['is_platform_admin'=>false]);
+        $this->assertFalse(user_can_route_action('exams.edit','edit'));
+    }
+
     public function test_revoked_native_administrator_can_still_log_out(): void
     {
         Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request('/logout','POST');
