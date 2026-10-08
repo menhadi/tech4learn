@@ -21,19 +21,28 @@ uses the organisation/user scope. Migration 23 and this photo-extraction flow ar
 live checks, but no vision provider is configured and actual photo extraction
 acceptance remains pending.
 
-The next native registration entry change is checked locally: when the operator
+The native registration entry change is deployed: when the operator
 has enabled canonical student delivery, the exam-side Add Student entry opens
 Enrolment, and direct native create/import requests require canonical
 `learners.create` before redirecting there without writing native profiles.
 Missing canonical access fails closed. Existing exam profiles, editing, login and
-results retain their native paths. This entry change is not deployed yet.
+results retain their native paths. Existing-owner live checks verified the shared
+registration entry without creating accounts.
 
-Managed native profile protection is implemented locally. Staff and student
+Managed native profile protection is deployed. Staff and student
 profile changes recheck the stored UUID link; canonical names and enrolment codes
 must be changed in Enrolment. Contact/login administration remains native.
 Managed group replacement and native deletion are refused, and bulk operations
 preflight the whole batch before changing any record. Organisation locks serialize
-these checks with canonical delivery. This protection is not deployed yet.
+these checks with canonical delivery. Native checks passed 38 tests / 165 assertions;
+live login and workspace readback passed without changing student records.
+
+Public student self-registration remains a separate native path. It does not
+currently create a reviewed canonical section enrolment. Existing pending
+verification and sign-in must remain available; a shared public admissions path
+needs host-derived organisation scope and explicit staff review, without treating
+guest input as staff authority or merging identities by contact details. This
+boundary is still pending and is separate from the deployed staff registration flow.
 
 Organisations should see only features enabled for them, with the same checks on
 direct routes and API requests. Disabled features should not remain as locked
