@@ -1410,3 +1410,9 @@ still required. Local regression verifies persistence on failed delivery; the
 complete native suite passed 340 tests / 1,514 assertions. Actual creation/retry
 browser acceptance and staff/learner lifecycle synchronization remain pending.
 No production migration, onboarding or routing change was performed.
+
+Onboarding authority regressions passed 2 tests / 14 assertions: a modified
+caller object cannot elevate an ordinary stored account, missing pending requests
+cannot adopt arbitrary organisations, and suspended/platform organisations are
+rejected before any remote call or attempt increment. These are local delivery
+service checks; they do not establish creation/retry browser acceptance.

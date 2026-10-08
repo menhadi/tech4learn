@@ -12,6 +12,29 @@ use Tests\TestCase;
 class AttendanceOnboardingTest extends TestCase
 {
     use RefreshDatabase;
+    public function test_stored_authority_and_pending_request_are_required_before_delivery(): void
+    {
+        $org=Organization::create(['name'=>'Synthetic restricted onboarding','slug'=>'restricted-onboarding','status'=>'active']);
+        $actor=User::create(['name'=>'Synthetic ordinary operator','username'=>'synthetic-ordinary','email'=>'ordinary-onboarding@example.invalid','password'=>'unused synthetic password','status'=>'Active','is_platform_admin'=>false]);
+        $bridge=\Mockery::mock(AttendanceBridge::class);
+        $bridge->shouldNotReceive('provisionCompanion');
+        $delivery=new AttendanceOnboarding($bridge);
+        $request=Request::create('https://platform.test');
+        $denied=function(int $status)use($delivery,$request,$actor,$org) {
+            try {$delivery->deliver($request,$actor,$org->id);$this->fail('Denied delivery expected');}
+            catch(\Symfony\Component\HttpKernel\Exception\HttpException $error){$this->assertSame($status,$error->getStatusCode());}
+        };
+        $actor->is_platform_admin=true; // A stale or client-modified object cannot grant authority.
+        $denied(403);
+        $actor->save();
+        $denied(404); // An arbitrary organisation cannot be adopted without its pending request.
+        DB::table('attendance_onboarding_requests')->insert(['organization_id'=>$org->id,'created_at'=>now(),'updated_at'=>now()]);
+        $org->update(['status'=>'suspended']);
+        $denied(403);
+        $org->update(['status'=>'active','settings'=>['is_primary_platform'=>true]]);
+        $denied(403);
+        $this->assertDatabaseHas('attendance_onboarding_requests',['organization_id'=>$org->id,'status'=>'pending','attempts'=>0]);
+    }
     public function test_failed_delivery_remains_pending_and_successful_retry_is_not_resent(): void
     {
         $org=Organization::create(['name'=>'Synthetic onboarding','slug'=>'synthetic-onboarding','status'=>'active']);
