@@ -7,6 +7,7 @@ import { provisionPlatformAdministrator } from "./foundation-platform-provision.
 import { foundationProvisioningMigration } from "./migration-foundation-provisioning.js";
 import { studentDeliveryMigration } from "./migration-student-delivery.js";
 import { studentSignersMigration } from "./migration-student-signers.js";
+import { registrationDocumentsMigration } from "./migration-registration-documents.js";
 import { registerNativeStudentKey } from "./student-delivery-proof.js";
 import { readFileSync,statSync } from "node:fs";
 import { provisionAttendanceOrganisation } from "./foundation-organisation-provision.js";
@@ -199,8 +200,9 @@ try {
       if(!(await sql.query("SELECT version FROM schema_versions WHERE version=20")).rows.length)await sql.query(foundationProvisioningMigration);
       if(!(await sql.query("SELECT version FROM schema_versions WHERE version=21")).rows.length)await sql.query(studentDeliveryMigration);
       if(!(await sql.query("SELECT version FROM schema_versions WHERE version=22")).rows.length)await sql.query(studentSignersMigration);
+      if(!(await sql.query("SELECT version FROM schema_versions WHERE version=23")).rows.length)await sql.query(registrationDocumentsMigration);
     });
-    console.log("Database migrations through version 22 are applied.");
+    console.log("Database migrations through version 23 are applied.");
   } else if(command==='foundation-native-student-key') {
     if(process.argv.length!==6 || process.argv[5]!=='--confirm-reviewed-native-installation-key')
       throw new Error('Use foundation-native-student-key CANONICAL_SUPERADMIN_UUID PUBLIC_PEM_FILE --confirm-reviewed-native-installation-key.');

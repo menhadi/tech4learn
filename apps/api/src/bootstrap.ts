@@ -38,6 +38,10 @@ export async function createApp(
     { logger: ["error", "warn", "log"] },
   );
   app.setGlobalPrefix("api/v1");
+  // Registration pages have a separate bounded transient upload purpose.
+  app.use(json({ limit: 7000000, type: req => req.method === "POST" &&
+    /^\/api\/v1\/organisations\/[a-f0-9-]{36}\/registration-documents\/draft\/?(?:\?.*)?$/.test(req.url ?? "") &&
+    /^application\/json(?:;|$)/i.test(String(req.headers["content-type"] ?? "")) }));
   // Only bounded private file-upload endpoints accept 10 MB as base64.
   app.use(json({ limit: 14000000, type: req => req.method === "POST" &&
     (/^\/api\/v1\/organisations\/[a-f0-9-]{36}\/student-exam\/attachments\/?(?:\?.*)?$/.test(req.url ?? "") ||

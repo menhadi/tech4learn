@@ -2,6 +2,24 @@
 
 ## Latest clarification — 8 October 2026
 
+### Current implementation boundary
+
+The native delivery and section mapping controls are deployed. Existing-owner
+login, enrolment context/workspace and scoped section mapping options passed live
+HTTP checks. Actual student profile/group delivery and authenticated exam
+attempt/results remain unverified; deployment created no new student accounts.
+Older local-development notes below describe the sequence of implementation.
+
+Registration-page processing is now implemented locally: scoped provider
+readiness, transient metadata-stripped JPEG processing, section/contact authority
+before transmission, durable request limits and a post-call authority check.
+The separate camera/upload form normalises a page, asks for provider transmission
+confirmation and returns editable text for manual review. Copying reviewed fields
+into enrolment does not save a student or import IDs, credentials or consent.
+Documents and extracted text are not stored on the server; local draft recovery
+uses the organisation/user scope. Migration 23 and this photo-extraction flow are
+not deployed or accepted live yet.
+
 Organisations should see only features enabled for them, with the same checks on
 direct routes and API requests. Disabled features should not remain as locked
 navigation links in the organisation workspace.

@@ -274,6 +274,17 @@ class FoundationPlatformIdentityTest extends TestCase
                 $this->request('/enrolment/api/'.$path),$path,new AttendanceBridge));
         }
     }
+    public function test_registration_document_gateway_rejects_other_methods_and_paths_before_remote_access(): void
+    {
+        $org='22222222-2222-4222-8222-222222222222';
+        $bridge=new AttendanceBridge;
+        foreach ([['GET','draft'],['POST','providers'],['PATCH','draft']] as [$method,$resource]) {
+            $path='organisations/'.$org.'/registration-documents/'.$resource;
+            $this->denied(405,fn()=>$bridge->gateway($this->request('/enrolment/api/'.$path,$method),$path,null,'enrolment'));
+        }
+        $path='organisations/'.$org.'/registration-documents/other';
+        $this->denied(404,fn()=>$bridge->gateway($this->request('/enrolment/api/'.$path),$path,null,'enrolment'));
+    }
     public function test_student_delivery_endpoint_rejects_browser_identity_fields_and_is_post_authenticated(): void
     {
         $controller=new \App\Http\Controllers\AttendanceBridgeController;

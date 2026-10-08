@@ -279,13 +279,16 @@ class AttendanceBridge
 
     public function gateway(Request $request, string $path, ?ClientInterface $http = null, string $purpose = 'attendance'): \Symfony\Component\HttpFoundation\Response
     {
-        abort_unless(strlen($path)<300 && preg_match('#^organisations/([a-f0-9-]{36})/(centres(?:/[a-f0-9-]{36}(?:/(?:location|approve|archive))?)?|groups(?:/[a-f0-9-]{36}(?:/archive)?)?|academic-years(?:/[a-f0-9-]{36}/archive)?|classes(?:/[a-f0-9-]{36}/archive)?|learners(?:/[a-f0-9-]{36}(?:/(?:transfer|archive|photo-consent|photo-setup|photos(?:/[a-f0-9-]{36}(?:/(?:remove|check))?)?))?)?|learner-fields(?:/[a-f0-9-]{36})?|learner-imports/(?:preview|[a-f0-9-]{36}/commit)|demo-student|attendance(?:/[A-Za-z0-9-]+)*)$#D',$path,$match),404);
+        abort_unless(strlen($path)<300 && preg_match('#^organisations/([a-f0-9-]{36})/(centres(?:/[a-f0-9-]{36}(?:/(?:location|approve|archive))?)?|groups(?:/[a-f0-9-]{36}(?:/archive)?)?|academic-years(?:/[a-f0-9-]{36}/archive)?|classes(?:/[a-f0-9-]{36}/archive)?|learners(?:/[a-f0-9-]{36}(?:/(?:transfer|archive|photo-consent|photo-setup|photos(?:/[a-f0-9-]{36}(?:/(?:remove|check))?)?))?)?|learner-fields(?:/[a-f0-9-]{36})?|learner-imports/(?:preview|[a-f0-9-]{36}/commit)|registration-documents/(?:providers|draft)|demo-student|attendance(?:/[A-Za-z0-9-]+)*)$#D',$path,$match),404);
         abort_unless(in_array($request->method(),['GET','POST','PATCH'],true),405);
         $resource=$match[2];
         if (str_starts_with($resource,'centres')) {
             $methods=$resource==='centres' ? ['GET','POST']
                 : ((str_ends_with($resource,'/approve') || str_ends_with($resource,'/archive')) ? ['POST'] : ['PATCH']);
             abort_unless(in_array($request->method(),$methods,true),405);
+        }
+        elseif (str_starts_with($resource,'registration-documents/')) {
+            abort_unless($request->method()===($resource==='registration-documents/providers' ? 'GET' : 'POST'),405);
         }
         elseif (str_starts_with($resource,'learner') || $resource==='demo-student') {
             if (in_array($resource,['learners','learner-fields'],true)) $methods=['GET','POST'];
@@ -305,7 +308,7 @@ class AttendanceBridge
         abort_unless($match[1]===($context['organisation']['id']??null),404);
         $body=null;
         if ($request->method()!=='GET') {
-            abort_unless($request->isJson() && strlen($request->getContent())<=1048576,422);
+            abort_unless($request->isJson() && strlen($request->getContent())<=($resource==='registration-documents/draft' ? 7000000 : 1048576),422);
             try { $body=json_decode($request->getContent(),false,64,JSON_THROW_ON_ERROR); }
             catch (\JsonException $error) { abort(400,'Use a valid JSON request.'); }
             abort_unless($body instanceof \stdClass,422);
@@ -343,7 +346,7 @@ class AttendanceBridge
                 'headers' => $requestHeaders,
                 'query' => $query, 'allow_redirects' => false, 'http_errors' => false,
                 'connect_timeout' => 3,
-                'timeout' => $method === 'POST' && preg_match('#^/organisations/[a-f0-9-]{36}/(?:attendance/[a-f0-9-]{36}/analyse|learners/[a-f0-9-]{36}/photos/[a-f0-9-]{36}/check)$#D', $path) ? 45 : 8,
+                'timeout' => $method === 'POST' && preg_match('#^/organisations/[a-f0-9-]{36}/(?:registration-documents/draft|attendance/[a-f0-9-]{36}/analyse|learners/[a-f0-9-]{36}/photos/[a-f0-9-]{36}/check)$#D', $path) ? 45 : 8,
                 'stream' => true,
             ];
             if ($payload!==null) { $options['json']=$payload?:new \stdClass; }

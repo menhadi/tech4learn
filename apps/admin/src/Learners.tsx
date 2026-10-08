@@ -2,6 +2,7 @@ import { DraftForm, useDraftKey } from "./DraftForm";
 import { removeDraft } from "./form-drafts";
 import { SmartTable } from "./DirectoryTable";
 import { StudentDelivery } from "./StudentDelivery";
+import { RegistrationPageDraft } from "./RegistrationPageDraft";
 import {
   DirectoryTable,
   RecordStatus,
@@ -428,6 +429,15 @@ export function Learners({
           <h3>{current ? current.name : "New learner"}</h3>
           {current?.demo && <p>Clearly labelled synthetic demo learner.</p>}
           {current&&studentDeliveryEnabled&&<StudentDelivery key={current.id} learnerId={current.id} canEdit={can('learners.edit')}/>}
+          {creating&&can('learners.create')&&can('learners.contacts')&&<RegistrationPageDraft org={org} groups={groups} onApply={(fields,group)=>{
+            const form=enrolmentForm.current;if(!form)return;
+            for(const [name,value] of Object.entries({...fields,group_id:group})) {
+              const control=form.elements.namedItem(name);
+              if(control instanceof HTMLInputElement||control instanceof HTMLSelectElement) {
+                control.value=value===null?'':String(value);control.dispatchEvent(new Event('input',{bubbles:true}));control.dispatchEvent(new Event('change',{bubbles:true}));
+              }
+            }
+          }}/>}
           <div>
             <DraftForm
               title="Learner enrolment"
