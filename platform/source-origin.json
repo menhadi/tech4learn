@@ -431,8 +431,8 @@
     },
     {
       "path": "app/Http/Controllers/GroupController.php",
-      "sha256": "fd0245c4d869cacc16fee7e42d4d3ceb38e76626c2f947122ce407f1b276ca9d",
-      "patches": []
+      "sha256": "694c1ec40b7b82d48cdb42f96ea512998054bff959471760fb6025921caaed00",
+      "patches": ["default-blank-display-order-to-zero"]
     },
     {
       "path": "app/Http/Controllers/GuestExamsController.php",

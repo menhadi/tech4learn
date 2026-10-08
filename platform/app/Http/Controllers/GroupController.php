@@ -68,6 +68,7 @@ class GroupController extends Controller
 
             $data = $request->all();
             $data['organization_id'] = \App\Support\Tenant::id();
+            $data['display_order'] = $data['display_order'] ?? 0;
             $this->setGroupSlug($data);
             
             Group::create($data);
@@ -89,6 +90,7 @@ class GroupController extends Controller
             ]);
 
             $data = $request->all();
+            $data['display_order'] = $data['display_order'] ?? 0;
             $this->setGroupSlug($data, $group->id);
 
             $group->update($data);
