@@ -21,7 +21,11 @@ ID and display name. It rechecks stored superadmin authority and reuses the
 fresh-companion transaction, including realm/non-adoption checks and exact retry.
 `npm run check` passed all workspace typechecks, 111 API tests and API/admin/
 embedded attendance builds. The native delivery/retry consumer and HTTP connected
-onboarding acceptance remain pending; this endpoint is not deployed live.
+onboarding acceptance was subsequently checked over local HTTP: canonical password
+login, fresh creation, exact retry, anonymous denial, realm/mapping conflict denial
+and stored-superadmin revocation all passed. The connected attendance workflow
+also passed again, including scoped enrolment, capture/review/history and logout.
+The native delivery/retry consumer remains pending; the endpoint is not deployed live.
 
 The latest complete copied-source native run passed 338 tests / 1,502 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial

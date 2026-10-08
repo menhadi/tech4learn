@@ -74,6 +74,27 @@ try {
   await pg.query('INSERT INTO foundation_platform_staff(native_organisation_id,native_user_id,user_id) VALUES(1,1,$1)',[platformUser]);
   app=await createApp(undefined,adapter); await app.listen(0,'127.0.0.1');
   const api=`${await app.getUrl()}/api/v1`;
+  const onboardingUrl=api+'/platform/foundation/attendance-onboarding';
+  const onboardingBody={nativeOrganisationId:'321',name:'Synthetic HTTP onboarding'};
+  const sendOnboarding=(body,cookie)=>fetch(onboardingUrl,{method:'POST',headers:{'content-type':'application/json',origin:process.env.ADMIN_ORIGIN,'x-tech4learn-request':'1',...(cookie?{cookie}:{})},body:JSON.stringify(body)});
+  if(![401,403].includes((await sendOnboarding(onboardingBody)).status))throw new Error('Anonymous onboarding was not denied');
+  const login=await fetch(api+'/auth/login',{method:'POST',headers:{'content-type':'application/json',origin:process.env.ADMIN_ORIGIN,'x-tech4learn-request':'1'},body:JSON.stringify({email:'synthetic-platform@example.invalid',password:'long synthetic foundation password'})});
+  if(!login.ok)throw new Error('Synthetic platform onboarding login failed');
+  const platformCookie=login.headers.get('set-cookie')?.split(';')[0];
+  if(!platformCookie)throw new Error('Synthetic onboarding session missing');
+  const firstOnboarding=await sendOnboarding(onboardingBody,platformCookie);
+  if(!firstOnboarding.ok)throw new Error('Authenticated onboarding failed');
+  const firstOnboardingBody=await firstOnboarding.json();
+  const repeatedOnboarding=await sendOnboarding(onboardingBody,platformCookie);
+  const repeatedOnboardingBody=await repeatedOnboarding.json();
+  if(!repeatedOnboarding.ok||!firstOnboardingBody.created||repeatedOnboardingBody.created||firstOnboardingBody.organisationId!==repeatedOnboardingBody.organisationId)throw new Error('HTTP onboarding retry changed identity');
+  if((await sendOnboarding({nativeOrganisationId:'1',name:'Synthetic platform'},platformCookie)).ok)throw new Error('Platform realm onboarding was accepted');
+  if((await sendOnboarding({nativeOrganisationId:'2',name:'Conflicting synthetic name'},platformCookie)).ok)throw new Error('Conflicting onboarding mapping was accepted');
+  await pg.query('UPDATE users SET is_superadmin=false WHERE id=$1',[platformUser]);
+  if((await sendOnboarding({nativeOrganisationId:'322',name:'Synthetic revoked operator'},platformCookie)).status!==403)throw new Error('Revoked platform authority granted onboarding');
+  await pg.query('UPDATE users SET is_superadmin=true WHERE id=$1',[platformUser]);
+  await fetch(api+'/auth/logout',{method:'POST',headers:{'content-type':'application/json',origin:process.env.ADMIN_ORIGIN,'x-tech4learn-request':'1',cookie:platformCookie},body:'{}'});
+  console.log('PASS: authenticated HTTP fresh companion provisioning, exact retry, realm/conflict denial and stored authority revocation.');
   await new Promise((resolve,reject)=>{
     const child=spawn('php',['tests/foundation-attendance-connected.php',process.argv[2]],{
       cwd:process.cwd(),env:{...process.env,FOUNDATION_TEST_API_URL:api,FOUNDATION_TEST_ORGANISATION:org,FOUNDATION_TEST_GROUP:captureGroup,FOUNDATION_TEST_LEARNER:learner},stdio:['ignore','pipe','pipe'],timeout:60000
