@@ -1416,3 +1416,9 @@ caller object cannot elevate an ordinary stored account, missing pending request
 cannot adopt arbitrary organisations, and suspended/platform organisations are
 rejected before any remote call or attempt increment. These are local delivery
 service checks; they do not establish creation/retry browser acceptance.
+
+Native HTTP/render checks passed 3 onboarding tests / 22 assertions. Ordinary
+staff cannot reach the retry route; a native platform administrator can render
+the pending action and submit a retry. Completed requests remove the action.
+The route test uses an injected delivery result and no configured remote API;
+connected delivery is checked separately. Full browser acceptance remains pending.

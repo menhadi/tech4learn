@@ -12,6 +12,27 @@ use Tests\TestCase;
 class AttendanceOnboardingTest extends TestCase
 {
     use RefreshDatabase;
+    public function test_retry_route_and_pending_table_action_follow_platform_authority(): void
+    {
+        config(['attendance.api_url'=>'']);
+        Organization::where('slug','examelite')->update(['domain'=>'platform-onboarding.test']);
+        \Illuminate\Support\Facades\Cache::flush();\App\Support\Tenant::clear();
+        $org=Organization::create(['name'=>'Synthetic UI onboarding','slug'=>'ui-onboarding','status'=>'active']);
+        DB::table('attendance_onboarding_requests')->insert(['organization_id'=>$org->id,'created_at'=>now(),'updated_at'=>now()]);
+        $actor=User::create(['name'=>'Synthetic UI operator','username'=>'synthetic-ui-operator','email'=>'ui-operator@example.invalid','password'=>'unused synthetic password','status'=>'Active','is_platform_admin'=>false]);
+        $this->actingAs($actor,'web');
+        $url='https://platform-onboarding.test/saas/organizations/'.$org->id.'/attendance-onboarding';
+        $this->post($url)->assertForbidden();
+        $actor->update(['is_platform_admin'=>true]);
+        \Spatie\Permission\Models\Role::findOrCreate('admin','web');
+        $actor->assignRole('admin');
+        \Illuminate\Support\Facades\Auth::forgetGuards();$this->actingAs($actor->fresh(),'web');
+        $this->get('https://platform-onboarding.test/saas')->assertOk()->assertSee('Retry attendance setup');
+        $this->mock(AttendanceOnboarding::class,fn($mock)=>$mock->shouldReceive('deliver')->once()->andReturn(false));
+        $this->post($url)->assertRedirect()->assertSessionHas('success','Attendance setup remains pending. Sign in to the linked platform account and retry.');
+        DB::table('attendance_onboarding_requests')->where('organization_id',$org->id)->update(['status'=>'completed','completed_at'=>now()]);
+        $this->get('https://platform-onboarding.test/saas')->assertOk()->assertDontSee('Retry attendance setup');
+    }
     public function test_stored_authority_and_pending_request_are_required_before_delivery(): void
     {
         $org=Organization::create(['name'=>'Synthetic restricted onboarding','slug'=>'restricted-onboarding','status'=>'active']);
