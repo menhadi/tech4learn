@@ -41,6 +41,7 @@ class AttendanceBridge
         // Refuse an unprepared installation before creating any native profile.
         app(\App\Services\StudentDeliveryReceipt::class)->assertConfigured();
         $result=app(\App\Services\EnrolledStudentProfile::class)->apply($request,$snapshot);
+        app(\App\Services\EnrolledStudentGroup::class)->apply($request,$snapshot);
         $receipt=app(\App\Services\StudentDeliveryReceipt::class)->issue($request,$learner,$snapshot['revision']);
         // A remote failure leaves the stable UUID profile retryable, never creates another ID.
         abort_unless($this->studentDeliverySnapshot($request,$learner,$http,true)===$snapshot,409,'Student delivery changed; retry it.');
@@ -63,6 +64,24 @@ class AttendanceBridge
             && in_array($status['state']??null,['pending','delivered','review_required'],true),502);
         abort_unless($this->context($request,$http,'enrolment')===$context,403);
         return array_intersect_key($status,array_flip(['learnerId','revision','state']));
+    }
+    public function mapSection(Request $request,string $section,string $group,int $version,?ClientInterface $http=null): array
+    {
+        abort_unless(config('attendance.student_delivery_enabled',false),503);
+        abort_unless(preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$section),422);
+        $context=$this->context($request,$http,'enrolment');
+        abort_unless(in_array('groups.create',$context['permissions'],true) && in_array('groups.view',$context['permissions'],true),403);
+        $path='/organisations/'.$context['organisation']['id'].'/groups';
+        $find=function(array $rows) use($section,$context) {
+            foreach($rows as $row)if(is_array($row) && ($row['id']??null)===$section
+                && ($row['organisation_id']??null)===$context['organisation']['id'] && ($row['archived']??true)===false)return $row;
+            abort(404,'Section is not available in your enrolment scope.');
+        };
+        $source=$find($this->read($request,$path,[],$http));
+        abort_unless($this->context($request,$http,'enrolment')===$context
+            && $find($this->read($request,$path,[],$http))===$source,409,'Section access changed; reload it.');
+        return app(\App\Services\EnrolledStudentGroup::class)->map($request,
+            ['nativeOrganisationId'=>$context['nativeOrganisationId'],'sectionId'=>$source['id']],$group,$version);
     }
     public function learnerIdentity(Request $request, \App\Models\Student $student, ?ClientInterface $http = null): array
     {

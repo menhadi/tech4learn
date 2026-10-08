@@ -85,8 +85,11 @@ The internal consumer preserves manual memberships, removes only its own rows
 on transfer/archive and refuses to restore deleted owned or previously observed
 manual memberships without review. Mapping edits require the current host's
 stored owner/admin and reject stale versions, foreign groups and revoked maps.
-Scoped canonical section fetching, mapping controls and bridge invocation are
-still pending; these migrations and consumers are not deployed.
+The local bridge now fetches the section from the scoped canonical directory,
+checks section-edit authority and rechecks the same source/context before mapping.
+Student delivery invokes owned membership assignment before signing its receipt.
+Mapping readback/options and public controls remain pending; these migrations
+and consumers are not deployed.
 
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact

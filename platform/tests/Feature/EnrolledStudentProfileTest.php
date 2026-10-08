@@ -220,4 +220,25 @@ class EnrolledStudentProfileTest extends TestCase
         $this->denied(403,fn()=>$service->map($request,$section,'1',2));
         $this->assertSame(0,DB::table('student_groups')->count());
     }
+    public function test_mapping_bridge_requires_current_canonical_section_scope_and_edit_authority(): void
+    {
+        config(['attendance.api_url'=>'https://canonical.example.invalid/api/v1','attendance.student_delivery_enabled'=>true]);
+        DB::table('groups')->insert(['id'=>1,'organization_id'=>1]);
+        $section='33333333-3333-4333-8333-333333333333';$org='22222222-2222-4222-8222-222222222222';
+        $context=['nativeOrganisationId'=>'1','nativeUserId'=>'1','organisation'=>['id'=>$org],
+            'permissions'=>['groups.view','groups.create'],'scope'=>['type'=>'groups','ids'=>[$section]]];
+        $source=['id'=>$section,'organisation_id'=>$org,'archived'=>false,'name'=>'Synthetic section'];
+        $request=Request::create('https://tenant-1.example.invalid/enrolment','POST',[],['t4l_session'=>str_repeat('a',64)]);
+        $request->setUserResolver(fn()=>Auth::user());app()->instance('request',$request);
+        $response=fn($v,$status=200)=>new \GuzzleHttp\Psr7\Response($status,['Content-Type'=>'application/json'],json_encode($v));
+        $client=fn($queue)=>new \GuzzleHttp\Client(['handler'=>\GuzzleHttp\HandlerStack::create(new \GuzzleHttp\Handler\MockHandler($queue))]);
+        $bridge=new \App\Support\AttendanceBridge;
+        $this->denied(404,fn()=>$bridge->mapSection($request,$section,'1',0,$client([$response($context),$response([])])));
+        $this->denied(403,fn()=>$bridge->mapSection($request,$section,'1',0,$client([$response($context),$response([$source]),$response([],403)])));
+        $readonly=$context;$readonly['permissions']=['groups.view'];
+        $this->denied(403,fn()=>$bridge->mapSection($request,$section,'1',0,$client([$response($readonly)])));
+        $this->assertSame(0,DB::table('foundation_section_groups')->count());
+        $this->assertSame(1,$bridge->mapSection($request,$section,'1',0,$client([$response($context),$response([$source]),$response($context),$response([$source])]))['version']);
+        $this->assertSame(0,DB::table('student_groups')->count());
+    }
 }
