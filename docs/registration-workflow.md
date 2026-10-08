@@ -34,6 +34,16 @@ consumer, explicit section-to-exam-group mapping and live acceptance are pending
 this queue does not create accounts, enable student login or synchronise records
 by itself.
 
+A local native profile consumer can now transactionally create/update an explicitly
+UUID-linked exam profile from a trusted canonical snapshot. It checks the host
+tenant and stored administrator membership, rejects stale/changed retries and
+unlinked code collisions, preserves existing passwords/contacts, and creates new
+profiles suspended with no invented email/phone or lifecycle messages. Archive
+delivery suspends a profile; a later edit does not reactivate its login. Its
+mapping migration and synthetic checks are local only. No public route invokes
+this consumer yet: canonical snapshot fetching, server-verified acknowledgement
+and delivery retry are required before exposing or deploying this integration.
+
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact
 text and an explicitly written age; it discards model-provided tenant, section,
