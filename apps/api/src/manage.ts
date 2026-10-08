@@ -5,6 +5,7 @@ import { foundationLearnerMigration } from "./migration-foundation-learners.js";
 import { foundationPlatformMigration } from "./migration-foundation-platform.js";
 import { provisionPlatformAdministrator } from "./foundation-platform-provision.js";
 import { foundationProvisioningMigration } from "./migration-foundation-provisioning.js";
+import { studentDeliveryMigration } from "./migration-student-delivery.js";
 import { provisionAttendanceOrganisation } from "./foundation-organisation-provision.js";
 import { examEliteMigration } from "./migration-examelite.js";
 import { examWorkspaceMigration } from "./migration-exam-workspace.js";
@@ -193,8 +194,9 @@ try {
     await db.transaction(async sql=>{
       await sql.query("SELECT pg_advisory_xact_lock(74041001)");
       if(!(await sql.query("SELECT version FROM schema_versions WHERE version=20")).rows.length)await sql.query(foundationProvisioningMigration);
+      if(!(await sql.query("SELECT version FROM schema_versions WHERE version=21")).rows.length)await sql.query(studentDeliveryMigration);
     });
-    console.log("Database migrations through version 20 are applied.");
+    console.log("Database migrations through version 21 are applied.");
   } else if (command === "foundation-attendance-org") {
     if(process.argv.length!==7 || process.argv[6]!=="--confirm-reviewed-new-native-organisation")
       throw new Error("Use foundation-attendance-org CANONICAL_SUPERADMIN_UUID NATIVE_ORG_ID DISPLAY_NAME --confirm-reviewed-new-native-organisation.");

@@ -24,6 +24,16 @@ requiring attendance access. Its gateway rejects attendance resources. Native
 exam students and attendance learners still require explicit links; this entry
 point does not yet synchronise their profiles or enrolments.
 
+The shared-identity delivery foundation now records an ID-only pending revision
+in the same PostgreSQL transaction as a mapped organisation's student creation,
+profile change, transfer or archive. Repeated edits coalesce into one delivery
+record; rollback removes the intent together with the student change. Unmapped
+organisations and existing records are not automatically adopted or backfilled.
+Migration 21 and its rollback/isolation checks are local only. The native delivery
+consumer, explicit section-to-exam-group mapping and live acceptance are pending;
+this queue does not create accounts, enable student login or synchronise records
+by itself.
+
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact
 text and an explicitly written age; it discards model-provided tenant, section,
