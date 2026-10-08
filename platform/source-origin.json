@@ -292,8 +292,10 @@
     },
     {
       "path": "app/Http/Controllers/CheckoutController.php",
-      "sha256": "fa4ec6ed2eed2f67d57ff6ce76d176450bb758dadab61c2bc31906628f98c5be",
-      "patches": []
+      "sha256": "207864adf5a2b038b7ba9ef01d552723d22890f7e1db318f6f33cfdc90534654",
+      "patches": [
+        "completed-orders-only-activation"
+      ]
     },
     {
       "path": "app/Http/Controllers/CheckoutController.php.working",

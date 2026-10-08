@@ -506,6 +506,7 @@ class CheckoutController extends Controller
 
         // Prevent duplicate participation
         $alreadyExists = Order::query()
+            ->where('status','completed')
             ->when($this->currentTenantId(), function ($query, $tenantId) {
                 $query->where(function ($query) use ($tenantId) {
                     $query->where('organization_id', $tenantId)
@@ -567,6 +568,7 @@ class CheckoutController extends Controller
             $student = auth('student')->user();
 
             $alreadyPurchased = Order::query()
+                ->where('status','completed')
                 ->when($this->currentTenantId(), function ($query, $tenantId) {
                     $query->where(function ($query) use ($tenantId) {
                         $query->where('organization_id', $tenantId)

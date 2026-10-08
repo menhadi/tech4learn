@@ -147,4 +147,29 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $this->postJson('https://language.test/checkout/enroll/exam',$payload)->assertOk();
         $this->assertSame(1,\App\Models\Order::count());
     }
+
+    public function test_registered_student_activation_uses_only_completed_own_orders(): void
+    {
+        [$org,$student,$exam]=$this->fixture();
+        Organization::where('slug','examelite')->update(['slug'=>'synthetic-default-platform']);
+        $org->update(['slug'=>'examelite','settings'=>['is_primary_platform'=>true]]);
+        $org->plan->update(['features'=>['guest_exams'=>true,'paid_packages'=>true]]);
+        Cache::flush();Tenant::clear();
+        $this->actingAs($student,'student');
+        $package=\App\Models\Package::create(['organization_id'=>$org->id,'name'=>'Synthetic paid course','slug'=>'student-course','expiry_days'=>30,'amount'=>10,'package_type'=>'paid','status'=>true]);
+        $exam->packages()->attach($package->id);
+        $order=\App\Models\Order::create(['organization_id'=>$org->id,'student_id'=>$student->id,'total'=>10,'payment_method'=>'synthetic','payment_status'=>'Pending','status'=>'pending']);
+        \App\Models\OrderItem::create(['order_id'=>$order->id,'package_id'=>$package->id,'name'=>'Synthetic paid course','price'=>10,'quantity'=>1]);
+        $payload=['id'=>$package->id,'exam'=>$exam->id];
+        $this->postJson('https://language.test/checkout/enroll/exam',$payload)->assertStatus(409);
+        $package->update(['package_type'=>'free','amount'=>0]);
+        $response=$this->postJson('https://language.test/checkout/enroll/exam',$payload)->assertOk();
+        $completed=\App\Models\Order::where('status','completed')->sole();
+        $this->assertSame((int)$student->id,(int)$completed->student_id);
+        $this->assertSame((int)$org->id,(int)$completed->organization_id);
+        $this->assertNull($completed->guest_id);
+        $this->followingRedirects()->get($response->json('redirectUrl'))->assertOk();
+        $this->postJson('https://language.test/checkout/enroll/exam',$payload)->assertOk();
+        $this->assertSame(1,\App\Models\Order::where('status','completed')->count());
+    }
 }
