@@ -65,6 +65,14 @@ to the same organisation. The guest engine also needs nullable registered-studen
 references on attempts/stats and guest identity on stats; a checked migration
 completes those missing fresh-schema fields without dropping existing evidence.
 
+Guest answer/submission requests require a non-empty guest identity and match
+both the tenant-scoped attempt and its stats, with no registered student owner.
+Missing guest identity must never match the null guest fields of registered
+student records. Guest feedback/contact/proctor/tolerance/report operations also
+require guest identity; proctor storage occurs only after open-attempt checks.
+Local HTTP checks cover guest MCQ save/completion, foreign-tenant and wrong-guest
+denial, post-completion answer denial and missing-identity student protection.
+
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
 checks before executing it. No production cleanup has been executed. Preserve the existing administrator's

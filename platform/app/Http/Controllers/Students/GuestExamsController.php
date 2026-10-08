@@ -369,7 +369,7 @@ class GuestExamsController extends Controller
     {
         $examResultId = $request->input('exam_result_id');
         $resultAfterFinish = $request->input(urldecode('result_after_finish'));
-        $guestId = $this->getGuestId();
+        $guestId = $this->requireGuestId();
         $examResult = ExamResult::query()
             ->with('exam:id,name')
             ->where('guest_id', $guestId)
@@ -399,9 +399,14 @@ class GuestExamsController extends Controller
 
     public function saveAnswer(Request $request)
     {
+        $guestId=$this->requireGuestId();
+        $tenantId=$this->tenantId();
         $examStat = ExamStat::where('exam_result_id', $request->exam_result_id)
-            ->where('guest_id', $this->getGuestId())
+            ->where('organization_id',$tenantId)->whereNull('student_id')
+            ->where('guest_id', $guestId)
             ->where('question_id', $request->question_id)
+            ->whereHas('examResult',fn($query)=>$query->where('organization_id',$tenantId)
+                ->where('guest_id',$guestId)->whereNull('student_id'))
             ->first();
 
         if (! $examStat) {
@@ -424,7 +429,7 @@ class GuestExamsController extends Controller
             'guest_email' => 'nullable|email|max:150',
         ]);
 
-        $guestId = $this->getGuestId();
+        $guestId = $this->requireGuestId();
 
         $feedbackExamResult = ExamResult::query()
             ->where('guest_id', $guestId)
@@ -459,7 +464,7 @@ class GuestExamsController extends Controller
             'guest_email' => 'nullable|email|max:150',
         ]);
 
-        $guestId = $this->getGuestId();
+        $guestId = $this->requireGuestId();
         $examResult = ExamResult::query()
             ->where('guest_id', $guestId)
             ->when($this->tenantId(), function ($query, $tenantId) {
@@ -498,9 +503,10 @@ class GuestExamsController extends Controller
     public function finishExam(Request $request)
     {
 
-        $guestId = $this->getGuestId();
+        $guestId = $this->requireGuestId();
 
         $examResult = ExamResult::where('id', $request->exam_result_id)
+            ->where('organization_id',$this->tenantId())->whereNull('student_id')
             ->where('guest_id', $guestId)
             ->firstOrFail();
 
@@ -705,11 +711,12 @@ class GuestExamsController extends Controller
             'image' => 'required|image'
         ]);
 
-        $path = $request->file('image')->store('proctor_images', 'public');
-
-        $guestId = $this->getGuestId();
+        $guestId = $this->requireGuestId();
 
         $exam = $this->tenantExamQuery()->findOrFail($request->exam_id);
+        abort_unless(ExamResult::where('organization_id',$this->tenantId())->where('exam_id',$exam->id)
+            ->where('guest_id',$guestId)->whereNull('student_id')->whereNull('end_time')->exists(),404);
+        $path = $request->file('image')->store('proctor_images', 'public');
 
         ExamProctorImage::create([
             'exam_id' => $request->exam_id,
@@ -724,9 +731,10 @@ class GuestExamsController extends Controller
     public function updateToleranceCount(Request $request)
     {
 
-        $guestId = $this->getGuestId();
+        $guestId = $this->requireGuestId();
 
         $examResult = ExamResult::where('id', $request->exam_result_id)
+            ->where('organization_id',$this->tenantId())->whereNull('student_id')
             ->where('guest_id', $guestId)
             ->firstOrFail();
 
@@ -747,7 +755,7 @@ class GuestExamsController extends Controller
             'message' => 'nullable|string|max:2000',
         ]);
 
-        $guestId = $this->getGuestId();
+        $guestId = $this->requireGuestId();
         $studentId = Auth::guard('student')->id() ?? null;
 
         $question = \App\Models\Question::query()
@@ -773,6 +781,13 @@ class GuestExamsController extends Controller
     private function getGuestId()
     {
         return session('guest_id') ?? request()->cookie('guest_id');
+    }
+
+    private function requireGuestId(): string
+    {
+        $id=$this->getGuestId();
+        abort_unless(is_string($id) && $id!=='' && strlen($id)<=80,404);
+        return $id;
     }
 
     private function rememberGuestIdentity(Request $request): array
