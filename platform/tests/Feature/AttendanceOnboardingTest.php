@@ -47,6 +47,11 @@ class AttendanceOnboardingTest extends TestCase
         $actor->update(['is_platform_admin'=>true]);
         \Spatie\Permission\Models\Role::findOrCreate('admin','web');$actor->assignRole('admin');
         \Illuminate\Support\Facades\Auth::forgetGuards();$this->actingAs($actor->fresh(),'web');
+        $this->from('https://platform-admin-retry.test/saas')->post($url,['password'=>'short'])->assertRedirect()->assertSessionHasErrors('password');
+        $this->assertArrayNotHasKey('password',session()->get('_old_input',[]));
+        $other=Organization::create(['name'=>'Synthetic other retry tenant','slug'=>'other-retry-tenant','status'=>'active']);
+        $otherUrl='https://platform-admin-retry.test/saas/organizations/'.$other->id.'/admin-users/'.$user->id.'/attendance';
+        $this->post($otherUrl,['password'=>'Synthetic retry password 42'])->assertForbidden();
         $this->mock(AttendanceBridge::class,fn($mock)=>$mock->shouldReceive('provisionAdministrator')->once()->andReturn(['created'=>false,'userId'=>'22222222-2222-4222-8222-222222222222']));
         $this->post($url,['password'=>'Synthetic retry password 42'])->assertRedirect()->assertSessionHas('success','Attendance administrator account is ready.');
         DB::table('attendance_onboarding_requests')->insert(['organization_id'=>$org->id,'status'=>'completed','completed_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);

@@ -1491,3 +1491,8 @@ administrator with a completed companion displays the password re-entry control;
 a staff membership does not. Rendering contains no previously submitted password.
 These checks render the Blade view and exercise local Laravel HTTP routes, and do
 not substitute for a browser interaction or live canonical-session acceptance.
+
+Additional local HTTP retry checks passed within 4 tests / 36 assertions: short
+passwords are rejected without flashing the password into old-input session data,
+and substituting another organisation in the route cannot provision the target
+user without a matching administrator membership. No live changes were made.
