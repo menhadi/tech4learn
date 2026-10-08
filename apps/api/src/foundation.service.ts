@@ -99,6 +99,20 @@ export class FoundationService {
       if (!organisation.active) throw new ForbiddenException("Organisation link is inactive.");
       await this.access.lock(sql, organisation.organisation_id);
       await this.learners.linkedIdentity(actor, organisation.organisation_id, learner, sql);
+      const stored=(await sql.query<{native_student_id:string;learner_id:string;active:boolean;version:number}>(
+        `SELECT native_student_id::text,learner_id,active,version FROM foundation_learners
+         WHERE native_organisation_id=$1 AND (native_student_id=$2 OR learner_id=$3) FOR UPDATE`,[native,student,learner])).rows[0];
+      if(stored) {
+        if(!stored.active || stored.native_student_id!==student || stored.learner_id!==learner)
+          throw new ConflictException("Existing learner links cannot be reassigned or repaired by retry.");
+        return stored;
+      }
+      // Serialise manual linking with queued delivery using the organisation
+      // lock. A link cannot appear between a delivery snapshot and native apply.
+      if((await sql.query(`SELECT learner_id FROM foundation_student_deliveries
+        WHERE native_organisation_id=$1 AND organisation_id=$2 AND learner_id=$3 FOR SHARE`,
+        [native,organisation.organisation_id,learner])).rows.length)
+        throw new ConflictException("This student uses enrolment delivery. A new manual identity link requires review.");
       const result = await sql.query("INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING native_student_id::text,learner_id,active,version", [native,student,organisation.organisation_id,learner]);
       if (!result.rows.length) {
         const existing=(await sql.query<{native_student_id:string;learner_id:string;active:boolean;version:number}>("SELECT native_student_id::text,learner_id,active,version FROM foundation_learners WHERE native_organisation_id=$1 AND native_student_id=$2 FOR UPDATE",[native,student])).rows[0];
@@ -148,14 +162,20 @@ export class FoundationService {
       if(!mapped)throw new NotFoundException("Enrolment identity is not linked.");
       await this.access.lock(sql,mapped.organisation_id);
       const profile=await this.learners.nativeProfileSnapshot(actor,mapped.organisation_id,learner,sql);
-      const delivery=(await sql.query<{revision:string}>(`SELECT revision::text FROM foundation_student_deliveries
+      const delivery=(await sql.query<{revision:string;delivered_revision:string}>(`SELECT revision::text,delivered_revision::text FROM foundation_student_deliveries
         WHERE native_organisation_id=$1 AND organisation_id=$2 AND learner_id=$3 FOR SHARE`,
         [native,mapped.organisation_id,learner])).rows[0];
       if(!delivery)throw new NotFoundException("Student delivery has not been requested.");
       const revision=Number(delivery.revision);
       if(!Number.isSafeInteger(revision) || revision<1 || revision>=1000000000000000)
         throw new ConflictException("Student delivery revision cannot be processed.");
-      return {nativeOrganisationId:native,nativeUserId:user,organisationId:mapped.organisation_id,revision,...profile};
+      const existing=(await sql.query<{active:boolean}>(`SELECT active FROM foundation_learners
+        WHERE native_organisation_id=$1 AND organisation_id=$2 AND learner_id=$3 FOR SHARE`,
+        [native,mapped.organisation_id,learner])).rows[0];
+      // An operator's existing identity link is not permission to create/adopt a
+      // second native profile. Only a previously acknowledged delivery owns it.
+      const reviewRequired=!!existing && (Number(delivery.delivered_revision)===0 || (!existing.active&&!profile.archived));
+      return {nativeOrganisationId:native,nativeUserId:user,organisationId:mapped.organisation_id,revision,reviewRequired,...profile};
     });
   }
   async acknowledgeStudentDelivery(actor:Account,nativeValue:string,userValue:string,learnerValue:string,body:Record<string,unknown>) {
@@ -203,7 +223,7 @@ export class FoundationService {
     if(!row || before.revision!==after.revision || Number(row.revision)!==after.revision)
       throw new ConflictException('Student delivery changed; reload its status.');
     return {learnerId:after.learnerId,revision:after.revision,
-      state:row.revoked&&!after.archived?'review_required':Number(row.delivered_revision)===after.revision?'delivered':'pending'};
+      state:after.reviewRequired?'review_required':Number(row.delivered_revision)===after.revision?'delivered':'pending'};
   }
   private async platform(actor: Pick<Account,"id">, sql: SqlClient) {
     // Do not inherit platform authority from a native role or a stale caller object.

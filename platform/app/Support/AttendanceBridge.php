@@ -18,6 +18,7 @@ class AttendanceBridge
         if ($forDelivery)abort_unless(in_array('learners.edit',$context['permissions'],true),403);
         $path='/foundation/organisations/'.$context['nativeOrganisationId'].'/staff/'.$context['nativeUserId'].'/student-deliveries/'.$learner;
         $snapshot=$this->read($request,$path,[],$http);
+        if ($forDelivery)abort_if(($snapshot['reviewRequired']??false)===true,409,'Existing student identity requires review before delivery.');
         abort_unless(($snapshot['nativeOrganisationId']??null)===$context['nativeOrganisationId']
             && ($snapshot['nativeUserId']??null)===$context['nativeUserId']
             && ($snapshot['organisationId']??null)===$context['organisation']['id']

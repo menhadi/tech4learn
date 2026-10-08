@@ -10,11 +10,12 @@ export function RegistrationPageDraft({org,groups,onApply}:{org:string;groups:Ac
   const [group,setGroup]=useState(""),[providers,setProviders]=useState<Provider[]>([]),[provider,setProvider]=useState("");
   const [image,setImage]=useState(""),[draft,setDraft]=useState<Fields|null>(null),[warnings,setWarnings]=useState<string[]>([]);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[attested,setAttested]=useState(false);
+  const [providersLoading,setProvidersLoading]=useState(false),[providersLoaded,setProvidersLoaded]=useState(false);
   const generation=useRef(0);
   const draftKey=useDraftKey(`registration-page:${group}`);
-  useEffect(()=>{generation.current++;let active=true;setProviders([]);setProvider("");setDraft(null);setImage("");setAttested(false);setError("");
+  useEffect(()=>{generation.current++;let active=true;setProviders([]);setProvider("");setDraft(null);setImage("");setAttested(false);setError("");setProvidersLoaded(false);setProvidersLoading(!!group);
     if(group)void api<Provider[]>(`/organisations/${org}/registration-documents/providers?group_id=${encodeURIComponent(group)}`)
-      .then(rows=>{if(active)setProviders(rows);}).catch(()=>{if(active)setError("Registration-page processing is unavailable for this section.");});
+      .then(rows=>{if(active){setProviders(rows);setProvidersLoaded(true);}}).catch(()=>{if(active)setError("Registration-page processing is unavailable for this section.");}).finally(()=>{if(active)setProvidersLoading(false);});
     return()=>{active=false;generation.current++;};
   },[org,group]);
   async function file(file?:File) {
@@ -49,10 +50,12 @@ export function RegistrationPageDraft({org,groups,onApply}:{org:string;groups:Ac
     <p>Use one student's text page. This document is separate from their portrait and face references. Review every extracted field; this step never saves a student.</p>
     <fieldset disabled={busy} data-no-draft="true">
       <label>Registration section<select value={group} onChange={e=>setGroup(e.target.value)}><option value="">Choose section</option>{groups.filter(g=>!g.archived).map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
-      <label>Page processing provider<select value={provider} onChange={e=>{setProvider(e.target.value);setAttested(false);}}><option value="">Choose configured provider</option>{providers.filter(p=>p.configured).map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
-      <label>Photograph or upload the registration page<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e=>{void file(e.target.files?.[0]);e.target.value="";}} disabled={!group}/></label>
+      {providersLoading&&<p role="status">Checking page processing providers…</p>}
+      {providersLoaded&&!providers.some(p=>p.configured)&&<p role="status">Page reading is unavailable until a vision provider is configured by the platform administrator. Continue filling the enrolment form manually; portrait capture and upload remain available.</p>}
+      <label>Page processing provider<select value={provider} disabled={providersLoading||!providers.some(p=>p.configured)} onChange={e=>{setProvider(e.target.value);setAttested(false);}}><option value="">Choose configured provider</option>{providers.filter(p=>p.configured).map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
+      <label>Photograph or upload the registration page<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e=>{void file(e.target.files?.[0]);e.target.value="";}} disabled={!group||!provider}/></label>
       {image&&<p>Page ready for processing. It has not been uploaded.</p>}
-      <label className="check"><input type="checkbox" checked={attested} onChange={e=>setAttested(e.target.checked)}/>I confirm this page belongs to this organisation and may be sent, including its written contact details, to the selected provider.</label>
+      <label className="check"><input type="checkbox" checked={attested} disabled={!provider||!image} onChange={e=>setAttested(e.target.checked)}/>I confirm this page belongs to this organisation and may be sent, including its written contact details, to the selected provider.</label>
       <button type="button" disabled={!group||!provider||!image||!attested} onClick={()=>void extract()}>Read page into draft</button>
     </fieldset>
     {busy&&<p role="status">Processing page…</p>}{error&&<p className="error" role="alert">{error}</p>}

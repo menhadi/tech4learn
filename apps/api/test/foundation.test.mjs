@@ -163,6 +163,10 @@ test('foundation identity links require explicit accounts, current authority and
       const path=linkPath+'/7/learners';
       assert.equal((await request(path,'POST',{nativeStudentId:'21',learnerId:learnerA},'staff')).status,403);
       assert.equal((await request(path,'POST',{nativeStudentId:'21',learnerId:learnerB})).status,404);
+      assert.equal((await request(path,'POST',{nativeStudentId:'21',learnerId:learnerA})).status,409);
+      assert.equal((await pg.query('SELECT learner_id FROM foundation_learners WHERE learner_id=$1',[learnerA])).rows.length,0);
+      // Fixture-only: represent an old student that was never queued for delivery.
+      await pg.query('DELETE FROM foundation_student_deliveries WHERE learner_id=$1',[learnerA]);
       assert.equal((await request(path,'POST',{nativeStudentId:'21',learnerId:learnerA})).status,201);
       const initial=await (await request(path,'GET')).json();
       const auditBefore=Number((await pg.query("SELECT count(*) AS n FROM audit_events WHERE action='foundation.learner_linked'")).rows[0].n);
@@ -242,6 +246,17 @@ test('foundation identity links require explicit accounts, current authority and
       await pg.query('UPDATE foundation_native_signers SET active=false WHERE key_id=$1',[key.keyId]);
       await assert.rejects(registerNativeStudentKey(adapter,owner,pem));
       assert.equal((await request(path,'POST',receipt(2),'staff')).status,403);
+    });
+    await t.test('manual identity links require review before a new native profile can be delivered',async()=>{
+      const learner=randomUUID();
+      await pg.query('INSERT INTO learners(id,organisation_id,group_id,code,name) VALUES($1,$2,$3,$4,$5)',[learner,orgA,groupA,'MANUAL-SYNTHETIC','Synthetic manual link']);
+      await pg.query('INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id) VALUES(7,123,$1,$2)',[orgA,learner]);
+      const path=`/foundation/organisations/7/staff/9/student-deliveries/${learner}`;
+      const snapshot=await (await request(path,'GET',undefined,'staff')).json();
+      assert.equal(snapshot.reviewRequired,true);assert.equal(snapshot.nativeStudentId,undefined);
+      assert.equal((await (await request(path+'/status','GET',undefined,'staff')).json()).state,'review_required');
+      assert.equal((await pg.query('SELECT native_student_id::text FROM foundation_learners WHERE learner_id=$1',[learner])).rows[0].native_student_id,'123');
+      assert.equal((await pg.query('SELECT delivered_revision::int revision FROM foundation_student_deliveries WHERE learner_id=$1',[learner])).rows[0].revision,0);
     });
     await t.test('mapping versions, module switches, membership and scope changes take effect on existing sessions', async()=>{
       assert.equal((await request(staffPath+'/9','PATCH',{active:false,version:1})).status,200);

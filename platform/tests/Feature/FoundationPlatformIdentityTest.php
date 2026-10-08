@@ -315,6 +315,12 @@ class FoundationPlatformIdentityTest extends TestCase
         $before=count($this->history);$client=$this->client([$this->response($context)]);
         $this->denied(403,fn()=>(new AttendanceBridge)->studentDeliverySnapshot($request,$learner,$client,true));
         $this->assertCount($before+1,$this->history);
+        $deliveryContext=$context;$deliveryContext['permissions'][]='learners.edit';
+        $manual=$snapshot;$manual['reviewRequired']=true;
+        $client=$this->client([$this->response($deliveryContext),$this->response($manual)]);
+        $before=count($this->history);
+        $this->denied(409,fn()=>(new AttendanceBridge)->studentDeliverySnapshot($request,$learner,$client,true));
+        $this->assertCount($before+2,$this->history);
         config(['attendance.student_delivery_enabled'=>false]);
         $this->denied(503,fn()=>(new AttendanceBridge)->deliverStudent($request,$learner,$client));
         $changed=$snapshot;$changed['revision']=2;
