@@ -27,7 +27,7 @@ and stored-superadmin revocation all passed. The connected attendance workflow
 also passed again, including scoped enrolment, capture/review/history and logout.
 A native delivery service now locks and processes one pending request, retains failed attempts without private error text, and skips completed retries. Local failure/retry checks passed; no trigger or retry UI is wired yet. Connected PHP-to-API delivery subsequently passed: a fresh companion was created, the native request completed with one attempt, and a completed retry was not resent. Live deployment remains pending.
 
-The latest complete copied-source native run passed 339 tests / 1,510 assertions,
+The latest complete copied-source native run passed 340 tests / 1,514 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial
 and unpublished-paper protection on the guest print route.
 Student API exam details now withhold question content/options/translations and
@@ -1398,3 +1398,15 @@ at the question's two-mark maximum, remains pending teacher publication, and is
 not reassessed on a bulk retry. The teacher then overrides the suggestion and
 publishes the final total. All eleven local marking tests passed (51 assertions);
 these tests fake provider HTTP responses and establish no real AI quality claim.
+
+## Fresh attendance onboarding creation/retry wiring — local only
+
+Fresh organisation creation now attempts companion delivery after committing the
+native organisation, configuration, audit and pending request. Failed delivery
+retains the created organisation and reports pending setup. Active pending rows
+have a CSRF-protected, throttled Retry attendance setup action in the existing
+organisation table. Completed delivery explicitly reports that staff setup is
+still required. Local regression verifies persistence on failed delivery; the
+complete native suite passed 340 tests / 1,514 assertions. Actual creation/retry
+browser acceptance and staff/learner lifecycle synchronization remain pending.
+No production migration, onboarding or routing change was performed.

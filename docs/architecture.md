@@ -26,8 +26,11 @@ idempotent transaction, with stored superadmin checks. The native retry consumer
 now has a delivery service that locks one pending request, retains failed attempts
 without remote error text, and completes only after a validated companion response.
 Completed retries are not resent. The bridge rechecks native and canonical platform
-authority before/after delivery. No automatic trigger or retry UI is wired yet;
-pending requests do not grant access.
+authority before/after delivery. Fresh creation attempts delivery after native commit
+for the signed-in platform administrator; failures retain the organisation and pending
+request. The organisation table offers a CSRF-protected, throttled retry action for
+active pending requests. Staff/learner lifecycle synchronization remains pending;
+companion creation alone does not grant staff attendance access.
 
 Fresh Laravel organisation creation uses independent configuration defaults and
 the new organisation's own contact fields. It must never replicate another

@@ -349,6 +349,12 @@
                             </td>
                             <td class="text-end">
                                 <div class="el-action-bar justify-content-end el-table-actions">
+                                    @if(($attendanceOnboarding[$organization->id]->status ?? null) === 'pending' && $organization->status === 'active')
+                                        <form method="POST" action="{{ route('saas.organizations.attendance-onboarding', $organization) }}">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm el-btn-soft">Retry attendance setup</button>
+                                        </form>
+                                    @endif
                                     <button class="btn btn-sm el-btn-soft" data-bs-toggle="modal" data-bs-target="#editOrganizationModal{{ $organization->id }}">
                                         <i class="ri-pencil-line"></i> Edit
                                     </button>

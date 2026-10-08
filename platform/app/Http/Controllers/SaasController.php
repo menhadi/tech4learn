@@ -19,6 +19,7 @@ class SaasController extends Controller
     public function index()
     {
         $organizations = Organization::with('plan')->latest()->get();
+        $attendanceOnboarding = DB::table('attendance_onboarding_requests')->get()->keyBy('organization_id');
         $plans = SaasPlan::where('status', true)->orderBy('price')->get();
         $users = User::orderBy('name')->get();
         $platformAdmins = Schema::hasColumn('users', 'is_platform_admin')
@@ -68,6 +69,7 @@ class SaasController extends Controller
 
         return view('saas.index', compact(
             'organizations',
+            'attendanceOnboarding',
             'plans',
             'defaultOrganization',
             'ownedDataSummary',
@@ -87,7 +89,7 @@ class SaasController extends Controller
             'created_from_admin' => true,
         ];
 
-        DB::transaction(function () use ($validated) {
+        $organization=DB::transaction(function () use ($validated) {
             $organization = Organization::create($validated);
             $this->ensureOrganizationConfiguration($organization);
             DB::table('attendance_onboarding_requests')->insert([
@@ -107,9 +109,27 @@ class SaasController extends Controller
                 'ip_address'=>request()->ip(),
                 'user_agent'=>request()->userAgent(),
             ]);
+            return $organization;
         });
 
+        $actor=\Illuminate\Support\Facades\Auth::guard('web')->user();
+        if ($actor && $actor->is_platform_admin && $organization->status==='active') {
+            $completed=app(\App\Services\AttendanceOnboarding::class)->deliver($request,$actor,$organization->id);
+            return redirect()->route('saas.index')->with('success',$completed
+                ? 'Organization created. Attendance organisation is ready; staff setup is still required.'
+                : 'Organization created. Attendance setup is pending; retry after signing in to the linked platform account.');
+        }
         return redirect()->route('saas.index')->with('success', 'Organization created successfully.');
+    }
+
+    public function retryAttendanceOnboarding(Request $request, Organization $organization)
+    {
+        $actor=\Illuminate\Support\Facades\Auth::guard('web')->user();
+        abort_unless($actor,401);
+        $completed=app(\App\Services\AttendanceOnboarding::class)->deliver($request,$actor,$organization->id);
+        return redirect()->route('saas.index')->with('success',$completed
+            ? 'Attendance organisation is ready; staff setup is still required.'
+            : 'Attendance setup remains pending. Sign in to the linked platform account and retry.');
     }
 
     public function updateOrganization(Request $request, Organization $organization)

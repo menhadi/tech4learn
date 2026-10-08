@@ -10,6 +10,21 @@ use Tests\TestCase;
 class FreshOrganisationConfigurationTest extends TestCase
 {
     use RefreshDatabase;
+    public function test_created_organisation_survives_pending_attendance_delivery(): void
+    {
+        $actor=\App\Models\User::create(['name'=>'Synthetic creator','username'=>'synthetic-creator','email'=>'creator@example.invalid','password'=>'unused synthetic password','status'=>'Active','is_platform_admin'=>true]);
+        $this->actingAs($actor,'web');
+        $this->mock(\App\Services\AttendanceOnboarding::class,function($mock) {
+            $mock->shouldReceive('deliver')->once()->withArgs(function($request,$actor,$id) {
+                return Organization::whereKey($id)->exists() && \Illuminate\Support\Facades\DB::table('attendance_onboarding_requests')->where('organization_id',$id)->exists();
+            })->andReturn(false);
+        });
+        $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic delivery pending','domain'=>'delivery-pending.test','status'=>'active']);
+        $response=app(SaasController::class)->storeOrganization($request);
+        $this->assertSame(302,$response->getStatusCode());
+        $this->assertDatabaseHas('organizations',['domain'=>'delivery-pending.test']);
+        $this->assertStringContainsString('Attendance setup is pending',session('success'));
+    }
     public function test_successful_creation_saves_independent_configuration_and_scoped_audit(): void
     {
         $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic complete creation','domain'=>'complete-creation.test','status'=>'active']);
