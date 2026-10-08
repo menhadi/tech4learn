@@ -48,6 +48,66 @@ class EnrolledStudentProfileTest extends TestCase
     {
         try{$fn();$this->fail('Expected denial.');}catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){$this->assertSame($status,$e->getStatusCode());}
     }
+    public function test_managed_identity_edits_use_stored_ownership_and_preserve_account_changes(): void
+    {
+        $result=$this->apply($this->snapshot);
+        $student=\App\Models\Student::findOrFail($result['nativeStudentId']);
+        $guard=new \App\Services\EnrolledStudentEditGuard;
+        foreach (['name'=>'Different','enroll'=>'OTHER','organization_id'=>2,'is_demo'=>false] as $field=>$value) {
+            $this->denied(409,fn()=>$guard->assertIdentityUnchanged(Request::create('/profile','POST',[$field=>$value]),$student));
+        }
+        // A stale in-memory tenant must not bypass stored canonical ownership.
+        $student->organization_id=2;
+        $this->denied(409,fn()=>$guard->assertIdentityUnchanged(Request::create('/profile','POST',['enroll'=>'OTHER']),$student));
+        $guard->assertIdentityUnchanged(Request::create('/profile','POST',['password'=>'new private value','email'=>'synthetic@example.invalid','status'=>'Active']),$student);
+        $this->assertSame('TEST-001',\App\Models\Student::findOrFail($student->id)->enroll);
+    }
+
+    public function test_managed_group_guard_keeps_existing_pivot_ids_and_refuses_native_reassignment(): void
+    {
+        $result=$this->apply($this->snapshot);$student=\App\Models\Student::findOrFail($result['nativeStudentId']);
+        DB::table('student_groups')->insert(['student_id'=>$student->id,'group_id'=>10]);
+        $pivot=DB::table('student_groups')->first()->id;
+        $guard=new \App\Services\EnrolledStudentEditGuard;
+        $this->denied(409,fn()=>$guard->assertUnmanaged($student));
+        $guard->assertGroupsUnchanged(Request::create('/students','POST',['group_ids'=>['10']]),$student);
+        $this->denied(409,fn()=>$guard->assertGroupsUnchanged(Request::create('/students','POST',['group_ids'=>['11']]),$student));
+        $this->denied(409,fn()=>$guard->assertGroupsUnchanged(Request::create('/students','POST',['group_ids'=>[]]),$student));
+        $this->assertSame($pivot,DB::table('student_groups')->first()->id);
+    }
+
+    public function test_bulk_remove_preflights_managed_students_before_any_batch_deletion(): void
+    {
+        $result=$this->apply($this->snapshot);
+        $unmanaged=DB::table('students')->insertGetId(['organization_id'=>1,'name'=>'Unmanaged synthetic',
+            'password'=>'unused','address'=>'','status'=>'Suspend','is_demo'=>false]);
+        DB::table('students')->where('id',$result['nativeStudentId'])->update(['is_demo'=>false]);
+        $request=Request::create('https://tenant-1.example.invalid/students/remove','POST',['ids'=>[$unmanaged,(int)$result['nativeStudentId']]]);
+        app()->instance('request',$request);
+        $controller=app(\App\Http\Controllers\StudentAdminController::class);
+        $this->denied(409,fn()=>$controller->bulkRemove($request));
+        $this->assertSame(2,DB::table('students')->count());
+        $this->assertTrue(DB::table('students')->where('id',$unmanaged)->exists());
+    }
+
+    public function test_student_api_rejects_managed_code_changes_before_profile_or_photo_writes(): void
+    {
+        $result=$this->apply($this->snapshot);$student=\App\Models\Student::findOrFail($result['nativeStudentId']);
+        DB::table('students')->where('id',$student->id)->update(['status'=>'Active']);
+        Auth::guard('web')->setUser($student);
+        $request=Request::create('https://tenant-1.example.invalid/student/profile/update','POST',['enroll'=>'OTHER']);
+        $request->setUserResolver(fn()=>$student);app()->instance('request',$request);
+        $controller=app(\App\Http\Controllers\Students\ApiStudentProfileController::class);
+        $this->denied(409,fn()=>$controller->updateProfile($request));
+        $this->assertSame('TEST-001',DB::table('students')->where('id',$student->id)->value('enroll'));
+        $password=DB::table('students')->where('id',$student->id)->value('password');
+        $request=Request::create('https://tenant-1.example.invalid/student/profile/update','POST',['address'=>'Synthetic updated address']);
+        $request->setUserResolver(fn()=>$student);app()->instance('request',$request);
+        $this->assertSame(200,$controller->updateProfile($request)->getStatusCode());
+        $this->assertSame('Synthetic updated address',DB::table('students')->where('id',$student->id)->value('address'));
+        $this->assertSame($password,DB::table('students')->where('id',$student->id)->value('password'));
+    }
+
     public function test_profile_delivery_is_idempotent_and_does_not_enable_login_or_invent_contacts(): void
     {
         $result=$this->apply($this->snapshot);$this->assertSame($result,$this->apply($this->snapshot));

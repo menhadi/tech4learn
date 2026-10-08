@@ -28,6 +28,7 @@ class StudentsController extends Controller
         $student = Auth::guard('student')->user();
 
         if ($request->isMethod('post')) {
+            return app(\App\Services\EnrolledStudentEditGuard::class)->withIdentityLock($request,$student,function () use ($request,$student) {
             $validator = Validator::make($request->all(), [
                 'enroll'         => 'sometimes|required|string|max:255', // Sometimes if you dont allow editing
                 'guardian_phone' => 'nullable|string|max:20', // Max length adjust karein
@@ -62,6 +63,7 @@ class StudentsController extends Controller
             $student->update($updateData);
 
             return redirect()->route('student.profile')->with('success', 'Profile updated successfully.');
+            });
         }
 
         // GET request ke liye view return karein

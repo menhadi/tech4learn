@@ -33,6 +33,10 @@
     </div>
 </div>
 
+@if(config('attendance.student_delivery_enabled', false))
+<div class="alert alert-info">For students delivered from Enrolment, change their name, enrolment number and section in <a href="{{ route('enrolment.workspace') }}">Enrolment</a>, then deliver the updated exam profile. Manage exam login and contact details here.</div>
+@endif
+
 <div class="el-stats-grid mb-3">
     <div class="el-stat">
         <div>

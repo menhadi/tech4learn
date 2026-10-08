@@ -205,7 +205,13 @@ class StudentAdminController extends Controller
         ]);
 
         try {
+            return DB::transaction(function () use ($request) {
+                DB::table('organizations')->where('id',$this->currentTenantId())->lockForUpdate()->first();
+                \App\Support\Tenant::assertAccess(\App\Support\Tenant::current(),true);
             $students = $this->tenantStudentQuery()->whereIn('id', $request->ids)->get();
+            // Preflight the entire batch before any pivot, profile or media mutation.
+            foreach ($students as $student) app(\App\Services\EnrolledStudentEditGuard::class)->assertUnmanaged($student);
+
             foreach($students as $student) {
                 if ($student->photo) {
                     Storage::disk('public')->delete($student->photo);
@@ -217,6 +223,9 @@ class StudentAdminController extends Controller
                 'status' => 'success',
                 'message' => 'Selected students deleted successfully.'
             ]);
+            });
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
@@ -238,7 +247,13 @@ class StudentAdminController extends Controller
         ]);
 
         try {
+            return DB::transaction(function () use ($request) {
+                DB::table('organizations')->where('id',$this->currentTenantId())->lockForUpdate()->first();
+                \App\Support\Tenant::assertAccess(\App\Support\Tenant::current(),true);
             $students = $this->tenantStudentQuery()->whereIn('id', $request->ids)->get();
+            // Preflight the entire batch before any pivot, profile or media mutation.
+            foreach ($students as $student) app(\App\Services\EnrolledStudentEditGuard::class)->assertUnmanaged($student);
+
             $groupId = (int) $request->group_id;
             $this->ensureTenantOwnsGroup($groupId);
             $count = 0;
@@ -262,6 +277,9 @@ class StudentAdminController extends Controller
                 'message' => "Groups updated for $count students successfully."
             ]);
 
+            });
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
@@ -342,6 +360,8 @@ class StudentAdminController extends Controller
             return redirect()->route('students.index')->with('success', 'Student created successfully.');
         } catch (ValidationException $e) {
             return redirect()->route('students.index')->withErrors($e->errors())->withInput();
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return redirect()->route('students.index')->with('error', 'Failed to create student.');
         }
@@ -360,8 +380,16 @@ class StudentAdminController extends Controller
     public function update(Request $request, Student $student)
     {
         $this->ensureTenantOwnsStudent($student);
+        app(\App\Services\EnrolledStudentEditGuard::class)->assertIdentityUnchanged($request,$student);
 
         try {
+            return DB::transaction(function () use ($request,$student) {
+                // Match canonical delivery's organisation lock before checking or changing managed fields/pivots.
+                DB::table('organizations')->where('id',$student->organization_id)->lockForUpdate()->first();
+                \App\Support\Tenant::assertAccess(\App\Support\Tenant::current(),true);
+                $guard=app(\App\Services\EnrolledStudentEditGuard::class);
+                $guard->assertIdentityUnchanged($request,$student);
+                $guard->assertGroupsUnchanged($request,$student);
             $tenantId = $this->currentTenantId();
             $registrationRequired = (bool) (getConfiguration()->require_student_registration_number ?? false);
 
@@ -450,8 +478,11 @@ class StudentAdminController extends Controller
             }
 
             return redirect()->route('students.index')->with('success', 'Student updated successfully.');
+            });
         } catch (ValidationException $e) {
             return redirect()->route('students.index')->withErrors($e->errors())->withInput();
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return redirect()->route('students.index')->with('error', 'Failed to update student.');
         }
@@ -460,12 +491,19 @@ class StudentAdminController extends Controller
     public function destroy($id)
     {
         try {
+            return DB::transaction(function () use ($id) {
+                DB::table('organizations')->where('id',$this->currentTenantId())->lockForUpdate()->first();
+                \App\Support\Tenant::assertAccess(\App\Support\Tenant::current(),true);
             $student = $this->tenantStudentQuery()->findOrFail($id);
+            app(\App\Services\EnrolledStudentEditGuard::class)->assertUnmanaged($student);
             if ($student->photo) {
                 Storage::disk('public')->delete($student->photo);
             }
             $student->delete();
             return redirect()->route('students.index')->with('success', 'Student deleted successfully.');
+            });
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return redirect()->route('students.index')->with('error', 'Failed to delete student.');
         }
@@ -496,6 +534,8 @@ class StudentAdminController extends Controller
                 Excel::import(new StudentsImport($request->group_id, $this->currentTenantId()), $request->file('excel_file'));
             });
             return redirect()->route('students.index')->with('success', 'Students imported successfully.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return redirect()->route('students.index')->with('error', 'Import failed: ' . $e->getMessage());
         }

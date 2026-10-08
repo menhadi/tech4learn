@@ -28,6 +28,13 @@ Enrolment, and direct native create/import requests require canonical
 Missing canonical access fails closed. Existing exam profiles, editing, login and
 results retain their native paths. This entry change is not deployed yet.
 
+Managed native profile protection is implemented locally. Staff and student
+profile changes recheck the stored UUID link; canonical names and enrolment codes
+must be changed in Enrolment. Contact/login administration remains native.
+Managed group replacement and native deletion are refused, and bulk operations
+preflight the whole batch before changing any record. Organisation locks serialize
+these checks with canonical delivery. This protection is not deployed yet.
+
 Organisations should see only features enabled for them, with the same checks on
 direct routes and API requests. Disabled features should not remain as locked
 navigation links in the organisation workspace.

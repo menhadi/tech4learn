@@ -28,6 +28,8 @@ class ApiStudentProfileController extends Controller
     public function updateProfile(Request $request)
     {
         $student = $request->user();
+        abort_unless($student instanceof Student,403);
+        return app(\App\Services\EnrolledStudentEditGuard::class)->withIdentityLock($request,$student,function () use ($request,$student) {
 
         $validator = Validator::make($request->all(), [
             'enroll'         => 'sometimes|required|string|max:255',
@@ -63,6 +65,7 @@ class ApiStudentProfileController extends Controller
             'message' => 'Profile updated successfully.',
             'student' => $student->fresh() // 'fresh()' database se updated data laata hai
         ]);
+        });
     }
 
     /**
