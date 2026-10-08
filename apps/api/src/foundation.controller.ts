@@ -43,6 +43,8 @@ export class FoundationController {
   async updateLearner(@Param("native") n:string,@Param("student") s:string,@Body() b:Record<string,unknown>,@Headers("cookie") c?:string) {return this.links.setLearner(await this.actor(c),n,s,b??{});}
   @Get("foundation/organisations/:native/staff/:user/students/:student/learner-identity")
   async learnerIdentity(@Param("native") n:string,@Param("user") u:string,@Param("student") s:string,@Headers("cookie") c?:string) {return this.links.learnerIdentity(await this.actor(c),n,u,s);}
+  @Get("foundation/organisations/:native/staff/:user/enrolment-context")
+  async enrolmentContext(@Param("native") n:string,@Param("user") u:string,@Headers("cookie") c?:string) {return this.links.context(await this.actor(c),n,u,"enrolment");}
   @Post("foundation/auth/login")
   @HttpCode(200)
   async login(@Body() b: Record<string,unknown>, @Res({passthrough:true}) response:Response) {

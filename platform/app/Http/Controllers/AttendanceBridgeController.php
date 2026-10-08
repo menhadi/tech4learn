@@ -8,6 +8,20 @@ use Illuminate\Http\JsonResponse;
 
 class AttendanceBridgeController extends Controller
 {
+    public function enrolment(Request $request, AttendanceBridge $bridge)
+    {
+        $bridge->context($request,null,'enrolment');
+        return $this->workspace();
+    }
+    public function enrolmentContext(Request $request, AttendanceBridge $bridge): JsonResponse
+    {
+        return response()->json($bridge->context($request,null,'enrolment'))->header('Cache-Control','no-store');
+    }
+    public function enrolmentGateway(Request $request, string $path, AttendanceBridge $bridge)
+    {
+        abort_if(preg_match('#/attendance(?:/|$)#',$path),404);
+        return $bridge->gateway($request,$path,null,'enrolment');
+    }
     public function workspace()
     {
         $organization=\App\Support\Tenant::assertAccess(\App\Support\Tenant::current(),true);

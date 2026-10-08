@@ -66,6 +66,12 @@ test('foundation identity links require explicit accounts, current authority and
       assert.equal(res.headers.get('cache-control'),'no-store');
       const body=await res.json(); assert.equal(body.organisation.id,orgA); assert.ok(body.permissions.includes('attendance.view')); assert.ok(body.permissions.includes('groups.create')); assert.ok(body.permissions.includes('centres.view')); assert.ok(body.permissions.includes('learners.view'));
       assert.equal(body.nativeUserId,'9'); assert.equal(body.scope.type,'organisation');
+      const enrolment=context.replace('attendance-context','enrolment-context');
+      assert.equal((await request(enrolment,'GET',undefined,'outsider')).status,404);
+      await pg.query("UPDATE organisation_settings SET enabled_modules='{\"attendance\":false,\"learners\":true}' WHERE organisation_id=$1",[orgA]);
+      assert.equal((await request(context,'GET',undefined,'staff')).status,403);
+      assert.equal((await request(enrolment,'GET',undefined,'staff')).status,200);
+      await pg.query("UPDATE organisation_settings SET enabled_modules='{\"attendance\":true}' WHERE organisation_id=$1",[orgA]);
     });
     await t.test('one-login identity uses the stored link and revokes sessions on failed mapping',async()=>{
       const before=(await pg.query('SELECT count(*)::int AS n FROM sessions')).rows[0].n;

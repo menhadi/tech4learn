@@ -163,13 +163,14 @@ class AttendanceBridge
     {
         return app()->environment('production') ? '__Host-t4l_session' : 't4l_session';
     }
-    public function context(Request $request, ?ClientInterface $http = null): array
+    public function context(Request $request, ?ClientInterface $http = null, string $purpose = 'attendance'): array
     {
+        abort_unless(in_array($purpose,['attendance','enrolment'],true),404);
         $organization = Tenant::assertAccess(Tenant::current(), true);
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
         $context = $this->read($request, '/foundation/organisations/'.$organization->id.
-            '/staff/'.$actor->id.'/attendance-context', [], $http);
+            '/staff/'.$actor->id.'/'.$purpose.'-context', [], $http);
         abort_unless(($context['nativeOrganisationId'] ?? null) === (string)$organization->id
             && ($context['nativeUserId'] ?? null) === (string)$actor->id
             && is_string($context['organisation']['id'] ?? null)
@@ -195,7 +196,7 @@ class AttendanceBridge
         return $data;
     }
 
-    public function gateway(Request $request, string $path, ?ClientInterface $http = null): \Symfony\Component\HttpFoundation\Response
+    public function gateway(Request $request, string $path, ?ClientInterface $http = null, string $purpose = 'attendance'): \Symfony\Component\HttpFoundation\Response
     {
         abort_unless(strlen($path)<300 && preg_match('#^organisations/([a-f0-9-]{36})/(centres(?:/[a-f0-9-]{36}(?:/(?:location|approve|archive))?)?|groups(?:/[a-f0-9-]{36}(?:/archive)?)?|academic-years(?:/[a-f0-9-]{36}/archive)?|classes(?:/[a-f0-9-]{36}/archive)?|learners(?:/[a-f0-9-]{36}(?:/(?:transfer|archive|photo-consent|photo-setup|photos(?:/[a-f0-9-]{36}(?:/(?:remove|check))?)?))?)?|learner-fields(?:/[a-f0-9-]{36})?|learner-imports/(?:preview|[a-f0-9-]{36}/commit)|demo-student|attendance(?:/[A-Za-z0-9-]+)*)$#D',$path,$match),404);
         abort_unless(in_array($request->method(),['GET','POST','PATCH'],true),405);
@@ -219,7 +220,7 @@ class AttendanceBridge
                 : (str_starts_with($resource,'groups/') ? ['PATCH'] : ['GET','POST']);
             abort_unless(in_array($request->method(),$methods,true),405);
         }
-        $context=$this->context($request,$http);
+        $context=$this->context($request,$http,$purpose);
         abort_unless($match[1]===($context['organisation']['id']??null),404);
         $body=null;
         if ($request->method()!=='GET') {
@@ -229,7 +230,7 @@ class AttendanceBridge
             abort_unless($body instanceof \stdClass,422);
         }
         $result=$this->read($request,'/'.$path,$request->query(),$http,$request->method(),$body,true,$headers,true);
-        abort_unless($this->context($request,$http)===$context,403);
+        abort_unless($this->context($request,$http,$purpose)===$context,403);
         return new \Symfony\Component\HttpFoundation\Response($result['body'],$result['status'],[
             'Content-Type'=>$result['content_type'],'Cache-Control'=>'no-store',
             'X-Content-Type-Options'=>'nosniff',

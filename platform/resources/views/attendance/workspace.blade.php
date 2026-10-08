@@ -1,5 +1,5 @@
 @extends('layouts.master')
-@section('title', 'Attendance')
+@section('title', request()->routeIs('enrolment.*') ? 'Student enrolment' : 'Attendance')
 @section('content')
 <div id="foundation-attendance"><p role="status">Loading attendance…</p></div>
 <noscript><p>Enable JavaScript to capture and review attendance.</p></noscript>

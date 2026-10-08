@@ -182,6 +182,9 @@
                 @endif
 
                 @if(config('attendance.api_url') && Auth::check())
+                    @if(empty($isPlatformOwner))
+                    <li class="nav-item"><a href="{{ route('enrolment.workspace') }}" class="nav-link {{ request()->routeIs('enrolment.*') ? 'active' : '' }}"><i class="ri-user-add-line"></i><span>Student enrolment</span></a></li>
+                    @endif
                     <li class="nav-item"><a href="{{ route('attendance.workspace') }}" class="nav-link {{ request()->routeIs('attendance.*') ? 'active' : '' }}"><i class="ri-calendar-check-line"></i><span>Attendance</span></a></li>
                 @endif
                 @foreach(($sidebarGroups ?? collect([['label' => 'Menu', 'icon' => 'ri-menu-line', 'pages' => $pages]])) as $groupIndex => $group)

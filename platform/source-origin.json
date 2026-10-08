@@ -176460,7 +176460,7 @@
     },
     {
       "path": "resources/views/layouts/sidebar.blade.php",
-      "sha256": "38b6cb9e75e4a843914acc07cf05798e62755ab632fde278ec7daa6fb2c62404",
+      "sha256": "9bf36c0c94d0a8244517cb5dcca59af32e4d5c5ec0e73f77e0b5b4dd3cb1dbc2",
       "patches": [
         "foundation-attendance-integration-and-native-exam-acceptance-20261007"
       ]
@@ -177454,7 +177454,7 @@
     },
     {
       "path": "routes/web.php",
-      "sha256": "da4ee2b3b6f4ffeb7b7bff4e35cdb2e955bab7baff5c0c9631fad0bc11cec509",
+      "sha256": "6df9cbd31970ad2b5b5c3ff3b84881501b240c82b9751c32fe6360fc035c21c3",
       "patches": [
         "authenticated-native-attendance-read-routes",
         "foundation-attendance-integration-and-native-exam-acceptance-20261007",

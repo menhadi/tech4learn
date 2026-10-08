@@ -825,6 +825,9 @@ Route::get('/admin/ai-content/bulk-generator', [SeoGeneratorController::class, '
 
 Route::post('/admin/ai-content/bulk-generator', [SeoGeneratorController::class, 'bulkContentGenerate'])->middleware(['auth', 'checkPageRights', 'plan.feature:ai_content_generation'])->name('admin.ai-content.bulk.generate');
 Route::middleware('auth')->group(function () {
+    Route::get('/enrolment', [\App\Http\Controllers\AttendanceBridgeController::class, 'enrolment'])->name('enrolment.workspace');
+    Route::get('/enrolment/context', [\App\Http\Controllers\AttendanceBridgeController::class, 'enrolmentContext'])->name('enrolment.context');
+    Route::match(['GET','POST','PATCH'],'/enrolment/api/{path}',[\App\Http\Controllers\AttendanceBridgeController::class,'enrolmentGateway'])->where('path','.*')->name('enrolment.gateway');
     Route::get('/attendance', [\App\Http\Controllers\AttendanceBridgeController::class, 'workspace'])->name('attendance.workspace');
     Route::get('/attendance/context', [\App\Http\Controllers\AttendanceBridgeController::class, 'context'])->name('attendance.context');
     Route::get('/attendance/records', [\App\Http\Controllers\AttendanceBridgeController::class, 'records'])->name('attendance.records');

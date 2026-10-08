@@ -1,6 +1,6 @@
 import { submittingDraft } from "./form-drafts";
 export const apiBase = (
-  import.meta.env.VITE_API_URL ||
+  (import.meta.env.VITE_API_URL === '/attendance/api' && window.location.pathname === '/enrolment' ? '/enrolment/api' : import.meta.env.VITE_API_URL) ||
   (import.meta.env.DEV ? "http://localhost:3000/api/v1" : "/api/v1")
 ).replace(/\/$/, "");
 export class ApiError extends Error {
@@ -26,14 +26,14 @@ export async function api<T>(
       body === undefined
         ? {}
         : { "Content-Type": "application/json", "X-Tech4Learn-Request": "1",
-            ...(apiBase==='/attendance/api'?{'X-CSRF-TOKEN':document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || ''}:{}),
+            ...(['/attendance/api','/enrolment/api'].includes(apiBase)?{'X-CSRF-TOKEN':document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || ''}:{}),
           },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const result = await response.json().catch(() => null);
   if (!response.ok)
   {
-    if(apiBase==='/attendance/api' && [401,403,404].includes(response.status))window.dispatchEvent(new Event('t4l:foundation-access-changed'));
+    if(['/attendance/api','/enrolment/api'].includes(apiBase) && [401,403,404].includes(response.status))window.dispatchEvent(new Event('t4l:foundation-access-changed'));
     throw new ApiError(
       typeof result?.message === "string"
         ? result.message

@@ -219,7 +219,7 @@ export class FoundationService {
       return result.rows[0];
     });
   }
-  async context(actor: Account, nativeValue: string, userValue: string) {
+  async context(actor: Account, nativeValue: string, userValue: string, purpose: "attendance" | "enrolment" = "attendance") {
     const native = nativeId(nativeValue), user = nativeId(userValue);
     const mapped = (await this.db.query<{organisation_id: string; name: string}>(
       `SELECT o.id AS organisation_id,o.name FROM foundation_organisations f
@@ -227,7 +227,7 @@ export class FoundationService {
        JOIN organisations o ON o.id=f.organisation_id
        WHERE f.native_id=$1 AND s.native_user_id=$2 AND s.user_id=$3 AND f.active AND s.active`, [native,user,actor.id])).rows[0];
     if (!mapped) throw new NotFoundException("Attendance identity is not linked.");
-    const access = await this.access.require(actor, mapped.organisation_id, "attendance.view");
+    const access = await this.access.require(actor, mapped.organisation_id, purpose === "enrolment" ? "learners.view" : "attendance.view");
     return { nativeOrganisationId: native, nativeUserId: user, userId: actor.id,
       organisation: { id: mapped.organisation_id, name: mapped.name },
       permissions: access.permissions.filter(p => p.startsWith("attendance.") || p.startsWith("learners.") || p.startsWith("centres.") || ["groups.view","groups.create","groups.edit","groups.archive","centres.view"].includes(p)),
