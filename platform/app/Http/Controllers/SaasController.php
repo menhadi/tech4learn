@@ -90,6 +90,13 @@ class SaasController extends Controller
         DB::transaction(function () use ($validated) {
             $organization = Organization::create($validated);
             $this->ensureOrganizationConfiguration($organization);
+            DB::table('attendance_onboarding_requests')->insert([
+                'organization_id'=>$organization->id,
+                'status'=>'pending',
+                'attempts'=>0,
+                'created_at'=>now(),
+                'updated_at'=>now(),
+            ]);
             \App\Models\AuditLog::create([
                 'organization_id'=>$organization->id,
                 'user_id'=>\Illuminate\Support\Facades\Auth::guard('web')->id(),

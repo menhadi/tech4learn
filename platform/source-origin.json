@@ -590,11 +590,12 @@
     },
     {
       "path": "app/Http/Controllers/SaasController.php",
-      "sha256": "417df4e705f73e9f6aa1c4a33f8c4bed8609b4035a54f139ff286a46ce3f9742",
+      "sha256": "97634ed59b93e2a440f7ee675bc74b11addd9dbc28e942fa800a8ac1340c97b9",
       "patches": [
         "isolated-atomic-fresh-organisation-configuration",
         "required-organisation-creation-audit",
-        "staff-provisioning-without-global-admin-grant"
+        "staff-provisioning-without-global-admin-grant",
+        "transactional-attendance-onboarding-request"
       ]
     },
     {

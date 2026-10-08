@@ -24,6 +24,19 @@ class FreshOrganisationConfigurationTest extends TestCase
         $this->assertSame($org->id,(int)$audit->organization_id);
         $this->assertSame(Organization::class,$audit->auditable_type);
         $this->assertSame(['name'=>$org->name],$audit->metadata);
+        $this->assertDatabaseHas('attendance_onboarding_requests',['organization_id'=>$org->id,'status'=>'pending','attempts'=>0,'completed_at'=>null]);
+    }
+    public function test_onboarding_request_failure_rolls_back_new_organisation(): void
+    {
+        \Illuminate\Support\Facades\DB::statement("CREATE TRIGGER synthetic_onboarding_failure BEFORE INSERT ON attendance_onboarding_requests BEGIN SELECT RAISE(ABORT, 'Synthetic onboarding failure'); END");
+        $before=Configuration::count();
+        try {
+            $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic onboarding rollback','domain'=>'onboarding-rollback.test','status'=>'active']);
+            try {app(SaasController::class)->storeOrganization($request);$this->fail('Failure expected');}
+            catch(\Illuminate\Database\QueryException $error){$this->assertStringContainsString('Synthetic onboarding failure',$error->getMessage());}
+            $this->assertDatabaseMissing('organizations',['domain'=>'onboarding-rollback.test']);
+            $this->assertSame($before,Configuration::count());
+        } finally {\Illuminate\Support\Facades\DB::statement('DROP TRIGGER synthetic_onboarding_failure');}
     }
     public function test_new_staff_account_does_not_receive_global_admin_role(): void
     {
