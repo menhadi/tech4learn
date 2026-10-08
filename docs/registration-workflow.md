@@ -37,7 +37,7 @@ preflight the whole batch before changing any record. Organisation locks seriali
 these checks with canonical delivery. Native checks passed 38 tests / 165 assertions;
 live login and workspace readback passed without changing student records.
 
-A complete reviewed public admission flow is implemented locally, with native
+A complete reviewed public admission flow is deployed and enabled, with native
 migration `2026_10_09_000008` and companion migration 24. New organisation
 signups record an ID-only admission in the signup transaction. Staff review uses
 the shared enrolment form, requires an explicit section and confirmation, and
@@ -46,14 +46,21 @@ native account is bound to the canonical UUID; passwords, contacts and login
 status are preserved. Pending native binding blocks ordinary profile creation;
 remote failures can resume without creating another account. Existing records are
 never backfilled or matched by name/email. The platform realm is excluded from
-organisation admissions. This flow is not deployed or accepted live yet.
+organisation admissions. Release `f515eadb` passed 127 API tests, all builds and
+43 native tests / 223 assertions. Existing-owner live checks verified the enabled
+admission context and an empty pending list without creating accounts. Actual
+public signup, staff review and student exam acceptance remain unverified live.
 
-Public student self-registration remains a separate native path in production. It does not
-currently create a reviewed canonical section enrolment. Existing pending
-verification and sign-in must remain available; a shared public admissions path
-needs host-derived organisation scope and explicit staff review, without treating
-guest input as staff authority or merging identities by contact details. This
-boundary is still pending and is separate from the deployed staff registration flow.
+Public student self-registration retains native verification and sign-in. New
+organisation signups enter explicit staff review before receiving canonical
+section enrolment. Host-derived scope and signed origin checks preserve the
+original account without granting guest input staff authority. Existing accounts
+are not automatically adopted; the platform signup realm is excluded.
+
+### Earlier implementation notes
+
+The following notes record development stages. Their local-only and planned
+status statements are historical; the current deployment boundary is above.
 
 Organisations should see only features enabled for them, with the same checks on
 direct routes and API requests. Disabled features should not remain as locked
