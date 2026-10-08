@@ -40,10 +40,36 @@ Do not run the removed external ExamElite workspace deployment.
    authenticated acceptance at https://tech4learn.com. Retire the previous
    public shell only after that check.
 
-## First outstanding server prerequisite
+## Verified server progress — 8 October 2026
 
-The previously prepared isolated restore-database setup remains the prerequisite
-for destructive cleanup. From the server root terminal, the narrowly scoped step
+The user created the isolated restore database and ran the checked verifier at
+`48443b7e`. Actual restore completed with a private receipt, matching retained
+administrator identity/password and no live database change. The old archive is
+outside the one-hour cleanup window; a fresh backup command has been supplied.
+Do not reuse the successful old restore as permission to bypass freshness.
+
+A subsequent read-only scoped plan found four organisations, 34 dependent tables,
+334 scoped rows and four database-media entries. This is an aggregate review of
+actual predicates, not a frozen deletion manifest or deletion completion.
+
+The prepared native release failed its read-only runtime gate because it lacks:
+
+- `PHP_CLI_BINARY=/usr/bin/php8.4`
+- `PAPER_PROCESSING_WORKERS=1`
+- `PAPER_PROCESSING_MAX_PARALLEL=1`
+- `PAPER_PROCESSING_MAX_HEAVY=1`
+- `NATIVE_SCHEDULE_LIFECYCLE_EMAILS=false`
+- `NATIVE_SCHEDULE_SEARCH_CONSOLE=false`
+
+Production/debug/key/domain/session/database checks passed. Schema and identity
+checks were not reached because the runtime gate failed first. Updating the
+private environment and installing newer checked migrations remain user-run.
+Never print or commit the private environment while applying these fixed values.
+
+## Historical restore-database setup
+
+
+The isolated restore-database setup below has now been completed by the user. From the server root terminal, the narrowly scoped step
 is documented in [native production setup](native-production-setup.md). It creates
 only `tech4learn_cleanup_restore` owned by `tech4learn_app` and removes public
 connection permission; it grants no broad role privileges and changes no live data.
@@ -56,7 +82,7 @@ fresh companion provisioning, administrator delivery/retry, stored membership
 checks and password re-entry verification. Latest complete native suite: 345 tests
 / 1,551 assertions; subsequent targeted retry checks passed 15 / 88.
 
-Still unverified: replacement deployment, restored backup/deletion execution,
+Still unverified: replacement deployment, fresh restored backup/deletion execution,
 public native administrator sign-in, browser creation/retry, ordinary staff/learner
 lifecycle, actual Apache installation and live exam/attendance acceptance.
 
