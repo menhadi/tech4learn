@@ -2,6 +2,15 @@
 
 ## Purpose
 
+### Clarification — 8 October 2026
+
+Retain attendance module code, not previous attendance records. Delete previous
+organisations and all linked business records/media after verified private backup
+and bounded cleanup. Use the copied complete ExamElite foundation; do not extend
+the previous product shell or modify the original ExamElite installation. Preserve
+the existing platform administrator identity/password. Exams and attendance come
+first; FLN follows.
+
 ### Revised transition scope — 7 October 2026
 
 Keep only the existing platform administrator identity and the attendance
