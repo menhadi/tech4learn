@@ -155,6 +155,7 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $exam->packages()->attach($package->id);
         $this->actingAs($student,'student');
         $this->get('https://language.test/exam/instructions/'.$exam->id)->assertForbidden();
+        $this->get('https://language.test/exam/start/'.$exam->id)->assertForbidden();
         \Laravel\Sanctum\Sanctum::actingAs($student,['*'],'student-api');
         $url='https://language.test/api/student/exam/start/'.$exam->id;
         $this->postJson($url)->assertForbidden();
@@ -172,9 +173,25 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $package->update(['status'=>true]);
         $this->postJson($url)->assertOk();
         $this->get('https://language.test/exam/instructions/'.$exam->id)->assertOk();
+        $this->get('https://language.test/exam/start/'.$exam->id)->assertOk();
         $package->update(['status'=>false]);
         $this->postJson($url)->assertForbidden();
+        $this->get('https://language.test/exam/start/'.$exam->id)->assertForbidden();
         $this->assertSame(1,ExamResult::count());
+    }
+
+    public function test_api_practice_entry_requires_the_creating_student(): void
+    {
+        [$org,$student,$exam]=$this->fixture();
+        $other=Student::create(['organization_id'=>$org->id,'name'=>'Synthetic practice owner','email'=>'practice-owner@example.invalid','password'=>'synthetic password','status'=>'Active']);
+        $exam->update(['is_student_practice'=>true,'created_by_student_id'=>$other->id]);
+        \Laravel\Sanctum\Sanctum::actingAs($student,['*'],'student-api');
+        $url='https://language.test/api/student/exam/start/'.$exam->id;
+        $this->postJson($url)->assertNotFound();
+        $this->assertSame(0,ExamResult::count());
+        \Laravel\Sanctum\Sanctum::actingAs($other,['*'],'student-api');
+        $this->postJson($url)->assertOk();
+        $this->assertSame((int)$other->id,(int)ExamResult::sole()->student_id);
     }
 
     public function test_registered_student_activation_uses_only_completed_own_orders(): void

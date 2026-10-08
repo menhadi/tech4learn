@@ -20,6 +20,10 @@ require an active same-organisation package and the student's completed scoped
 order for packaged exams. Targeted HTTP checks deny pending, unscoped and guest
 orders, deny disabled packages, permit completed owned orders and block resume
 after package revocation. Payment provider and production acceptance remain pending.
+Follow-up targeted checks passed 9 tests / 78 assertions: actual web start is
+denied before activation, resumes the existing API-created attempt after activation,
+and is denied after package revocation. API practice entry denies another student's
+paper without creating an attempt and permits the paper's creating student.
 Subsequent targeted exam journey checks passed 12 tests / 89 assertions,
 including package omission/invalid-package denial and actual signed draft/solution
 rendering with tampered-link denial. Signed numeric print URLs render directly;
