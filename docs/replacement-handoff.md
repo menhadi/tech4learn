@@ -116,3 +116,20 @@ previous configuration/service on failed installation. Seven renderer tests and
 script syntax passed. It requires a narrowly scoped user-run root invocation;
 no legacy deletion or original ExamElite edit is part of this cutover. Public
 authenticated acceptance is required after installation.
+
+## Public native switch — 8 October 2026
+
+The user executed the scoped root switch successfully. Public home/login and API
+health return 200, and unauthenticated administration redirects to sign-in. Actual
+browser administrator login passed. Native Exams opened, and checked patch
+`7e0d5787` fixed editing controls through the existing verified platform identity
+guard (14 tests / 37 assertions). It was deployed as a checked source patch to the
+base release; the base release is no longer an untouched Git checkout. Public
+attendance bundle permissions were corrected and its JavaScript returns 200.
+
+Daily attendance still requires a fresh organisation and ordinary organisation
+account. The verified primary administrator entry now explains this setup and
+links to the SaaS Control Center instead of attempting tenant attendance context
+and showing a generic access error. Targeted checks passed 15 / 38. No production
+exam attempt, capture/review or fresh tenant onboarding acceptance has completed.
+Legacy deletion remains deferred under the latest user instruction.

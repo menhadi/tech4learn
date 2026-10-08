@@ -10,7 +10,11 @@ class AttendanceBridgeController extends Controller
 {
     public function workspace()
     {
-        \App\Support\Tenant::assertAccess(\App\Support\Tenant::current(),true);
+        $organization=\App\Support\Tenant::assertAccess(\App\Support\Tenant::current(),true);
+        if (($organization->settings['is_primary_platform'] ?? false)
+            && \App\Support\VerifiedPlatformAccess::allowed(request(),\Illuminate\Support\Facades\Auth::user())) {
+            return view('attendance.platform-setup');
+        }
         $path=public_path('attendance-ui/manifest.json');
         $manifest=is_file($path)?json_decode(file_get_contents($path),true):[];
         $assets=$manifest['src/foundation-attendance.tsx']??null;

@@ -248,6 +248,14 @@ class FoundationPlatformIdentityTest extends TestCase
         $this->assertFalse(user_can_route_action('exams.edit','edit'));
     }
 
+    public function test_verified_primary_administrator_sees_attendance_setup(): void
+    {
+        $actor=User::findOrFail(1);Auth::guard('web')->setUser($actor);$request=$this->request();
+        $request->attributes->set('foundation_verified_platform_actor','1');
+        $view=(new \App\Http\Controllers\AttendanceBridgeController)->workspace();
+        $this->assertSame('attendance.platform-setup',$view->name());
+    }
+
     public function test_revoked_native_administrator_can_still_log_out(): void
     {
         Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request('/logout','POST');
