@@ -85,6 +85,13 @@ class FreshOrganisationConfigurationTest extends TestCase
         $user=\App\Models\User::where('email','delivery-admin@example.invalid')->sole();
         $this->assertFalse((bool)$user->is_platform_admin);
         $this->assertDatabaseHas('organization_users',['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'admin']);
+        $bridge->shouldReceive('provisionAdministrator')->once()->andReturn(['created'=>false,'userId'=>'22222222-2222-4222-8222-222222222222']);
+        $request=Request::create('https://platform.test/retry','POST',['password'=>'Synthetic delivery password 42']);
+        $response=app(SaasController::class)->retryAttendanceAdministrator($request,$org,$user);
+        $this->assertSame('Attendance administrator account is ready.',$response->getSession()->get('success'));
+        \Illuminate\Support\Facades\DB::table('organization_users')->where('user_id',$user->id)->update(['role'=>'staff']);
+        try {app(SaasController::class)->retryAttendanceAdministrator($request,$org,$user);$this->fail('Staff elevation expected to fail');}
+        catch(\Symfony\Component\HttpKernel\Exception\HttpException $error){$this->assertSame(403,$error->getStatusCode());}
     }
 
     public function test_membership_failure_does_not_leave_an_orphan_admin_account(): void

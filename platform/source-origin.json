@@ -590,14 +590,15 @@
     },
     {
       "path": "app/Http/Controllers/SaasController.php",
-      "sha256": "3a656c7c13ead0dd31d927dd53fc6220b4de2386fac690b845339fa530a39427",
+      "sha256": "c188d6044c09540ab7483cd6104ae33ea86f9e7f90384b241d00f39cdeafb7c7",
       "patches": [
         "isolated-atomic-fresh-organisation-configuration",
         "required-organisation-creation-audit",
         "staff-provisioning-without-global-admin-grant",
         "transactional-attendance-onboarding-request",
         "fresh-attendance-delivery-and-retry-action",
-        "postcommit-attendance-administrator-delivery"
+        "postcommit-attendance-administrator-delivery",
+        "password-reentry-attendance-administrator-retry"
       ]
     },
     {
@@ -177444,12 +177445,13 @@
     },
     {
       "path": "routes/web.php",
-      "sha256": "d02e56f03e6af6c15c991dcd698473ace3ea2ac0094801c8a6ac5281b88452ee",
+      "sha256": "da4ee2b3b6f4ffeb7b7bff4e35cdb2e955bab7baff5c0c9631fad0bc11cec509",
       "patches": [
         "authenticated-native-attendance-read-routes",
         "foundation-attendance-integration-and-native-exam-acceptance-20261007",
         "explicit-canonical-learner-identity-boundary-20261007",
-        "fresh-attendance-delivery-and-retry-action"
+        "fresh-attendance-delivery-and-retry-action",
+        "password-reentry-attendance-administrator-retry"
       ]
     },
     {

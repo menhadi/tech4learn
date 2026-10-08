@@ -1468,3 +1468,11 @@ validation uses the canonical 15–128 character rule for this administrator flo
 Targeted creation checks passed 11 tests / 45 assertions, including committed
 account preservation on delivery failure. Password-reentry retry UI, ordinary
 staff provisioning, creation browser acceptance and live acceptance remain pending.
+
+A CSRF-protected platform route now supports explicit administrator delivery retry
+with a newly entered 15–128 character password. It validates the stored active
+non-platform target and active owner/admin membership before calling the bridge,
+and is throttled to ten attempts per minute. No password is saved in a pending
+record. Targeted controller checks passed 11 tests / 48 assertions, including
+successful retry and refusal after membership changes to staff. The browser form
+and authenticated route acceptance remain pending.

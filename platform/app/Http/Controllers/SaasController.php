@@ -392,6 +392,24 @@ class SaasController extends Controller
         return redirect()->route('saas.index')->with('success',$message);
     }
 
+    public function retryAttendanceAdministrator(Request $request, Organization $organization, User $user)
+    {
+        $actor=\Illuminate\Support\Facades\Auth::guard('web')->user();
+        abort_unless($actor && $actor->is_platform_admin,403);
+        abort_unless($organization->status==='active' && !($organization->settings['is_primary_platform'] ?? false),403);
+        abort_unless(User::whereKey($user->id)->where('status','Active')->where('deleted',false)->where('is_platform_admin',false)->exists(),404);
+        abort_unless(DB::table('organization_users')->where('organization_id',$organization->id)->where('user_id',$user->id)
+            ->whereIn('role',['owner','admin'])->where('status',1)->exists(),403);
+        $validated=$request->validate(['password'=>['required','string','min:15','max:128']]);
+        try {
+            app(\App\Support\AttendanceBridge::class)->provisionAdministrator($request,$actor,$organization,$user,$validated['password']);
+            $message='Attendance administrator account is ready.';
+        } catch (\Throwable $error) {
+            $message='Attendance administrator setup is pending. Re-enter the password to retry.';
+        }
+        return redirect()->route('saas.index')->with('success',$message);
+    }
+
     public function storePlatformAdmin(Request $request)
     {
         $validated = $request->validate([

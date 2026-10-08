@@ -527,6 +527,7 @@ Route::middleware('platform.admin')->group(function () {
     Route::post('saas/organizations', [\App\Http\Controllers\SaasController::class, 'storeOrganization'])->name('saas.organizations.store');
     Route::post('saas/organizations/{organization}/attendance-onboarding', [\App\Http\Controllers\SaasController::class, 'retryAttendanceOnboarding'])->middleware('throttle:10,1')->name('saas.organizations.attendance-onboarding');
     Route::post('saas/organization-users/assign', [\App\Http\Controllers\SaasController::class, 'assignUser'])->name('saas.organization-users.assign');
+    Route::post('saas/organizations/{organization}/admin-users/{user}/attendance', [\App\Http\Controllers\SaasController::class, 'retryAttendanceAdministrator'])->middleware('throttle:10,1')->name('saas.organizations.admin-users.attendance');
     Route::post('saas/organizations/{organization}/admin-users', [\App\Http\Controllers\SaasController::class, 'storeOrganizationAdmin'])->name('saas.organizations.admin-users.store');
     Route::post('saas/platform-admins', [\App\Http\Controllers\SaasController::class, 'storePlatformAdmin'])->name('saas.platform-admins.store');
     Route::patch('saas/admin-users/{user}/email', [\App\Http\Controllers\SaasController::class, 'updateAdministratorEmail'])->name('saas.admin-users.email.update');
