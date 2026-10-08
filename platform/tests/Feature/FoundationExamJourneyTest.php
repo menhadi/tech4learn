@@ -172,6 +172,39 @@ class FoundationExamJourneyTest extends TestCase
         $this->assertEmpty($exam->fresh()->slug,'Denied public printing must not mutate a draft slug');
     }
 
+    public function test_guest_print_cannot_omit_a_package_to_bypass_download_settings(): void
+    {
+        [$org]=$this->owner();
+        $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic packaged paper','status'=>'Active','passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam']);
+        $package=\App\Models\Package::create(['organization_id'=>$org->id,'name'=>'Synthetic restricted package','slug'=>'restricted-package','expiry_days'=>30,'amount'=>0,'status'=>1,'show_pdf_download'=>false]);
+        $exam->packages()->attach($package->id);
+        Auth::forgetGuards();$this->app['auth']->guard('web')->logout();Tenant::clear();
+        $base='https://synthetic-exams.test/exam-print/'.$exam->id;
+        $this->get($base)->assertNotFound();
+        $this->get($base.'?package=missing-package')->assertNotFound();
+        $this->get($base.'?package='.$package->id)->assertNotFound();
+        $this->assertEmpty($exam->fresh()->slug);
+    }
+
+    public function test_signed_internal_print_can_resolve_a_draft_but_tampering_cannot(): void
+    {
+        [$org]=$this->owner();
+        $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic signed draft','status'=>'Inactive','passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam']);
+        Auth::forgetGuards();$this->app['auth']->guard('web')->logout();Tenant::clear();
+        \Illuminate\Support\Facades\URL::forceRootUrl('https://synthetic-exams.test');
+        \Illuminate\Support\Facades\URL::forceScheme('https');
+        try {
+            $url=\Illuminate\Support\Facades\URL::temporarySignedRoute('exam.print',now()->addMinutes(5),['id'=>$exam->id]);
+            $this->get($url.'&pdf_render=1')->assertNotFound();
+            $this->assertEmpty($exam->fresh()->slug);
+            $this->get($url)->assertStatus(301);
+            $this->assertNotEmpty($exam->fresh()->slug);
+        } finally {
+            \Illuminate\Support\Facades\URL::forceRootUrl(null);
+            \Illuminate\Support\Facades\URL::forceScheme(null);
+        }
+    }
+
     public function test_print_denies_unsigned_solutions_and_foreign_exam_ids(): void
     {
         [$org]=$this->owner();
