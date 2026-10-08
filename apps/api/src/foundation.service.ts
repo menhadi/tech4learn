@@ -174,7 +174,11 @@ export class FoundationService {
         [native,mapped.organisation_id,learner])).rows[0];
       // An operator's existing identity link is not permission to create/adopt a
       // second native profile. Only a previously acknowledged delivery owns it.
-      const reviewRequired=!!existing && (Number(delivery.delivered_revision)===0 || (!existing.active&&!profile.archived));
+      // Legacy fixtures have no admissions schema; a reviewed origin must never enter ordinary profile creation.
+      const admissionSchema=(await sql.query<{present:boolean}>("SELECT to_regclass('foundation_student_admissions') IS NOT NULL AS present")).rows[0]?.present;
+      const admission=admissionSchema ? (await sql.query<{state:string}>(`SELECT state FROM foundation_student_admissions
+        WHERE native_organisation_id=$1 AND organisation_id=$2 AND learner_id=$3 FOR SHARE`,[native,mapped.organisation_id,learner])).rows[0] : undefined;
+      const reviewRequired=admission?.state==='awaiting_native' || (!!existing && (Number(delivery.delivered_revision)===0 || (!existing.active&&!profile.archived)));
       return {nativeOrganisationId:native,nativeUserId:user,organisationId:mapped.organisation_id,revision,reviewRequired,...profile};
     });
   }
@@ -197,6 +201,15 @@ export class FoundationService {
       const pending=(await sql.query<{revision:string}>(`SELECT revision::text FROM foundation_student_deliveries
         WHERE native_organisation_id=$1 AND organisation_id=$2 AND learner_id=$3 FOR UPDATE`,[native,org,learner])).rows[0];
       if(!pending || Number(pending.revision)!==receipt.revision)throw new ConflictException('Student delivery changed; retry the current revision.');
+      const admissionSchema=(await sql.query<{present:boolean}>("SELECT to_regclass('foundation_student_admissions') IS NOT NULL AS present")).rows[0]?.present;
+      const admission=admissionSchema ? (await sql.query<{native_student_id:string;key_id:string}>(`SELECT a.native_student_id::text,a.key_id
+        FROM foundation_student_admissions a JOIN foundation_native_signers k ON k.key_id=a.key_id
+        WHERE a.native_organisation_id=$1 AND a.organisation_id=$2 AND a.learner_id=$3 AND k.active FOR UPDATE OF a`,[native,org,learner])).rows[0] : undefined;
+      if(admissionSchema){
+        const exists=(await sql.query("SELECT admission_id FROM foundation_student_admissions WHERE native_organisation_id=$1 AND learner_id=$2",[native,learner])).rows.length;
+        if(exists && (!admission || admission.native_student_id!==receipt.nativeStudentId || admission.key_id!==body.keyId))
+          throw new ConflictException("Admission receipt does not prove its original native account.");
+      }
       await sql.query(`INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id,active)
         VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[native,receipt.nativeStudentId,org,learner,!profile.archived]);
       const link=(await sql.query<{learner_id:string;native_student_id:string;active:boolean}>(`SELECT learner_id,native_student_id::text,active FROM foundation_learners
@@ -207,6 +220,7 @@ export class FoundationService {
         WHERE native_organisation_id=$1 AND native_student_id=$2`,[native,receipt.nativeStudentId]);
       const changed=(await sql.query(`UPDATE foundation_student_deliveries SET delivered_revision=revision
         WHERE native_organisation_id=$1 AND learner_id=$2 AND delivered_revision<revision RETURNING revision`,[native,learner])).rows.length;
+      if(admission)await sql.query("UPDATE foundation_student_admissions SET state='linked' WHERE native_organisation_id=$1 AND learner_id=$2",[native,learner]);
       if(changed)await this.access.audit(sql,actor,org,'foundation.student_delivered',{
         nativeOrganisationId:native,nativeStudentId:receipt.nativeStudentId,learnerId:learner,revision:receipt.revision});
       return {nativeStudentId:receipt.nativeStudentId,learnerId:learner,revision:receipt.revision,delivered:true};

@@ -110,6 +110,40 @@ class FoundationPlatformIdentityTest extends TestCase
         }
     }
 
+    public function test_admission_binding_is_operator_gated_and_rechecks_scoped_snapshot(): void
+    {
+        $admission='11111111-1111-4111-8111-111111111111';
+        Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request('/enrolment');
+        config(['attendance.student_admissions_enabled'=>false]);
+        $this->denied(503,fn()=>(new AttendanceBridge)->bindAdmission($request,$admission));
+        config(['attendance.student_admissions_enabled'=>true]);
+        $context=['nativeOrganisationId'=>'1','nativeUserId'=>'1','organisation'=>['id'=>$admission],
+            'permissions'=>['learners.view','learners.edit'],'scope'=>['type'=>'organisation','ids'=>[]]];
+        $snapshot=['nativeOrganisationId'=>'1','nativeUserId'=>'1','organisationId'=>$admission,'admissionId'=>$admission,'learnerId'=>$admission,
+            'nativeStudentId'=>'99','originVersion'=>1,'originFingerprint'=>str_repeat('a',64),'state'=>'linked','revision'=>1,'version'=>1,
+            'name'=>'Synthetic applicant','code'=>'ADMIT-001','archived'=>false,'demo'=>false,'groupId'=>$admission,'untrustedExtra'=>'discard'];
+        $client=$this->client([$this->response($context),$this->response($snapshot),$this->response($context),$this->response($snapshot)]);
+        $checked=(new AttendanceBridge)->admissionBindingSnapshot($request,$admission,$client);
+        $this->assertSame('99',$checked['nativeStudentId']);$this->assertArrayNotHasKey('untrustedExtra',$checked);
+        $this->assertCount(4,$this->history);
+        foreach($this->history as $entry)$this->assertSame('GET',$entry['request']->getMethod());
+    }
+
+    public function test_admission_routes_reject_browser_native_identity_and_use_authentication(): void
+    {
+        $admission='11111111-1111-4111-8111-111111111111';
+        $controller=new \App\Http\Controllers\AttendanceBridgeController;
+        $request=Request::create('/enrolment/admissions/'.$admission.'/bind','POST',['nativeStudentId'=>'99']);
+        $this->denied(422,fn()=>$controller->bindAdmission($request,$admission,new AttendanceBridge));
+        $request=Request::create('/enrolment/admissions/'.$admission.'/review','POST',['fields'=>['name'=>'Synthetic'],'reviewConfirmed'=>true,'proof'=>[]]);
+        $this->denied(422,fn()=>$controller->reviewAdmission($request,$admission,new AttendanceBridge));
+        foreach(['enrolment.admission-review','enrolment.admission-bind','enrolment.admissions'] as $name){
+            $route=app('router')->getRoutes()->getByName($name);$this->assertNotNull($route);
+            $this->assertContains('auth',$route->middleware());
+            $this->assertContains('web',$route->middleware());
+        }
+    }
+
     public function test_primary_login_uses_platform_mapping_and_session_metadata(): void
     {
         $request=$this->request('/login','POST');

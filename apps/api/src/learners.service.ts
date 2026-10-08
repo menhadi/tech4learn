@@ -427,8 +427,8 @@ export class LearnersService {
     user: Account,
     org: string,
     v: Awaited<ReturnType<LearnersService["validate"]>>,
+    id: string = randomUUID(),
   ) {
-    const id = randomUUID();
     await sql.query(
       "INSERT INTO learners(id,organisation_id,code,name,age,class_label,guardian_name,guardian_phone,custom_values,group_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
       [
@@ -513,6 +513,20 @@ export class LearnersService {
       return { id };
     });
   }
+  /** Internal signed-admission review only; never expose a caller-selected ID on ordinary learner routes. */
+  async createReviewedAdmission(sql: SqlClient, user: Account, org: string, body: Body, verifiedAdmissionId: string) {
+    const id = uuid(verifiedAdmissionId);
+    await this.access.lock(sql, org);
+    const access = await this.access.require(user, org, "learners.create", sql);
+    await this.access.require(user, org, "learners.view", sql);
+    if ((await sql.query("SELECT id FROM learners WHERE id=$1", [id])).rows.length)
+      throw new ConflictException("Admission identity already exists; review its stored link instead of adopting it.");
+    const values = await this.validate(sql, org, body, access);
+    if (values.duplicate && body.confirmDuplicate !== true)
+      throw new ConflictException("Review the duplicate warning before confirming this new admission.");
+    return { id: await this.insert(sql, user, org, values, id) };
+  }
+
   async save(user: Account, org: string, b: Body, id?: string) {
     return this.db.transaction(async (sql) => {
       await this.access.lock(sql, org);

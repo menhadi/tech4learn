@@ -827,6 +827,11 @@ Route::post('/admin/ai-content/bulk-generator', [SeoGeneratorController::class, 
 Route::middleware('auth')->group(function () {
     Route::get('/enrolment', [\App\Http\Controllers\AttendanceBridgeController::class, 'enrolment'])->name('enrolment.workspace');
     Route::get('/enrolment/context', [\App\Http\Controllers\AttendanceBridgeController::class, 'enrolmentContext'])->name('enrolment.context');
+    Route::get('/enrolment/admissions', [\App\Http\Controllers\AttendanceBridgeController::class, 'pendingAdmissions'])->name('enrolment.admissions');
+    Route::post('/enrolment/admissions/{admission}/review', [\App\Http\Controllers\AttendanceBridgeController::class, 'reviewAdmission'])
+        ->where('admission','[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}')->middleware('throttle:20,1')->name('enrolment.admission-review');
+    Route::post('/enrolment/admissions/{admission}/bind', [\App\Http\Controllers\AttendanceBridgeController::class, 'bindAdmission'])
+        ->where('admission','[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}')->middleware('throttle:20,1')->name('enrolment.admission-bind');
     Route::post('/enrolment/students/{learner}/deliver', [\App\Http\Controllers\AttendanceBridgeController::class, 'deliverStudent'])
         ->where('learner','[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}')->name('enrolment.student-delivery');
     Route::get('/enrolment/students/{learner}/delivery-status', [\App\Http\Controllers\AttendanceBridgeController::class, 'studentDeliveryStatus'])

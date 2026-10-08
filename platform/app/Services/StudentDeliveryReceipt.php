@@ -21,6 +21,26 @@ class StudentDeliveryReceipt
         abort_unless($details && $details['type']===OPENSSL_KEYTYPE_RSA && $details['bits']>=2048,503,'Native student delivery signing is not configured.');
         return [$key,$details];
     }
+    public function issueAdmission(Request $request, string $admission): array
+    {
+        return DB::transaction(function () use ($request,$admission) {
+            $snapshot=app(StudentAdmission::class)->reviewSnapshot($request,$admission);
+            $actor=Auth::user();
+            [$key,$details]=$this->signingKey();
+            $der=base64_decode(preg_replace('/-----[^-]+-----|\s/','',$details['key']),true);
+            abort_unless(is_string($der),503);
+            // A distinct issuer prevents an admission proof being used as a delivery acknowledgement.
+            $receipt=json_encode(['issuer'=>'tech4learn-native-admission-v1',
+                'nativeOrganisationId'=>$snapshot['nativeOrganisationId'],'nativeUserId'=>(string)$actor->id,
+                'nativeStudentId'=>$snapshot['nativeStudentId'],'admissionId'=>$snapshot['admissionId'],
+                'version'=>$snapshot['version'],'fingerprint'=>hash('sha256',json_encode($snapshot,JSON_THROW_ON_ERROR)),
+                'issuedAt'=>time()],JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES);
+            abort_unless(openssl_sign($receipt,$signature,$key,OPENSSL_ALGO_SHA256),503,'Native admission signing failed.');
+            $encode=fn(string $bytes)=>rtrim(strtr(base64_encode($bytes),'+/','-_'),'=');
+            return ['keyId'=>hash('sha256',$der),'receipt'=>$encode($receipt),'signature'=>$encode($signature)];
+        });
+    }
+
     public function issue(Request $request, string $learner, int $revision): array
     {
         $actor=Auth::user();abort_unless($actor instanceof User,403);

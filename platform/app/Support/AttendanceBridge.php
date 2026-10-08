@@ -11,6 +11,81 @@ use Illuminate\Support\Facades\Cookie;
 
 class AttendanceBridge
 {
+    public function pendingAdmissions(Request $request, ?ClientInterface $http=null): array
+    {
+        abort_unless(config('attendance.student_admissions_enabled',false),503);
+        $context=$this->context($request,$http,'enrolment');
+        foreach(['learners.create','learners.view','learners.edit'] as $permission)abort_unless(in_array($permission,$context['permissions'],true),403);
+        $result=app(\App\Services\StudentAdmission::class)->pending($request);
+        abort_unless($this->context($request,$http,'enrolment')===$context
+            && app(\App\Services\StudentAdmission::class)->pending($request)===$result,403);
+        return $result;
+    }
+
+    public function reviewAdmission(Request $request, string $admission, array $fields, bool $confirmed, ?ClientInterface $http=null): array
+    {
+        abort_unless(config('attendance.student_admissions_enabled',false),503);
+        abort_unless($confirmed && preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$admission),422);
+        $allowed=['code','name','age','class_label','guardian_name','guardian_phone','custom_values','group_id','confirmDuplicate'];
+        abort_unless(count(array_diff(array_keys($fields),$allowed))===0 && strlen(json_encode($fields,JSON_THROW_ON_ERROR))<=32000,422);
+        $context=$this->context($request,$http,'enrolment');
+        foreach(['learners.create','learners.view','learners.edit'] as $permission)abort_unless(in_array($permission,$context['permissions'],true),403);
+        $source=app(\App\Services\StudentAdmission::class)->reviewSnapshot($request,$admission);
+        $proof=app(\App\Services\StudentDeliveryReceipt::class)->issueAdmission($request,$admission);
+        $path='/foundation/organisations/'.$context['nativeOrganisationId'].'/staff/'.$context['nativeUserId'].'/admissions/review';
+        $result=$this->read($request,$path,[],$http,'POST',['proof'=>$proof,'fields'=>$fields,'reviewConfirmed'=>true]);
+        abort_unless(($result['admissionId']??null)===$admission && ($result['learnerId']??null)===$admission,502);
+        abort_unless($this->context($request,$http,'enrolment')===$context
+            && app(\App\Services\StudentAdmission::class)->reviewSnapshot($request,$admission)===$source,409,'Admission changed during review.');
+        return $this->bindAdmission($request,$admission,$http);
+    }
+
+    public function admissionBindingSnapshot(Request $request, string $admission, ?ClientInterface $http=null): array
+    {
+        abort_unless(preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$admission),422);
+        $context=$this->context($request,$http,'enrolment');
+        abort_unless(in_array('learners.edit',$context['permissions'],true),403);
+        $path='/foundation/organisations/'.$context['nativeOrganisationId'].'/staff/'.$context['nativeUserId'].'/admissions/'.$admission.'/binding-snapshot';
+        $snapshot=$this->read($request,$path,[],$http);
+        abort_unless(($snapshot['nativeOrganisationId']??null)===$context['nativeOrganisationId']
+            && ($snapshot['nativeUserId']??null)===$context['nativeUserId']
+            && ($snapshot['organisationId']??null)===$context['organisation']['id']
+            && ($snapshot['admissionId']??null)===$admission && ($snapshot['learnerId']??null)===$admission
+            && is_string($snapshot['nativeStudentId']??null) && preg_match('/^[1-9][0-9]{0,14}$/D',$snapshot['nativeStudentId'])
+            && is_int($snapshot['originVersion']??null) && $snapshot['originVersion']>0
+            && is_string($snapshot['originFingerprint']??null) && preg_match('/^[a-f0-9]{64}$/D',$snapshot['originFingerprint'])
+            && in_array($snapshot['state']??null,['awaiting_native','linked'],true)
+            && is_int($snapshot['revision']??null) && $snapshot['revision']>0 && $snapshot['revision']<1000000000000000
+            && is_int($snapshot['version']??null) && $snapshot['version']>0
+            && is_string($snapshot['name']??null) && mb_strlen($snapshot['name'])<=120
+            && is_string($snapshot['code']??null) && preg_match('/^[A-Z0-9][A-Z0-9_-]{0,39}$/D',$snapshot['code'])
+            && is_bool($snapshot['archived']??null) && is_bool($snapshot['demo']??null)
+            && is_string($snapshot['groupId']??null) && preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$snapshot['groupId']),502);
+        abort_unless($this->context($request,$http,'enrolment')===$context && $this->read($request,$path,[],$http)===$snapshot,409);
+        return array_intersect_key($snapshot,array_flip(['nativeOrganisationId','nativeUserId','organisationId','admissionId','learnerId',
+            'nativeStudentId','originVersion','originFingerprint','state','revision','version','name','code','archived','demo','groupId']));
+    }
+    public function bindAdmission(Request $request, string $admission, ?ClientInterface $http=null): array
+    {
+        abort_unless(config('attendance.student_admissions_enabled',false),503,'Shared admissions are not enabled.');
+        $snapshot=$this->admissionBindingSnapshot($request,$admission,$http);
+        if($snapshot['state']==='linked'){
+            app(\App\Services\StudentAdmission::class)->completeBinding($request,$admission);
+            return ['admissionId'=>$admission,'learnerId'=>$admission,'linked'=>true];
+        }
+        app(\App\Services\StudentDeliveryReceipt::class)->assertConfigured();
+        $result=app(\App\Services\StudentAdmission::class)->bindTrustedSnapshot($request,$snapshot);
+        app(\App\Services\EnrolledStudentGroup::class)->apply($request,$snapshot);
+        $receipt=app(\App\Services\StudentDeliveryReceipt::class)->issue($request,$admission,$snapshot['revision']);
+        abort_unless($this->admissionBindingSnapshot($request,$admission,$http)===$snapshot,409,'Admission changed; review the current delivery.');
+        $path='/foundation/organisations/'.$snapshot['nativeOrganisationId'].'/staff/'.$snapshot['nativeUserId'].'/student-deliveries/'.$admission.'/acknowledge';
+        $ack=$this->read($request,$path,[],$http,'POST',$receipt);
+        abort_unless(($ack['nativeStudentId']??null)===$result['nativeStudentId'] && ($ack['learnerId']??null)===$admission
+            && ($ack['revision']??null)===$snapshot['revision'] && ($ack['delivered']??null)===true,502);
+        app(\App\Services\StudentAdmission::class)->completeBinding($request,$admission);
+        return ['admissionId'=>$admission,'learnerId'=>$admission,'linked'=>true];
+    }
+
     public function studentDeliverySnapshot(Request $request, string $learner, ?ClientInterface $http=null, bool $forDelivery=false): array
     {
         abort_unless(preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$learner),422);

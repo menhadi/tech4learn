@@ -229,6 +229,9 @@ class StudentAuthController extends Controller
 
         $this->ensureTenantOwnsGroup((int) $request->group_id);
 
+        $student = \Illuminate\Support\Facades\DB::transaction(function () use ($request,$tenantId) {
+            if(config('attendance.student_admissions_enabled',false))
+                abort_unless(\Illuminate\Support\Facades\DB::table('organizations')->where('id',$tenantId)->where('status','active')->lockForUpdate()->first(),403);
         $student = Student::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -242,6 +245,11 @@ class StudentAuthController extends Controller
         if ($request->has('group_id')) {
             $student->groups()->attach($request->group_id);
         }
+
+            if(config('attendance.student_admissions_enabled',false) && !(Tenant::current($request->getHost())->settings['is_primary_platform'] ?? false))
+                app(\App\Services\StudentAdmission::class)->recordNewSignup($request,$student);
+            return $student;
+        });
 
         StudentActivityTracker::track(StudentActivityTracker::STUDENT_REGISTERED, [
             'organization_id' => $tenantId,

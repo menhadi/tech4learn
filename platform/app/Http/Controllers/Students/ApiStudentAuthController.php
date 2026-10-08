@@ -50,6 +50,9 @@ class ApiStudentAuthController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        $student = \Illuminate\Support\Facades\DB::transaction(function () use ($request,$organizationId) {
+            if(config('attendance.student_admissions_enabled',false))
+                abort_unless(\Illuminate\Support\Facades\DB::table('organizations')->where('id',$organizationId)->where('status','active')->lockForUpdate()->first(),403);
         $student = Student::create([
             'organization_id' => $organizationId,
             'name' => $request->name,
@@ -66,6 +69,11 @@ class ApiStudentAuthController extends Controller
         if ($defaultGroupId) {
             $student->groups()->syncWithoutDetaching([$defaultGroupId]);
         }
+
+            if(config('attendance.student_admissions_enabled',false) && !(Tenant::current($request->getHost())->settings['is_primary_platform'] ?? false))
+                app(\App\Services\StudentAdmission::class)->recordNewSignup($request,$student);
+            return $student;
+        });
 
         $this->welcomeEmailService->sendOnce($student);
 

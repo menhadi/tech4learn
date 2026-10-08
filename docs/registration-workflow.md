@@ -37,7 +37,18 @@ preflight the whole batch before changing any record. Organisation locks seriali
 these checks with canonical delivery. Native checks passed 38 tests / 165 assertions;
 live login and workspace readback passed without changing student records.
 
-Public student self-registration remains a separate native path. It does not
+A complete reviewed public admission flow is implemented locally, with native
+migration `2026_10_09_000008` and companion migration 24. New organisation
+signups record an ID-only admission in the signup transaction. Staff review uses
+the shared enrolment form, requires an explicit section and confirmation, and
+checks current permissions plus a signed native-origin receipt. The exact original
+native account is bound to the canonical UUID; passwords, contacts and login
+status are preserved. Pending native binding blocks ordinary profile creation;
+remote failures can resume without creating another account. Existing records are
+never backfilled or matched by name/email. The platform realm is excluded from
+organisation admissions. This flow is not deployed or accepted live yet.
+
+Public student self-registration remains a separate native path in production. It does not
 currently create a reviewed canonical section enrolment. Existing pending
 verification and sign-in must remain available; a shared public admissions path
 needs host-derived organisation scope and explicit staff review, without treating

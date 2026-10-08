@@ -1,3 +1,5 @@
+import {StudentAdmissionsController} from "./student-admissions.controller.js";
+import {StudentAdmissionsService} from "./student-admissions.service.js";
 import { FaceControlController } from "./face-control.controller.js";
 import { RegistrationDocumentsController } from "./registration-documents.controller.js";
 import { RegistrationDocumentsService } from "./registration-documents.service.js";
@@ -48,7 +50,7 @@ export class AppModule {
       module: AppModule,
       controllers: [
         RegistrationDocumentsController,
-        FoundationController,
+        FoundationController,StudentAdmissionsController,
         ...(mode === "legacy" ? [ExamStudentAccessController,
         ExamContentController,
         ExamEliteController,
@@ -67,7 +69,7 @@ export class AppModule {
       ],
       providers: [
         RegistrationDocumentsService,
-        FoundationService,
+        FoundationService,StudentAdmissionsService,
         ...(mode === "legacy" ? [ExamStudentAccessService,
         ExamStudentAttemptService,
         ExamContentService,

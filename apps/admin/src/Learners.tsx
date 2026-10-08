@@ -1,3 +1,4 @@
+import {StudentAdmissions,admissionRequest,type Admission} from "./StudentAdmissions";
 import { DraftForm, useDraftKey } from "./DraftForm";
 import { removeDraft } from "./form-drafts";
 import { SmartTable } from "./DirectoryTable";
@@ -68,18 +69,21 @@ export function Learners({
   groups,
   initialGroup = "",
   studentDeliveryEnabled = false,
+  studentAdmissionsEnabled = false,
 }: {
   org: string;
   permissions: string[];
   groups: Group[];
   initialGroup?: string;
   studentDeliveryEnabled?: boolean;
+  studentAdmissionsEnabled?: boolean;
 }) {
   const base = `/organisations/${org}`,
     can = (p: string) => permissions.includes(p);
   const [items, setItems] = useState<Learner[]>([]),
     [defs, setDefs] = useState<Definition[]>([]),
     [selected, setSelected] = useState<Learner | null>(null),
+    [admission,setAdmission]=useState<Admission|null>(null),
     [creating, setCreating] = useState(false),
     [editorKey, setEditorKey] = useState(0),
     [fieldEdit, setFieldEdit] = useState<Definition | null>(null),
@@ -191,7 +195,7 @@ export function Learners({
     invalid?.focus();
     invalid?.reportValidity();
   }, [busy, enrolmentError]);
-  const recordDraftKey = useDraftKey(`learner:${current?.id || "new"}`);
+  const recordDraftKey = useDraftKey(`learner:${current?.id || (admission ? "admission:"+admission.admissionId : "new")}`);
   async function saveDetails() {
     const form = enrolmentForm.current;
     setEnrolmentError("");
@@ -230,7 +234,13 @@ export function Learners({
     };
     let r: {id:string};
     try {
-      r = await api<{id:string}>(`${base}/learners${current ? "/" + current.id : ""}`, current ? "PATCH" : "POST", body);
+      if(admission && !current){
+        if(f.get('reviewConfirmed')!=='on')throw new Error('Confirm that the admission and section have been reviewed.');
+        const {version:ignored,...reviewFields}=body;
+        const result=await admissionRequest<{learnerId:string}>('/'+admission.admissionId+'/review','POST',{fields:reviewFields,reviewConfirmed:true});
+        if(result.learnerId!==admission.admissionId)throw new Error('Admission identity changed; reload its review.');
+        r={id:result.learnerId};
+      }else r = await api<{id:string}>(`${base}/learners${current ? "/" + current.id : ""}`, current ? "PATCH" : "POST", body);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Could not save. Please try again.";
       setEnrolmentError(message);
@@ -241,7 +251,7 @@ export function Learners({
     }
     if (recordDraftKey) removeDraft(recordDraftKey);
     setSelected(await api<Learner>(`${base}/learners/${r.id}`));
-    setCreating(false);
+    setCreating(false);setAdmission(null);
     return r.id;
   }
   const editable = current
@@ -281,7 +291,7 @@ export function Learners({
             className="secondary"
             onClick={() => {
               setEditorKey((k) => k + 1);
-              setCreating(true);
+              setAdmission(null);setCreating(true);
               setSelected(null);
               setEnrolmentError("");
               setError("");
@@ -313,7 +323,7 @@ export function Learners({
                   );
                   setEditorKey((k) => k + 1);
                   setSelected(await api<Learner>(`${base}/learners/${r.id}`));
-                  setCreating(false);
+                  setAdmission(null);setCreating(false);
                 });
               }}
             >
@@ -396,7 +406,7 @@ export function Learners({
                       setSelected(
                         await api<Learner>(`${base}/learners/${l.id}`),
                       );
-                      setCreating(false);
+                      setAdmission(null);setCreating(false);
                     }, "Profile opened.")
                   }
                 >
@@ -412,7 +422,7 @@ export function Learners({
                         setSelected(
                           await api<Learner>(`${base}/learners/${l.id}`),
                         );
-                        setCreating(false);
+                        setAdmission(null);setCreating(false);
                       }, "Student photo setup opened.")
                     }
                   >
@@ -424,6 +434,9 @@ export function Learners({
           ))}
         </DirectoryTable>
       </div>
+      {studentAdmissionsEnabled&&can('learners.create')&&can('learners.view')&&can('learners.edit')&&<StudentAdmissions revision={revision} onLinked={async row=>{await load();if(admission?.admissionId===row.admissionId&&recordDraftKey)removeDraft(recordDraftKey);setSelected(await api<Learner>(`${base}/learners/${row.admissionId}`));setAdmission(null);setCreating(false);setRevision(v=>v+1);}} onReview={row=>{
+        setAdmission(row);setSelected(null);setCreating(true);setEditorKey(v=>v+1);setEnrolmentError('');setError('');
+      }}/>}
       {(creating || current) && (
         <section className="record">
           <h3>{current ? current.name : "New learner"}</h3>
@@ -442,7 +455,7 @@ export function Learners({
             <DraftForm
               title="Learner enrolment"
               noValidate
-              draftKey={`learner:${current?.id || "new"}`}
+              draftKey={`learner:${current?.id || (admission ? "admission:"+admission.admissionId : "new")}`}
               key={editorKey}
               formRef={enrolmentForm}
               onSubmit={(e) => {
@@ -453,6 +466,7 @@ export function Learners({
             >
               <p>Enter the student's name and select their section. Other details can be added later, except fields marked required by your organisation.</p>
               {enrolmentError && <p className="error" role="alert">{enrolmentError}</p>}
+              {admission&&!current&&<label><input type="checkbox" name="reviewConfirmed" required/> I have reviewed this signup and its section. Preserve its original exam account when enrolling.</label>}
               <fieldset disabled={busy || !editable}>
                 <legend>1. Student details</legend>
                 <label>
@@ -473,7 +487,7 @@ export function Learners({
                     name="name"
                     required
                     maxLength={120}
-                    defaultValue={current?.name}
+                    defaultValue={current?.name || admission?.name}
                   />
                 </label>
                 <div className="form-grid">
@@ -707,7 +721,7 @@ export function Learners({
           <button
             className="secondary"
             onClick={() => {
-              setSelected(null);
+              setSelected(null);setAdmission(null);
               setCreating(false);
             }}
           >

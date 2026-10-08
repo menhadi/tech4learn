@@ -108,6 +108,72 @@ class EnrolledStudentProfileTest extends TestCase
         $this->assertSame($password,DB::table('students')->where('id',$student->id)->value('password'));
     }
 
+    public function test_new_signup_admission_is_atomic_idempotent_and_never_adopts_existing_profiles(): void
+    {
+        (require database_path('migrations/2026_10_09_000008_create_foundation_student_admissions.php'))->up();
+        $request=Request::create('https://tenant-1.example.invalid/student/signup');app()->instance('request',$request);
+        $service=new \App\Services\StudentAdmission;
+        $new=fn()=>\App\Models\Student::create(['organization_id'=>1,'name'=>'Synthetic admission',
+            'password'=>'unused private fixture','address'=>'','status'=>'Pending']);
+        DB::transaction(function() use($request,$service,$new){
+            $student=$new();$id=$service->recordNewSignup($request,$student);
+            $this->assertSame($id,$service->recordNewSignup($request,$student));
+            $this->assertSame('Pending',DB::table('students')->where('id',$student->id)->value('status'));
+            $old=\App\Models\Student::findOrFail($student->id);
+            $this->denied(409,fn()=>$service->recordNewSignup($request,$old));
+        });
+        $this->assertSame(1,DB::table('foundation_student_admissions')->count());
+        $admission=DB::table('foundation_student_admissions')->first()->admission_id;
+        $review=$service->reviewSnapshot($request,$admission);
+        $this->assertSame(['admissionId','nativeOrganisationId','nativeStudentId','version','name','enroll'],array_keys($review));
+        DB::table('organization_users')->where('user_id',1)->update(['role'=>'staff']);
+        $this->denied(403,fn()=>$service->reviewSnapshot($request,$admission));
+        DB::table('organization_users')->where('user_id',1)->update(['role'=>'admin']);
+        try { DB::transaction(function() use($request,$service,$new){$service->recordNewSignup($request,$new());throw new \RuntimeException('rollback fixture');}); }
+        catch(\RuntimeException $error){$this->assertSame('rollback fixture',$error->getMessage());}
+        $this->assertSame(1,DB::table('students')->count());
+        $this->assertSame(1,DB::table('foundation_student_admissions')->count());
+        $origin=DB::table('students')->first();$password=$origin->password;
+        $binding=['admissionId'=>$admission,'learnerId'=>$admission,'state'=>'awaiting_native','nativeOrganisationId'=>'1',
+            'nativeStudentId'=>(string)$origin->id,'originVersion'=>1,'originFingerprint'=>hash('sha256',json_encode($review,JSON_THROW_ON_ERROR)),
+            'name'=>'Reviewed synthetic admission','code'=>'ADMIT-001','revision'=>1,'archived'=>false,'demo'=>false];
+        $this->denied(409,fn()=>$service->bindTrustedSnapshot($request,array_replace($binding,['nativeStudentId'=>'999'])));
+        $this->denied(409,fn()=>$service->bindTrustedSnapshot($request,array_replace($binding,['originFingerprint'=>str_repeat('0',64)])));
+        $this->assertSame(0,DB::table('foundation_student_profiles')->count());
+        $bound=$service->bindTrustedSnapshot($request,$binding);
+        $this->assertSame((string)$origin->id,$bound['nativeStudentId']);
+        $this->assertSame($bound,$service->bindTrustedSnapshot($request,$binding));
+        $this->assertSame(1,DB::table('students')->count());
+        $this->assertSame($password,DB::table('students')->first()->password);
+        $this->assertSame('Pending',DB::table('students')->first()->status);
+        $this->assertCount(1,$service->pending($request)['items']);
+        $service->completeBinding($request,$admission);
+        $service->completeBinding($request,$admission);
+        $this->assertCount(0,$service->pending($request)['items']);
+    }
+
+    public function test_public_api_signup_rolls_back_account_and_group_when_admission_intent_fails(): void
+    {
+        config(['attendance.student_admissions_enabled'=>true]);
+        DB::table('organizations')->where('id',1)->update(['slug'=>'examelite']);
+        DB::table('groups')->insert(['id'=>1,'organization_id'=>1]);
+        Auth::forgetGuards();Tenant::clear();
+        app()->instance(\App\Services\StudentAdmission::class,new class extends \App\Services\StudentAdmission {
+            public function recordNewSignup(Request $request,\App\Models\Student $student): string {throw new \RuntimeException('synthetic intent failure');}
+        });
+        $welcome=new class extends \App\Services\StudentWelcomeEmailService {
+            public function __construct(){}
+            public function sendOnce(\App\Models\Student $student): bool {throw new \RuntimeException('Lifecycle message must not precede signup commit.');}
+        };
+        $controller=new \App\Http\Controllers\Students\ApiStudentAuthController($welcome,new \App\Services\PhoneNumberService);
+        $request=Request::create('https://tenant-1.example.invalid/api/student/signup','POST',['name'=>'Synthetic signup',
+            'email'=>'signup@example.invalid','password'=>'synthetic private password','password_confirmation'=>'synthetic private password','address'=>'Synthetic address']);
+        app()->instance('request',$request);
+        try {$controller->signup($request);$this->fail('Expected atomic signup failure.');}
+        catch(\RuntimeException $error){$this->assertSame('synthetic intent failure',$error->getMessage());}
+        $this->assertSame(0,DB::table('students')->count());$this->assertSame(0,DB::table('student_groups')->count());
+    }
+
     public function test_profile_delivery_is_idempotent_and_does_not_enable_login_or_invent_contacts(): void
     {
         $result=$this->apply($this->snapshot);$this->assertSame($result,$this->apply($this->snapshot));
@@ -162,8 +228,21 @@ class EnrolledStudentProfileTest extends TestCase
             $this->assertSame(['issuer','nativeOrganisationId','nativeUserId','nativeStudentId','learnerId','revision','issuedAt'],array_keys($payload));
             $this->assertSame('1',$payload['nativeStudentId']);
             $this->denied(409,fn()=>(new StudentDeliveryReceipt)->issue($request,$this->snapshot['learnerId'],2));
+            (require database_path('migrations/2026_10_09_000008_create_foundation_student_admissions.php'))->up();
+            $admission=DB::transaction(function() use($request){
+                $student=\App\Models\Student::create(['organization_id'=>1,'name'=>'Synthetic applicant','password'=>'unused',
+                    'address'=>'','status'=>'Pending']);
+                return (new \App\Services\StudentAdmission)->recordNewSignup($request,$student);
+            });
+            $proof=(new StudentDeliveryReceipt)->issueAdmission($request,$admission);
+            $admissionBytes=$decode($proof['receipt']);$admissionPayload=json_decode($admissionBytes,true);
+            $this->assertSame(1,openssl_verify($admissionBytes,$decode($proof['signature']),openssl_pkey_get_details($key)['key'],OPENSSL_ALGO_SHA256));
+            $this->assertSame('tech4learn-native-admission-v1',$admissionPayload['issuer']);
+            $this->assertSame(['issuer','nativeOrganisationId','nativeUserId','nativeStudentId','admissionId','version','fingerprint','issuedAt'],array_keys($admissionPayload));
+            $this->assertSame('2',$admissionPayload['nativeStudentId']);
             DB::table('organization_users')->update(['status'=>0]);
             $this->denied(403,fn()=>(new StudentDeliveryReceipt)->issue($request,$this->snapshot['learnerId'],1));
+            $this->denied(403,fn()=>(new StudentDeliveryReceipt)->issueAdmission($request,$admission));
         } finally {
             app()->useStoragePath($original);if(is_file($path))unlink($path);
             rmdir($directory.'/app/private');rmdir($directory.'/app');rmdir($directory);
@@ -221,6 +300,60 @@ class EnrolledStudentProfileTest extends TestCase
             $result=$bridge->deliverStudent($request,$learner,$client($response(['nativeStudentId'=>'1','learnerId'=>$learner,'revision'=>1,'delivered'=>true])));
             $this->assertTrue($result['delivered']);$this->assertSame(1,DB::table('students')->count());
             $this->assertSame($password,DB::table('students')->first()->password);
+            $last=end($history)['request'];$this->assertSame('POST',$last->getMethod());
+            $body=json_decode((string)$last->getBody(),true);$this->assertSame(['keyId','receipt','signature'],array_keys($body));
+            $bytes=base64_decode(strtr($body['receipt'],'-_','+/'));
+            $this->assertSame(1,openssl_verify($bytes,base64_decode(strtr($body['signature'],'-_','+/')),openssl_pkey_get_details($key)['key'],OPENSSL_ALGO_SHA256));
+            $this->assertArrayNotHasKey('name',json_decode($bytes,true));
+        } finally {
+            app()->useStoragePath($original);if(is_file($path))unlink($path);
+            rmdir($directory.'/app/private');rmdir($directory.'/app');rmdir($directory);
+        }
+    }
+    public function test_admission_binding_retry_keeps_original_account_after_remote_ack_failure(): void
+    {
+        $original=storage_path();$directory=sys_get_temp_dir().'/student-delivery-'.bin2hex(random_bytes(8));
+        mkdir($directory.'/app/private',0700,true);app()->useStoragePath($directory);
+        $path=$directory.'/app/private/student-delivery-signing.pem';
+        try {
+            config(['attendance.api_url'=>'https://canonical.example.invalid/api/v1','attendance.student_delivery_enabled'=>true]);
+            config(['attendance.student_admissions_enabled'=>true]);
+            (require database_path('migrations/2026_10_09_000008_create_foundation_student_admissions.php'))->up();
+            $key=openssl_pkey_new(['private_key_bits'=>2048,'private_key_type'=>OPENSSL_KEYTYPE_RSA]);
+            openssl_pkey_export($key,$pem);file_put_contents($path,$pem);chmod($path,0600);
+            $org='33333333-3333-4333-8333-333333333333';
+            $context=['nativeOrganisationId'=>'1','nativeUserId'=>'1','organisation'=>['id'=>$org],
+                'permissions'=>['learners.view','learners.edit'],'scope'=>['type'=>'organisation','ids'=>[]]];
+
+            $request=Request::create('https://tenant-1.example.invalid/enrolment','POST',[],['t4l_session'=>str_repeat('a',64)]);
+            $request->setUserResolver(fn()=>Auth::user());app()->instance('request',$request);
+            $admissions=new \App\Services\StudentAdmission;
+            $learner=DB::transaction(function() use($request,$admissions){
+                $student=\App\Models\Student::create(['organization_id'=>1,'name'=>'Synthetic public signup','email'=>'synthetic@example.invalid',
+                    'password'=>'original synthetic secret','address'=>'','status'=>'Pending']);
+                return $admissions->recordNewSignup($request,$student);
+            });
+            $source=$admissions->reviewSnapshot($request,$learner);
+            $snapshot=['nativeOrganisationId'=>'1','nativeUserId'=>'1','organisationId'=>$org,'learnerId'=>$learner,'admissionId'=>$learner,
+                'nativeStudentId'=>'1','originVersion'=>1,'originFingerprint'=>hash('sha256',json_encode($source,JSON_THROW_ON_ERROR)),
+                'state'=>'awaiting_native','revision'=>1,'version'=>1,'name'=>'Reviewed synthetic signup','code'=>'ADMIT-001',
+                'archived'=>false,'demo'=>false,'groupId'=>$org];
+
+            $history=[];$response=fn($v,$status=200)=>new \GuzzleHttp\Psr7\Response($status,['Content-Type'=>'application/json'],json_encode($v));
+            $client=function($ack) use($context,$snapshot,$response,&$history) {
+                $queue=[];for($i=0;$i<2;$i++)array_push($queue,$response($context),$response($snapshot),$response($context),$response($snapshot));
+                $queue[]=$ack;$stack=\GuzzleHttp\HandlerStack::create(new \GuzzleHttp\Handler\MockHandler($queue));
+                $stack->push(\GuzzleHttp\Middleware::history($history));return new \GuzzleHttp\Client(['handler'=>$stack]);
+            };
+            $bridge=new \App\Support\AttendanceBridge;
+            $this->denied(502,fn()=>$bridge->bindAdmission($request,$learner,$client($response([],503))));
+            $this->assertSame(1,DB::table('students')->count());$password=DB::table('students')->first()->password;
+            $result=$bridge->bindAdmission($request,$learner,$client($response(['nativeStudentId'=>'1','learnerId'=>$learner,'revision'=>1,'delivered'=>true])));
+            $this->assertTrue($result['linked']);$this->assertSame(1,DB::table('students')->count());
+            $this->assertSame($password,DB::table('students')->first()->password);
+            $this->assertSame('Pending',DB::table('students')->first()->status);
+            $this->assertSame('synthetic@example.invalid',DB::table('students')->first()->email);
+            $this->assertSame('linked',DB::table('foundation_student_admissions')->first()->state);
             $last=end($history)['request'];$this->assertSame('POST',$last->getMethod());
             $body=json_decode((string)$last->getBody(),true);$this->assertSame(['keyId','receipt','signature'],array_keys($body));
             $bytes=base64_decode(strtr($body['receipt'],'-_','+/'));

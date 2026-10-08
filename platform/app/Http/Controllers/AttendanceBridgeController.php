@@ -16,9 +16,26 @@ class AttendanceBridgeController extends Controller
     public function enrolmentContext(Request $request, AttendanceBridge $bridge): JsonResponse
     {
         return response()->json($bridge->context($request,null,'enrolment')+[
-            'studentDeliveryEnabled'=>(bool)config('attendance.student_delivery_enabled',false)
+            'studentDeliveryEnabled'=>(bool)config('attendance.student_delivery_enabled',false),
+            'studentAdmissionsEnabled'=>(bool)config('attendance.student_admissions_enabled',false)
         ])->header('Cache-Control','no-store');
     }
+    public function pendingAdmissions(Request $request, AttendanceBridge $bridge): JsonResponse
+    {
+        return response()->json($bridge->pendingAdmissions($request))->header('Cache-Control','no-store');
+    }
+    public function reviewAdmission(Request $request, string $admission, AttendanceBridge $bridge): JsonResponse
+    {
+        $body=$request->except('_token');
+        abort_unless(count($body)===2 && is_array($body['fields']??null) && ($body['reviewConfirmed']??null)===true,422);
+        return response()->json($bridge->reviewAdmission($request,$admission,$body['fields'],true))->header('Cache-Control','no-store');
+    }
+    public function bindAdmission(Request $request, string $admission, AttendanceBridge $bridge): JsonResponse
+    {
+        abort_unless(count($request->except('_token'))===0,422,'Admission binding does not accept profile or identity fields.');
+        return response()->json($bridge->bindAdmission($request,$admission))->header('Cache-Control','no-store');
+    }
+
     public function deliverStudent(Request $request, string $learner, AttendanceBridge $bridge): JsonResponse
     {
         // Only the canonical UUID in the route is used. Client profile/ID/key fields are rejected.
