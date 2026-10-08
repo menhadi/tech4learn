@@ -31,7 +31,8 @@
 
                     <div class="col-md-6">
                         <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" minlength="6" required>
+                        @if(config('attendance.api_url'))<p class="text-muted small">Owner/Admin attendance accounts require 15–128 characters.</p>@endif
+                        <input type="password" name="password" class="form-control" minlength="6" maxlength="128" autocomplete="new-password" required>
                     </div>
 
                     <div class="col-md-6">

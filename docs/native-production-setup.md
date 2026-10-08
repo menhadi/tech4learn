@@ -1476,3 +1476,12 @@ and is throttled to ten attempts per minute. No password is saved in a pending
 record. Targeted controller checks passed 11 tests / 48 assertions, including
 successful retry and refusal after membership changes to staff. The browser form
 and authenticated route acceptance remain pending.
+
+The existing organisation-user table now offers password re-entry setup/retry for
+active owner/admin assignments after companion onboarding completes. The form
+contains only a password and CSRF token, without a saved password value or draft.
+It explains that exact retry preserves an existing attendance password. Creation
+shows the attendance password requirement. Local HTTP route checks passed within
+4 onboarding tests / 27 assertions: ordinary operator denial, platform retry and
+denial after target membership changes to staff. Browser interaction and live
+acceptance remain pending.

@@ -13,6 +13,10 @@
             'users.name as user_name',
             'users.id as user_id',
             'users.email as user_email',
+            'users.status as user_status',
+            'users.deleted as user_deleted',
+            'users.is_platform_admin as user_platform_admin',
+            'organization_users.organization_id',
             'organization_users.role',
             'organization_users.status'
         )
@@ -510,6 +514,18 @@
                                     <button type="button" class="btn btn-sm el-btn-soft" data-edit-admin-email data-user-id="{{ $assignment->user_id }}" data-email="{{ $assignment->user_email }}" data-bs-toggle="modal" data-bs-target="#editAdministratorEmailModal">
                                         <i class="ri-mail-settings-line me-1"></i> Edit Email
                                     </button>
+                                    @if(config('attendance.api_url') && $organizations->firstWhere('id',$assignment->organization_id)?->status==='active' && $assignment->status && $assignment->user_status==='Active' && !$assignment->user_deleted && !$assignment->user_platform_admin && ($attendanceOnboarding[$assignment->organization_id]->status ?? null)==='completed')
+                                        <details class="mt-2">
+                                            <summary>Set up attendance account</summary>
+                                            <form method="POST" action="{{ route('saas.organizations.admin-users.attendance', ['organization'=>$assignment->organization_id,'user'=>$assignment->user_id]) }}" class="mt-2">
+                                                @csrf
+                                                <label for="attendancePassword{{ $assignment->organization_id }}-{{ $assignment->user_id }}" class="form-label">Re-enter account password</label>
+                                                <input id="attendancePassword{{ $assignment->organization_id }}-{{ $assignment->user_id }}" type="password" name="password" class="form-control" minlength="15" maxlength="128" autocomplete="new-password" required>
+                                                <p class="text-muted small">15–128 characters. An existing attendance account keeps its password.</p>
+                                                <button type="submit" class="btn btn-sm el-btn-soft">Retry attendance account setup</button>
+                                            </form>
+                                        </details>
+                                    @endif
                                 @else
                                     <span class="text-muted">-</span>
                                 @endif

@@ -176666,15 +176666,18 @@
     },
     {
       "path": "resources/views/saas/index.blade.php",
-      "sha256": "a7d965326ab08a446f35b398976c6261119cf13640b2335622cf7ea507babd5c",
+      "sha256": "09e9571ea699e7a7c9e7996248fc5a94168c9bcc7cbe6e404d384f2e97777759",
       "patches": [
-        "fresh-attendance-delivery-and-retry-action"
+        "fresh-attendance-delivery-and-retry-action",
+        "attendance-administrator-password-reentry-control"
       ]
     },
     {
       "path": "resources/views/saas/partials/admin-user-modal.blade.php",
-      "sha256": "a4890f063e9bbda2823b777dfedb30a726db316fab4e0834dd030c5b0938bfdf",
-      "patches": []
+      "sha256": "0c237ddb1999f8728fb65c6b1bde3e7dfd656906cab86e7fdba3145449d46c7c",
+      "patches": [
+        "attendance-administrator-password-reentry-control"
+      ]
     },
     {
       "path": "resources/views/saas/partials/administrator-email-modal.blade.php",

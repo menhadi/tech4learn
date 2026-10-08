@@ -33,6 +33,26 @@ class AttendanceOnboardingTest extends TestCase
         DB::table('attendance_onboarding_requests')->where('organization_id',$org->id)->update(['status'=>'completed','completed_at'=>now()]);
         $this->get('https://platform-onboarding.test/saas')->assertOk()->assertDontSee('Retry attendance setup');
     }
+    public function test_administrator_retry_http_route_rejects_staff_and_accepts_platform_operator(): void
+    {
+        config(['attendance.api_url'=>'']);
+        Organization::where('slug','examelite')->update(['domain'=>'platform-admin-retry.test']);
+        \Illuminate\Support\Facades\Cache::flush();\App\Support\Tenant::clear();
+        $org=Organization::create(['name'=>'Synthetic retry tenant','slug'=>'retry-tenant','status'=>'active']);
+        $user=User::create(['name'=>'Synthetic retry admin','username'=>'retry-admin','email'=>'retry-admin@example.invalid','password'=>'Synthetic unused password 42','status'=>'Active','is_platform_admin'=>false]);
+        DB::table('organization_users')->insert(['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'admin','status'=>1,'created_at'=>now(),'updated_at'=>now()]);
+        $actor=User::create(['name'=>'Synthetic retry operator','username'=>'retry-operator','email'=>'retry-operator@example.invalid','password'=>'Synthetic unused password 42','status'=>'Active','is_platform_admin'=>false]);
+        $url='https://platform-admin-retry.test/saas/organizations/'.$org->id.'/admin-users/'.$user->id.'/attendance';
+        $this->actingAs($actor,'web');$this->post($url,['password'=>'Synthetic retry password 42'])->assertForbidden();
+        $actor->update(['is_platform_admin'=>true]);
+        \Spatie\Permission\Models\Role::findOrCreate('admin','web');$actor->assignRole('admin');
+        \Illuminate\Support\Facades\Auth::forgetGuards();$this->actingAs($actor->fresh(),'web');
+        $this->mock(AttendanceBridge::class,fn($mock)=>$mock->shouldReceive('provisionAdministrator')->once()->andReturn(['created'=>false,'userId'=>'22222222-2222-4222-8222-222222222222']));
+        $this->post($url,['password'=>'Synthetic retry password 42'])->assertRedirect()->assertSessionHas('success','Attendance administrator account is ready.');
+        DB::table('organization_users')->where('user_id',$user->id)->update(['role'=>'staff']);
+        $this->post($url,['password'=>'Synthetic retry password 42'])->assertForbidden();
+    }
+
     public function test_stored_authority_and_pending_request_are_required_before_delivery(): void
     {
         $org=Organization::create(['name'=>'Synthetic restricted onboarding','slug'=>'restricted-onboarding','status'=>'active']);
