@@ -19,6 +19,18 @@ fields, complete missing values and manually correct them before saving. Portrai
 and scanned documents have distinct purposes. Image extraction remains planned;
 existing portrait capture/upload and manual field entry must remain usable.
 
+The independent `/enrolment` workspace is live and uses `learners.view` without
+requiring attendance access. Its gateway rejects attendance resources. Native
+exam students and attendance learners still require explicit links; this entry
+point does not yet synchronise their profiles or enrolments.
+
+Registration-page extraction now has a locally checked, bounded draft parser
+and transcription prompt. The parser accepts only editable identity/contact
+text and an explicitly written age; it discards model-provided tenant, section,
+student IDs, credentials and consent. Provider calls, scoped document upload and
+the editable draft form are still pending. This parser is not a live OCR feature
+and never saves a student.
+
 User clarification, 12 September 2026. This is the target workflow; the status column distinguishes implementation from planned work.
 
 Status reviewed 6 October 2026 against the product blueprint and current exam
