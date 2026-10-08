@@ -79,6 +79,37 @@ class FoundationPlatformIdentityTest extends TestCase
         catch(\Symfony\Component\HttpKernel\Exception\HttpException $error){$this->assertSame($status,$error->getStatusCode());}
     }
 
+    public function test_native_registration_and_import_redirect_without_native_writes(): void
+    {
+        config(['attendance.student_delivery_enabled'=>true]);
+        app()->instance(AttendanceBridge::class,new class extends AttendanceBridge {
+            public function context(Request $request, ?\GuzzleHttp\ClientInterface $http=null, string $purpose='attendance'): array
+            {
+                abort_unless($purpose==='enrolment',500);
+                return ['permissions'=>['learners.create','learners.view']];
+            }
+        });
+        $controller=app(\App\Http\Controllers\StudentAdminController::class);
+        foreach (['store','import'] as $method) {
+            // No students/groups tables or valid uploaded form: reaching legacy writes fails this check.
+            $response=$controller->$method($this->request('/students','POST'));
+            $this->assertSame(route('enrolment.workspace'),$response->getTargetUrl());
+        }
+    }
+
+    public function test_native_registration_never_falls_back_when_canonical_permission_is_missing(): void
+    {
+        config(['attendance.student_delivery_enabled'=>true]);
+        app()->instance(AttendanceBridge::class,new class extends AttendanceBridge {
+            public function context(Request $request, ?\GuzzleHttp\ClientInterface $http=null, string $purpose='attendance'): array
+            { return ['permissions'=>['learners.view']]; }
+        });
+        $controller=app(\App\Http\Controllers\StudentAdminController::class);
+        foreach (['store','import'] as $method) {
+            $this->denied(403,fn()=>$controller->$method($this->request('/students','POST')));
+        }
+    }
+
     public function test_primary_login_uses_platform_mapping_and_session_metadata(): void
     {
         $request=$this->request('/login','POST');

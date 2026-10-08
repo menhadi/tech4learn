@@ -270,8 +270,19 @@ class StudentAdminController extends Controller
         }
     }
 
+    private function canonicalRegistration(Request $request)
+    {
+        if (!config('attendance.student_delivery_enabled', false)) return null;
+        $context = app(\App\Support\AttendanceBridge::class)->context($request, null, 'enrolment');
+        abort_unless(in_array('learners.create', $context['permissions'], true), 403);
+        // Registration is reviewed in the shared directory; never consume native form fields here.
+        return redirect()->route('enrolment.workspace')->with('info',
+            'Register and import students in Enrolment, then explicitly deliver their exam profiles.');
+    }
+
     public function store(Request $request)
     {
+        if ($response = $this->canonicalRegistration($request)) return $response;
         try {
             SaasAccess::abortIfLimitReached('students');
             $tenantId = $this->currentTenantId();
@@ -471,6 +482,7 @@ class StudentAdminController extends Controller
 
     public function import(Request $request)
     {
+        if ($response = $this->canonicalRegistration($request)) return $response;
         $request->validate([
             'excel_file' => 'required|file|mimes:xlsx,csv',
             'group_id' => 'required|exists:groups,id',

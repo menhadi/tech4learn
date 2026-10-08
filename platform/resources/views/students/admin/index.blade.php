@@ -21,7 +21,9 @@
         <p class="el-page-subtitle">Add learners, organize them into groups, and follow their progress.</p>
     </div>
     <div class="el-action-bar">
-        @if($canAddStudent)
+        @if($canAddStudent && config('attendance.student_delivery_enabled', false))
+            <a href="{{ route('enrolment.workspace') }}" class="btn el-btn-primary el-btn-icon"><i class="ri-user-add-line"></i> Enrol Students</a>
+        @elseif($canAddStudent)
             <button class="btn el-btn-primary el-btn-icon" data-bs-toggle="modal" data-bs-target="#showModal"><i class="ri-user-add-line"></i> Add Student</button>
             <button class="btn el-btn-soft el-btn-icon" data-bs-toggle="modal" data-bs-target="#importModal"><i class="ri-upload-2-line"></i> Import</button>
         @endif

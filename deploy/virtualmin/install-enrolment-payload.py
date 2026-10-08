@@ -5,6 +5,7 @@ BASE = pathlib.Path('/home/tech4learn/releases/551654c4e4feb1708d24f638e2da8068c
 PRIVATE = pathlib.Path('/home/tech4learn/native-shared')
 NATIVE = {
     'app/Support/AttendanceBridge.php', 'app/Http/Controllers/AttendanceBridgeController.php',
+    'app/Http/Controllers/StudentAdminController.php', 'resources/views/students/admin/index.blade.php',
     'app/Services/EnrolledStudentProfile.php', 'app/Services/StudentDeliveryReceipt.php',
     'app/Services/EnrolledStudentGroup.php', 'app/Console/Commands/PrepareStudentDeliveryKey.php',
     'database/migrations/2026_10_08_000006_create_foundation_student_profiles.php',
