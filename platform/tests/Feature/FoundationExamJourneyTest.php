@@ -248,5 +248,8 @@ class FoundationExamJourneyTest extends TestCase
             ->assertViewHas('questions',fn($rows)=>$rows->pluck('id')->sort()->values()->all()===[$own->id,$untranslated->id]);
         $this->get('https://synthetic-exams.test/questions?language='.$language->id)->assertOk()
             ->assertViewHas('questions',fn($rows)=>$rows->pluck('id')->all()===[$own->id]);
+        $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic language-filter exam','slug'=>'language-filter-exam','status'=>'Active','duration'=>30,'passing_percentage'=>50,'attempt_count'=>1,'mode'=>'Exam']);
+        $this->get('https://synthetic-exams.test/exams/'.$exam->id.'/add-questions?language='.$language->id)->assertOk()
+            ->assertViewHas('questions',fn($rows)=>$rows->pluck('id')->all()===[$own->id]);
     }
 }
