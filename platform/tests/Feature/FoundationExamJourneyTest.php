@@ -47,6 +47,7 @@ class FoundationExamJourneyTest extends TestCase
             'grouping_mode'=>'none','proctor'=>0,'calculator_allowed'=>0,'groups'=>[$group->id], 'status'=>'Active','mode'=>'Exam',
         ])->assertSessionHasNoErrors()->assertRedirect();
         $exam=Exam::where('organization_id',$org->id)->where('name','Synthetic exam')->firstOrFail();
+        $this->get($base.'/exams/'.$exam->id.'/add-questions')->assertOk()->assertSee('What is two plus two?',false);
         $exam->questions()->attach($question->id);
         $student=Student::create(['organization_id'=>$org->id,'name'=>'Synthetic learner','email'=>'learner@example.invalid','password'=>'synthetic-unused-password','status'=>'Active']);
         Auth::forgetGuards();Sanctum::actingAs($student,['*'],'student-api');Tenant::clear();

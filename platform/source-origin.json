@@ -360,9 +360,10 @@
     },
     {
       "path": "app/Http/Controllers/ExamController.php",
-      "sha256": "6c4b915d66ad8d45a498bb30ac165d6976c513082cc159be87a8064963c5068e",
+      "sha256": "33a90a9df602ab0ac48ef94b7e341266b65c76afcd61190d721b6c3dc48d6303",
       "patches": [
-        "native-open-ended-exam-counter-browser-check-20261007"
+        "native-open-ended-exam-counter-browser-check-20261007",
+        "manage-question-language-filter-uses-translations"
       ]
     },
     {

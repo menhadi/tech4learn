@@ -973,7 +973,6 @@ class ExamController extends Controller
                 'questions.stopic_id',
                 'questions.qtype_id',
                 'questions.diff_id',
-                'questions.language_id',
                 'questions.passage_id',
                 'questions.question',
                 'questions.marks',
@@ -1017,7 +1016,7 @@ class ExamController extends Controller
             ->when($request->filled('qtype'), fn($q) => $q->where('qtype_id', $request->qtype))
             ->when($request->filled('diff'), fn($q) => $q->where('diff_id', $request->diff))
             ->when($request->filled('tag'), fn($q) => $q->whereHas('tags', fn($tagQuery) => $tagQuery->where('question_tags.id', $request->tag)))
-            ->when($request->filled('language'), fn($q) => $q->where('language_id', $request->language))
+            ->when($request->filled('language'), fn($q) => $q->whereHas('langs', fn($translation) => $translation->where('language_id', $request->language)))
             ->when($request->filled('status'), fn($q) => $q->where('status', $request->status))
             ->when($request->filled('marks_min'), fn($q) => $q->where('marks', '>=', $request->marks_min))
             ->when($request->filled('marks_max'), fn($q) => $q->where('marks', '<=', $request->marks_max))
