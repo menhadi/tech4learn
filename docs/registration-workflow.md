@@ -1,5 +1,24 @@
 # Organisation-to-student workflow
 
+## Latest clarification — 8 October 2026
+
+Organisations should see only features enabled for them, with the same checks on
+direct routes and API requests. Disabled features should not remain as locked
+navigation links in the organisation workspace.
+
+Maintain one student identity and directory for exams and attendance, whether
+registration starts in either module. Current native students and attendance
+learners have explicit identity links; automatic shared registration is not yet
+implemented. Do not create duplicates by matching names or emails, or silently
+merge existing records.
+
+Improve the shared registration form with required identity and enrolment fields,
+organisation custom fields, portrait camera capture and upload. A separate photo
+of a registration/text page should produce an editable draft: review extracted
+fields, complete missing values and manually correct them before saving. Portraits
+and scanned documents have distinct purposes. Image extraction remains planned;
+existing portrait capture/upload and manual field entry must remain usable.
+
 User clarification, 12 September 2026. This is the target workflow; the status column distinguishes implementation from planned work.
 
 Status reviewed 6 October 2026 against the product blueprint and current exam
