@@ -49,7 +49,16 @@ class AttendanceOnboardingTest extends TestCase
         \Illuminate\Support\Facades\Auth::forgetGuards();$this->actingAs($actor->fresh(),'web');
         $this->mock(AttendanceBridge::class,fn($mock)=>$mock->shouldReceive('provisionAdministrator')->once()->andReturn(['created'=>false,'userId'=>'22222222-2222-4222-8222-222222222222']));
         $this->post($url,['password'=>'Synthetic retry password 42'])->assertRedirect()->assertSessionHas('success','Attendance administrator account is ready.');
+        DB::table('attendance_onboarding_requests')->insert(['organization_id'=>$org->id,'status'=>'completed','completed_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);
+        config(['attendance.api_url'=>'https://api.example.invalid/api/v1']);
+        $html=app(\App\Http\Controllers\SaasController::class)->index()->render();
+        $this->assertStringContainsString('Retry attendance account setup',$html);
+        $this->assertStringContainsString('Re-enter account password',$html);
+        $this->assertStringNotContainsString('Synthetic retry password 42',$html);
         DB::table('organization_users')->where('user_id',$user->id)->update(['role'=>'staff']);
+        $html=app(\App\Http\Controllers\SaasController::class)->index()->render();
+        $this->assertStringNotContainsString('Retry attendance account setup',$html);
+        config(['attendance.api_url'=>'']);
         $this->post($url,['password'=>'Synthetic retry password 42'])->assertForbidden();
     }
 

@@ -33,7 +33,7 @@ pending rows expose a CSRF-protected, throttled retry action. Connected PHP-to-A
 delivery passed: a fresh companion was created, the native request completed with
 one attempt, and a completed retry was not resent. Live deployment remains pending.
 
-The latest complete copied-source native run passed 344 tests / 1,539 assertions,
+The latest complete copied-source native run passed 345 tests / 1,551 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial
 and unpublished-paper protection on the guest print route.
 Student API exam details now withhold question content/options/translations and
@@ -1485,3 +1485,9 @@ shows the attendance password requirement. Local HTTP route checks passed within
 4 onboarding tests / 27 assertions: ordinary operator denial, platform retry and
 denial after target membership changes to staff. Browser interaction and live
 acceptance remain pending.
+
+Server-rendered retry form checks passed within 4 tests / 31 assertions. An active
+administrator with a completed companion displays the password re-entry control;
+a staff membership does not. Rendering contains no previously submitted password.
+These checks render the Blade view and exercise local Laravel HTTP routes, and do
+not substitute for a browser interaction or live canonical-session acceptance.
