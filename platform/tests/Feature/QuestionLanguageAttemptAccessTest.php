@@ -21,6 +21,7 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic language exam','status'=>'Active','duration'=>30,'passing_percentage'=>50,'attempt_count'=>1,'mode'=>'Exam']);
         $type=Qtype::firstOrCreate(['type'=>'M'],['question_type'=>'Multiple Choice']);
         $question=Question::create(['organization_id'=>$org->id,'qtype_id'=>$type->id,'question'=>'Synthetic original question','explanation'=>'PRIVATE ORIGINAL ANSWER','option1'=>'4','option2'=>'5','correct_option_indices'=>[1],'marks'=>2,'status'=>'Yes']);
+        $exam->questions()->attach($question->id);
         $language=Language::create(['organization_id'=>$org->id,'name'=>'English','code'=>'en','is_enabled'=>true]);
         QuestionLang::create(['question_id'=>$question->id,'language_id'=>$language->id,'question'=>'Synthetic translated question','explanation'=>'PRIVATE TRANSLATED ANSWER','option1'=>'Four','option2'=>'Five','si_answer1'=>1]);
         return [$org,$student,$exam,$question,$language];
@@ -100,5 +101,32 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $this->assertSame('Pass',$result->fresh()->result);
         $this->assertEquals(2,$result->fresh()->obtained_marks);
         $this->postJson('https://language.test/guest/student/save-answer',$payload)->assertStatus(409);
+    }
+
+    public function test_guest_start_requires_a_completed_order_and_active_package(): void
+    {
+        [$org,$student,$exam,$question]=$this->fixture();
+        $guest='11111111-1111-4111-8111-111111111111';
+        $package=\App\Models\Package::create(['organization_id'=>$org->id,'name'=>'Synthetic guest package','slug'=>'guest-package','expiry_days'=>30,'amount'=>10,'package_type'=>'paid','status'=>true]);
+        $exam->packages()->attach($package->id);
+        $order=\App\Models\Order::create(['organization_id'=>$org->id,'guest_id'=>$guest,'total'=>10,'payment_method'=>'synthetic','payment_status'=>'Pending','status'=>'pending']);
+        \App\Models\OrderItem::create(['order_id'=>$order->id,'package_id'=>$package->id,'name'=>'Synthetic guest package','price'=>10,'quantity'=>1]);
+        $url='https://language.test/guest/exam/start/'.$exam->id;
+        $this->withSession(['guest_id'=>$guest])->get($url)->assertRedirect();
+        $this->assertSame(0,ExamResult::count());
+        $order->update(['status'=>'completed','payment_status'=>'Completed']);
+        $package->update(['status'=>false]);
+        $this->get($url)->assertRedirect();
+        $this->assertSame(0,ExamResult::count());
+        $package->update(['status'=>true]);
+        $this->get($url)->assertOk();
+        $result=ExamResult::where('guest_id',$guest)->sole();
+        $this->assertNull($result->student_id);
+        $this->assertSame((int)$org->id,(int)$result->organization_id);
+        $this->assertSame($guest,ExamStat::where('exam_result_id',$result->id)->sole()->guest_id);
+        $this->postJson('https://language.test/guest/student/save-answer',['exam_result_id'=>$result->id,'question_id'=>$question->id,'question_type'=>'multiple_choice_radio','option_selected'=>[1],'answered'=>true])->assertOk();
+        $this->postJson('https://language.test/guest/student/finish-exam',['exam_result_id'=>$result->id])->assertOk();
+        $this->assertSame('Pass',$result->fresh()->result);
+        $this->assertEquals(2,$result->fresh()->obtained_marks);
     }
 }

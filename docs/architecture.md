@@ -73,6 +73,14 @@ require guest identity; proctor storage occurs only after open-attempt checks.
 Local HTTP checks cover guest MCQ save/completion, foreign-tenant and wrong-guest
 denial, post-completion answer denial and missing-identity student protection.
 
+Guest exam entry requires a completed package order and an active package;
+pending orders cannot grant access. Fresh order schema now supports the fields
+the copied checkout writes: guest identity, payment status and discount, nullable
+registered-student identity, and optional legacy billing snapshots. The checked
+migration preserves existing values. Local HTTP acceptance covers order-gated
+guest start, generated attempt/stats, MCQ save and completed result. Payment
+provider integration and guest browser/production acceptance remain unverified.
+
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
 checks before executing it. No production cleanup has been executed. Preserve the existing administrator's

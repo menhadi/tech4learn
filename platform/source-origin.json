@@ -713,11 +713,12 @@
     },
     {
       "path": "app/Http/Controllers/Students/GuestExamsController.php",
-      "sha256": "1eb6904ecdf546aae378d60d613dfce1702fe2898eb51fb0efa94960fad7a310",
+      "sha256": "4b6e6b5f17b38fb22e4ab9a336e719f8b6a8fde8d9f4206e21fe77fee279f695",
       "patches": [
         "foundation-attendance-integration-and-native-exam-acceptance-20261007",
         "native-idempotent-finalization-and-result-release-policy-20261007",
-        "guest-identity-required-and-attempt-tenant-scope"
+        "guest-identity-required-and-attempt-tenant-scope",
+        "guest-entry-completed-order-active-package"
       ]
     },
     {

@@ -859,6 +859,7 @@ class GuestExamsController extends Controller
         $packageIds = Order::query()
             ->join('order_items', 'orders.id', '=', 'order_items.order_id')
             ->where('orders.guest_id', $guestId)
+            ->where('orders.status','completed')
             ->when($this->tenantId(), function ($query, $tenantId) {
                 $query->where(function ($query) use ($tenantId) {
                     $query->where('orders.organization_id', $tenantId)
@@ -875,6 +876,7 @@ class GuestExamsController extends Controller
         }
 
         return Package::whereIn('id', $packageIds)
+            ->where('status',true)
             ->when($this->tenantId(), function ($query, $tenantId) {
                 $query->where('organization_id', $tenantId);
             })
