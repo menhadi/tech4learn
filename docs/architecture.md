@@ -23,7 +23,11 @@ delivery state only, with no password, learner data or copied private configurat
 Request failure rolls back organisation/configuration creation. A canonical
 platform-session endpoint can provision a fresh companion using the existing
 idempotent transaction, with stored superadmin checks. The native retry consumer
-is not implemented yet; pending requests do not grant access.
+now has a delivery service that locks one pending request, retains failed attempts
+without remote error text, and completes only after a validated companion response.
+Completed retries are not resent. The bridge rechecks native and canonical platform
+authority before/after delivery. No automatic trigger or retry UI is wired yet;
+pending requests do not grant access.
 
 Fresh Laravel organisation creation uses independent configuration defaults and
 the new organisation's own contact fields. It must never replicate another

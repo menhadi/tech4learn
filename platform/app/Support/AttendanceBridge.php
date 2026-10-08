@@ -107,6 +107,21 @@ class AttendanceBridge
             ->where('status','Active')->where('deleted',false)->where('is_platform_admin',true)->exists(),403);
     }
 
+    public function provisionCompanion(Request $request, User $actor, \App\Models\Organization $organization, ?ClientInterface $http = null): array
+    {
+        $this->platformIdentity($request, $actor, $http);
+        abort_unless($organization->status === 'active' && !($organization->settings['is_primary_platform'] ?? false), 403);
+        $result=$this->read($request,'/platform/foundation/attendance-onboarding',[],$http,'POST',[
+            'nativeOrganisationId'=>(string)$organization->id,'name'=>$organization->name,
+        ]);
+        abort_unless(is_bool($result['created'] ?? null) && is_string($result['organisationId'] ?? null)
+            && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D',$result['organisationId']),502);
+        $this->platformIdentity($request, $actor, $http);
+        $fresh=\App\Models\Organization::findOrFail($organization->id);
+        abort_unless($fresh->status === 'active' && !($fresh->settings['is_primary_platform'] ?? false),403);
+        return $result;
+    }
+
     public function signOut(Request $request, ?ClientInterface $http = null): void
     {
         try {

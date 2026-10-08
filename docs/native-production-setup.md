@@ -25,9 +25,9 @@ onboarding acceptance was subsequently checked over local HTTP: canonical passwo
 login, fresh creation, exact retry, anonymous denial, realm/mapping conflict denial
 and stored-superadmin revocation all passed. The connected attendance workflow
 also passed again, including scoped enrolment, capture/review/history and logout.
-The native delivery/retry consumer remains pending; the endpoint is not deployed live.
+A native delivery service now locks and processes one pending request, retains failed attempts without private error text, and skips completed retries. Local failure/retry checks passed; no trigger or retry UI is wired yet. Connected PHP delivery acceptance and live deployment remain pending.
 
-The latest complete copied-source native run passed 338 tests / 1,502 assertions,
+The latest complete copied-source native run passed 339 tests / 1,510 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial
 and unpublished-paper protection on the guest print route.
 Student API exam details now withhold question content/options/translations and
