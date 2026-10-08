@@ -8,6 +8,11 @@ import { FoundationService } from "./foundation.service.js";
 export class FoundationController {
   constructor(private readonly identity: IdentityService, private readonly links: FoundationService) {}
   private actor(cookie?: string) { return this.identity.account(session(cookie)); }
+  @Post("platform/foundation/attendance-onboarding")
+  @HttpCode(200)
+  async provisionCompanion(@Body() body: Record<string, unknown>, @Headers("cookie") cookie?: string) {
+    return this.links.provisionCompanion(await this.actor(cookie), body ?? {});
+  }
   @Get("platform/foundation/platforms/:native/staff")
   async platformStaff(@Param("native") n:string,@Headers("cookie") c?:string) {return this.links.platformStaff(await this.actor(c),n);}
   @Post("platform/foundation/platforms/:native/staff")

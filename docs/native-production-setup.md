@@ -15,6 +15,13 @@ is checked locally and has not been applied live. Targeted creation checks passe
 9 tests / 37 assertions, including rollback on request-write failure. Requests
 contain no credentials or learner payload; no remote consumer is implemented.
 Existing organisations are not automatically adopted or queued by this migration.
+The API now exposes `POST /api/v1/platform/foundation/attendance-onboarding`
+for a canonical authenticated platform session, accepting a native organisation
+ID and display name. It rechecks stored superadmin authority and reuses the
+fresh-companion transaction, including realm/non-adoption checks and exact retry.
+`npm run check` passed all workspace typechecks, 111 API tests and API/admin/
+embedded attendance builds. The native delivery/retry consumer and HTTP connected
+onboarding acceptance remain pending; this endpoint is not deployed live.
 
 The latest complete copied-source native run passed 338 tests / 1,502 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial

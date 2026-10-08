@@ -11,6 +11,7 @@ import {foundationMigration} from '../dist/migration-foundation.js';
 import {foundationPlatformMigration} from '../dist/migration-foundation-platform.js';
 import {foundationProvisioningMigration} from '../dist/migration-foundation-provisioning.js';
 import {provisionAttendanceOrganisation} from '../dist/foundation-organisation-provision.js';
+import {FoundationService} from '../dist/foundation.service.js';
 
 test('fresh attendance provisioning is idempotent and never adopts old mappings or platform realms',async()=>{
  const pg=new PGlite(),admin=randomUUID(),staff=randomUUID(),old=randomUUID();
@@ -21,6 +22,10 @@ test('fresh attendance provisioning is idempotent and never adopts old mappings 
   await pg.query("INSERT INTO organisations(id,name,slug) VALUES($1,'Synthetic old','native-org-9')",[old]);
   await pg.query('INSERT INTO foundation_platform_staff(native_organisation_id,native_user_id,user_id) VALUES(1,1,$1)',[admin]);
   await assert.rejects(provisionAttendanceOrganisation(db,staff,'2','Synthetic fresh'));
+  const service=new FoundationService(db,null,null);
+  await assert.rejects(service.provisionCompanion({id:staff,isSuperadmin:true},{nativeOrganisationId:'2',name:'Synthetic fresh'}));
+  await assert.rejects(service.provisionCompanion({id:admin},{nativeOrganisationId:2,name:'Synthetic fresh'}));
+  await assert.rejects(service.provisionCompanion({id:admin},{nativeOrganisationId:'2',name:{}}));
   await assert.rejects(provisionAttendanceOrganisation(db,admin,'1','Synthetic platform'));
   await assert.rejects(provisionAttendanceOrganisation(db,admin,'9','Synthetic old'));
   const interrupted={transaction:fn=>pg.transaction(sql=>fn({query:(q,p)=>{
@@ -35,6 +40,7 @@ test('fresh attendance provisioning is idempotent and never adopts old mappings 
   const first=await provisionAttendanceOrganisation(db,admin,'2','Synthetic fresh');
   assert.equal(first.created,true);assert.notEqual(first.organisationId,old);
   assert.deepEqual(await provisionAttendanceOrganisation(db,admin,'2','Synthetic fresh'),{created:false,organisationId:first.organisationId});
+  assert.deepEqual(await service.provisionCompanion({id:admin},{nativeOrganisationId:'2',name:'Synthetic fresh'}),{created:false,organisationId:first.organisationId});
   assert.equal((await pg.query("SELECT count(*)::integer AS total FROM audit_events WHERE action='foundation.organisation_provisioned'")).rows[0].total,1);
   assert.equal((await pg.query('SELECT count(*)::integer AS total FROM access_roles WHERE organisation_id=$1',[first.organisationId])).rows[0].total>0,true);
   const password='long synthetic provision password';

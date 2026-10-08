@@ -20,8 +20,10 @@ remains pending. Existing mappings are explicit reviewed controls.
 Fresh organisation creation now records one pending attendance onboarding request
 in the same native transaction. It contains the native organisation reference and
 delivery state only, with no password, learner data or copied private configuration.
-Request failure rolls back organisation/configuration creation. No consumer or
-remote provisioning is implemented yet; pending requests do not grant access.
+Request failure rolls back organisation/configuration creation. A canonical
+platform-session endpoint can provision a fresh companion using the existing
+idempotent transaction, with stored superadmin checks. The native retry consumer
+is not implemented yet; pending requests do not grant access.
 
 Fresh Laravel organisation creation uses independent configuration defaults and
 the new organisation's own contact fields. It must never replicate another

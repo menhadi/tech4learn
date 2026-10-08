@@ -5,6 +5,7 @@ import type { Account } from "./identity.service.js";
 import { uuid } from "./security.js";
 import { LearnersService } from "./learners.service.js";
 import { randomUUID } from "node:crypto";
+import { provisionAttendanceOrganisation } from "./foundation-organisation-provision.js";
 
 function nativeId(value: unknown): string {
   if (typeof value !== "string" || !/^[1-9][0-9]{0,14}$/.test(value))
@@ -22,6 +23,12 @@ function recordId(value: unknown): string {
 @Injectable()
 export class FoundationService {
   constructor(private readonly db: Database, private readonly access: AccessService, private readonly learners: LearnersService) {}
+  async provisionCompanion(actor: Account, body: Record<string, unknown>) {
+    await this.platform(actor, this.db);
+    const native = nativeId(body.nativeOrganisationId);
+    if (typeof body.name !== "string") throw new BadRequestException("Provide the native organisation name.");
+    return provisionAttendanceOrganisation(this.db, actor.id, native, body.name);
+  }
   async platformStaff(actor: Account, nativeValue: string) {
     await this.platform(actor,this.db);
     return (await this.db.query("SELECT native_user_id::text,user_id,active,version FROM foundation_platform_staff WHERE native_organisation_id=$1 ORDER BY native_user_id LIMIT 500",[nativeId(nativeValue)])).rows;
