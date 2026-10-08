@@ -91,6 +91,13 @@
                 if (is_scalar($value) && trim((string) $value) !== '') $answerLines->push($label.': '.trim(strip_tags((string) $value)));
             }
             if ($answerLines->isEmpty() && $legacyCorrect !== '' && !preg_match('/^[A-F]$/', $legacyCorrect)) $answerLines->push('Answer: '.strip_tags($legacyCorrect));
+            $nat = is_array($payload['nat_config'] ?? null) ? $payload['nat_config'] : [];
+            if ($nat !== []) {
+                $mode = $nat['mode'] ?? 'exact';
+                $natText = $mode === 'range' ? (($nat['min'] ?? '?').' to '.($nat['max'] ?? '?'))
+                    : (($nat['value'] ?? '?').($mode === 'tolerance' ? ' +/- '.($nat['tolerance'] ?? '?') : ''));
+                $answerLines->push('Numerical answer: '.$natText);
+            }
             $hint = (string) ($payload['hint'] ?? '');
             $explanation = (string) ($payload['explanation'] ?? '');
         @endphp

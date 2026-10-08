@@ -27,6 +27,18 @@ class FoundationExamJourneyTest extends TestCase
         return [$org,$user,$group];
     }
 
+    public function test_complete_paper_preview_displays_numerical_answer_modes(): void
+    {
+        $this->owner();
+        foreach ([['mode'=>'exact','value'=>4],['mode'=>'range','min'=>3,'max'=>5],['mode'=>'tolerance','value'=>4,'tolerance'=>0.1]] as $index=>$config) {
+            $expected=['Numerical answer: 4','Numerical answer: 3 to 5','Numerical answer: 4 +/- 0.1'][$index];
+            $this->view('question-drafts.paper-preview', [
+                'questions'=>collect([['label'=>'Synthetic question','type'=>'NAT','status'=>'saved','payload'=>['question'=>'Synthetic numerical question','nat_config'=>$config]]]),
+                'title'=>'Synthetic paper','contextLabel'=>'Complete exam paper','backUrl'=>'/exams',
+            ])->assertSee($expected);
+        }
+    }
+
     public function test_native_chunk_import_exam_creation_student_attempt_and_result(): void
     {
         [$org,$owner,$group]=$this->owner();
