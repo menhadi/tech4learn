@@ -268,9 +268,23 @@ export function Attendance({
       throw new Error(
         "Camera capture needs HTTPS and a browser with camera support.",
       );
-    const media = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
-      audio: false,
+    const media = await new Promise<MediaStream>((resolve, reject) => {
+      let expired = false;
+      const timer = window.setTimeout(() => {
+        expired = true;
+        reject(new Error("Camera permission is still pending. Allow camera access in your browser, then try again. If this browser cannot show the permission prompt, open attendance in Chrome or Edge."));
+      }, 30000);
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
+        audio: false,
+      }).then((stream) => {
+        window.clearTimeout(timer);
+        if (expired) stream.getTracks().forEach((track) => track.stop());
+        else resolve(stream);
+      }, (error) => {
+        window.clearTimeout(timer);
+        if (!expired) reject(error);
+      });
     });
     if (!mounted.current || gen !== generation.current) {
       media.getTracks().forEach((t) => t.stop());
