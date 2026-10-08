@@ -48,6 +48,11 @@ defaults when a scoped configuration or recognised host is missing. It does not
 fall back to platform or another tenant's settings. The legacy unscoped lookup
 is retained only for schemas without the organisation column.
 
+Attendance context responses recheck stored native organisation, account and
+membership access after the remote API returns. Suspension or membership
+revocation during that request blocks release of the context. Local regression
+and connected PHP/API checks cover this boundary.
+
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
 checks before executing it. No production cleanup has been executed. Preserve the existing administrator's

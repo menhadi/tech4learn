@@ -133,6 +133,8 @@ class AttendanceBridge
             && is_string($context['organisation']['id'] ?? null)
             && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D', $context['organisation']['id'])
             && is_array($context['permissions'] ?? null) && is_array($context['scope'] ?? null), 502);
+        // Native access can be revoked while the attendance API request is in flight.
+        Tenant::assertAccess($organization, true);
         return $context;
     }
 

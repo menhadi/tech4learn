@@ -39,6 +39,18 @@ $http=clientMock([responseJson($context)],$history);
 if ($bridge->context($request,$http)!==$context || count($history)!==1) { throw new RuntimeException('Explicit context failed'); }
 if ($history[0]['request']->getHeaderLine('Cookie')!=='t4l_session='.str_repeat('d',64)) { throw new RuntimeException('Wrong API credential'); }
 if ($history[0]['request']->getUri()->getPath()!=='/api/v1/foundation/organisations/2/staff/2/attendance-context') { throw new RuntimeException('Wrong identity source'); }
+foreach ([['users','status','Suspended','Active'],['organization_users','status',0,1]] as [$table,$column,$revoked,$active]) {
+    $h=[];
+    $mock=clientMock([function () use ($db,$context,$table,$column,$revoked) {
+        $db->table($table)->where('id',$table==='users'?2:1)->update([$column=>$revoked]);
+        return responseJson($context);
+    }],$h);
+    try { statusDenied(403,fn()=>$bridge->context($request,$mock)); }
+    finally {
+        $db->table($table)->where('id',$table==='users'?2:1)->update([$column=>$active]);
+        actor(2);$app->instance('request',$request);
+    }
+}
 foreach (['http://outside.example.invalid/api/v1','https://user@example.invalid/api/v1','https://example.invalid/api/v1?redirect=1',''] as $url) {
     config(['attendance.api_url'=>$url]);
     statusDenied(503,fn()=>$bridge->context($request,$http));
