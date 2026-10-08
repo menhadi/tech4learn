@@ -9,8 +9,8 @@ do not use that launcher for this fixture. The original installation is unchange
 
 ## Current acceptance boundary — 8 October 2026
 
-The latest complete copied-source native run passed 323 tests / 1,372 assertions;
-later answer-key checks passed the eight exam journey tests / 73 assertions.
+The latest complete copied-source native run passed 324 tests / 1,384 assertions,
+including answer-key withholding, scoped print 404s and unsigned solution denial.
 The scaffold `npm run check` passed 111 API tests, workspace typechecks and API,
 admin and embedded-attendance builds. These are local synthetic checks.
 
