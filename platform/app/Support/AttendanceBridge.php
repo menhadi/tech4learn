@@ -122,6 +122,33 @@ class AttendanceBridge
         return $result;
     }
 
+    public function provisionAdministrator(Request $request, User $actor, \App\Models\Organization $organization, User $user, string $password, ?ClientInterface $http = null): array
+    {
+        $this->platformIdentity($request,$actor,$http);
+        $checked=$this->attendanceAdministrator($organization->id,$user->id);
+        $result=$this->read($request,'/platform/foundation/attendance-administrators',[],$http,'POST',[
+            'nativeOrganisationId'=>(string)$organization->id,'nativeUserId'=>(string)$user->id,
+            'nativeRole'=>'admin','email'=>$checked->email,'name'=>$checked->name,'password'=>$password,
+        ]);
+        abort_unless(is_bool($result['created'] ?? null) && is_string($result['userId'] ?? null)
+            && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D',$result['userId']),502);
+        $this->platformIdentity($request,$actor,$http);
+        $fresh=$this->attendanceAdministrator($organization->id,$user->id);
+        abort_unless($fresh->email===$checked->email && $fresh->name===$checked->name,403);
+        return $result;
+    }
+
+    private function attendanceAdministrator(int $organizationId, int $userId): User
+    {
+        $organization=\App\Models\Organization::findOrFail($organizationId);
+        abort_unless($organization->status==='active' && !($organization->settings['is_primary_platform'] ?? false),403);
+        $user=User::whereKey($userId)->where('status','Active')->where('deleted',false)->where('is_platform_admin',false)->firstOrFail();
+        abort_unless(\Illuminate\Support\Facades\DB::table('organization_users')
+            ->where('organization_id',$organizationId)->where('user_id',$userId)
+            ->whereIn('role',['owner','admin'])->where('status',1)->exists(),403);
+        return $user;
+    }
+
     public function signOut(Request $request, ?ClientInterface $http = null): void
     {
         try {

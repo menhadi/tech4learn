@@ -207,6 +207,37 @@ class FoundationPlatformIdentityTest extends TestCase
         $this->denied(403,fn()=>(new AttendanceBridge)->platformIdentity($request,$actor,$client));
     }
 
+    public function test_administrator_provisioning_uses_stored_membership_and_identity(): void
+    {
+        Schema::table('users',function(Blueprint $table){$table->string('email')->nullable();});
+        Schema::create('organization_users',function(Blueprint $table){
+            $table->integer('organization_id');$table->integer('user_id');$table->string('role');$table->integer('status');
+        });
+        DB::table('organizations')->insert(['id'=>2,'name'=>'Synthetic tenant','slug'=>'tenant',
+            'domain'=>'tenant.example.invalid','status'=>'active','settings'=>'{}']);
+        DB::table('users')->where('id',2)->update(['email'=>'synthetic@example.invalid']);
+        DB::table('organization_users')->insert(['organization_id'=>2,'user_id'=>2,'role'=>'staff','status'=>1]);
+        $actor=User::findOrFail(1);$user=User::findOrFail(2);$user->name='Untrusted changed name';
+        $organization=\App\Models\Organization::findOrFail(2);$request=$this->request('/provision','POST');
+        $bridge=new AttendanceBridge;
+        $this->denied(403,fn()=>$bridge->provisionAdministrator($request,$actor,$organization,$user,'Synthetic password 42',
+            $this->client([$this->response($this->identity)])));
+        DB::table('organization_users')->where('user_id',2)->update(['role'=>'admin']);
+        $result=['created'=>true,'userId'=>'22222222-2222-4222-8222-222222222222'];
+        $client=$this->client([$this->response($this->identity),$this->response($result),$this->response($this->identity)]);
+        $this->assertSame($result,$bridge->provisionAdministrator($request,$actor,$organization,$user,'Synthetic password 42',$client));
+        $body=json_decode((string)$this->history[2]['request']->getBody(),true);
+        $this->assertSame('Synthetic ordinary staff',$body['name']);
+        $this->assertSame('admin',$body['nativeRole']);
+        $this->assertSame('2',$body['nativeOrganisationId']);
+        $this->assertSame('2',$body['nativeUserId']);
+        $client=$this->client([$this->response($this->identity),function() use ($result){
+            DB::table('organization_users')->where('user_id',2)->update(['status'=>0]);
+            return $this->response($result);
+        },$this->response($this->identity)]);
+        $this->denied(403,fn()=>$bridge->provisionAdministrator($request,$actor,$organization,$user,'Synthetic password 42',$client));
+    }
+
     public function test_revoked_native_administrator_can_still_log_out(): void
     {
         Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request('/logout','POST');

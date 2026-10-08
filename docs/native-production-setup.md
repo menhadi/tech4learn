@@ -1439,3 +1439,14 @@ staff cannot reach the retry route; a native platform administrator can render
 the pending action and submit a retry. Completed requests remove the action.
 The route test uses an injected delivery result and no configured remote API;
 connected delivery is checked separately. Full browser acceptance remains pending.
+
+## Native attendance administrator bridge — local only
+
+The bridge can now call the authenticated attendance administrator endpoint using
+stored native account details and an active owner/admin membership. It rejects
+ordinary staff, inactive memberships, platform accounts and inactive/primary
+organisations, rechecks platform identity before and after delivery, and rechecks
+target membership and identity after the response. Passwords remain in the request
+only. Targeted checks cover stored identity, ordinary staff denial and membership
+revocation during delivery. Creation-form wiring and password-reentry retry remain
+pending; this bridge method alone does not grant a working native account flow.
