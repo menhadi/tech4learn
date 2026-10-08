@@ -1450,3 +1450,9 @@ target membership and identity after the response. Passwords remain in the reque
 only. Targeted checks cover stored identity, ordinary staff denial and membership
 revocation during delivery. Creation-form wiring and password-reentry retry remain
 pending; this bridge method alone does not grant a working native account flow.
+
+Connected local HTTP acceptance also passed through the actual PHP administrator
+bridge and ephemeral attendance API: ordinary staff membership was denied, an
+active native administrator created a fresh ordinary canonical account, and an
+exact retry retained its canonical identity. The complete connected attendance
+workflow passed again. This does not establish creation-form or live acceptance.

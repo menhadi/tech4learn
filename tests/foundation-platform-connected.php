@@ -47,6 +47,22 @@ if(!$delivery->deliver($request,App\Models\User::findOrFail(1),$organization->id
 $onboarding=$db->table('attendance_onboarding_requests')->where('organization_id',$organization->id)->first();
 if($onboarding->status!=='completed'||(int)$onboarding->attempts!==1||!$onboarding->completed_at)throw new RuntimeException('Connected onboarding delivery state incorrect');
 echo "PASS: native PHP delivered a fresh companion and completed retries were not resent.\n";
+$db->statement('ALTER TABLE users ADD COLUMN email TEXT');
+$db->table('users')->insert(['id'=>325,'name'=>'Synthetic PHP administrator','email'=>'synthetic-php-admin@example.invalid','status'=>'Active','deleted'=>0,'is_platform_admin'=>0]);
+$db->table('organization_users')->insert(['id'=>325,'organization_id'=>323,'user_id'=>325,'role'=>'staff','status'=>1]);
+$bridge=new App\Support\AttendanceBridge;
+$actor=App\Models\User::findOrFail(1);$administrator=App\Models\User::findOrFail(325);
+try {
+    $bridge->provisionAdministrator($request,$actor,$organization,$administrator,'Synthetic PHP administrator password 42');
+    throw new RuntimeException('Ordinary staff received attendance administrator access');
+} catch(Symfony\Component\HttpKernel\Exception\HttpException $error) {
+    if($error->getStatusCode()!==403)throw $error;
+}
+$db->table('organization_users')->where('id',325)->update(['role'=>'admin']);
+$created=$bridge->provisionAdministrator($request,$actor,$organization,$administrator,'Synthetic PHP administrator password 42');
+$retried=$bridge->provisionAdministrator($request,$actor,$organization,$administrator,'Different synthetic retry password 42');
+if(!$created['created']||$retried['created']||$created['userId']!==$retried['userId'])throw new RuntimeException('Connected administrator creation/retry failed');
+echo "PASS: native PHP provisioned an ordinary attendance administrator, denied staff elevation and retained the exact retry identity.\n";
 try {
     $middleware->handle($request,function()use($http,$api,$token){
         $result=$http->patch($api.'/platform/foundation/platforms/1/staff/1',[
