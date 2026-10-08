@@ -88,3 +88,13 @@ lifecycle, actual Apache installation and live exam/attendance acceptance.
 
 See [native production setup](native-production-setup.md) for detailed evidence
 and [architecture](architecture.md) for retained attendance dependencies.
+
+## Prepared runtime profile step
+
+`deploy/virtualmin/prepare-native-runtime-profile.py` is a user-run root script
+that updates only the six fixed runtime settings above in the fixed private native
+environment. It saves a private backup, preserves ownership/permissions and
+unrelated values, rejects symlinks/unsafe permissions/concurrent changes, and
+replaces the file atomically. It does not restart services, clear caches, migrate
+data or change Apache. Local transformation checks passed duplicate removal,
+private-value preservation and idempotence; Linux installation remains unexecuted.
