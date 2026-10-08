@@ -92,8 +92,13 @@ Local mapping readback/options and authenticated POST controls now expose only
 the scoped section and tenant exam groups. The enrolment academic workspace has
 a shared draft form with version checks and revoked-map protection. Saving a
 mapping does not deliver students; editors explicitly refresh an already delivered
-profile to apply its current group mapping. These migrations and controls are
-not deployed or verified live.
+profile to apply its current group mapping. These migrations and controls were
+deployed on 8 October 2026. Existing-owner login, the enrolment workspace and
+context, and scoped section mapping options passed authenticated live HTTP checks.
+Browser form acceptance and actual profile/group delivery remain pending. No
+existing learner was automatically mirrored and no new live student account was
+created during deployment. Registration-page extraction and authenticated exam
+attempt/results acceptance remain unfinished.
 
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact
