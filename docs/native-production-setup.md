@@ -9,14 +9,17 @@ do not use that launcher for this fixture. The original installation is unchange
 
 ## Current acceptance boundary — 8 October 2026
 
-The latest complete copied-source native run passed 334 tests / 1,457 assertions,
+The latest complete copied-source native run passed 335 tests / 1,468 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial
 and unpublished-paper protection on the guest print route.
 Registered student and guest activation now recognise only completed orders.
 Local authenticated HTTP checks verify that a pending paid order cannot satisfy
 activation and that free activation creates one scoped completed student order
-across retries. These checkout checks do not establish paid entitlement enforcement
-on every direct exam route; that remains to be checked separately.
+across retries. Direct student web instructions and web/API start or resume now
+require an active same-organisation package and the student's completed scoped
+order for packaged exams. Targeted HTTP checks deny pending, unscoped and guest
+orders, deny disabled packages, permit completed owned orders and block resume
+after package revocation. Payment provider and production acceptance remain pending.
 Subsequent targeted exam journey checks passed 12 tests / 89 assertions,
 including package omission/invalid-package denial and actual signed draft/solution
 rendering with tampered-link denial. Signed numeric print URLs render directly;

@@ -81,6 +81,14 @@ migration preserves existing values. Local HTTP acceptance covers order-gated
 guest start, generated attempt/stats, MCQ save and completed result. Payment
 provider integration and guest browser/production acceptance remain unverified.
 
+Registered student web instructions, language preparation and web/API start or
+resume share an exam access check. Packaged papers require an active package in
+the exam's organisation and that student's completed order in the same organisation.
+Pending, guest and unscoped orders cannot grant this access. Unpackaged papers
+retain native organisation access, and student practice ownership is enforced
+on both entry paths. This does not add package expiry semantics or verify payment
+providers; local checks cover direct entry and package revocation on resume.
+
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
 checks before executing it. No production cleanup has been executed. Preserve the existing administrator's

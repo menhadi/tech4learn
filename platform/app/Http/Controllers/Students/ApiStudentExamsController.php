@@ -40,6 +40,7 @@ class ApiStudentExamsController extends Controller
         $studentId = $student->id;
         
         $exam = $this->tenantExamQuery()->with(['questions.subject', 'questions.qtype'])->findOrFail($id);
+        app(\App\Services\StudentExamAccess::class)->assertAllowed($exam, $student);
         abort_unless($exam->canAttemptOnline(), 409, 'This paper is currently available as a PDF download only.');
         abort_unless($exam->isAvailableAt(), 403, 'This exam is outside its scheduled availability.');
         $groupingService = app(\App\Services\ExamGroupingService::class);

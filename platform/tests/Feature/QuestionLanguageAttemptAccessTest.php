@@ -148,6 +148,35 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $this->assertSame(1,\App\Models\Order::count());
     }
 
+    public function test_direct_student_entry_requires_own_completed_scoped_active_package_order(): void
+    {
+        [$org,$student,$exam]=$this->fixture();
+        $package=\App\Models\Package::create(['organization_id'=>$org->id,'name'=>'Synthetic course','slug'=>'direct-course','expiry_days'=>30,'amount'=>10,'package_type'=>'paid','status'=>true]);
+        $exam->packages()->attach($package->id);
+        $this->actingAs($student,'student');
+        $this->get('https://language.test/exam/instructions/'.$exam->id)->assertForbidden();
+        \Laravel\Sanctum\Sanctum::actingAs($student,['*'],'student-api');
+        $url='https://language.test/api/student/exam/start/'.$exam->id;
+        $this->postJson($url)->assertForbidden();
+        $order=\App\Models\Order::create(['organization_id'=>$org->id,'student_id'=>$student->id,'total'=>10,'payment_method'=>'synthetic','status'=>'pending']);
+        \App\Models\OrderItem::create(['order_id'=>$order->id,'package_id'=>$package->id,'name'=>'Synthetic course','price'=>10,'quantity'=>1]);
+        $this->postJson($url)->assertForbidden();
+        $order->update(['status'=>'completed','organization_id'=>null]);
+        $this->postJson($url)->assertForbidden();
+        $order->update(['organization_id'=>$org->id,'student_id'=>null,'guest_id'=>'synthetic-other-guest']);
+        $this->postJson($url)->assertForbidden();
+        $order->update(['student_id'=>$student->id,'guest_id'=>null]);
+        $package->update(['status'=>false]);
+        $this->postJson($url)->assertForbidden();
+        $this->assertSame(0,ExamResult::count());
+        $package->update(['status'=>true]);
+        $this->postJson($url)->assertOk();
+        $this->get('https://language.test/exam/instructions/'.$exam->id)->assertOk();
+        $package->update(['status'=>false]);
+        $this->postJson($url)->assertForbidden();
+        $this->assertSame(1,ExamResult::count());
+    }
+
     public function test_registered_student_activation_uses_only_completed_own_orders(): void
     {
         [$org,$student,$exam]=$this->fixture();

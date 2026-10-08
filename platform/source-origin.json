@@ -696,11 +696,12 @@
     },
     {
       "path": "app/Http/Controllers/Students/ApiStudentExamsController.php",
-      "sha256": "3caedc18d8a426e3f726463bd699a497844614ed924c06b5cbeca2eff88b0dce",
+      "sha256": "6205eabf49ab5647513eaec6c0f25719336d361441c4ffef38cb53a92af84642",
       "patches": [
         "foundation-attendance-integration-and-native-exam-acceptance-20261007",
         "native-idempotent-finalization-and-result-release-policy-20261007",
-        "serialized-student-attempt-start"
+        "serialized-student-attempt-start",
+        "student-package-entry-entitlement"
       ]
     },
     {
@@ -762,11 +763,12 @@
     },
     {
       "path": "app/Http/Controllers/Students/StudentExamsController.php",
-      "sha256": "cd512c730ea12da2bc6a47221aa6319a157d99d3e52a597d426cec84cc0cf44e",
+      "sha256": "965053ef3ecc8277e965c0b9143ee6162089c43747104bc602979a7cbb1439a0",
       "patches": [
         "foundation-attendance-integration-and-native-exam-acceptance-20261007",
         "native-idempotent-finalization-and-result-release-policy-20261007",
-        "serialized-student-attempt-start"
+        "serialized-student-attempt-start",
+        "student-package-entry-entitlement"
       ]
     },
     {

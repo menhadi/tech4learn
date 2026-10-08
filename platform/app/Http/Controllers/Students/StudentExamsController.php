@@ -41,9 +41,7 @@ class StudentExamsController extends Controller
 
     private function ensureStudentCanAccessExam(Exam $exam): void
     {
-        if ($exam->is_student_practice && (int) $exam->created_by_student_id !== (int) Auth::guard('student')->id()) {
-            abort(404);
-        }
+        app(\App\Services\StudentExamAccess::class)->assertAllowed($exam, Auth::guard('student')->user());
     }
 
     public function showGuideline(Request $request, $id)
