@@ -328,7 +328,7 @@ class SaasController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'mobile' => ['nullable', 'string', 'max:30', 'unique:users,mobile'],
-            'password' => ['required', 'string', 'min:6'],
+            'password' => ['required', 'string', config('attendance.api_url') && $request->input('organization_role')!=='staff' ? 'min:15' : 'min:6', 'max:128'],
             'organization_role' => ['required', 'in:owner,admin,staff'],
             'status' => ['required', 'in:Active,Inactive'],
         ]);
@@ -342,7 +342,7 @@ class SaasController extends Controller
             $counter++;
         }
 
-        DB::transaction(function () use ($validated, $organization, $username) {
+        $user = DB::transaction(function () use ($validated, $organization, $username) {
         $user = User::create([
             'name' => $validated['name'],
             'username' => $username,
@@ -374,9 +374,22 @@ class SaasController extends Controller
             'user_id' => $user->id,
             'role' => $validated['organization_role'],
         ]);
+        return $user;
         });
 
-        return redirect()->route('saas.index')->with('success', 'Organization user created successfully.');
+        $message='Organization user created successfully.';
+        $actor=\Illuminate\Support\Facades\Auth::guard('web')->user();
+        if ($actor && $actor->is_platform_admin && config('attendance.api_url')
+            && $validated['organization_role']!=='staff' && $validated['status']==='Active') {
+            try {
+                app(\App\Support\AttendanceBridge::class)->provisionAdministrator($request,$actor,$organization,$user,$validated['password']);
+                $message='Organization administrator created. Attendance account is ready.';
+            } catch (\Throwable $error) {
+                // Keep the committed native account; never persist passwords or remote errors.
+                $message='Organization administrator created. Attendance account setup is pending.';
+            }
+        }
+        return redirect()->route('saas.index')->with('success',$message);
     }
 
     public function storePlatformAdmin(Request $request)

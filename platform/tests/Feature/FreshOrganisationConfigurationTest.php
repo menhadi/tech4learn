@@ -67,6 +67,26 @@ class FreshOrganisationConfigurationTest extends TestCase
         $this->actingAs($user,'web');
         $this->get('https://staff-tenant.test/exams')->assertForbidden();
     }
+    public function test_attendance_delivery_failure_keeps_committed_native_administrator(): void
+    {
+        config(['attendance.api_url'=>'https://api.example.invalid/api/v1']);
+        $org=Organization::create(['name'=>'Synthetic delivery tenant','slug'=>'delivery-tenant','domain'=>'delivery-tenant.test','status'=>'active']);
+        $actor=\App\Models\User::create(['name'=>'Synthetic platform','username'=>'synthetic-platform','email'=>'platform@example.invalid','password'=>bcrypt('Synthetic platform password 42'),'status'=>'Active','is_platform_admin'=>true,'ugroup_id'=>0]);
+        $this->actingAs($actor,'web');
+        \Spatie\Permission\Models\Role::findOrCreate('admin','web');
+        $bridge=\Mockery::mock(\App\Support\AttendanceBridge::class);
+        $bridge->shouldReceive('provisionAdministrator')->once()->withArgs(function($request,$caller,$organization,$user,$password)use($org){
+            return $organization->id===$org->id && $user->exists && \Illuminate\Support\Facades\DB::table('organization_users')->where('user_id',$user->id)->where('role','admin')->exists() && $password==='Synthetic delivery password 42';
+        })->andThrow(new \RuntimeException('Synthetic private remote error'));
+        app()->instance(\App\Support\AttendanceBridge::class,$bridge);
+        $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic administrator','email'=>'delivery-admin@example.invalid','password'=>'Synthetic delivery password 42','organization_role'=>'admin','status'=>'Active']);
+        $response=app(SaasController::class)->storeOrganizationAdmin($request,$org);
+        $this->assertSame('Organization administrator created. Attendance account setup is pending.',$response->getSession()->get('success'));
+        $user=\App\Models\User::where('email','delivery-admin@example.invalid')->sole();
+        $this->assertFalse((bool)$user->is_platform_admin);
+        $this->assertDatabaseHas('organization_users',['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'admin']);
+    }
+
     public function test_membership_failure_does_not_leave_an_orphan_admin_account(): void
     {
         $org=Organization::create(['name'=>'Synthetic membership failure','slug'=>'membership-failure','domain'=>'membership-failure.test','status'=>'active']);

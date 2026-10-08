@@ -33,7 +33,7 @@ pending rows expose a CSRF-protected, throttled retry action. Connected PHP-to-A
 delivery passed: a fresh companion was created, the native request completed with
 one attempt, and a completed retry was not resent. Live deployment remains pending.
 
-The latest complete copied-source native run passed 342 tests / 1,528 assertions,
+The latest complete copied-source native run passed 344 tests / 1,539 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial
 and unpublished-paper protection on the guest print route.
 Student API exam details now withhold question content/options/translations and
@@ -1456,3 +1456,15 @@ bridge and ephemeral attendance API: ordinary staff membership was denied, an
 active native administrator created a fresh ordinary canonical account, and an
 exact retry retained its canonical identity. The complete connected attendance
 workflow passed again. This does not establish creation-form or live acceptance.
+
+## Native administrator creation delivery — local only
+
+With the attendance API configured, platform-created active owner/admin accounts
+now attempt attendance provisioning after native account/membership commit.
+Success reports the attendance account ready; failure retains the native account
+and reports pending setup without storing passwords or remote error text. Selected
+staff and inactive accounts are not sent to the administrator endpoint. Password
+validation uses the canonical 15–128 character rule for this administrator flow.
+Targeted creation checks passed 11 tests / 45 assertions, including committed
+account preservation on delivery failure. Password-reentry retry UI, ordinary
+staff provisioning, creation browser acceptance and live acceptance remain pending.
