@@ -39,7 +39,7 @@ async function secretPrompt(): Promise<string> {
     throw new Error(
       "Run bootstrap in an interactive terminal. Passwords are never accepted as command arguments.",
     );
-  stdout.write("Password (15–128 characters; hidden): ");
+  stdout.write("Password (hidden): ");
   stdin.setRawMode(true);
   stdin.resume();
   return new Promise((resolve, reject) => {

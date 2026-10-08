@@ -180,7 +180,7 @@ test("identity and organisation permissions through HTTP with the PostgreSQL eng
           (
             await request("/invitations/accept", "POST", {
               ...body,
-              password: "short",
+              password: "",
             })
           ).status,
           400,

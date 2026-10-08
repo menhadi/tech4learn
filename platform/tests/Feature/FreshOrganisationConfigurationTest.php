@@ -76,17 +76,17 @@ class FreshOrganisationConfigurationTest extends TestCase
         \Spatie\Permission\Models\Role::findOrCreate('admin','web');
         $bridge=\Mockery::mock(\App\Support\AttendanceBridge::class);
         $bridge->shouldReceive('provisionAdministrator')->once()->withArgs(function($request,$caller,$organization,$user,$password)use($org){
-            return $organization->id===$org->id && $user->exists && \Illuminate\Support\Facades\DB::table('organization_users')->where('user_id',$user->id)->where('role','admin')->exists() && $password==='Synthetic delivery password 42';
+            return $organization->id===$org->id && $user->exists && \Illuminate\Support\Facades\DB::table('organization_users')->where('user_id',$user->id)->where('role','admin')->exists() && $password==='short';
         })->andThrow(new \RuntimeException('Synthetic private remote error'));
         app()->instance(\App\Support\AttendanceBridge::class,$bridge);
-        $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic administrator','email'=>'delivery-admin@example.invalid','password'=>'Synthetic delivery password 42','organization_role'=>'admin','status'=>'Active']);
+        $request=Request::create('https://platform.test/saas/organizations','POST',['name'=>'Synthetic administrator','email'=>'delivery-admin@example.invalid','password'=>'short','organization_role'=>'admin','status'=>'Active']);
         $response=app(SaasController::class)->storeOrganizationAdmin($request,$org);
         $this->assertSame('Organization administrator created. Attendance account setup is pending.',$response->getSession()->get('success'));
         $user=\App\Models\User::where('email','delivery-admin@example.invalid')->sole();
         $this->assertFalse((bool)$user->is_platform_admin);
         $this->assertDatabaseHas('organization_users',['organization_id'=>$org->id,'user_id'=>$user->id,'role'=>'admin']);
         $bridge->shouldReceive('provisionAdministrator')->once()->andReturn(['created'=>false,'userId'=>'22222222-2222-4222-8222-222222222222']);
-        $request=Request::create('https://platform.test/retry','POST',['password'=>'Synthetic delivery password 42']);
+        $request=Request::create('https://platform.test/retry','POST',['password'=>'short']);
         $response=app(SaasController::class)->retryAttendanceAdministrator($request,$org,$user);
         $this->assertSame('Attendance administrator account is ready.',$response->getSession()->get('success'));
         \Illuminate\Support\Facades\DB::table('organization_users')->where('user_id',$user->id)->update(['role'=>'staff']);

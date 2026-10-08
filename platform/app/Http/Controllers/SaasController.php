@@ -328,7 +328,7 @@ class SaasController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'mobile' => ['nullable', 'string', 'max:30', 'unique:users,mobile'],
-            'password' => ['required', 'string', config('attendance.api_url') && $request->input('organization_role')!=='staff' ? 'min:15' : 'min:6', 'max:128'],
+            'password' => ['required', 'string', 'max:128'],
             'organization_role' => ['required', 'in:owner,admin,staff'],
             'status' => ['required', 'in:Active,Inactive'],
         ]);
@@ -400,7 +400,7 @@ class SaasController extends Controller
         abort_unless(User::whereKey($user->id)->where('status','Active')->where('deleted',false)->where('is_platform_admin',false)->exists(),404);
         abort_unless(DB::table('organization_users')->where('organization_id',$organization->id)->where('user_id',$user->id)
             ->whereIn('role',['owner','admin'])->where('status',1)->exists(),403);
-        $validated=$request->validate(['password'=>['required','string','min:15','max:128']]);
+        $validated=$request->validate(['password'=>['required','string','max:128']]);
         $stored=User::findOrFail($user->id);
         if (!\Illuminate\Support\Facades\Hash::check($validated['password'],$stored->password)) {
             throw \Illuminate\Validation\ValidationException::withMessages(['password'=>'Re-enter the current native account password.']);

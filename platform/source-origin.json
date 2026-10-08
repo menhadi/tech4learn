@@ -591,7 +591,7 @@
     },
     {
       "path": "app/Http/Controllers/SaasController.php",
-      "sha256": "b162d8a3332d04a898b3bcac0bca42b4a5a8c9ad1c66afd2dc7c4977cb867460",
+      "sha256": "bb7f11447f310a4ebfe19223765c9abd3718830301ac2235436039b16f2b01ec",
       "patches": [
         "isolated-atomic-fresh-organisation-configuration",
         "required-organisation-creation-audit",
@@ -600,7 +600,8 @@
         "fresh-attendance-delivery-and-retry-action",
         "postcommit-attendance-administrator-delivery",
         "password-reentry-attendance-administrator-retry",
-        "attendance-retry-current-native-password-verification"
+        "attendance-retry-current-native-password-verification",
+        "organisation-password-minimum-removed"
       ]
     },
     {
@@ -176668,17 +176669,19 @@
     },
     {
       "path": "resources/views/saas/index.blade.php",
-      "sha256": "09e9571ea699e7a7c9e7996248fc5a94168c9bcc7cbe6e404d384f2e97777759",
+      "sha256": "9cff308158e6034cc3a71ba8b27a7e2a56803e50309273f90127b59030ad018d",
       "patches": [
         "fresh-attendance-delivery-and-retry-action",
-        "attendance-administrator-password-reentry-control"
+        "attendance-administrator-password-reentry-control",
+        "organisation-password-minimum-removed"
       ]
     },
     {
       "path": "resources/views/saas/partials/admin-user-modal.blade.php",
-      "sha256": "0c237ddb1999f8728fb65c6b1bde3e7dfd656906cab86e7fdba3145449d46c7c",
+      "sha256": "a03b81e8a1618012b980c0d86844dd98281f8488f0d3cda91be9963a3ae5fe28",
       "patches": [
-        "attendance-administrator-password-reentry-control"
+        "attendance-administrator-password-reentry-control",
+        "organisation-password-minimum-removed"
       ]
     },
     {

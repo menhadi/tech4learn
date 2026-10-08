@@ -15,8 +15,8 @@ const derive = (password: string, salt: string) =>
     );
   });
 export function passwordValue(value: unknown): string {
-  if (typeof value !== "string" || value.length < 15 || value.length > 128)
-    throw new BadRequestException("Use a password of 15–128 characters.");
+  if (typeof value !== "string" || !value.length || value.length > 128)
+    throw new BadRequestException("Enter a password (maximum 128 characters).");
   return value;
 }
 export function loginPassword(value: unknown): string {

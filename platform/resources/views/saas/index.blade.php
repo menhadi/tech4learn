@@ -520,8 +520,8 @@
                                             <form method="POST" action="{{ route('saas.organizations.admin-users.attendance', ['organization'=>$assignment->organization_id,'user'=>$assignment->user_id]) }}" class="mt-2">
                                                 @csrf
                                                 <label for="attendancePassword{{ $assignment->organization_id }}-{{ $assignment->user_id }}" class="form-label">Re-enter account password</label>
-                                                <input id="attendancePassword{{ $assignment->organization_id }}-{{ $assignment->user_id }}" type="password" name="password" class="form-control" minlength="15" maxlength="128" autocomplete="new-password" required>
-                                                <p class="text-muted small">15–128 characters. An existing attendance account keeps its password.</p>
+                                                <input id="attendancePassword{{ $assignment->organization_id }}-{{ $assignment->user_id }}" type="password" name="password" class="form-control" maxlength="128" autocomplete="new-password" required>
+                                                <p class="text-muted small">Enter the current account password. An existing attendance account keeps its password.</p>
                                                 <button type="submit" class="btn btn-sm el-btn-soft">Retry attendance account setup</button>
                                             </form>
                                         </details>
