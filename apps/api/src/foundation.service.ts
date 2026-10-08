@@ -137,6 +137,26 @@ export class FoundationService {
       return {nativeOrganisationId:native,nativeUserId:user,nativeStudentId:student,organisationId:organisation.organisation_id,learnerId:learner,version:mapping.version};
     });
   }
+  async studentDeliverySnapshot(actor: Account, nativeValue: string, userValue: string, learnerValue: string) {
+    const native=nativeId(nativeValue), user=nativeId(userValue), learner=recordId(learnerValue);
+    return this.db.transaction(async sql=>{
+      const mapped=(await sql.query<{organisation_id:string}>(`SELECT f.organisation_id FROM foundation_organisations f
+        JOIN foundation_staff s ON s.native_organisation_id=f.native_id
+        WHERE f.native_id=$1 AND s.native_user_id=$2 AND s.user_id=$3 AND f.active AND s.active
+        FOR SHARE OF f,s`,[native,user,actor.id])).rows[0];
+      if(!mapped)throw new NotFoundException("Enrolment identity is not linked.");
+      await this.access.lock(sql,mapped.organisation_id);
+      const profile=await this.learners.nativeProfileSnapshot(actor,mapped.organisation_id,learner,sql);
+      const delivery=(await sql.query<{revision:string}>(`SELECT revision::text FROM foundation_student_deliveries
+        WHERE native_organisation_id=$1 AND organisation_id=$2 AND learner_id=$3 FOR SHARE`,
+        [native,mapped.organisation_id,learner])).rows[0];
+      if(!delivery)throw new NotFoundException("Student delivery has not been requested.");
+      const revision=Number(delivery.revision);
+      if(!Number.isSafeInteger(revision) || revision<1 || revision>=1000000000000000)
+        throw new ConflictException("Student delivery revision cannot be processed.");
+      return {nativeOrganisationId:native,nativeUserId:user,organisationId:mapped.organisation_id,revision,...profile};
+    });
+  }
   private async platform(actor: Pick<Account,"id">, sql: SqlClient) {
     // Do not inherit platform authority from a native role or a stale caller object.
     const stored = await sql.query<{ is_superadmin: boolean }>("SELECT is_superadmin FROM users WHERE id=$1 FOR SHARE", [actor.id]);

@@ -41,8 +41,16 @@ unlinked code collisions, preserves existing passwords/contacts, and creates new
 profiles suspended with no invented email/phone or lifecycle messages. Archive
 delivery suspends a profile; a later edit does not reactivate its login. Its
 mapping migration and synthetic checks are local only. No public route invokes
-this consumer yet: canonical snapshot fetching, server-verified acknowledgement
+this consumer yet: server-verified acknowledgement
 and delivery retry are required before exposing or deploying this integration.
+
+Canonical snapshot fetching is now implemented and checked locally: the API
+derives the organisation from the active native staff mapping, checks learner
+scope and returns only the mirror's identity fields and queued revision. The
+native bridge rechecks enrolment authority and the exact snapshot after remote
+work, discards extra fields and refuses stale delivery. This read-only boundary
+does not acknowledge delivery, assign exam groups or enable the consumer's
+public invocation; those integration steps and live acceptance remain pending.
 
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact

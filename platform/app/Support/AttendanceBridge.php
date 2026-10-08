@@ -11,6 +11,27 @@ use Illuminate\Support\Facades\Cookie;
 
 class AttendanceBridge
 {
+    public function studentDeliverySnapshot(Request $request, string $learner, ?ClientInterface $http=null): array
+    {
+        abort_unless(preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$learner),422);
+        $context=$this->context($request,$http,'enrolment');
+        $path='/foundation/organisations/'.$context['nativeOrganisationId'].'/staff/'.$context['nativeUserId'].'/student-deliveries/'.$learner;
+        $snapshot=$this->read($request,$path,[],$http);
+        abort_unless(($snapshot['nativeOrganisationId']??null)===$context['nativeOrganisationId']
+            && ($snapshot['nativeUserId']??null)===$context['nativeUserId']
+            && ($snapshot['organisationId']??null)===$context['organisation']['id']
+            && ($snapshot['learnerId']??null)===$learner
+            && is_int($snapshot['revision']??null) && $snapshot['revision']>0 && $snapshot['revision']<1000000000000000
+            && is_int($snapshot['version']??null) && $snapshot['version']>0
+            && is_bool($snapshot['archived']??null) && is_bool($snapshot['demo']??null)
+            && is_string($snapshot['groupId']??null) && preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$snapshot['groupId'])
+            && is_string($snapshot['name']??null) && mb_strlen($snapshot['name'])<=120
+            && is_string($snapshot['code']??null) && preg_match('/^[A-Z0-9][A-Z0-9_-]{0,39}$/D',$snapshot['code']),502);
+        abort_unless($this->context($request,$http,'enrolment')===$context
+            && $this->read($request,$path,[],$http)===$snapshot,409,'Student delivery changed; retry it.');
+        return array_intersect_key($snapshot,array_flip(['nativeOrganisationId','nativeUserId','organisationId','learnerId',
+            'revision','version','name','code','archived','demo','groupId']));
+    }
     public function learnerIdentity(Request $request, \App\Models\Student $student, ?ClientInterface $http = null): array
     {
         $organisation=Tenant::assertAccess(Tenant::current(),true);

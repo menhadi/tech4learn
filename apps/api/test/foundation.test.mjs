@@ -10,6 +10,7 @@ import { configurationMigration } from '../dist/migration-configuration.js';
 import { foundationMigration } from '../dist/migration-foundation.js';
 import { foundationLearnerMigration } from '../dist/migration-foundation-learners.js';
 import { foundationPlatformMigration } from '../dist/migration-foundation-platform.js';
+import { studentDeliveryMigration } from '../dist/migration-student-delivery.js';
 import { digest,hashPassword } from '../dist/security.js';
 
 test('foundation identity links require explicit accounts, current authority and revocable attendance grants', async t => {
@@ -20,6 +21,7 @@ test('foundation identity links require explicit accounts, current authority and
     await pg.query('INSERT INTO organisations(id,name,slug) VALUES($1,$2,$2)',[id,slug]);
   await pg.exec(accessMigration); await pg.exec(learnerMigration); await pg.exec(configurationMigration); await pg.exec(foundationMigration);
   await pg.exec(foundationLearnerMigration); await pg.exec(foundationPlatformMigration);
+  await pg.exec(studentDeliveryMigration);
   const learnerA=randomUUID(),learnerB=randomUUID(),centreA=randomUUID(),groupA=randomUUID();
   for(const [org,learner,centre,group] of [[orgA,learnerA,centreA,groupA],[orgB,learnerB,randomUUID(),randomUUID()]]) {
     await pg.query('INSERT INTO centres(id,organisation_id,name) VALUES($1,$2,$3)',[centre,org,'Synthetic centre']);
@@ -72,6 +74,26 @@ test('foundation identity links require explicit accounts, current authority and
       assert.equal((await request(context,'GET',undefined,'staff')).status,403);
       assert.equal((await request(enrolment,'GET',undefined,'staff')).status,200);
       await pg.query("UPDATE organisation_settings SET enabled_modules='{\"attendance\":true}' WHERE organisation_id=$1",[orgA]);
+    });
+    await t.test('student delivery snapshots use current actor and learner scope and exclude private profile material',async()=>{
+      const path=`/foundation/organisations/7/staff/9/student-deliveries/${learnerA}`;
+      assert.equal((await request(path,'GET',undefined,'staff')).status,404);
+      await pg.query('UPDATE learners SET age=8,version=version+1 WHERE id=$1',[learnerA]);
+      const response=await request(path,'GET',undefined,'staff');assert.equal(response.status,200);
+      assert.equal(response.headers.get('cache-control'),'no-store');
+      const value=await response.json();assert.equal(value.learnerId,learnerA);assert.equal(value.nativeOrganisationId,'7');assert.equal(value.revision,1);
+      for(const field of ['guardian_name','guardian_phone','custom_values','password','photo','nativeStudentId'])assert.equal(value[field],undefined);
+      assert.equal((await request(path,'GET',undefined,'outsider')).status,404);
+      assert.equal((await request(path.replace(learnerA,learnerB),'GET',undefined,'staff')).status,404);
+      await pg.query("UPDATE memberships SET scope_type='groups',scope_ids='{}' WHERE user_id=$1 AND organisation_id=$2",[staff,orgA]);
+      assert.equal((await request(path,'GET',undefined,'staff')).status,404);
+      await pg.query("UPDATE memberships SET scope_type='organisation',scope_ids='{}' WHERE user_id=$1 AND organisation_id=$2",[staff,orgA]);
+      await pg.query("UPDATE organisation_settings SET enabled_modules='{\"attendance\":true,\"learners\":false}' WHERE organisation_id=$1",[orgA]);
+      assert.equal((await request(path,'GET',undefined,'staff')).status,403);
+      await pg.query("UPDATE organisation_settings SET enabled_modules='{\"attendance\":true}' WHERE organisation_id=$1",[orgA]);
+      await pg.query('UPDATE foundation_staff SET active=false WHERE native_organisation_id=7 AND native_user_id=9');
+      assert.equal((await request(path,'GET',undefined,'staff')).status,404);
+      await pg.query('UPDATE foundation_staff SET active=true WHERE native_organisation_id=7 AND native_user_id=9');
     });
     await t.test('one-login identity uses the stored link and revokes sessions on failed mapping',async()=>{
       const before=(await pg.query('SELECT count(*)::int AS n FROM sessions')).rows[0].n;

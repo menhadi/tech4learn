@@ -92,6 +92,14 @@ export class LearnersService {
     await this.group(sql, org, learner.group_id, access);
     return learner.id;
   }
+  async nativeProfileSnapshot(user: Account, org: string, id: string, sql: SqlClient) {
+    const access=await this.access.require(user,org,"learners.view",sql);
+    const learner=await this.get(sql,org,id,access);
+    // Archived profiles must remain readable within scope so a mirror can be suspended.
+    // No contacts, custom values, photos or login material cross this boundary.
+    return {learnerId:learner.id,name:learner.name,code:learner.code,
+      archived:learner.archived,demo:learner.demo,groupId:learner.group_id,version:learner.version};
+  }
   async list(
     user: Account,
     org: string,

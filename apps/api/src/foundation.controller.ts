@@ -69,4 +69,10 @@ export class FoundationController {
   async updateStaff(@Param("native") n: string, @Param("user") u: string, @Body() b: Record<string, unknown>, @Headers("cookie") c?: string) { return this.links.setStaff(await this.actor(c), n, u, b ?? {}); }
   @Get("foundation/organisations/:native/staff/:user/attendance-context")
   async context(@Param("native") n: string, @Param("user") u: string, @Headers("cookie") c?: string) { return this.links.context(await this.actor(c), n, u); }
+  @Get("foundation/organisations/:native/staff/:user/student-deliveries/:learner")
+  async studentDelivery(@Param("native") n:string,@Param("user") u:string,@Param("learner") l:string,
+    @Headers("cookie") c:string|undefined,@Res({passthrough:true}) response:Response) {
+    response.setHeader("Cache-Control","no-store");
+    return this.links.studentDeliverySnapshot(await this.actor(c),n,u,l);
+  }
 }

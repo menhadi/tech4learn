@@ -274,4 +274,23 @@ class FoundationPlatformIdentityTest extends TestCase
                 $this->request('/enrolment/api/'.$path),$path,new AttendanceBridge));
         }
     }
+    public function test_student_snapshot_rechecks_enrolment_authority_and_exact_delivery_revision(): void
+    {
+        Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request('/enrolment');
+        $learner='22222222-2222-4222-8222-222222222222';
+        $context=['nativeOrganisationId'=>'1','nativeUserId'=>'1','organisation'=>['id'=>$learner],
+            'permissions'=>['learners.view'],'scope'=>['type'=>'organisation','ids'=>[]]];
+        $snapshot=['nativeOrganisationId'=>'1','nativeUserId'=>'1','organisationId'=>$learner,'learnerId'=>$learner,
+            'revision'=>1,'version'=>1,'name'=>'Synthetic Student','code'=>'TEST-001','archived'=>false,'demo'=>true,
+            'groupId'=>'33333333-3333-4333-8333-333333333333','password'=>'untrusted extra'];
+        $client=$this->client([$this->response($context),$this->response($snapshot),$this->response($context),$this->response($snapshot)]);
+        $result=(new AttendanceBridge)->studentDeliverySnapshot($request,$learner,$client);
+        $this->assertArrayNotHasKey('password',$result);$this->assertSame(1,$result['revision']);
+        $this->assertStringEndsWith('/enrolment-context',(string)$this->history[0]['request']->getUri());
+        $changed=$snapshot;$changed['revision']=2;
+        $client=$this->client([$this->response($context),$this->response($snapshot),$this->response($context),$this->response($changed)]);
+        $this->denied(409,fn()=>(new AttendanceBridge)->studentDeliverySnapshot($request,$learner,$client));
+        $client=$this->client([$this->response($context),$this->response($snapshot),$this->response([],403)]);
+        $this->denied(403,fn()=>(new AttendanceBridge)->studentDeliverySnapshot($request,$learner,$client));
+    }
 }
