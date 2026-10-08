@@ -263,4 +263,15 @@ class FoundationPlatformIdentityTest extends TestCase
         $response=(new ResolveTenant)->handle($request,fn($request)=>(new VerifyPlatformIdentity)->handle($request,fn()=>response('',204)));
         $this->assertSame(204,$response->getStatusCode());
     }
+
+    public function test_enrolment_gateway_does_not_expose_attendance_resources(): void
+    {
+        $controller=new \App\Http\Controllers\AttendanceBridgeController;
+        foreach (['organisations/native-org-2/attendance',
+            'organisations/native-org-2/attendance/captures',
+            'organisations/native-org-2/attendance/history'] as $path) {
+            $this->denied(404,fn()=>$controller->enrolmentGateway(
+                $this->request('/enrolment/api/'.$path),$path,new AttendanceBridge));
+        }
+    }
 }
