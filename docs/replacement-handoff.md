@@ -98,3 +98,21 @@ unrelated values, rejects symlinks/unsafe permissions/concurrent changes, and
 replaces the file atomically. It does not restart services, clear caches, migrate
 data or change Apache. Local transformation checks passed duplicate removal,
 private-value preservation and idempotence; Linux installation remains unexecuted.
+
+## Deployment progress after scoped write authorization
+
+Pinned release `551654c4e4feb1708d24f638e2da8068cee430d7` now has locked PHP/API
+dependencies, checked attendance assets and applied native/API migrations. The
+retained canonical administrator has an explicit native account and platform
+mapping; canonical UUID/password were compared before/after and remain unchanged.
+All read-only native readiness gates pass. The candidate attendance-only API
+passes health on private loopback port 3181. Public routing remains the old site.
+
+The fixed-site `switch-tech4learn-native.py` prepares only Tech4Learn Apache routing,
+its service working directory/mode and www-data traversal ACLs for the release.
+It requires the exact reviewed source/configuration hashes, native readiness, PHP
+and Apache configuration tests, saves private rollback evidence and restores the
+previous configuration/service on failed installation. Seven renderer tests and
+script syntax passed. It requires a narrowly scoped user-run root invocation;
+no legacy deletion or original ExamElite edit is part of this cutover. Public
+authenticated acceptance is required after installation.
