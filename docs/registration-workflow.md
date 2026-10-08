@@ -66,7 +66,13 @@ The local `foundation:student-signing-key --confirm-native-installation` command
 now prepares private installation storage and a separate public key file for
 trusted registration. Exact retries retain the key; malformed or conflicting
 existing files require operator review and are never rotated automatically.
-Protected invocation and retry delivery remain pending.
+An internal native delivery method now requires editable canonical enrolment
+authority before profile writes, checks signing setup, persists the UUID profile,
+rechecks the snapshot and posts its signed receipt to canonical acknowledgement.
+Synthetic transport tests prove that remote failure retries retain the same native
+profile/password and send only signed IDs. The operator switch defaults off.
+Public invocation, directory retry controls, section mapping and live acceptance
+remain pending; no existing live learner is automatically mirrored.
 
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact

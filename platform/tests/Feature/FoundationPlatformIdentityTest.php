@@ -287,6 +287,11 @@ class FoundationPlatformIdentityTest extends TestCase
         $result=(new AttendanceBridge)->studentDeliverySnapshot($request,$learner,$client);
         $this->assertArrayNotHasKey('password',$result);$this->assertSame(1,$result['revision']);
         $this->assertStringEndsWith('/enrolment-context',(string)$this->history[0]['request']->getUri());
+        $before=count($this->history);$client=$this->client([$this->response($context)]);
+        $this->denied(403,fn()=>(new AttendanceBridge)->studentDeliverySnapshot($request,$learner,$client,true));
+        $this->assertCount($before+1,$this->history);
+        config(['attendance.student_delivery_enabled'=>false]);
+        $this->denied(503,fn()=>(new AttendanceBridge)->deliverStudent($request,$learner,$client));
         $changed=$snapshot;$changed['revision']=2;
         $client=$this->client([$this->response($context),$this->response($snapshot),$this->response($context),$this->response($changed)]);
         $this->denied(409,fn()=>(new AttendanceBridge)->studentDeliverySnapshot($request,$learner,$client));

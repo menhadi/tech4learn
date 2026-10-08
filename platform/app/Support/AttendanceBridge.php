@@ -11,10 +11,11 @@ use Illuminate\Support\Facades\Cookie;
 
 class AttendanceBridge
 {
-    public function studentDeliverySnapshot(Request $request, string $learner, ?ClientInterface $http=null): array
+    public function studentDeliverySnapshot(Request $request, string $learner, ?ClientInterface $http=null, bool $forDelivery=false): array
     {
         abort_unless(preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$learner),422);
         $context=$this->context($request,$http,'enrolment');
+        if ($forDelivery)abort_unless(in_array('learners.edit',$context['permissions'],true),403);
         $path='/foundation/organisations/'.$context['nativeOrganisationId'].'/staff/'.$context['nativeUserId'].'/student-deliveries/'.$learner;
         $snapshot=$this->read($request,$path,[],$http);
         abort_unless(($snapshot['nativeOrganisationId']??null)===$context['nativeOrganisationId']
@@ -31,6 +32,25 @@ class AttendanceBridge
             && $this->read($request,$path,[],$http)===$snapshot,409,'Student delivery changed; retry it.');
         return array_intersect_key($snapshot,array_flip(['nativeOrganisationId','nativeUserId','organisationId','learnerId',
             'revision','version','name','code','archived','demo','groupId']));
+    }
+    public function deliverStudent(Request $request, string $learner, ?ClientInterface $http=null): array
+    {
+        // Internal invocation only. Neither request JSON nor a client native ID is consumed.
+        abort_unless(config('attendance.student_delivery_enabled',false),503,'Student delivery is not enabled.');
+        $snapshot=$this->studentDeliverySnapshot($request,$learner,$http,true);
+        // Refuse an unprepared installation before creating any native profile.
+        app(\App\Services\StudentDeliveryReceipt::class)->assertConfigured();
+        $result=app(\App\Services\EnrolledStudentProfile::class)->apply($request,$snapshot);
+        $receipt=app(\App\Services\StudentDeliveryReceipt::class)->issue($request,$learner,$snapshot['revision']);
+        // A remote failure leaves the stable UUID profile retryable, never creates another ID.
+        abort_unless($this->studentDeliverySnapshot($request,$learner,$http,true)===$snapshot,409,'Student delivery changed; retry it.');
+        $path='/foundation/organisations/'.$snapshot['nativeOrganisationId'].'/staff/'.$snapshot['nativeUserId']
+            .'/student-deliveries/'.$learner.'/acknowledge';
+        $ack=$this->read($request,$path,[],$http,'POST',$receipt);
+        abort_unless(($ack['nativeStudentId']??null)===$result['nativeStudentId']
+            && ($ack['learnerId']??null)===$learner && ($ack['revision']??null)===$snapshot['revision']
+            && ($ack['delivered']??null)===true,502);
+        return ['learnerId'=>$learner,'revision'=>$snapshot['revision'],'delivered'=>true];
     }
     public function learnerIdentity(Request $request, \App\Models\Student $student, ?ClientInterface $http = null): array
     {
