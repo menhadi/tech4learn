@@ -49,6 +49,7 @@ class ApiMyExamController extends Controller
 
         // 4. Purchased Exams (Website wala same logic)
         $purchasedPackageIds = Order::where('student_id', $studentId)
+            ->where('organization_id', $organizationId)
             ->where('status', 'completed')
             ->with('items.package')
             ->get()
@@ -63,10 +64,12 @@ class ApiMyExamController extends Controller
             : collect();
 
         $purchasedPackages = \App\Models\Package::where('organization_id', $organizationId)
+            ->where('status', true)
             ->whereIn('id', $purchasedPackageIds)
             ->whereNotIn('id', $hiddenPackageIds)
-            ->with(['exams' => function ($query) use ($studentGroups) {
+            ->with(['exams' => function ($query) use ($studentGroups, $organizationId) {
                 $query->where('status', 'Active')
+                      ->where('exams.organization_id', $organizationId)
                       ->whereHas('groups', function ($q) use ($studentGroups) {
                           $q->whereIn('group_id', $studentGroups);
                       })

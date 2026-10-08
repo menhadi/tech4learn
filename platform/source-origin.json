@@ -681,9 +681,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/ApiMyExamController.php",
-      "sha256": "9ed78db3aeddce8b6183a66000f850d5106c4778596e94f4671a31282d61c9f2",
+      "sha256": "e707db75e978d97d2394e820d576b7f6fa16ab20e1df92782e0b3ab96737e677",
       "patches": [
-        "metadata-only-exam-details-active-package-access"
+        "metadata-only-exam-details-active-package-access",
+        "scoped-active-purchased-course-list"
       ]
     },
     {

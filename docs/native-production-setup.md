@@ -18,6 +18,10 @@ Details and attempt-count requests recheck active package access. Targeted check
 passed 10 tests / 95 assertions, including package revocation on API endpoints
 and web details/attempt-count denial before activation and access after activation.
 The web My Exams controller now shares the same course-access policy.
+Subsequent API course-list checks passed 10 tests / 101 assertions. Purchased
+courses now require completed orders in the student's organisation and active
+packages; their nested exams are explicitly scoped to that organisation.
+The list regression denies unscoped orders and excludes disabled packages.
 Registered student and guest activation now recognise only completed orders.
 Local authenticated HTTP checks verify that a pending paid order cannot satisfy
 activation and that free activation creates one scoped completed student order

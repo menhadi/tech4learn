@@ -203,8 +203,14 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $this->getJson($url)->assertNotFound();
         $order=\App\Models\Order::create(['organization_id'=>$org->id,'student_id'=>$student->id,'total'=>10,'payment_method'=>'synthetic','status'=>'completed']);
         \App\Models\OrderItem::create(['order_id'=>$order->id,'package_id'=>$package->id,'name'=>'Synthetic course','price'=>10,'quantity'=>1]);
+        $list='https://language.test/api/student/my-exams';
+        $order->update(['organization_id'=>null]);
+        $this->getJson($list)->assertOk()->assertJsonCount(0,'data.purchasedPackages');
+        $order->update(['organization_id'=>$org->id]);
+        $this->getJson($list)->assertOk()->assertJsonCount(1,'data.purchasedPackages');
         $this->getJson($url)->assertOk();
         $package->update(['status'=>false]);
+        $this->getJson($list)->assertOk()->assertJsonCount(0,'data.purchasedPackages');
         $this->getJson($url)->assertForbidden();
         $this->getJson('https://language.test/api/student/check-attempts/'.$exam->id)->assertForbidden();
     }
