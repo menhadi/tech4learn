@@ -129,4 +129,22 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $this->assertSame('Pass',$result->fresh()->result);
         $this->assertEquals(2,$result->fresh()->obtained_marks);
     }
+
+    public function test_free_guest_checkout_creates_a_scoped_order_and_retry_keeps_one_activation(): void
+    {
+        [$org,$student,$exam]=$this->fixture();
+        $package=\App\Models\Package::create(['organization_id'=>$org->id,'name'=>'Synthetic free course','slug'=>'free-course','expiry_days'=>30,'amount'=>0,'package_type'=>'free','status'=>true]);
+        $exam->packages()->attach($package->id);
+        $payload=['id'=>$package->id,'exam'=>$exam->id];
+        $response=$this->postJson('https://language.test/checkout/enroll/exam',$payload)->assertOk();
+        $order=\App\Models\Order::sole();
+        $this->assertSame((int)$org->id,(int)$order->organization_id);
+        $this->assertSame('completed',$order->status);
+        $this->assertSame('Completed',$order->payment_status);
+        $this->assertNotEmpty($order->guest_id);
+        $this->assertNull($order->student_id);
+        $this->followingRedirects()->get($response->json('redirectUrl'))->assertOk();
+        $this->postJson('https://language.test/checkout/enroll/exam',$payload)->assertOk();
+        $this->assertSame(1,\App\Models\Order::count());
+    }
 }

@@ -30,6 +30,11 @@ Local HTTP acceptance also covers completed-order/active-package guest entry,
 fresh attempt/stat creation, answer save and successful MCQ completion. Migration
 `2026_10_08_000004` completes missing checkout order fields and optional billing
 snapshots locally; it has not been run live. Pending orders do not grant access.
+Subsequent targeted checks passed six guest/language HTTP tests / 52 assertions.
+The actual free guest checkout route creates a tenant-scoped completed order,
+opens instructions after its normal redirect, and keeps one activation on retry.
+This verifies local free enrolment; paid provider and guest browser acceptance
+remain separate unverified checks.
 The scaffold `npm run check` passed 111 API tests, workspace typechecks and API,
 admin and embedded-attendance builds. These are local synthetic checks.
 
