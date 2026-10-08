@@ -25,7 +25,7 @@ onboarding acceptance was subsequently checked over local HTTP: canonical passwo
 login, fresh creation, exact retry, anonymous denial, realm/mapping conflict denial
 and stored-superadmin revocation all passed. The connected attendance workflow
 also passed again, including scoped enrolment, capture/review/history and logout.
-A native delivery service now locks and processes one pending request, retains failed attempts without private error text, and skips completed retries. Local failure/retry checks passed; no trigger or retry UI is wired yet. Connected PHP delivery acceptance and live deployment remain pending.
+A native delivery service now locks and processes one pending request, retains failed attempts without private error text, and skips completed retries. Local failure/retry checks passed; no trigger or retry UI is wired yet. Connected PHP-to-API delivery subsequently passed: a fresh companion was created, the native request completed with one attempt, and a completed retry was not resent. Live deployment remains pending.
 
 The latest complete copied-source native run passed 339 tests / 1,510 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial

@@ -3,6 +3,7 @@
 require __DIR__.'/foundation-tenancy.php';
 $loader->addClassMap([
     'App\Support\AttendanceBridge'=>realpath(__DIR__.'/../platform/app/Support/AttendanceBridge.php'),
+    'App\Services\AttendanceOnboarding'=>realpath(__DIR__.'/../platform/app/Services/AttendanceOnboarding.php'),
     'App\Http\Middleware\VerifyPlatformIdentity'=>realpath(__DIR__.'/../platform/app/Http/Middleware/VerifyPlatformIdentity.php'),
     'App\Http\Controllers\Auth\LoginController'=>realpath(__DIR__.'/../platform/app/Http/Controllers/Auth/LoginController.php'),
 ]);
@@ -35,6 +36,17 @@ $response=$middleware->handle($request,fn($request)=>(new App\Http\Middleware\Ch
 if ($response->getContent()!=='Synthetic protected platform page')throw new RuntimeException('Connected platform page was not authorized');
 if ($request->attributes->has('foundation_verified_platform_actor'))throw new RuntimeException('Connected platform permission marker survived the request');
 $http=new GuzzleHttp\Client(['http_errors'=>false,'allow_redirects'=>false,'timeout'=>5]);
+$migration=require __DIR__.'/../platform/database/migrations/2026_10_08_000005_create_attendance_onboarding_requests.php';
+$migration->up();
+$db->table('organizations')->insert(['id'=>323,'name'=>'Synthetic PHP onboarding','slug'=>'synthetic-php-onboarding','status'=>'active','settings'=>'{"is_primary_platform":false}']);
+$organization=App\Models\Organization::findOrFail(323);
+$db->table('attendance_onboarding_requests')->insert(['organization_id'=>$organization->id,'created_at'=>now(),'updated_at'=>now()]);
+$delivery=new App\Services\AttendanceOnboarding(new App\Support\AttendanceBridge);
+if(!$delivery->deliver($request,App\Models\User::findOrFail(1),$organization->id))throw new RuntimeException('Connected PHP onboarding failed');
+if(!$delivery->deliver($request,App\Models\User::findOrFail(1),$organization->id))throw new RuntimeException('Connected PHP onboarding retry failed');
+$onboarding=$db->table('attendance_onboarding_requests')->where('organization_id',$organization->id)->first();
+if($onboarding->status!=='completed'||(int)$onboarding->attempts!==1||!$onboarding->completed_at)throw new RuntimeException('Connected onboarding delivery state incorrect');
+echo "PASS: native PHP delivered a fresh companion and completed retries were not resent.\n";
 try {
     $middleware->handle($request,function()use($http,$api,$token){
         $result=$http->patch($api.'/platform/foundation/platforms/1/staff/1',[
