@@ -15,8 +15,9 @@ Provision a fresh attendance-side organisation record only as an explicit,
 idempotent companion to a new native organisation, never by matching old names
 or emails. This companion is an internal attendance boundary rather than a
 second organisation-management interface. An explicit trusted-operator companion
-provisioning command is implemented locally; automatic native lifecycle integration
-remains pending. Existing mappings are explicit reviewed controls.
+provisioning command and native creation/retry delivery are implemented locally.
+Updates, deactivation and staff/learner lifecycle integration remain pending.
+Existing mappings are explicit reviewed controls.
 Fresh organisation creation now records one pending attendance onboarding request
 in the same native transaction. It contains the native organisation reference and
 delivery state only, with no password, learner data or copied private configuration.
@@ -39,7 +40,8 @@ organisation, configuration and creation audit are saved in one transaction.
 The creation audit uses a required write rather than the optional general audit
 helper; an audit failure rolls back both the organisation and its configuration.
 Local regression tests verify credential isolation and rollback on configuration
-failure. This does not yet provision the attendance-side companion automatically.
+failure. After commit, the authenticated platform flow attempts attendance companion
+delivery; failed delivery retains a pending request for explicit retry.
 
 The platform's new-account form grants the global native `admin` role only for
 organisation owners/admins, never for a selected `staff` membership. Account,

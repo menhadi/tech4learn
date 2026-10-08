@@ -13,7 +13,8 @@ Fresh organisation creation now saves a durable pending attendance onboarding
 request atomically with native configuration/audit. Migration `2026_10_08_000005`
 is checked locally and has not been applied live. Targeted creation checks passed
 9 tests / 37 assertions, including rollback on request-write failure. Requests
-contain no credentials or learner payload; no remote consumer is implemented.
+contain no credentials or learner payload. The local delivery consumer is wired
+to fresh creation and a protected retry action, as described below.
 Existing organisations are not automatically adopted or queued by this migration.
 The API now exposes `POST /api/v1/platform/foundation/attendance-onboarding`
 for a canonical authenticated platform session, accepting a native organisation
@@ -25,9 +26,14 @@ onboarding acceptance was subsequently checked over local HTTP: canonical passwo
 login, fresh creation, exact retry, anonymous denial, realm/mapping conflict denial
 and stored-superadmin revocation all passed. The connected attendance workflow
 also passed again, including scoped enrolment, capture/review/history and logout.
-A native delivery service now locks and processes one pending request, retains failed attempts without private error text, and skips completed retries. Local failure/retry checks passed; no trigger or retry UI is wired yet. Connected PHP-to-API delivery subsequently passed: a fresh companion was created, the native request completed with one attempt, and a completed retry was not resent. Live deployment remains pending.
+A native delivery service locks and processes one pending request, retains failed
+attempts without private error text, and skips completed retries. Local failure/
+retry checks passed. Fresh creation triggers delivery after commit, and active
+pending rows expose a CSRF-protected, throttled retry action. Connected PHP-to-API
+delivery passed: a fresh companion was created, the native request completed with
+one attempt, and a completed retry was not resent. Live deployment remains pending.
 
-The latest complete copied-source native run passed 340 tests / 1,514 assertions,
+The latest complete copied-source native run passed 342 tests / 1,528 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial
 and unpublished-paper protection on the guest print route.
 Student API exam details now withhold question content/options/translations and
