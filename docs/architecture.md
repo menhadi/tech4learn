@@ -88,6 +88,10 @@ Pending, guest and unscoped orders cannot grant this access. Unpackaged papers
 retain native organisation access, and student practice ownership is enforced
 on both entry paths. This does not add package expiry semantics or verify payment
 providers; local checks cover direct entry and package revocation on resume.
+Student API exam details load only question identifiers, subject metadata and
+marks, withholding question text, options, translations and explanations before
+an attempt starts. Details and attempt-count endpoints recheck the shared access
+policy, including active package status, after their existing discovery scope.
 
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup

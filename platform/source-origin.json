@@ -681,8 +681,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/ApiMyExamController.php",
-      "sha256": "1dafa89434e1e38cbedbe18e0e5449a3b863fbf973098cc25a42aa11bf3fdb98",
-      "patches": []
+      "sha256": "9ed78db3aeddce8b6183a66000f850d5106c4778596e94f4671a31282d61c9f2",
+      "patches": [
+        "metadata-only-exam-details-active-package-access"
+      ]
     },
     {
       "path": "app/Http/Controllers/Students/ApiStudentAuthController.php",

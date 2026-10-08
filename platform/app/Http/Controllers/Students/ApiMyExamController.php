@@ -154,8 +154,9 @@ class ApiMyExamController extends Controller
     public function getExamDetails(Request $request, $id)
     {
         $exam = $this->accessibleExamQuery($request)
-            ->with(['questions.subject'])
+            ->with(['questions:id,subject_id,marks', 'questions.subject:id,subject_name'])
             ->findOrFail($id);
+        app(\App\Services\StudentExamAccess::class)->assertAllowed($exam, $request->user());
         $totalMarks = $exam->questions->sum('marks');
         return response()->json([
             'exam' => $exam,
@@ -171,6 +172,7 @@ class ApiMyExamController extends Controller
     {
         $studentId = $request->user()->id; // <-- AUTH LOGIC CHANGE
         $exam = $this->accessibleExamQuery($request)->findOrFail($id);
+        app(\App\Services\StudentExamAccess::class)->assertAllowed($exam, $request->user());
         
         if ($exam->attempt_count == 0) {
             return response()->json(['attempts_left' => 'Unlimited']);

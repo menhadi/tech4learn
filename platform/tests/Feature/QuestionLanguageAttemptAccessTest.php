@@ -180,6 +180,31 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $this->assertSame(1,ExamResult::count());
     }
 
+    public function test_api_exam_details_withhold_question_content_and_recheck_package_status(): void
+    {
+        [$org,$student,$exam]=$this->fixture();
+        $group=\App\Models\Group::create(['organization_id'=>$org->id,'group_name'=>'Synthetic detail group']);
+        $student->groups()->attach($group->id);
+        $exam->groups()->attach($group->id);
+        \Laravel\Sanctum\Sanctum::actingAs($student,['*'],'student-api');
+        $url='https://language.test/api/student/exam-details/'.$exam->id;
+        $response=$this->getJson($url)->assertOk();
+        $question=$response->json('exam.questions.0');
+        foreach(['question','option1','option2','explanation','correct_option_indices','langs','si_answer1'] as $field) {
+            $this->assertArrayNotHasKey($field,$question);
+        }
+        $this->assertSame(2,(int)$response->json('total_marks'));
+        $package=\App\Models\Package::create(['organization_id'=>$org->id,'name'=>'Synthetic detail course','slug'=>'detail-course','expiry_days'=>30,'amount'=>10,'package_type'=>'paid','status'=>true]);
+        $exam->packages()->attach($package->id);
+        $this->getJson($url)->assertNotFound();
+        $order=\App\Models\Order::create(['organization_id'=>$org->id,'student_id'=>$student->id,'total'=>10,'payment_method'=>'synthetic','status'=>'completed']);
+        \App\Models\OrderItem::create(['order_id'=>$order->id,'package_id'=>$package->id,'name'=>'Synthetic course','price'=>10,'quantity'=>1]);
+        $this->getJson($url)->assertOk();
+        $package->update(['status'=>false]);
+        $this->getJson($url)->assertForbidden();
+        $this->getJson('https://language.test/api/student/check-attempts/'.$exam->id)->assertForbidden();
+    }
+
     public function test_api_practice_entry_requires_the_creating_student(): void
     {
         [$org,$student,$exam]=$this->fixture();
