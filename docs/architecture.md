@@ -53,6 +53,11 @@ membership access after the remote API returns. Suspension or membership
 revocation during that request blocks release of the context. Local regression
 and connected PHP/API checks cover this boundary.
 
+Unsigned guest exam print requests apply the public paper publication and package
+download gates before rendering or creating a slug. An unpublished draft cannot
+be exposed through the print route. Signed internal document rendering and native
+staff previews retain their existing access paths.
+
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
 checks before executing it. No production cleanup has been executed. Preserve the existing administrator's

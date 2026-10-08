@@ -434,6 +434,10 @@ class ExamPrintController extends Controller
             }
         }
 
+        if (! $request->hasValidSignature() && ! Auth::guard('web')->check()) {
+            $this->ensurePaperDownloadAvailable($exam, $package);
+        }
+
         if (empty($exam->slug)) {
             $exam->forceFill(['slug' => $this->uniqueExamSlug($exam)])->save();
         }

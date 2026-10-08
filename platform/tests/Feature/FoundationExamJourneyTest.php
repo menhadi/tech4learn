@@ -163,6 +163,15 @@ class FoundationExamJourneyTest extends TestCase
         $this->postJson($url)->assertForbidden();
         $this->assertSame(1,ExamResult::where('student_id',$student->id)->where('exam_id',$exam->id)->count());
     }
+    public function test_guest_print_cannot_expose_an_unpublished_exam(): void
+    {
+        [$org]=$this->owner();
+        $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic unpublished paper','status'=>'Inactive','passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam']);
+        Auth::forgetGuards();$this->app['auth']->guard('web')->logout();Tenant::clear();
+        $this->get('https://synthetic-exams.test/exam-print/'.$exam->id)->assertNotFound();
+        $this->assertEmpty($exam->fresh()->slug,'Denied public printing must not mutate a draft slug');
+    }
+
     public function test_print_denies_unsigned_solutions_and_foreign_exam_ids(): void
     {
         [$org]=$this->owner();
