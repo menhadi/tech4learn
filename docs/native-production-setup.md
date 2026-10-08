@@ -888,6 +888,17 @@ No live identities, mappings or records were created.
 
 ## Fresh attendance administrator provisioning — local implementation
 
+The API also supports `POST /api/v1/platform/foundation/attendance-administrators`
+under the canonical platform session. Stored superadmin authority is checked before
+credential hashing; native IDs/account fields must be valid and the explicitly
+requested native role must be `admin`. Ordinary staff are not granted administrator
+authority by this endpoint. The existing provisioning transaction prevents email
+adoption, requires an active fresh companion and preserves passwords on exact retry.
+Local HTTP checks verified creation without superadmin authority and a retry with
+a different supplied password retaining the original canonical password. The full
+`npm run check` passed 111 API tests, workspace typechecks and builds. Native account
+creation/retry wiring, ordinary staff provisioning and live acceptance remain pending.
+
 The trusted operator command is:
 
 ```text

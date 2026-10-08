@@ -13,6 +13,11 @@ export class FoundationController {
   async provisionCompanion(@Body() body: Record<string, unknown>, @Headers("cookie") cookie?: string) {
     return this.links.provisionCompanion(await this.actor(cookie), body ?? {});
   }
+  @Post("platform/foundation/attendance-administrators")
+  @HttpCode(200)
+  async provisionAttendanceAdmin(@Body() body: Record<string, unknown>, @Headers("cookie") cookie?: string) {
+    return this.links.provisionAttendanceAdmin(await this.actor(cookie), body ?? {});
+  }
   @Get("platform/foundation/platforms/:native/staff")
   async platformStaff(@Param("native") n:string,@Headers("cookie") c?:string) {return this.links.platformStaff(await this.actor(c),n);}
   @Post("platform/foundation/platforms/:native/staff")

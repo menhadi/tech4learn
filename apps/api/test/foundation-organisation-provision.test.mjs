@@ -56,6 +56,11 @@ test('fresh attendance provisioning is idempotent and never adopts old mappings 
   assert.equal((await pg.query("SELECT count(*)::integer AS total FROM memberships WHERE organisation_id=$1",[first.organisationId])).rows[0].total,0);
   assert.equal((await pg.query("SELECT count(*)::integer AS total FROM audit_events WHERE action='foundation.staff_provisioned'")).rows[0].total,0);
   const account=await provisionAttendanceAdministrator(db,admin,'2','22','fresh@example.invalid','Fresh',password);
+  const adminBody={nativeOrganisationId:'2',nativeUserId:'22',nativeRole:'admin',email:'fresh@example.invalid',name:'Fresh',password};
+  await assert.rejects(service.provisionAttendanceAdmin({id:staff,isSuperadmin:true},adminBody));
+  await assert.rejects(service.provisionAttendanceAdmin({id:admin},{...adminBody,nativeRole:'staff'}));
+  await assert.rejects(service.provisionAttendanceAdmin({id:admin},{...adminBody,password:123}));
+  assert.deepEqual(await service.provisionAttendanceAdmin({id:admin},adminBody),{created:false,userId:account.userId});
   assert.equal(account.created,true);
   const before=(await pg.query('SELECT password_hash,is_superadmin FROM users WHERE id=$1',[account.userId])).rows[0];
   assert.equal(before.is_superadmin,false);

@@ -6,6 +6,7 @@ import { uuid } from "./security.js";
 import { LearnersService } from "./learners.service.js";
 import { randomUUID } from "node:crypto";
 import { provisionAttendanceOrganisation } from "./foundation-organisation-provision.js";
+import { provisionAttendanceAdministrator } from "./foundation-staff-provision.js";
 
 function nativeId(value: unknown): string {
   if (typeof value !== "string" || !/^[1-9][0-9]{0,14}$/.test(value))
@@ -28,6 +29,13 @@ export class FoundationService {
     const native = nativeId(body.nativeOrganisationId);
     if (typeof body.name !== "string") throw new BadRequestException("Provide the native organisation name.");
     return provisionAttendanceOrganisation(this.db, actor.id, native, body.name);
+  }
+  async provisionAttendanceAdmin(actor: Account, body: Record<string, unknown>) {
+    await this.platform(actor, this.db);
+    const native = nativeId(body.nativeOrganisationId), user = nativeId(body.nativeUserId);
+    if (body.nativeRole !== "admin" || typeof body.email !== "string" || typeof body.name !== "string" || typeof body.password !== "string")
+      throw new BadRequestException("Provide a reviewed native administrator and its account fields.");
+    return provisionAttendanceAdministrator(this.db, actor.id, native, user, body.email, body.name, body.password);
   }
   async platformStaff(actor: Account, nativeValue: string) {
     await this.platform(actor,this.db);

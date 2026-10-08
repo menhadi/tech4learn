@@ -88,6 +88,18 @@ try {
   const repeatedOnboarding=await sendOnboarding(onboardingBody,platformCookie);
   const repeatedOnboardingBody=await repeatedOnboarding.json();
   if(!repeatedOnboarding.ok||!firstOnboardingBody.created||repeatedOnboardingBody.created||firstOnboardingBody.organisationId!==repeatedOnboardingBody.organisationId)throw new Error('HTTP onboarding retry changed identity');
+  const administratorBody={nativeOrganisationId:'321',nativeUserId:'324',nativeRole:'admin',email:'synthetic-http-admin@example.invalid',name:'Synthetic HTTP administrator',password:'long synthetic foundation password'};
+  const sendAdministrator=body=>fetch(api+'/platform/foundation/attendance-administrators',{method:'POST',headers:{'content-type':'application/json',origin:process.env.ADMIN_ORIGIN,'x-tech4learn-request':'1',cookie:platformCookie},body:JSON.stringify(body)});
+  if((await sendAdministrator({...administratorBody,nativeRole:'staff'})).status!==400)throw new Error('Administrator endpoint accepted ordinary staff role');
+  const createdAdministrator=await sendAdministrator(administratorBody);
+  if(!createdAdministrator.ok)throw new Error('HTTP fresh administrator onboarding failed');
+  const administratorResult=await createdAdministrator.json();
+  const passwordBefore=(await pg.query('SELECT password_hash,is_superadmin FROM users WHERE id=$1',[administratorResult.userId])).rows[0];
+  const retryAdministrator=await sendAdministrator({...administratorBody,password:'different synthetic retry password'});
+  const retryAdministratorResult=await retryAdministrator.json();
+  const passwordAfter=(await pg.query('SELECT password_hash,is_superadmin FROM users WHERE id=$1',[administratorResult.userId])).rows[0];
+  if(!retryAdministrator.ok||!administratorResult.created||retryAdministratorResult.created||retryAdministratorResult.userId!==administratorResult.userId||passwordBefore.password_hash!==passwordAfter.password_hash||passwordAfter.is_superadmin)throw new Error('HTTP administrator retry changed credentials or authority');
+  console.log('PASS: authenticated fresh attendance administrator creation and exact retry preserve password and ordinary authority.');
   if((await sendOnboarding({nativeOrganisationId:'1',name:'Synthetic platform'},platformCookie)).ok)throw new Error('Platform realm onboarding was accepted');
   if((await sendOnboarding({nativeOrganisationId:'2',name:'Conflicting synthetic name'},platformCookie)).ok)throw new Error('Conflicting onboarding mapping was accepted');
   await pg.query('UPDATE users SET is_superadmin=false WHERE id=$1',[platformUser]);
