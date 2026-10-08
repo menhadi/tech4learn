@@ -52,6 +52,18 @@ class AttendanceBridge
             && ($ack['delivered']??null)===true,502);
         return ['learnerId'=>$learner,'revision'=>$snapshot['revision'],'delivered'=>true];
     }
+    public function studentDeliveryStatus(Request $request, string $learner, ?ClientInterface $http=null): array
+    {
+        abort_unless(config('attendance.student_delivery_enabled',false),503);
+        abort_unless(preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$learner),422);
+        $context=$this->context($request,$http,'enrolment');
+        $path='/foundation/organisations/'.$context['nativeOrganisationId'].'/staff/'.$context['nativeUserId'].'/student-deliveries/'.$learner.'/status';
+        $status=$this->read($request,$path,[],$http);
+        abort_unless(($status['learnerId']??null)===$learner && is_int($status['revision']??null) && $status['revision']>0
+            && in_array($status['state']??null,['pending','delivered','review_required'],true),502);
+        abort_unless($this->context($request,$http,'enrolment')===$context,403);
+        return array_intersect_key($status,array_flip(['learnerId','revision','state']));
+    }
     public function learnerIdentity(Request $request, \App\Models\Student $student, ?ClientInterface $http = null): array
     {
         $organisation=Tenant::assertAccess(Tenant::current(),true);

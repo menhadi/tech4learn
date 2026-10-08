@@ -192,6 +192,19 @@ export class FoundationService {
       return {nativeStudentId:receipt.nativeStudentId,learnerId:learner,revision:receipt.revision,delivered:true};
     });
   }
+  async studentDeliveryStatus(actor:Account,nativeValue:string,userValue:string,learnerValue:string) {
+    const before=await this.studentDeliverySnapshot(actor,nativeValue,userValue,learnerValue);
+    const row=(await this.db.query<{revision:string;delivered_revision:string;revoked:boolean}>(`SELECT d.revision::text,d.delivered_revision::text,
+      EXISTS(SELECT 1 FROM foundation_learners l WHERE l.native_organisation_id=d.native_organisation_id
+        AND l.organisation_id=d.organisation_id AND l.learner_id=d.learner_id AND NOT l.active) AS revoked
+      FROM foundation_student_deliveries d WHERE d.native_organisation_id=$1 AND d.organisation_id=$2 AND d.learner_id=$3`,
+      [before.nativeOrganisationId,before.organisationId,before.learnerId])).rows[0];
+    const after=await this.studentDeliverySnapshot(actor,nativeValue,userValue,learnerValue);
+    if(!row || before.revision!==after.revision || Number(row.revision)!==after.revision)
+      throw new ConflictException('Student delivery changed; reload its status.');
+    return {learnerId:after.learnerId,revision:after.revision,
+      state:row.revoked&&!after.archived?'review_required':Number(row.delivered_revision)===after.revision?'delivered':'pending'};
+  }
   private async platform(actor: Pick<Account,"id">, sql: SqlClient) {
     // Do not inherit platform authority from a native role or a stale caller object.
     const stored = await sql.query<{ is_superadmin: boolean }>("SELECT is_superadmin FROM users WHERE id=$1 FOR SHARE", [actor.id]);

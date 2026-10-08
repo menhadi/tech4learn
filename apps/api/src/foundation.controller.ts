@@ -81,4 +81,10 @@ export class FoundationController {
     @Body() b:Record<string,unknown>,@Headers("cookie") c?:string) {
     return this.links.acknowledgeStudentDelivery(await this.actor(c),n,u,l,b??{});
   }
+  @Get("foundation/organisations/:native/staff/:user/student-deliveries/:learner/status")
+  async studentDeliveryStatus(@Param("native") n:string,@Param("user") u:string,@Param("learner") l:string,
+    @Headers("cookie") c:string|undefined,@Res({passthrough:true}) response:Response) {
+    response.setHeader('Cache-Control','no-store');
+    return this.links.studentDeliveryStatus(await this.actor(c),n,u,l);
+  }
 }

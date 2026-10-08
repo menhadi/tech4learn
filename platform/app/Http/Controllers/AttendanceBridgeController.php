@@ -15,13 +15,19 @@ class AttendanceBridgeController extends Controller
     }
     public function enrolmentContext(Request $request, AttendanceBridge $bridge): JsonResponse
     {
-        return response()->json($bridge->context($request,null,'enrolment'))->header('Cache-Control','no-store');
+        return response()->json($bridge->context($request,null,'enrolment')+[
+            'studentDeliveryEnabled'=>(bool)config('attendance.student_delivery_enabled',false)
+        ])->header('Cache-Control','no-store');
     }
     public function deliverStudent(Request $request, string $learner, AttendanceBridge $bridge): JsonResponse
     {
         // Only the canonical UUID in the route is used. Client profile/ID/key fields are rejected.
         abort_unless(count($request->except('_token'))===0,422,'Student delivery does not accept profile or identity fields.');
         return response()->json($bridge->deliverStudent($request,$learner))->header('Cache-Control','no-store');
+    }
+    public function studentDeliveryStatus(Request $request, string $learner, AttendanceBridge $bridge): JsonResponse
+    {
+        return response()->json($bridge->studentDeliveryStatus($request,$learner))->header('Cache-Control','no-store');
     }
     public function enrolmentGateway(Request $request, string $path, AttendanceBridge $bridge)
     {

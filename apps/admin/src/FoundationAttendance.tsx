@@ -12,6 +12,7 @@ export type FoundationContext = {
   organisation: { id: string; name: string };
   permissions: string[];
   scope: { type: string; ids: string[] };
+  studentDeliveryEnabled?: boolean;
 };
 
 export function FoundationAttendance() {
@@ -51,7 +52,7 @@ export function FoundationAttendance() {
         <GroupedMenu label={enrolment ? "Enrolment navigation" : "Attendance navigation"} active={page} onSelect={id=>{if(enrolment && id==='attendance')window.location.assign('/attendance');else setPage(id);}} groups={[{id:"attendance",label:enrolment ? "Student enrolment" : "Attendance",icon:"attendance",items:[...(context.permissions.includes("attendance.view")?[{id:"attendance",label:"Daily attendance"}]:[]),...(context.permissions.includes('learners.view')?[{id:"learners",label:"Student enrolment"}]:[]),...(context.permissions.includes('centres.view')?[{id:"centres",label:"Centres"}]:[]),...(context.permissions.includes('groups.view')&&context.permissions.includes('centres.view')?[{id:"structure",label:"Classes and sections"}]:[])]}]}/>
         {page==='learners'&&context.permissions.includes('learners.view') ? <>
           <p>These are attendance enrolments. Links to native exam students require explicit review; they are not matched by name or email.</p>
-          <Learners key={selectedGroup} org={context.organisation.id} permissions={context.permissions} groups={groups} initialGroup={selectedGroup}/>
+          <Learners key={selectedGroup} org={context.organisation.id} permissions={context.permissions} groups={groups} initialGroup={selectedGroup} studentDeliveryEnabled={enrolment&&context.studentDeliveryEnabled===true}/>
         </> : page==='centres'&&context.permissions.includes('centres.view') ? <FoundationCentres org={context.organisation.id} centres={centres} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>setCentres(await api<AttendanceCentre[]>(`/organisations/${context.organisation.id}/centres`))}/> : page==='structure'&&context.permissions.includes('groups.view')&&context.permissions.includes('centres.view') ? <>
           <p>Use an approved attendance centre to organise years, classes and sections. Create and approve centres in the Centres view. Native student linking is still managed separately.</p>
           <AcademicStructure org={context.organisation.id} centres={centres} groups={groups} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>{const rows=await api<AcademicGroup[]>(`/organisations/${context.organisation.id}/groups`);setGroups(rows);}} onStudents={id=>{setSelectedGroup(id);setPage('learners');}} onAttendance={id=>{if(enrolment)window.location.assign('/attendance');else {setSelectedGroup(id);setPage('attendance');}}}/>

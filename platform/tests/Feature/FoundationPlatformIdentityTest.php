@@ -312,4 +312,22 @@ class FoundationPlatformIdentityTest extends TestCase
         $client=$this->client([$this->response($context),$this->response($snapshot),$this->response([],403)]);
         $this->denied(403,fn()=>(new AttendanceBridge)->studentDeliverySnapshot($request,$learner,$client));
     }
+    public function test_delivery_status_is_scoped_rechecked_and_strips_remote_identity_extras(): void
+    {
+        Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request('/enrolment');
+        $learner='22222222-2222-4222-8222-222222222222';
+        $context=['nativeOrganisationId'=>'1','nativeUserId'=>'1','organisation'=>['id'=>$learner],
+            'permissions'=>['learners.view'],'scope'=>['type'=>'organisation','ids'=>[]]];
+        $status=['learnerId'=>$learner,'revision'=>1,'state'=>'pending','nativeStudentId'=>'untrusted'];
+        config(['attendance.student_delivery_enabled'=>true]);
+        $client=$this->client([$this->response($context),$this->response($status),$this->response($context)]);
+        $this->assertSame(['learnerId'=>$learner,'revision'=>1,'state'=>'pending'],(new AttendanceBridge)->studentDeliveryStatus($request,$learner,$client));
+        $client=$this->client([$this->response($context),$this->response($status),$this->response([],403)]);
+        $this->denied(403,fn()=>(new AttendanceBridge)->studentDeliveryStatus($request,$learner,$client));
+        $foreign=$status;$foreign['learnerId']='33333333-3333-4333-8333-333333333333';
+        $client=$this->client([$this->response($context),$this->response($foreign)]);
+        $this->denied(502,fn()=>(new AttendanceBridge)->studentDeliveryStatus($request,$learner,$client));
+        config(['attendance.student_delivery_enabled'=>false]);
+        $this->denied(503,fn()=>(new AttendanceBridge)->studentDeliveryStatus($request,$learner,$client));
+    }
 }

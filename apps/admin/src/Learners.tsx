@@ -1,6 +1,7 @@
 import { DraftForm, useDraftKey } from "./DraftForm";
 import { removeDraft } from "./form-drafts";
 import { SmartTable } from "./DirectoryTable";
+import { StudentDelivery } from "./StudentDelivery";
 import {
   DirectoryTable,
   RecordStatus,
@@ -65,11 +66,13 @@ export function Learners({
   permissions,
   groups,
   initialGroup = "",
+  studentDeliveryEnabled = false,
 }: {
   org: string;
   permissions: string[];
   groups: Group[];
   initialGroup?: string;
+  studentDeliveryEnabled?: boolean;
 }) {
   const base = `/organisations/${org}`,
     can = (p: string) => permissions.includes(p);
@@ -424,6 +427,7 @@ export function Learners({
         <section className="record">
           <h3>{current ? current.name : "New learner"}</h3>
           {current?.demo && <p>Clearly labelled synthetic demo learner.</p>}
+          {current&&studentDeliveryEnabled&&<StudentDelivery key={current.id} learnerId={current.id} canEdit={can('learners.edit')}/>}
           <div>
             <DraftForm
               title="Learner enrolment"
