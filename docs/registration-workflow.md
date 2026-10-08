@@ -79,6 +79,15 @@ for editors. Status refresh never queues or mirrors a student. These controls
 appear only when the installation enables delivery. Section mapping and live
 acceptance remain pending; no existing live learner is automatically mirrored.
 
+Local section-to-native-group delivery now has tenant-bound foreign keys,
+explicit versioned mappings and a ledger of the exact membership rows it owns.
+The internal consumer preserves manual memberships, removes only its own rows
+on transfer/archive and refuses to restore deleted owned or previously observed
+manual memberships without review. Mapping edits require the current host's
+stored owner/admin and reject stale versions, foreign groups and revoked maps.
+Scoped canonical section fetching, mapping controls and bridge invocation are
+still pending; these migrations and consumers are not deployed.
+
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact
 text and an explicitly written age; it discards model-provided tenant, section,

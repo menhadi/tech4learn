@@ -27,6 +27,9 @@ class EnrolledStudentProfileTest extends TestCase
         Schema::create('students',function(Blueprint $t){$t->id();$t->unsignedBigInteger('organization_id');
             foreach(['name','password','address','status'] as $f)$t->string($f);foreach(['email','phone','enroll'] as $f)$t->string($f)->nullable();$t->boolean('is_demo')->default(false);$t->timestamps();});
         (require database_path('migrations/2026_10_08_000006_create_foundation_student_profiles.php'))->up();
+        Schema::create('groups',function(Blueprint $t){$t->id();$t->unsignedBigInteger('organization_id');});
+        Schema::create('student_groups',function(Blueprint $t){$t->id();$t->unsignedBigInteger('student_id');$t->unsignedBigInteger('group_id');$t->timestamps();});
+        (require database_path('migrations/2026_10_08_000007_create_foundation_section_groups.php'))->up();
         foreach([1,2] as $id)DB::table('organizations')->insert(['id'=>$id,'name'=>'Synthetic tenant '.$id,'slug'=>'tenant-'.$id,'domain'=>'tenant-'.$id.'.example.invalid','status'=>'active']);
         DB::table('users')->insert(['id'=>1,'name'=>'Synthetic owner','status'=>'Active']);
         DB::table('organization_users')->insert(['organization_id'=>1,'user_id'=>1,'role'=>'admin','status'=>1]);
@@ -167,5 +170,54 @@ class EnrolledStudentProfileTest extends TestCase
             app()->useStoragePath($original);if(is_file($path))unlink($path);
             rmdir($directory.'/app/private');rmdir($directory.'/app');rmdir($directory);
         }
+    }
+    public function test_section_delivery_owns_only_its_pivot_and_preserves_manual_memberships(): void
+    {
+        $snapshot=$this->snapshot+['groupId'=>'33333333-3333-4333-8333-333333333333'];
+        $this->apply($snapshot);$student=DB::table('students')->first()->id;
+        DB::table('groups')->insert([['id'=>1,'organization_id'=>1],['id'=>2,'organization_id'=>1],['id'=>3,'organization_id'=>2]]);
+        DB::table('foundation_section_groups')->insert(['organization_id'=>1,'section_id'=>$snapshot['groupId'],'group_id'=>1]);
+        $manual=DB::table('student_groups')->insertGetId(['student_id'=>$student,'group_id'=>2]);
+        $request=Request::create('https://tenant-1.example.invalid/enrolment');$service=new \App\Services\EnrolledStudentGroup;
+        $this->assertTrue($service->apply($request,$snapshot)['assigned']);$service->apply($request,$snapshot);
+        $this->assertSame(2,DB::table('student_groups')->count());
+        $owned=DB::table('foundation_student_group_deliveries')->first()->pivot_id;$this->assertNotNull($owned);
+        DB::table('foundation_section_groups')->update(['group_id'=>2]);$service->apply($request,$snapshot);
+        $this->assertSame(1,DB::table('student_groups')->count());$this->assertSame($manual,DB::table('student_groups')->first()->id);
+        $this->assertNull(DB::table('foundation_student_group_deliveries')->first()->pivot_id);
+        DB::table('student_groups')->where('id',$manual)->delete();
+        $this->denied(409,fn()=>$service->apply($request,$snapshot));
+        $this->assertSame(0,DB::table('student_groups')->count());
+        DB::table('student_groups')->insert(['id'=>$manual,'student_id'=>$student,'group_id'=>2]);
+        $snapshot['revision']=2;$snapshot['archived']=true;$this->apply($snapshot);$service->apply($request,$snapshot);
+        $this->assertSame($manual,DB::table('student_groups')->first()->id);
+    }
+    public function test_deleted_owned_membership_requires_review_and_foreign_mapping_is_rejected(): void
+    {
+        $snapshot=$this->snapshot+['groupId'=>'33333333-3333-4333-8333-333333333333'];$this->apply($snapshot);
+        DB::table('groups')->insert([['id'=>1,'organization_id'=>1],['id'=>3,'organization_id'=>2]]);
+        try {DB::table('foundation_section_groups')->insert(['organization_id'=>1,'section_id'=>$snapshot['groupId'],'group_id'=>3]);$this->fail('Foreign group mapping must fail.');}
+        catch(\Illuminate\Database\QueryException $e){$this->assertSame(0,DB::table('foundation_section_groups')->count());}
+        DB::table('foundation_section_groups')->insert(['organization_id'=>1,'section_id'=>$snapshot['groupId'],'group_id'=>1]);
+        $request=Request::create('https://tenant-1.example.invalid/enrolment');$service=new \App\Services\EnrolledStudentGroup;
+        $service->apply($request,$snapshot);DB::table('student_groups')->delete();
+        $this->denied(409,fn()=>$service->apply($request,$snapshot));$this->assertSame(0,DB::table('student_groups')->count());
+        DB::table('organization_users')->update(['status'=>0]);$this->denied(403,fn()=>$service->apply($request,$snapshot));
+    }
+    public function test_explicit_section_mapping_is_tenant_bound_versioned_and_never_repairs_revocation(): void
+    {
+        DB::table('groups')->insert([['id'=>1,'organization_id'=>1],['id'=>2,'organization_id'=>1],['id'=>3,'organization_id'=>2]]);
+        $section=['nativeOrganisationId'=>'1','sectionId'=>'33333333-3333-4333-8333-333333333333'];
+        $request=Request::create('https://tenant-1.example.invalid/enrolment');$service=new \App\Services\EnrolledStudentGroup;
+        $this->denied(404,fn()=>$service->map($request,$section,'3',0));
+        $first=$service->map($request,$section,'1',0);$this->assertSame(1,$first['version']);
+        $this->assertSame($first,$service->map($request,$section,'1',1));
+        $this->denied(409,fn()=>$service->map($request,$section,'2',0));
+        $this->assertSame(2,$service->map($request,$section,'2',1)['version']);
+        DB::table('foundation_section_groups')->update(['active'=>false]);
+        $this->denied(409,fn()=>$service->map($request,$section,'1',2));
+        DB::table('organization_users')->update(['role'=>'staff']);
+        $this->denied(403,fn()=>$service->map($request,$section,'1',2));
+        $this->assertSame(0,DB::table('student_groups')->count());
     }
 }
