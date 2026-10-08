@@ -163,6 +163,16 @@ class FoundationExamJourneyTest extends TestCase
         $this->postJson($url)->assertForbidden();
         $this->assertSame(1,ExamResult::where('student_id',$student->id)->where('exam_id',$exam->id)->count());
     }
+    public function test_print_denies_unsigned_solutions_and_foreign_exam_ids(): void
+    {
+        [$org]=$this->owner();
+        $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic print exam','slug'=>'synthetic-print','status'=>'Active','passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam']);
+        $this->get('https://synthetic-exams.test/exam-print/'.$exam->id.'?solution=1')->assertForbidden();
+        $foreign=Organization::create(['name'=>'Synthetic foreign print','slug'=>'foreign-print','domain'=>'foreign-print.test','status'=>'active']);
+        $other=$exam->replicate();$other->organization_id=$foreign->id;$other->slug='foreign-print';$other->save();
+        $this->get('https://synthetic-exams.test/exam-print/'.$other->id)->assertNotFound();
+        $this->get('https://synthetic-exams.test/exam-print/'.$other->slug)->assertNotFound();
+    }
 
     public function test_exam_directory_counts_open_ended_active_exams_only_in_its_tenant(): void
     {

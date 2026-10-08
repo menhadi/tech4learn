@@ -405,7 +405,7 @@ class ExamPrintController extends Controller
             ->first();
         
         if (!$exam) {
-            return "Exam not found. ID: " . $id;
+            abort(404);
         }
 
         $package = null;

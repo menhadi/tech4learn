@@ -389,8 +389,10 @@
     },
     {
       "path": "app/Http/Controllers/ExamPrintController.php",
-      "sha256": "a350d044f0aca9ed83e99dd12d79845a93603001d613a8bcb49efa9f5ccc18b7",
-      "patches": []
+      "sha256": "a11eee4d3f97b0c157cec0ba7044b9753e2cbdf497f65a66f05c5ebb5b9ce585",
+      "patches": [
+        "tenant-scoped-print-not-found-status"
+      ]
     },
     {
       "path": "app/Http/Controllers/ExamPrintSimpleController.php",
