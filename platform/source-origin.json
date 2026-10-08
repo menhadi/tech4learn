@@ -176589,8 +176589,8 @@
     },
     {
       "path": "resources/views/question-drafts/paper-preview.blade.php",
-      "sha256": "be7d00870a26d2f81239a02980e57e18cd07c67abf0ddacfe0bfa62c8be78630",
-      "patches": []
+      "sha256": "c66005c5a64809367c23efd4cdf7da7889379aff74133550bc693934e12b9b8e",
+      "patches": ["complete-paper-numerical-answer-key"]
     },
     {
       "path": "resources/views/question-drafts/preview.blade.php",
