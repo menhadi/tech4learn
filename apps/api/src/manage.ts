@@ -6,6 +6,9 @@ import { foundationPlatformMigration } from "./migration-foundation-platform.js"
 import { provisionPlatformAdministrator } from "./foundation-platform-provision.js";
 import { foundationProvisioningMigration } from "./migration-foundation-provisioning.js";
 import { studentDeliveryMigration } from "./migration-student-delivery.js";
+import { studentSignersMigration } from "./migration-student-signers.js";
+import { registerNativeStudentKey } from "./student-delivery-proof.js";
+import { readFileSync,statSync } from "node:fs";
 import { provisionAttendanceOrganisation } from "./foundation-organisation-provision.js";
 import { examEliteMigration } from "./migration-examelite.js";
 import { examWorkspaceMigration } from "./migration-exam-workspace.js";
@@ -195,8 +198,15 @@ try {
       await sql.query("SELECT pg_advisory_xact_lock(74041001)");
       if(!(await sql.query("SELECT version FROM schema_versions WHERE version=20")).rows.length)await sql.query(foundationProvisioningMigration);
       if(!(await sql.query("SELECT version FROM schema_versions WHERE version=21")).rows.length)await sql.query(studentDeliveryMigration);
+      if(!(await sql.query("SELECT version FROM schema_versions WHERE version=22")).rows.length)await sql.query(studentSignersMigration);
     });
-    console.log("Database migrations through version 21 are applied.");
+    console.log("Database migrations through version 22 are applied.");
+  } else if(command==='foundation-native-student-key') {
+    if(process.argv.length!==6 || process.argv[5]!=='--confirm-reviewed-native-installation-key')
+      throw new Error('Use foundation-native-student-key CANONICAL_SUPERADMIN_UUID PUBLIC_PEM_FILE --confirm-reviewed-native-installation-key.');
+    if(!statSync(process.argv[4]).isFile() || statSync(process.argv[4]).size>8192)throw new Error('Use a bounded public key file.');
+    const result=await registerNativeStudentKey(db,process.argv[3],readFileSync(process.argv[4],'utf8'));
+    console.log(result.created?'Reviewed native student signing public key registered.':'Exact active native signing key already registered; unchanged.');
   } else if (command === "foundation-attendance-org") {
     if(process.argv.length!==7 || process.argv[6]!=="--confirm-reviewed-new-native-organisation")
       throw new Error("Use foundation-attendance-org CANONICAL_SUPERADMIN_UUID NATIVE_ORG_ID DISPLAY_NAME --confirm-reviewed-new-native-organisation.");

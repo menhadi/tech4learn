@@ -52,6 +52,18 @@ work, discards extra fields and refuses stale delivery. This read-only boundary
 does not acknowledge delivery, assign exam groups or enable the consumer's
 public invocation; those integration steps and live acceptance remain pending.
 
+The next local acknowledgement boundary accepts an ID-only RSA-signed native
+receipt, with installation public keys registered only through a trusted operator
+command using stored platform authority. It checks the current mapped staff,
+learner scope and queued revision, rejects revoked or conflicting identity links,
+and records delivery once on exact retries. A local native signer derives the
+student ID and revision from its stored UUID profile, rechecks current host/admin
+membership and signs only IDs using a private installation key outside public
+storage. Browser-supplied native student IDs
+cannot establish ownership. Synthetic checks cover tampering, expiry, stale
+delivery, tenant mismatch and revoked keys/links. This is not deployed: native
+key provisioning, protected invocation and retry delivery remain pending.
+
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact
 text and an explicitly written age; it discards model-provided tenant, section,

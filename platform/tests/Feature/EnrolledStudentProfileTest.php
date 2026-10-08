@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Services\EnrolledStudentProfile;
+use App\Services\StudentDeliveryReceipt;
 use App\Support\Tenant;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
@@ -79,5 +80,30 @@ class EnrolledStudentProfileTest extends TestCase
         try {$this->apply($this->snapshot);$this->fail('Expected mapping failure.');}
         catch (\Illuminate\Database\QueryException $error) {$this->assertSame(0,DB::table('students')->count());}
         $this->assertSame(0,DB::table('foundation_student_profiles')->count());
+    }
+
+    public function test_receipts_prove_stored_profile_without_contacts_and_recheck_membership(): void
+    {
+        $this->apply($this->snapshot);
+        $original=storage_path();$directory=sys_get_temp_dir().'/student-proof-'.bin2hex(random_bytes(8));
+        mkdir($directory.'/app/private',0700,true);app()->useStoragePath($directory);
+        $path=$directory.'/app/private/student-delivery-signing.pem';
+        try {
+            $key=openssl_pkey_new(['private_key_bits'=>2048,'private_key_type'=>OPENSSL_KEYTYPE_RSA]);
+            openssl_pkey_export($key,$pem);file_put_contents($path,$pem);chmod($path,0600);
+            $request=Request::create('https://tenant-1.example.invalid/enrolment');
+            $result=(new StudentDeliveryReceipt)->issue($request,$this->snapshot['learnerId'],1);
+            $decode=fn($s)=>base64_decode(strtr($s,'-_','+/'));
+            $bytes=$decode($result['receipt']);$payload=json_decode($bytes,true);
+            $this->assertSame(1,openssl_verify($bytes,$decode($result['signature']),openssl_pkey_get_details($key)['key'],OPENSSL_ALGO_SHA256));
+            $this->assertSame(['issuer','nativeOrganisationId','nativeUserId','nativeStudentId','learnerId','revision','issuedAt'],array_keys($payload));
+            $this->assertSame('1',$payload['nativeStudentId']);
+            $this->denied(409,fn()=>(new StudentDeliveryReceipt)->issue($request,$this->snapshot['learnerId'],2));
+            DB::table('organization_users')->update(['status'=>0]);
+            $this->denied(403,fn()=>(new StudentDeliveryReceipt)->issue($request,$this->snapshot['learnerId'],1));
+        } finally {
+            app()->useStoragePath($original);if(is_file($path))unlink($path);
+            rmdir($directory.'/app/private');rmdir($directory.'/app');rmdir($directory);
+        }
     }
 }

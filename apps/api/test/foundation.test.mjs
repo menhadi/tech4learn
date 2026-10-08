@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomUUID,generateKeyPairSync,sign } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import { createApp } from '../dist/bootstrap.js';
 import { migration } from '../dist/schema.js';
@@ -11,6 +11,8 @@ import { foundationMigration } from '../dist/migration-foundation.js';
 import { foundationLearnerMigration } from '../dist/migration-foundation-learners.js';
 import { foundationPlatformMigration } from '../dist/migration-foundation-platform.js';
 import { studentDeliveryMigration } from '../dist/migration-student-delivery.js';
+import { studentSignersMigration } from '../dist/migration-student-signers.js';
+import { registerNativeStudentKey } from '../dist/student-delivery-proof.js';
 import { digest,hashPassword } from '../dist/security.js';
 
 test('foundation identity links require explicit accounts, current authority and revocable attendance grants', async t => {
@@ -22,6 +24,7 @@ test('foundation identity links require explicit accounts, current authority and
   await pg.exec(accessMigration); await pg.exec(learnerMigration); await pg.exec(configurationMigration); await pg.exec(foundationMigration);
   await pg.exec(foundationLearnerMigration); await pg.exec(foundationPlatformMigration);
   await pg.exec(studentDeliveryMigration);
+  await pg.exec(studentSignersMigration);
   const learnerA=randomUUID(),learnerB=randomUUID(),centreA=randomUUID(),groupA=randomUUID();
   for(const [org,learner,centre,group] of [[orgA,learnerA,centreA,groupA],[orgB,learnerB,randomUUID(),randomUUID()]]) {
     await pg.query('INSERT INTO centres(id,organisation_id,name) VALUES($1,$2,$3)',[centre,org,'Synthetic centre']);
@@ -205,6 +208,32 @@ test('foundation identity links require explicit accounts, current authority and
       await pg.query('UPDATE learners SET archived=false WHERE id=$1',[learnerA]);
       assert.equal((await request(link,'PATCH',{active:true,version:2})).status,200);
       assert.equal((await request(path,'GET',undefined,'staff')).status,200);
+    });
+    await t.test('signed acknowledgement preserves immutable identities and rejects stale or revoked delivery',async()=>{
+      const {publicKey,privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
+      const pem=publicKey.export({type:'spki',format:'pem'}).toString();
+      await assert.rejects(registerNativeStudentKey(adapter,staff,pem));
+      const key=await registerNativeStudentKey(adapter,owner,pem);
+      assert.equal(key.created,true);
+      assert.equal((await registerNativeStudentKey(adapter,owner,pem)).created,false);
+      const learner=randomUUID();
+      await pg.query('INSERT INTO learners(id,organisation_id,group_id,code,name) VALUES($1,$2,$3,$4,$5)',[learner,orgA,groupA,'SIGNED-SYNTHETIC','Synthetic delivery learner']);
+      const path=`/foundation/organisations/7/staff/9/student-deliveries/${learner}/acknowledge`;
+      const receipt=(revision=1,extra={})=>{const bytes=Buffer.from(JSON.stringify({issuer:'tech4learn-native-student-v1',nativeOrganisationId:'7',nativeUserId:'9',nativeStudentId:'99',learnerId:learner,revision,issuedAt:Math.floor(Date.now()/1000),...extra}));return {keyId:key.keyId,receipt:bytes.toString('base64url'),signature:sign('sha256',bytes,privateKey).toString('base64url')};};
+      assert.equal((await request(path,'POST',{nativeStudentId:'99'},'staff')).status,400);
+      assert.equal((await request(path,'POST',receipt(1,{nativeUserId:'10'}),'staff')).status,403);
+      assert.equal((await request(path,'POST',receipt(),'outsider')).status,404);
+      const first=await request(path,'POST',receipt(),'staff');assert.equal(first.status,200,await first.clone().text());
+      assert.equal((await request(path,'POST',receipt(),'staff')).status,200);
+      assert.equal((await pg.query("SELECT count(*)::int AS n FROM audit_events WHERE action='foundation.student_delivered'")).rows[0].n,1);
+      await pg.query('UPDATE learners SET age=9,version=version+1 WHERE id=$1',[learner]);
+      assert.equal((await request(path,'POST',receipt(),'staff')).status,409);
+      await pg.query("UPDATE foundation_learners SET active=false WHERE native_organisation_id=7 AND native_student_id=99");
+      assert.equal((await request(path,'POST',receipt(2),'staff')).status,409);
+      assert.equal((await pg.query('SELECT delivered_revision::int AS revision FROM foundation_student_deliveries WHERE learner_id=$1',[learner])).rows[0].revision,1);
+      await pg.query('UPDATE foundation_native_signers SET active=false WHERE key_id=$1',[key.keyId]);
+      await assert.rejects(registerNativeStudentKey(adapter,owner,pem));
+      assert.equal((await request(path,'POST',receipt(2),'staff')).status,403);
     });
     await t.test('mapping versions, module switches, membership and scope changes take effect on existing sessions', async()=>{
       assert.equal((await request(staffPath+'/9','PATCH',{active:false,version:1})).status,200);

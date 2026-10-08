@@ -7,6 +7,7 @@ import { LearnersService } from "./learners.service.js";
 import { randomUUID } from "node:crypto";
 import { provisionAttendanceOrganisation } from "./foundation-organisation-provision.js";
 import { provisionAttendanceAdministrator } from "./foundation-staff-provision.js";
+import {verifyStudentDeliveryReceipt} from "./student-delivery-proof.js";
 
 function nativeId(value: unknown): string {
   if (typeof value !== "string" || !/^[1-9][0-9]{0,14}$/.test(value))
@@ -155,6 +156,40 @@ export class FoundationService {
       if(!Number.isSafeInteger(revision) || revision<1 || revision>=1000000000000000)
         throw new ConflictException("Student delivery revision cannot be processed.");
       return {nativeOrganisationId:native,nativeUserId:user,organisationId:mapped.organisation_id,revision,...profile};
+    });
+  }
+  async acknowledgeStudentDelivery(actor:Account,nativeValue:string,userValue:string,learnerValue:string,body:Record<string,unknown>) {
+    const native=nativeId(nativeValue),user=nativeId(userValue),learner=recordId(learnerValue);
+    return this.db.transaction(async sql=>{
+      const mapped=(await sql.query<{organisation_id:string}>(`SELECT f.organisation_id FROM foundation_organisations f
+        JOIN foundation_staff s ON s.native_organisation_id=f.native_id
+        WHERE f.native_id=$1 AND s.native_user_id=$2 AND s.user_id=$3 AND f.active AND s.active FOR SHARE OF f,s`,[native,user,actor.id])).rows[0];
+      if(!mapped)throw new NotFoundException('Enrolment identity is not linked.');
+      const org=mapped.organisation_id;await this.access.lock(sql,org);
+      await this.access.require(actor,org,'learners.edit',sql);
+      const profile=await this.learners.nativeProfileSnapshot(actor,org,learner,sql);
+      if(typeof body.keyId!=='string' || !/^[a-f0-9]{64}$/.test(body.keyId))throw new BadRequestException('Provide a native delivery receipt.');
+      const key=(await sql.query<{public_key:string}>('SELECT public_key FROM foundation_native_signers WHERE key_id=$1 AND active FOR SHARE',[body.keyId])).rows[0];
+      if(!key)throw new ForbiddenException('Native delivery signer is unavailable.');
+      const receipt=verifyStudentDeliveryReceipt(body,key.public_key);
+      if(receipt.nativeOrganisationId!==native || receipt.nativeUserId!==user || receipt.learnerId!==learner)
+        throw new ForbiddenException('Native delivery receipt does not match this actor and student.');
+      const pending=(await sql.query<{revision:string}>(`SELECT revision::text FROM foundation_student_deliveries
+        WHERE native_organisation_id=$1 AND organisation_id=$2 AND learner_id=$3 FOR UPDATE`,[native,org,learner])).rows[0];
+      if(!pending || Number(pending.revision)!==receipt.revision)throw new ConflictException('Student delivery changed; retry the current revision.');
+      await sql.query(`INSERT INTO foundation_learners(native_organisation_id,native_student_id,organisation_id,learner_id,active)
+        VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[native,receipt.nativeStudentId,org,learner,!profile.archived]);
+      const link=(await sql.query<{learner_id:string;native_student_id:string;active:boolean}>(`SELECT learner_id,native_student_id::text,active FROM foundation_learners
+        WHERE native_organisation_id=$1 AND native_student_id=$2 FOR UPDATE`,[native,receipt.nativeStudentId])).rows[0];
+      if(!link || link.learner_id!==learner || (!link.active && !profile.archived))
+        throw new ConflictException('Student identity is already linked or revoked; delivery cannot reassign or reactivate it.');
+      if(profile.archived && link.active)await sql.query(`UPDATE foundation_learners SET active=false,version=version+1
+        WHERE native_organisation_id=$1 AND native_student_id=$2`,[native,receipt.nativeStudentId]);
+      const changed=(await sql.query(`UPDATE foundation_student_deliveries SET delivered_revision=revision
+        WHERE native_organisation_id=$1 AND learner_id=$2 AND delivered_revision<revision RETURNING revision`,[native,learner])).rows.length;
+      if(changed)await this.access.audit(sql,actor,org,'foundation.student_delivered',{
+        nativeOrganisationId:native,nativeStudentId:receipt.nativeStudentId,learnerId:learner,revision:receipt.revision});
+      return {nativeStudentId:receipt.nativeStudentId,learnerId:learner,revision:receipt.revision,delivered:true};
     });
   }
   private async platform(actor: Pick<Account,"id">, sql: SqlClient) {
