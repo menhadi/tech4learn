@@ -58,7 +58,13 @@ if($subjective) {
     $migration=require dirname(__DIR__).'/platform/database/migrations/2026_10_08_000001_add_subjective_answer_evidence_to_exam_stats.php';
     $migration->up();
 }
-$fixture=$db->transaction(function()use($base,$subjective){
+$packaged=in_array('--package',$argv,true);
+if($packaged) {
+    // This guard permits only the fixed local synthetic SQLite database.
+    $migration=require dirname(__DIR__).'/platform/database/migrations/2026_10_08_000004_complete_order_checkout_fields.php';
+    $migration->up();
+}
+$fixture=$db->transaction(function()use($base,$subjective,$packaged){
     $credentials=json_decode(file_get_contents($base.'/local-pilot-credentials.json'),true,512,JSON_THROW_ON_ERROR);
     $suffix=bin2hex(random_bytes(8));
     if($subjective) {
@@ -84,7 +90,13 @@ $fixture=$db->transaction(function()use($base,$subjective){
         'allow_answer_change'=>true,'grouping_mode'=>'none','proctor'=>false,'browser_tolerance'=>false,
     ]);
     $exam->questions()->attach($question->id);
-    return ['exam'=>$exam->id,'student'=>$student->id,'login'=>$student->email,'question'=>$question->id,'subjective'=>$subjective];
+    if($packaged) {
+        $package=App\Models\Package::create(['organization_id'=>2,'name'=>'Synthetic browser course '.$suffix,'slug'=>'synthetic-browser-course-'.$suffix,'expiry_days'=>30,'amount'=>10,'package_type'=>'paid','status'=>true]);
+        $exam->packages()->attach($package->id);
+        $order=App\Models\Order::create(['organization_id'=>2,'student_id'=>$student->id,'total'=>10,'payment_method'=>'synthetic-test','payment_status'=>'Completed','status'=>'completed']);
+        App\Models\OrderItem::create(['order_id'=>$order->id,'package_id'=>$package->id,'name'=>$package->name,'price'=>10,'quantity'=>1]);
+    }
+    return ['exam'=>$exam->id,'student'=>$student->id,'login'=>$student->email,'question'=>$question->id,'subjective'=>$subjective,'packaged'=>$packaged];
 });
 $file=$base.'/exam-browser-fixture.json';
 if(is_link($file))throw new RuntimeException('Fixture metadata symlink refused');

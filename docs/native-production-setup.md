@@ -24,6 +24,13 @@ Follow-up targeted checks passed 9 tests / 78 assertions: actual web start is
 denied before activation, resumes the existing API-created attempt after activation,
 and is denied after package revocation. API practice entry denies another student's
 paper without creating an attempt and permits the paper's creating student.
+Local browser acceptance after the package-access change passed an unpackaged
+MCQ journey and a packaged MCQ journey, including sign-in, answer save, submission
+and the two-mark result. A packaged subjective TXT journey also passed private
+upload/extraction, submission, teacher marking and student-visible updated marks.
+The guarded fixture accepts `--package` to seed a synthetic completed scoped
+order; this verifies exam access with an existing order, not payment processing.
+Query-only checks confirmed persisted completion, score and written evidence.
 Subsequent targeted exam journey checks passed 12 tests / 89 assertions,
 including package omission/invalid-package denial and actual signed draft/solution
 rendering with tampered-link denial. Signed numeric print URLs render directly;
