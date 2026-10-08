@@ -67,10 +67,20 @@ class AttendanceBridge
     }
     public function mapSection(Request $request,string $section,string $group,int $version,?ClientInterface $http=null): array
     {
+        $source=$this->canonicalSection($request,$section,$http,true);
+        return app(\App\Services\EnrolledStudentGroup::class)->map($request,$source,$group,$version);
+    }
+    public function sectionMappingOptions(Request $request,string $section,?ClientInterface $http=null): array
+    {
+        $source=$this->canonicalSection($request,$section,$http,false);
+        return app(\App\Services\EnrolledStudentGroup::class)->options($request,$source);
+    }
+    private function canonicalSection(Request $request,string $section,?ClientInterface $http,bool $editing): array
+    {
         abort_unless(config('attendance.student_delivery_enabled',false),503);
         abort_unless(preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$section),422);
         $context=$this->context($request,$http,'enrolment');
-        abort_unless(in_array('groups.create',$context['permissions'],true) && in_array('groups.view',$context['permissions'],true),403);
+        abort_unless((!$editing || in_array('groups.create',$context['permissions'],true)) && in_array('groups.view',$context['permissions'],true),403);
         $path='/organisations/'.$context['organisation']['id'].'/groups';
         $find=function(array $rows) use($section,$context) {
             foreach($rows as $row)if(is_array($row) && ($row['id']??null)===$section
@@ -80,8 +90,7 @@ class AttendanceBridge
         $source=$find($this->read($request,$path,[],$http));
         abort_unless($this->context($request,$http,'enrolment')===$context
             && $find($this->read($request,$path,[],$http))===$source,409,'Section access changed; reload it.');
-        return app(\App\Services\EnrolledStudentGroup::class)->map($request,
-            ['nativeOrganisationId'=>$context['nativeOrganisationId'],'sectionId'=>$source['id']],$group,$version);
+        return ['nativeOrganisationId'=>$context['nativeOrganisationId'],'sectionId'=>$source['id']];
     }
     public function learnerIdentity(Request $request, \App\Models\Student $student, ?ClientInterface $http = null): array
     {

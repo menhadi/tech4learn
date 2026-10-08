@@ -10,6 +10,30 @@ use Illuminate\Support\Facades\{Auth,DB};
 /** Internal canonical delivery only; section mappings require separate explicit review. */
 class EnrolledStudentGroup
 {
+    public function options(Request $request,array $section): array
+    {
+        $actor=Auth::user();abort_unless($actor instanceof User,403);
+        $organization=Tenant::assertAccess(Tenant::current($request->getHost()),true);
+        abort_unless(($section['nativeOrganisationId']??null)===(string)$organization->id
+            && is_string($section['sectionId']??null)
+            && preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/D',$section['sectionId']),404);
+        return DB::transaction(function() use($actor,$organization,$section){
+            $org=$organization->id;
+            abort_unless(DB::table('organizations')->where('id',$org)->where('status','active')->lockForUpdate()->first(),403);
+            $stored=DB::table('users')->where('id',$actor->id)->lockForUpdate()->first();
+            abort_unless($stored && $stored->status==='Active' && !(bool)$stored->deleted,403);
+            abort_unless(DB::table('organization_users')->where('organization_id',$org)->where('user_id',$actor->id)
+                ->where('status',1)->whereIn('role',['owner','admin'])->lockForUpdate()->first(),403);
+            $map=DB::table('foundation_section_groups')->where('organization_id',$org)->where('section_id',$section['sectionId'])->first();
+            $rows=DB::table('groups')->where('organization_id',$org)->orderBy('id')->limit(1001)->get(['id','group_name']);
+            abort_if($rows->count()>1000,422,'Too many exam groups; narrow the organisation directory before mapping.');
+            $groups=$rows->map(function($row){
+                $translations=json_decode($row->group_name,true);$name=is_array($translations)?($translations[app()->getLocale()]??reset($translations)):$row->group_name;
+                return ['id'=>(string)$row->id,'name'=>mb_substr(is_string($name)?$name:'Exam group '.$row->id,0,160)];
+            })->all();
+            return ['sectionId'=>$section['sectionId'],'mapping'=>$map?['nativeGroupId'=>(string)$map->group_id,'version'=>(int)$map->version,'active'=>(bool)$map->active]:null,'groups'=>$groups];
+        });
+    }
     /** Section identity must be fetched from the scoped canonical API, not request JSON. */
     public function map(Request $request,array $section,string $group,int $expectedVersion): array
     {

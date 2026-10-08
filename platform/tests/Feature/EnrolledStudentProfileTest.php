@@ -27,7 +27,7 @@ class EnrolledStudentProfileTest extends TestCase
         Schema::create('students',function(Blueprint $t){$t->id();$t->unsignedBigInteger('organization_id');
             foreach(['name','password','address','status'] as $f)$t->string($f);foreach(['email','phone','enroll'] as $f)$t->string($f)->nullable();$t->boolean('is_demo')->default(false);$t->timestamps();});
         (require database_path('migrations/2026_10_08_000006_create_foundation_student_profiles.php'))->up();
-        Schema::create('groups',function(Blueprint $t){$t->id();$t->unsignedBigInteger('organization_id');});
+        Schema::create('groups',function(Blueprint $t){$t->id();$t->unsignedBigInteger('organization_id');$t->string('group_name')->default('');});
         Schema::create('student_groups',function(Blueprint $t){$t->id();$t->unsignedBigInteger('student_id');$t->unsignedBigInteger('group_id');$t->timestamps();});
         (require database_path('migrations/2026_10_08_000007_create_foundation_section_groups.php'))->up();
         foreach([1,2] as $id)DB::table('organizations')->insert(['id'=>$id,'name'=>'Synthetic tenant '.$id,'slug'=>'tenant-'.$id,'domain'=>'tenant-'.$id.'.example.invalid','status'=>'active']);
@@ -211,6 +211,9 @@ class EnrolledStudentProfileTest extends TestCase
         $request=Request::create('https://tenant-1.example.invalid/enrolment');$service=new \App\Services\EnrolledStudentGroup;
         $this->denied(404,fn()=>$service->map($request,$section,'3',0));
         $first=$service->map($request,$section,'1',0);$this->assertSame(1,$first['version']);
+        $options=$service->options($request,$section);$this->assertCount(2,$options['groups']);
+        $this->assertSame('1',$options['mapping']['nativeGroupId']);
+        $this->assertNotContains('3',array_column($options['groups'],'id'));
         $this->assertSame($first,$service->map($request,$section,'1',1));
         $this->denied(409,fn()=>$service->map($request,$section,'2',0));
         $this->assertSame(2,$service->map($request,$section,'2',1)['version']);

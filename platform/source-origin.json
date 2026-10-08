@@ -177454,7 +177454,7 @@
     },
     {
       "path": "routes/web.php",
-      "sha256": "b5076ebd510b3e5b6043e6b942b96edd1aef70ab0f03611dd3afbc1125c5c2f5",
+      "sha256": "b0882f39ec965e7bc02702b7871291f9fb6267120458474859e3df552757d9cf",
       "patches": [
         "authenticated-native-attendance-read-routes",
         "foundation-attendance-integration-and-native-exam-acceptance-20261007",

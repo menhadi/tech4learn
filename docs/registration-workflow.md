@@ -88,8 +88,12 @@ stored owner/admin and reject stale versions, foreign groups and revoked maps.
 The local bridge now fetches the section from the scoped canonical directory,
 checks section-edit authority and rechecks the same source/context before mapping.
 Student delivery invokes owned membership assignment before signing its receipt.
-Mapping readback/options and public controls remain pending; these migrations
-and consumers are not deployed.
+Local mapping readback/options and authenticated POST controls now expose only
+the scoped section and tenant exam groups. The enrolment academic workspace has
+a shared draft form with version checks and revoked-map protection. Saving a
+mapping does not deliver students; editors explicitly refresh an already delivered
+profile to apply its current group mapping. These migrations and controls are
+not deployed or verified live.
 
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact

@@ -6,6 +6,7 @@ import { api } from "./api";
 import { FoundationCentres, type AttendanceCentre } from "./FoundationCentres";
 import { GroupedMenu } from "./GroupedMenu";
 import { AcademicStructure, type AcademicGroup } from "./AcademicStructure";
+import {SectionExamGroup} from './SectionExamGroup';
 
 export type FoundationContext = {
   userId: string;
@@ -56,6 +57,7 @@ export function FoundationAttendance() {
         </> : page==='centres'&&context.permissions.includes('centres.view') ? <FoundationCentres org={context.organisation.id} centres={centres} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>setCentres(await api<AttendanceCentre[]>(`/organisations/${context.organisation.id}/centres`))}/> : page==='structure'&&context.permissions.includes('groups.view')&&context.permissions.includes('centres.view') ? <>
           <p>Use an approved attendance centre to organise years, classes and sections. Create and approve centres in the Centres view. Native student linking is still managed separately.</p>
           <AcademicStructure org={context.organisation.id} centres={centres} groups={groups} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>{const rows=await api<AcademicGroup[]>(`/organisations/${context.organisation.id}/groups`);setGroups(rows);}} onStudents={id=>{setSelectedGroup(id);setPage('learners');}} onAttendance={id=>{if(enrolment)window.location.assign('/attendance');else {setSelectedGroup(id);setPage('attendance');}}}/>
+          {enrolment&&context.studentDeliveryEnabled===true&&<SectionExamGroup groups={groups} canEdit={context.permissions.includes('groups.create')}/>}
         </> : <Attendance org={context.organisation.id} groups={groups.filter(g=>!g.archived)} permissions={context.permissions} mode="all" initialGroup={selectedGroup}/>}
       </DraftScope>}
   </section>;

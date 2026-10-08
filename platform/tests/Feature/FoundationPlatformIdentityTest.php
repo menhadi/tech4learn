@@ -330,4 +330,17 @@ class FoundationPlatformIdentityTest extends TestCase
         config(['attendance.student_delivery_enabled'=>false]);
         $this->denied(503,fn()=>(new AttendanceBridge)->studentDeliveryStatus($request,$learner,$client));
     }
+    public function test_section_mapping_endpoint_rejects_authority_fields_and_uses_authenticated_post(): void
+    {
+        $section='33333333-3333-4333-8333-333333333333';$controller=new \App\Http\Controllers\AttendanceBridgeController;
+        $request=Request::create('/enrolment/sections/'.$section.'/exam-group','POST',
+            ['nativeGroupId'=>'1','version'=>0,'organisationId'=>'foreign']);
+        $this->denied(422,fn()=>$controller->mapSection($request,$section,new AttendanceBridge));
+        config(['attendance.student_delivery_enabled'=>false]);
+        $request=Request::create('/enrolment/sections/'.$section.'/exam-group','POST',['nativeGroupId'=>'1','version'=>0]);
+        $this->denied(503,fn()=>$controller->mapSection($request,$section,new AttendanceBridge));
+        $route=app('router')->getRoutes()->getByName('enrolment.section-mapping');
+        $this->assertSame(['POST'],$route->methods());$this->assertContains('auth',$route->gatherMiddleware());
+        $this->assertContains('web',$route->gatherMiddleware());
+    }
 }

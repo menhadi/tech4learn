@@ -30,7 +30,7 @@ export function StudentDelivery({learnerId,canEdit}:{learnerId:string;canEdit:bo
     {error&&<p role="alert" className="error">{error}</p>}
     {status?<p>{status.state==='delivered'?'Current student details delivered to the exam profile.':status.state==='review_required'?'This identity link requires administrator review.':'Student details are waiting for delivery to the exam profile.'}</p>:!error&&<p role="status">Loading delivery status…</p>}
     <p>Delivery preserves this student identity. Exam group assignment and student login are managed separately.</p>
-    {status?.state==='pending'&&canEdit&&<button type="button" disabled={busy} onClick={()=>void deliver()}>{busy?'Delivering…':'Deliver student profile'}</button>}
+    {status&&status.state!=='review_required'&&canEdit&&<button type="button" disabled={busy} onClick={()=>void deliver()}>{busy?'Delivering…':status.state==='delivered'?'Refresh profile and group assignment':'Deliver student profile'}</button>}
     <button type="button" disabled={busy} onClick={()=>setRevision(v=>v+1)}>Refresh delivery status</button>
   </section>;
 }

@@ -29,6 +29,17 @@ class AttendanceBridgeController extends Controller
     {
         return response()->json($bridge->studentDeliveryStatus($request,$learner))->header('Cache-Control','no-store');
     }
+    public function sectionMappingOptions(Request $request,string $section,AttendanceBridge $bridge): JsonResponse
+    {
+        return response()->json($bridge->sectionMappingOptions($request,$section))->header('Cache-Control','no-store');
+    }
+    public function mapSection(Request $request,string $section,AttendanceBridge $bridge): JsonResponse
+    {
+        $body=$request->except('_token');
+        abort_unless(count($body)===2 && is_string($body['nativeGroupId']??null)
+            && is_int($body['version']??null) && $body['version']>=0,422);
+        return response()->json($bridge->mapSection($request,$section,$body['nativeGroupId'],$body['version']))->header('Cache-Control','no-store');
+    }
     public function enrolmentGateway(Request $request, string $path, AttendanceBridge $bridge)
     {
         abort_if(preg_match('#/attendance(?:/|$)#',$path),404);
