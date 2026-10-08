@@ -190,6 +190,9 @@ class FoundationExamJourneyTest extends TestCase
     {
         [$org]=$this->owner();
         $exam=Exam::create(['organization_id'=>$org->id,'name'=>'Synthetic signed draft','status'=>'Inactive','passing_percentage'=>50,'attempt_count'=>1,'duration'=>30,'mode'=>'Exam']);
+        $type=\App\Models\Qtype::firstOrCreate(['type'=>'M'],['question_type'=>'Multiple Choice']);
+        $question=Question::create(['organization_id'=>$org->id,'qtype_id'=>$type->id,'question'=>'Synthetic signed paper question','option1'=>'4','option2'=>'5','si_answer1'=>1,'marks'=>2,'status'=>'Yes']);
+        $exam->questions()->attach($question->id);
         Auth::forgetGuards();$this->app['auth']->guard('web')->logout();Tenant::clear();
         \Illuminate\Support\Facades\URL::forceRootUrl('https://synthetic-exams.test');
         \Illuminate\Support\Facades\URL::forceScheme('https');
@@ -197,8 +200,11 @@ class FoundationExamJourneyTest extends TestCase
             $url=\Illuminate\Support\Facades\URL::temporarySignedRoute('exam.print',now()->addMinutes(5),['id'=>$exam->id]);
             $this->get($url.'&pdf_render=1')->assertNotFound();
             $this->assertEmpty($exam->fresh()->slug);
-            $this->get($url)->assertStatus(301);
+            $this->get($url)->assertOk();
             $this->assertNotEmpty($exam->fresh()->slug);
+            $solutionUrl=\Illuminate\Support\Facades\URL::temporarySignedRoute('exam.print',now()->addMinutes(5),['id'=>$exam->id,'solution'=>1,'pdf_render'=>1]);
+            $this->get($solutionUrl)->assertOk()->assertSee('Synthetic signed draft - Solutions');
+            $this->get($solutionUrl.'&extra=1')->assertForbidden();
         } finally {
             \Illuminate\Support\Facades\URL::forceRootUrl(null);
             \Illuminate\Support\Facades\URL::forceScheme(null);

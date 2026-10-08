@@ -12,9 +12,11 @@ do not use that launcher for this fixture. The original installation is unchange
 The latest complete copied-source native run passed 325 tests / 1,386 assertions,
 including answer-key withholding, scoped print 404s, unsigned solution denial
 and unpublished-paper protection on the guest print route.
-Subsequent targeted exam journey checks passed 12 tests / 86 assertions,
-including package omission/invalid-package denial and signed draft resolution
-with tampered-link denial.
+Subsequent targeted exam journey checks passed 12 tests / 89 assertions,
+including package omission/invalid-package denial and actual signed draft/solution
+rendering with tampered-link denial. Signed numeric print URLs render directly;
+the public slug redirect otherwise discarded their signature and solution/render
+parameters.
 The scaffold `npm run check` passed 111 API tests, workspace typechecks and API,
 admin and embedded-attendance builds. These are local synthetic checks.
 

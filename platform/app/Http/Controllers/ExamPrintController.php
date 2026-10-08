@@ -448,7 +448,8 @@ class ExamPrintController extends Controller
         }
         $pdfDisplay = app(ExamLanguageService::class)->display($exam, $pdfLanguage);
 
-        if ($request->isMethod('GET') && is_numeric($id) && !empty($exam->slug)) {
+        // A canonical redirect would drop the signature and document-render parameters.
+        if ($request->isMethod('GET') && is_numeric($id) && !empty($exam->slug) && ! $request->hasValidSignature()) {
             return redirect()->route('exam.print', array_filter([
                 'id' => $exam->slug,
                 'package' => $packageKey,
