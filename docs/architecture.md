@@ -58,6 +58,13 @@ download gates before rendering or creating a slug. An unpublished draft cannot
 be exposed through the print route. Signed internal document rendering and native
 staff previews retain their existing access paths.
 
+Question language switching returns question text/options only for a question
+in the current student's or guest's open tenant-scoped attempt. It never returns
+original or translated explanations. Languages and passage content remain scoped
+to the same organisation. The guest engine also needs nullable registered-student
+references on attempts/stats and guest identity on stats; a checked migration
+completes those missing fresh-schema fields without dropping existing evidence.
+
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup
 checks before executing it. No production cleanup has been executed. Preserve the existing administrator's

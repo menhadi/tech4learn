@@ -553,9 +553,10 @@
     },
     {
       "path": "app/Http/Controllers/QuestionController.php",
-      "sha256": "2c93e9d263e93f39efff15170179e1616584d5664858e19e0d3ac34425ac271d",
+      "sha256": "ff1c418157d79d8001ed187fd38bb4f106d4bd90a01e9809c2d68ca91eba4d7d",
       "patches": [
-        "question-directory-translation-language"
+        "question-directory-translation-language",
+        "attempt-scoped-question-language-without-explanations"
       ]
     },
     {

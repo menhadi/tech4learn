@@ -715,8 +715,29 @@ class QuestionController extends Controller
 
     public function getLangData($questionId, $languageId)
     {
+        $tenantId=\App\Support\Tenant::id();
+        $attempts=\Illuminate\Support\Facades\DB::table('exam_results')
+            ->where('organization_id',$tenantId)->whereNull('end_time')->whereNotNull('start_time');
+        if (request()->is('guest/questions/*')) {
+            $guestId=session('guest_id') ?? request()->cookie('guest_id');
+            if (!is_string($guestId) || $guestId==='') {
+                return response()->json(['status'=>false,'message'=>'Question not found.'],404);
+            }
+            $attempts->where('guest_id',$guestId)->whereNull('student_id');
+        } else {
+            $student=\Illuminate\Support\Facades\Auth::guard('student')->user();
+            if (!$student || (int)$student->organization_id!==(int)$tenantId || $student->status!=='Active') {
+                return response()->json(['status'=>false,'message'=>'Question not found.'],404);
+            }
+            $attempts->where('student_id',$student->id);
+        }
+        if (!\Illuminate\Support\Facades\DB::table('exam_stats')->where('organization_id',$tenantId)
+            ->where('question_id',$questionId)->whereIn('exam_result_id',$attempts->select('id'))->exists()
+            || !\App\Models\Language::where('organization_id',$tenantId)->whereKey($languageId)->exists()) {
+            return response()->json(['status'=>false,'message'=>'Question not found.'],404);
+        }
         try {
-            $question = Question::where('organization_id', \App\Support\Tenant::id())->find($questionId);
+            $question = Question::where('organization_id', $tenantId)->find($questionId);
             if (!$question) {
                  return response()->json(['status' => false, 'message' => 'Question not found.'], 404);
             }
@@ -729,7 +750,7 @@ class QuestionController extends Controller
             $passageName = null;
             if ($question->passage_id) {
                 $passage = $question->passage;
-                if($passage) {
+                if($passage && (int)$passage->organization_id===(int)$tenantId) {
                     $passageName = $passage->name;
                     $passageLang = PassageLang::where('passage_id', $question->passage_id)
                                     ->where('language_id', $languageId)
@@ -741,7 +762,6 @@ class QuestionController extends Controller
             $defaultData = [
                 'question' => $question->question,
                 'hint' => $question->hint,
-                'explanation' => $question->explanation,
                 'option1' => $question->option1,
                 'option2' => $question->option2,
                 'option3' => $question->option3,
@@ -755,7 +775,6 @@ class QuestionController extends Controller
                 $translatedData = [
                     'question' => $questionLang->question,
                     'hint' => $questionLang->hint,
-                    'explanation' => $questionLang->explanation,
                     'option1' => $questionLang->option1,
                     'option2' => $questionLang->option2,
                     'option3' => $questionLang->option3,
@@ -782,7 +801,7 @@ class QuestionController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Server error: ' . $e->getMessage(),
+                'message' => 'Question language data could not be loaded.',
                 'data' => null
             ], 500);
         }
