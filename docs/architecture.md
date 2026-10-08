@@ -92,6 +92,8 @@ Student API exam details load only question identifiers, subject metadata and
 marks, withholding question text, options, translations and explanations before
 an attempt starts. Details and attempt-count endpoints recheck the shared access
 policy, including active package status, after their existing discovery scope.
+The web My Exams details and attempt-count endpoints use that same policy,
+preserving their metadata response while requiring completed course activation.
 
 The user explicitly authorized permanent deletion of all previous organisations
 and linked records. Prepare the private backup, scoped cleanup and post-cleanup

@@ -156,6 +156,8 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $this->actingAs($student,'student');
         $this->get('https://language.test/exam/instructions/'.$exam->id)->assertForbidden();
         $this->get('https://language.test/exam/start/'.$exam->id)->assertForbidden();
+        $this->getJson('https://language.test/exam-details/'.$exam->id)->assertForbidden();
+        $this->getJson('https://language.test/exam/check-attempts/'.$exam->id)->assertForbidden();
         \Laravel\Sanctum\Sanctum::actingAs($student,['*'],'student-api');
         $url='https://language.test/api/student/exam/start/'.$exam->id;
         $this->postJson($url)->assertForbidden();
@@ -174,6 +176,8 @@ class QuestionLanguageAttemptAccessTest extends TestCase
         $this->postJson($url)->assertOk();
         $this->get('https://language.test/exam/instructions/'.$exam->id)->assertOk();
         $this->get('https://language.test/exam/start/'.$exam->id)->assertOk();
+        $this->getJson('https://language.test/exam-details/'.$exam->id)->assertOk();
+        $this->getJson('https://language.test/exam/check-attempts/'.$exam->id)->assertOk();
         $package->update(['status'=>false]);
         $this->postJson($url)->assertForbidden();
         $this->get('https://language.test/exam/start/'.$exam->id)->assertForbidden();

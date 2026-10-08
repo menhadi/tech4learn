@@ -728,8 +728,10 @@
     },
     {
       "path": "app/Http/Controllers/Students/MyExamController.php",
-      "sha256": "50496c0d44c574eccff14560cc1511241634d93d48ef916cacb6195d87ad90f9",
-      "patches": []
+      "sha256": "87733b2c88c955fdac4c1778ae335b49f21b56c335ab569154549fd6cfdbd017",
+      "patches": [
+        "shared-student-package-access"
+      ]
     },
     {
       "path": "app/Http/Controllers/Students/NewExamController.php",
