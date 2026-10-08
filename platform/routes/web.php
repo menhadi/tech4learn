@@ -827,6 +827,8 @@ Route::post('/admin/ai-content/bulk-generator', [SeoGeneratorController::class, 
 Route::middleware('auth')->group(function () {
     Route::get('/enrolment', [\App\Http\Controllers\AttendanceBridgeController::class, 'enrolment'])->name('enrolment.workspace');
     Route::get('/enrolment/context', [\App\Http\Controllers\AttendanceBridgeController::class, 'enrolmentContext'])->name('enrolment.context');
+    Route::post('/enrolment/students/{learner}/deliver', [\App\Http\Controllers\AttendanceBridgeController::class, 'deliverStudent'])
+        ->where('learner','[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}')->name('enrolment.student-delivery');
     Route::match(['GET','POST','PATCH'],'/enrolment/api/{path}',[\App\Http\Controllers\AttendanceBridgeController::class,'enrolmentGateway'])->where('path','.*')->name('enrolment.gateway');
     Route::get('/attendance', [\App\Http\Controllers\AttendanceBridgeController::class, 'workspace'])->name('attendance.workspace');
     Route::get('/attendance/context', [\App\Http\Controllers\AttendanceBridgeController::class, 'context'])->name('attendance.context');

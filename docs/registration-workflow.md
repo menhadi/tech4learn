@@ -71,8 +71,10 @@ authority before profile writes, checks signing setup, persists the UUID profile
 rechecks the snapshot and posts its signed receipt to canonical acknowledgement.
 Synthetic transport tests prove that remote failure retries retain the same native
 profile/password and send only signed IDs. The operator switch defaults off.
-Public invocation, directory retry controls, section mapping and live acceptance
-remain pending; no existing live learner is automatically mirrored.
+An authenticated, CSRF-protected POST now exposes explicit delivery for one
+canonical UUID and rejects browser profile/identity/key fields. Its operator
+switch remains off. Directory status/retry controls, section mapping and live
+acceptance remain pending; no existing live learner is automatically mirrored.
 
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact

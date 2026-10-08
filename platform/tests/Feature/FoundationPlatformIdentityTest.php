@@ -274,6 +274,20 @@ class FoundationPlatformIdentityTest extends TestCase
                 $this->request('/enrolment/api/'.$path),$path,new AttendanceBridge));
         }
     }
+    public function test_student_delivery_endpoint_rejects_browser_identity_fields_and_is_post_authenticated(): void
+    {
+        $controller=new \App\Http\Controllers\AttendanceBridgeController;
+        $learner='22222222-2222-4222-8222-222222222222';
+        $request=Request::create('https://platform.example.invalid/enrolment/students/'.$learner.'/deliver','POST',
+            ['nativeStudentId'=>'99','keyId'=>'untrusted']);
+        $this->denied(422,fn()=>$controller->deliverStudent($request,$learner,new AttendanceBridge));
+        config(['attendance.student_delivery_enabled'=>false]);
+        $request=Request::create('https://platform.example.invalid/enrolment/students/'.$learner.'/deliver','POST');
+        $this->denied(503,fn()=>$controller->deliverStudent($request,$learner,new AttendanceBridge));
+        $route=app('router')->getRoutes()->getByName('enrolment.student-delivery');
+        $this->assertNotNull($route);$this->assertSame(['POST'],$route->methods());
+        $this->assertContains('auth',$route->gatherMiddleware());$this->assertContains('web',$route->gatherMiddleware());
+    }
     public function test_student_snapshot_rechecks_enrolment_authority_and_exact_delivery_revision(): void
     {
         Auth::guard('web')->setUser(User::findOrFail(1));$request=$this->request('/enrolment');
