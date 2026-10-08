@@ -228,6 +228,7 @@
                                             $isPlanLocked = $featureKey && ! \App\Support\SaasAccess::featureEnabled($featureKey);
                                             $displayPageName = $page->action_name === 'exams.reports' ? 'Reported Questions' : $page->page_name;
                                         @endphp
+                                        @continue($isPlanLocked)
                                         <li class="nav-item">
                                             <a href="{{ route($page->action_name) }}" class="nav-link {{ (request()->routeIs($page->action_name.'*') || ($isFlashcardsGroup && request()->routeIs('flashcards.*'))) ? 'active' : '' }} {{ $isPlanLocked ? 'plan-feature-locked js-plan-feature-locked' : '' }}" data-plan-feature="{{ $featureKey }}">
                                                 {{ $displayPageName }}
@@ -253,6 +254,7 @@
                                                             $isPlanLocked = $featureKey && ! \App\Support\SaasAccess::featureEnabled($featureKey);
                                                             $displayChildName = $child->action_name === 'exams.reports' ? 'Reported Questions' : $child->page_name;
                                                         @endphp
+                                                        @continue($isPlanLocked)
                                                         <li class="nav-item">
                                                             <a href="{{ route($child->action_name) }}" class="nav-link {{ request()->routeIs($child->action_name.'*') ? 'active' : '' }} {{ $isPlanLocked ? 'plan-feature-locked js-plan-feature-locked' : '' }}" data-plan-feature="{{ $featureKey }}">
                                                                 {{ $displayChildName }}
@@ -299,7 +301,7 @@
                                         </a>
                                     </li>
                                 @endif
-                                @if($isAiGroup && \Illuminate\Support\Facades\Route::has('admin.ai-content.bulk'))
+                                @if($isAiGroup && \Illuminate\Support\Facades\Route::has('admin.ai-content.bulk') && \App\Support\SaasAccess::featureEnabled('ai_content_generation'))
                                     @php $isPlanLocked = ! \App\Support\SaasAccess::featureEnabled('ai_content_generation'); @endphp
                                     <li class="nav-item">
                                         <a class="nav-link {{ request()->routeIs('admin.ai-content.*') ? 'active' : '' }} {{ $isPlanLocked ? 'plan-feature-locked js-plan-feature-locked' : '' }}" href="{{ route('admin.ai-content.bulk') }}" data-plan-feature="ai_content_generation">
@@ -307,7 +309,7 @@
                                         </a>
                                     </li>
                                 @endif
-                                @if($isAiGroup && \Illuminate\Support\Facades\Route::has('admin.seo.bulk'))
+                                @if($isAiGroup && \Illuminate\Support\Facades\Route::has('admin.seo.bulk') && \App\Support\SaasAccess::featureEnabled('ai_seo'))
                                     @php $isPlanLocked = ! \App\Support\SaasAccess::featureEnabled('ai_seo'); @endphp
                                     <li class="nav-item">
                                         <a class="nav-link {{ request()->routeIs('admin.seo.dashboard') ? 'active' : '' }} {{ $isPlanLocked ? 'plan-feature-locked js-plan-feature-locked' : '' }}" href="{{ route('admin.seo.dashboard') }}" data-plan-feature="ai_seo">
