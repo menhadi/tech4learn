@@ -106,4 +106,28 @@ class EnrolledStudentProfileTest extends TestCase
             rmdir($directory.'/app/private');rmdir($directory.'/app');rmdir($directory);
         }
     }
+
+    public function test_installation_key_preparation_is_explicit_and_never_rotates_existing_material(): void
+    {
+        $original=storage_path();$directory=sys_get_temp_dir().'/student-key-'.bin2hex(random_bytes(8));
+        mkdir($directory,0700);app()->useStoragePath($directory);
+        $path=$directory.'/app/private/student-delivery-signing.pem';$public=$directory.'/app/private/student-delivery-signing-public.pem';
+        try {
+            $this->artisan('foundation:student-signing-key')->assertExitCode(1);
+            $this->assertFileDoesNotExist($path);
+            $this->artisan('foundation:student-signing-key',['--confirm-native-installation'=>true])->assertExitCode(0);
+            $private=file_get_contents($path);$publicBytes=file_get_contents($public);
+            $this->assertStringContainsString('BEGIN PUBLIC KEY',$publicBytes);
+            $this->artisan('foundation:student-signing-key',['--confirm-native-installation'=>true])->assertExitCode(0);
+            $this->assertSame($private,file_get_contents($path));
+            file_put_contents($public,'invalid synthetic public key');
+            $this->artisan('foundation:student-signing-key',['--confirm-native-installation'=>true])->assertExitCode(1);
+            $this->assertSame($private,file_get_contents($path));
+            $this->assertSame('invalid synthetic public key',file_get_contents($public));
+        } finally {
+            app()->useStoragePath($original);foreach([$path,$public] as $file)if(is_file($file))unlink($file);
+            if(is_dir($directory.'/app/private'))rmdir($directory.'/app/private');
+            if(is_dir($directory.'/app'))rmdir($directory.'/app');rmdir($directory);
+        }
+    }
 }

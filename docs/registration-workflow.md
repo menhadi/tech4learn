@@ -62,7 +62,11 @@ membership and signs only IDs using a private installation key outside public
 storage. Browser-supplied native student IDs
 cannot establish ownership. Synthetic checks cover tampering, expiry, stale
 delivery, tenant mismatch and revoked keys/links. This is not deployed: native
-key provisioning, protected invocation and retry delivery remain pending.
+The local `foundation:student-signing-key --confirm-native-installation` command
+now prepares private installation storage and a separate public key file for
+trusted registration. Exact retries retain the key; malformed or conflicting
+existing files require operator review and are never rotated automatically.
+Protected invocation and retry delivery remain pending.
 
 Registration-page extraction now has a locally checked, bounded draft parser
 and transcription prompt. The parser accepts only editable identity/contact
