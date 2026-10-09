@@ -182,10 +182,21 @@
                 @endif
 
                 @if(config('attendance.api_url') && Auth::check())
-                    @if(empty($isPlatformOwner))
-                    <li class="nav-item"><a href="{{ route('enrolment.workspace') }}" class="nav-link {{ request()->routeIs('enrolment.*') ? 'active' : '' }}"><i class="ri-user-add-line"></i><span>Student enrolment</span></a></li>
-                    @endif
-                    <li class="nav-item"><a href="{{ route('attendance.workspace') }}" class="nav-link {{ request()->routeIs('attendance.*') ? 'active' : '' }}"><i class="ri-calendar-check-line"></i><span>Attendance</span></a></li>
+                    @php($isStudentAttendanceActive = request()->routeIs('enrolment.*', 'attendance.*'))
+                    <li class="nav-item">
+                        <a class="nav-link menu-link {{ $isStudentAttendanceActive ? 'active' : '' }}" href="#sidebarStudentAttendance" data-bs-toggle="collapse" role="button" aria-expanded="{{ $isStudentAttendanceActive ? 'true' : 'false' }}" aria-controls="sidebarStudentAttendance" title="Students & Attendance">
+                            <i class="ri-user-add-line"></i>
+                            <span>Students &amp; Attendance</span>
+                        </a>
+                        <div class="collapse menu-dropdown {{ $isStudentAttendanceActive ? 'show' : '' }}" id="sidebarStudentAttendance">
+                            <ul class="nav nav-sm flex-column">
+                                @if(empty($isPlatformOwner))
+                                    <li class="nav-item"><a href="{{ route('enrolment.workspace') }}" class="nav-link {{ request()->routeIs('enrolment.*') ? 'active' : '' }}">Student enrolment</a></li>
+                                @endif
+                                <li class="nav-item"><a href="{{ route('attendance.workspace') }}" class="nav-link {{ request()->routeIs('attendance.*') ? 'active' : '' }}">Attendance</a></li>
+                            </ul>
+                        </div>
+                    </li>
                 @endif
                 @foreach(($sidebarGroups ?? collect([['label' => 'Menu', 'icon' => 'ri-menu-line', 'pages' => $pages]])) as $groupIndex => $group)
                     @php
