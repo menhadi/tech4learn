@@ -6,8 +6,13 @@
 
 The native delivery and section mapping controls are deployed. Existing-owner
 login, enrolment context/workspace and scoped section mapping options passed live
-HTTP checks. Actual student profile/group delivery and authenticated exam
-attempt/results remain unverified; deployment created no new student accounts.
+HTTP checks. On 9 October, after explicit permission to create a test account,
+one labelled synthetic learner completed canonical enrolment, scoped section/group
+mapping, signed native delivery, student login, exam start/resume, numerical answer
+submission and authenticated result readback. The result was Pass, 1/1. A delivery
+retry preserved the same identity and login. This verifies the staff enrolment
+journey; public signup review remains unverified because Vector self-registration
+is disabled. Existing students and the administrator login were preserved.
 Older local-development notes below describe the sequence of implementation.
 
 Registration-page processing is deployed: scoped provider
@@ -49,7 +54,8 @@ never backfilled or matched by name/email. The platform realm is excluded from
 organisation admissions. Release `f515eadb` passed 127 API tests, all builds and
 43 native tests / 223 assertions. Existing-owner live checks verified the enabled
 admission context and an empty pending list without creating accounts. Actual
-public signup, staff review and student exam acceptance remain unverified live.
+public signup and its staff review remain unverified live. The separate staff
+enrolment and student exam journey passed the live check described above.
 
 Public student self-registration retains native verification and sign-in. New
 organisation signups enter explicit staff review before receiving canonical
