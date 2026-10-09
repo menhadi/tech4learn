@@ -22,6 +22,13 @@ Keep editable table rows mounted when paged/filtered so view changes do not dest
 
 ## Navigation
 
+The native enrolment workspace uses the shell's **Enrolment & Attendance**
+submenu, ordered Student enrolment, Centres, Classes and sections, Daily
+attendance. Its links select the corresponding workspace directly; do not add
+a second menu inside the page. Embedded forms and directories inherit the
+native admin shell's action palette, typography, card corners and table colours,
+while retaining the shared filtering, sticky columns and scoped draft handling.
+
 Use `GroupedMenu` for platform and organisation navigation. It follows ExamElite's vertical grouped menu pattern with line icons, collapsible submenus, an active-page indicator and matching breadcrumbs. Hide empty groups and filter working entries by existing permissions/module availability. Keep desktop navigation independently scrollable, with branding and account actions visible. On mobile, expanding a group keeps the organisation menu open; selecting a page closes it. Menu instances use separate submenu IDs, and the current group opens immediately.
 
 Organisation navigation includes an in-memory page search over already permitted

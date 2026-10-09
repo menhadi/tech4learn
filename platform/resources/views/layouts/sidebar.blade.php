@@ -186,16 +186,18 @@
                         $isStudentAttendanceActive = request()->routeIs('enrolment.*', 'attendance.*');
                     @endphp
                     <li class="nav-item">
-                        <a class="nav-link menu-link {{ $isStudentAttendanceActive ? 'active' : '' }}" href="#sidebarStudentAttendance" data-bs-toggle="collapse" role="button" aria-expanded="{{ $isStudentAttendanceActive ? 'true' : 'false' }}" aria-controls="sidebarStudentAttendance" title="Students & Attendance">
+                        <a class="nav-link menu-link {{ $isStudentAttendanceActive ? 'active' : '' }}" href="#sidebarStudentAttendance" data-bs-toggle="collapse" role="button" aria-expanded="{{ $isStudentAttendanceActive ? 'true' : 'false' }}" aria-controls="sidebarStudentAttendance" title="Enrolment & Attendance">
                             <i class="ri-user-add-line"></i>
-                            <span>Students &amp; Attendance</span>
+                            <span>Enrolment &amp; Attendance</span>
                         </a>
                         <div class="collapse menu-dropdown {{ $isStudentAttendanceActive ? 'show' : '' }}" id="sidebarStudentAttendance">
                             <ul class="nav nav-sm flex-column">
                                 @if(empty($isPlatformOwner))
-                                    <li class="nav-item"><a href="{{ route('enrolment.workspace') }}" class="nav-link {{ request()->routeIs('enrolment.*') ? 'active' : '' }}">Student enrolment</a></li>
+                                    <li class="nav-item"><a href="{{ route('enrolment.workspace') }}" class="nav-link {{ (request()->routeIs('enrolment.*') && !in_array(request('view'), ['centres', 'structure'], true)) ? 'active' : '' }}">Student enrolment</a></li>
+                                    <li class="nav-item"><a href="{{ route('enrolment.workspace', ['view' => 'centres']) }}" class="nav-link {{ request()->routeIs('enrolment.*') && request('view') === 'centres' ? 'active' : '' }}">Centres</a></li>
+                                    <li class="nav-item"><a href="{{ route('enrolment.workspace', ['view' => 'structure']) }}" class="nav-link {{ request()->routeIs('enrolment.*') && request('view') === 'structure' ? 'active' : '' }}">Classes and sections</a></li>
                                 @endif
-                                <li class="nav-item"><a href="{{ route('attendance.workspace') }}" class="nav-link {{ request()->routeIs('attendance.*') ? 'active' : '' }}">Attendance</a></li>
+                                <li class="nav-item"><a href="{{ route('attendance.workspace') }}" class="nav-link {{ request()->routeIs('attendance.*') ? 'active' : '' }}">Daily attendance</a></li>
                             </ul>
                         </div>
                     </li>

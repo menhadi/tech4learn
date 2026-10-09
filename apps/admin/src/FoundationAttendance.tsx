@@ -4,7 +4,6 @@ import { Attendance } from "./Attendance";
 import { DraftScope } from "./DraftForm";
 import { api } from "./api";
 import { FoundationCentres, type AttendanceCentre } from "./FoundationCentres";
-import { GroupedMenu } from "./GroupedMenu";
 import { AcademicStructure, type AcademicGroup } from "./AcademicStructure";
 import {SectionExamGroup} from './SectionExamGroup';
 
@@ -21,13 +20,16 @@ export function FoundationAttendance() {
   const enrolment = window.location.pathname === "/enrolment";
   const [context,setContext]=useState<FoundationContext|null>(null);
   const [groups,setGroups]=useState<AcademicGroup[]>([]);
-  const [page,setPage]=useState(enrolment ? "learners" : "attendance");
+  const requestedView = new URLSearchParams(window.location.search).get("view");
+  const initialPage = enrolment && ["centres", "structure"].includes(requestedView || "") ? requestedView! : enrolment ? "learners" : "attendance";
+  const [page,setPage]=useState(initialPage);
+  const pageTitle = page === "centres" ? "Centres" : page === "structure" ? "Classes and sections" : page === "learners" ? "Student enrolment" : "Daily attendance";
   const [selectedGroup,setSelectedGroup]=useState("");
   const [centres,setCentres]=useState<AttendanceCentre[]>([]);
   const [error,setError]=useState("");
   const [revision,setRevision]=useState(0);
   useEffect(()=>{
-    const reload=()=>{setContext(null);setPage(enrolment ? "learners" : "attendance");setRevision(v=>v+1);};
+    const reload=()=>{setContext(null);setPage(initialPage);setRevision(v=>v+1);};
     window.addEventListener('t4l:foundation-access-changed',reload);
     return()=>window.removeEventListener('t4l:foundation-access-changed',reload);
   },[]);
@@ -47,11 +49,10 @@ export function FoundationAttendance() {
     return()=>{current=false;};
   },[revision]);
   return <section className="panel org-workspace" aria-label={enrolment ? "Student enrolment workspace" : "Attendance workspace"}>
-    <header><p className="eyebrow">{context?.organisation.name || 'Tech4Learn'}</p><h1>{enrolment ? "Student enrolment" : "Attendance"}</h1></header>
-    {error?<div role="alert"><p>{error}</p><button type="button" onClick={()=>setRevision(v=>v+1)}>Retry</button> <a href="/login">Sign in again</a></div>:!context?<p role="status">Loading attendance…</p>:
+    <header><p className="eyebrow">{context?.organisation.name || 'Tech4Learn'}</p><h1>{pageTitle}</h1></header>
+    {error?<div role="alert"><p>{error}</p><button type="button" onClick={()=>setRevision(v=>v+1)}>Retry</button> <a href="/login">Sign in again</a></div>:!context?<p role="status">Loading workspace…</p>:
       <DraftScope user={context.userId} org={context.organisation.id}>
         {context.permissions.includes('attendance.capture')&&!context.permissions.includes('groups.view')&&<p role="status">Section access is required to start a capture. Daily attendance and permitted reviews remain available below.</p>}
-        <GroupedMenu label={enrolment ? "Enrolment navigation" : "Attendance navigation"} active={page} onSelect={id=>{if(enrolment && id==='attendance')window.location.assign('/attendance');else setPage(id);}} groups={[{id:"attendance",label:enrolment ? "Student enrolment" : "Attendance",icon:"attendance",items:[...(context.permissions.includes("attendance.view")?[{id:"attendance",label:"Daily attendance"}]:[]),...(context.permissions.includes('learners.view')?[{id:"learners",label:"Student enrolment"}]:[]),...(context.permissions.includes('centres.view')?[{id:"centres",label:"Centres"}]:[]),...(context.permissions.includes('groups.view')&&context.permissions.includes('centres.view')?[{id:"structure",label:"Classes and sections"}]:[])]}]}/>
         {page==='learners'&&context.permissions.includes('learners.view') ? <>
           <p>These are attendance enrolments. Links to native exam students require explicit review; they are not matched by name or email.</p>
           <Learners key={selectedGroup} org={context.organisation.id} permissions={context.permissions} groups={groups} initialGroup={selectedGroup} studentDeliveryEnabled={enrolment&&context.studentDeliveryEnabled===true} studentAdmissionsEnabled={enrolment&&context.studentAdmissionsEnabled===true}/>
@@ -59,7 +60,7 @@ export function FoundationAttendance() {
           <p>Use an approved attendance centre to organise years, classes and sections. Create and approve centres in the Centres view. Native student linking is still managed separately.</p>
           <AcademicStructure org={context.organisation.id} centres={centres} groups={groups} permissions={context.permissions} scope={context.scope.type} onRefresh={async()=>{const rows=await api<AcademicGroup[]>(`/organisations/${context.organisation.id}/groups`);setGroups(rows);}} onStudents={id=>{setSelectedGroup(id);setPage('learners');}} onAttendance={id=>{if(enrolment)window.location.assign('/attendance');else {setSelectedGroup(id);setPage('attendance');}}}/>
           {enrolment&&context.studentDeliveryEnabled===true&&<SectionExamGroup groups={groups} canEdit={context.permissions.includes('groups.create')}/>}
-        </> : <Attendance org={context.organisation.id} groups={groups.filter(g=>!g.archived)} permissions={context.permissions} mode="all" initialGroup={selectedGroup}/>}
+        </> : page === "attendance" && context.permissions.includes("attendance.view") ? <Attendance org={context.organisation.id} groups={groups.filter(g=>!g.archived)} permissions={context.permissions} mode="all" initialGroup={selectedGroup}/> : <p role="alert">You do not have access to this page.</p>}
       </DraftScope>}
   </section>;
 }
