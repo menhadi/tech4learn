@@ -182,7 +182,9 @@
                 @endif
 
                 @if(config('attendance.api_url') && Auth::check())
-                    @php($isStudentAttendanceActive = request()->routeIs('enrolment.*', 'attendance.*'))
+                    @php
+                        $isStudentAttendanceActive = request()->routeIs('enrolment.*', 'attendance.*');
+                    @endphp
                     <li class="nav-item">
                         <a class="nav-link menu-link {{ $isStudentAttendanceActive ? 'active' : '' }}" href="#sidebarStudentAttendance" data-bs-toggle="collapse" role="button" aria-expanded="{{ $isStudentAttendanceActive ? 'true' : 'false' }}" aria-controls="sidebarStudentAttendance" title="Students & Attendance">
                             <i class="ri-user-add-line"></i>
