@@ -3,6 +3,9 @@
 #foundation-attendance .org-workspace { padding:20px; margin:0; }
 #foundation-attendance .panel { box-shadow:none; }
 #foundation-attendance .org-workspace > header { margin-bottom:20px; }
+#foundation-attendance .org-workspace > header { display:block; }
+#foundation-attendance .org-workspace > header h1 { font-size:22px; font-weight:600; margin:0; }
+#foundation-attendance .org-workspace > header .eyebrow { margin:0 0 6px; font-size:10px; }
 #foundation-attendance .directory-table { max-width:100%; }
 #foundation-attendance video { max-width:100%; }
 /* Inherit the native administration shell's typography and action palette. */
